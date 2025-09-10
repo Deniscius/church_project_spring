@@ -2,20 +2,18 @@ package com.eyram.dev.church_project_spring.controller;
 
 import com.eyram.dev.church_project_spring.DTO.request.ClientRequest;
 import com.eyram.dev.church_project_spring.DTO.response.ClientResponse;
-import com.eyram.dev.church_project_spring.models.Client;
 import com.eyram.dev.church_project_spring.service.ClientService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
-@Controller
-@RequestMapping("/Clients")
 @RestController
-@CrossOrigin("*")
+@RequestMapping("/clients")
 public class ClientController {
 
     private final ClientService clientService;
@@ -25,35 +23,52 @@ public class ClientController {
     }
 
     @PostMapping
-    public ResponseEntity<ClientResponse> create(@RequestBody ClientRequest client) {
-        return new ResponseEntity<>(clientService.create(client), HttpStatus.CREATED);
+    public ResponseEntity<ClientResponse> create(@Valid @RequestBody ClientRequest client) {
+        ClientResponse response = clientService.create(client);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    @GetMapping("/{nom}")
-    public ResponseEntity<ClientResponse> getbyname(@PathVariable String nom) {
-        return new ResponseEntity<>(clientService.getNom(nom), HttpStatus.OK);
+    @GetMapping("/search/by-name/{nom}")
+    public ResponseEntity<List<ClientResponse>> getByName(@PathVariable String nom) {
+        List<ClientResponse> clients = clientService.getNom(nom);
+        return ResponseEntity.ok(clients);
     }
 
-    @GetMapping("/searchby/{publicId}")
-    public ResponseEntity<ClientResponse> getbypublicId(@PathVariable UUID publicId) {
-        return new ResponseEntity<>(clientService.getByPublicId(publicId), HttpStatus.OK);
+    @GetMapping("/search/by-id/{publicId}")
+    public ResponseEntity<ClientResponse> getByPublicId(@PathVariable UUID publicId) {
+        ClientResponse client = clientService.getByPublicId(publicId);
+        return ResponseEntity.ok(client);
     }
 
-    @GetMapping()
+    @GetMapping
     public ResponseEntity<List<ClientResponse>> getAll() {
-        return new ResponseEntity<>(clientService.getAll(), HttpStatus.OK);
+        return ResponseEntity.ok(clientService.getAll());
     }
 
     @PutMapping("/{publicId}")
-    public ResponseEntity<ClientResponse> update(@PathVariable UUID publicId, @RequestBody ClientRequest client) {
-        return new ResponseEntity<>(clientService.update(publicId, client), HttpStatus.OK);
-
+    public ResponseEntity<ClientResponse> update(@PathVariable UUID publicId,
+                                                 @Valid @RequestBody ClientRequest client) {
+        ClientResponse response = clientService.update(publicId, client);
+        return ResponseEntity.ok(response);
     }
 
-    @DeleteMapping ("/{publicId}")
-    public ResponseEntity<String> delete(@PathVariable UUID publicId) {
-        clientService.delete(publicId);
-        return new ResponseEntity<>  ("Client supprimé", HttpStatus.OK);
+    @DeleteMapping("/{publicId}")
+    public ResponseEntity<Map<String, String>> delete(@PathVariable UUID publicId) {
+        clientService.softDelete(publicId);
+        return ResponseEntity.ok(Map.of("message", "Client supprimé"));
     }
+
+    @GetMapping("/active")
+    public ResponseEntity<?> getInactive() {
+        List<ClientResponse> inactifs = clientService.getInactive();
+        if (inactifs.isEmpty()) {
+            return ResponseEntity.ok("Aucun client inactif trouvé");
+        }
+        return ResponseEntity.ok(inactifs);
+    }
+
+    //supp=false
+
+
 
 }

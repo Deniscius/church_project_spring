@@ -2,12 +2,10 @@ package com.eyram.dev.church_project_spring.DTO.response;
 
 import java.util.UUID;
 
-public record ClientResponse(
+public record ParoisseResponse(
         UUID publicId,
         String nom,
-        String prenoms,
         String tel,
-        Boolean status
-
+        Boolean statusDel
 ) {
 }

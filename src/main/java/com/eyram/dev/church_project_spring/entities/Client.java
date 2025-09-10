@@ -1,16 +1,23 @@
-package com.eyram.dev.church_project_spring.models;
+package com.eyram.dev.church_project_spring.entities;
 
 
 import com.eyram.dev.church_project_spring.utils.BaseEntity;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
+import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import org.hibernate.annotations.UuidGenerator;
 
 import java.io.Serializable;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
 @Table (name = "client")
-
+@Getter
+@Setter
+@Data
 public class Client extends BaseEntity implements Serializable {
 
     @Id
@@ -23,75 +30,35 @@ public class Client extends BaseEntity implements Serializable {
 
     @Column (name ="nom", length = 100 )
     private String nom;
+
     @Column (name ="prenoms", length = 100 )
     private String prenoms;
 
     @Column (name ="tel", length = 100 )
     private String tel;
 
-    @Column(name = "status")
-    private boolean status = true;
+    @Column(name = "status_del")
+    private Boolean statusDel = false;
 
     public Client() {
 
     }
 
-    public Client(Long id, UUID publicId, String nom, String prenoms, String tel, boolean status) {
+    public Client(Long id, UUID publicId, String nom, String prenoms, String tel, boolean statusDel, List<Demande> demandes) {
         this.id = id;
         this.publicId = publicId;
         this.nom = nom;
         this.prenoms = prenoms;
         this.tel = tel;
-        this.status = status;
+        this.statusDel = statusDel;
+        this.demandes = demandes;
     }
 
-    public Long getId() {
-        return id;
-    }
+    @JsonIgnore
+    @OneToMany(mappedBy = "client")
+    private List<Demande> demandes;
 
-    public void setId(Long id) {
-        this.id = id;
-    }
 
-    public String getNom() {
-        return nom;
-    }
-
-    public void setNom(String nom) {
-        this.nom = nom;
-    }
-
-    public String getPrenoms() {
-        return prenoms;
-    }
-
-    public void setPrenoms(String prenoms) {
-        this.prenoms = prenoms;
-    }
-
-    public String getTel() {
-        return tel;
-    }
-
-    public void setTel(String tel) {
-        this.tel = tel;
-    }
-
-    public UUID getPublicId() {
-        return publicId;
-    }
-
-    public void setPublicId(UUID publicId) {
-        this.publicId = publicId;
-    }
-
-    public boolean isStatus() {
-        return status;
-    }
-
-    public void setStatus(boolean status) {
-        this.status = status;
-    }
 
     @Override
     public String toString() {
@@ -101,7 +68,8 @@ public class Client extends BaseEntity implements Serializable {
                 ", nom='" + nom + '\'' +
                 ", prenoms='" + prenoms + '\'' +
                 ", tel='" + tel + '\'' +
-                ", status=" + status +
+                ", statusDel=" + statusDel +
+                ", demandes=" + demandes +
                 '}';
     }
 }

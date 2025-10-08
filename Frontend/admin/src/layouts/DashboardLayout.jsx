@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { MdClose, MdMenu } from 'react-icons/md';
 
@@ -33,18 +33,26 @@ const DashboardLayout = () => {
     setModelOpen(false);
   }
 
+  const location = useLocation();
 
+  const isActiveLink = (path) => {
+    if (path === '/dashboard/users') {
+      return location.pathname.startsWith('/dashboard/users');
+    }
+
+    return location.pathname === path;
+  };
 
   return (
-    <div className="h-screen w-screen flex bg-black">
+    <div className="h-screen w-screen flex bg-white">
       {/* SIDEBAR */}
       <section
-        className={`bg-black h-full shadow-2xl border-r min-w-[250px] max-w-[80%] flex flex-col z-50
+        className={`bg-white h-full shadow-2xl border-r min-w-[250px] max-w-[80%] flex flex-col z-50
       fixed  transition-transform duration-300
       ${isSidebarOpen ? "translate-x-0 xl:relative" : "-translate-x-full"}`}
       >
         <Link to={"/dashboard/"}>
-LOGO
+          LOGO
         </Link>
 
         <div className="w-full h-full flex overflow-y-auto scrollBar">
@@ -66,7 +74,7 @@ LOGO
             ))}
 
             <div
-              className="absolute bottom-[50px] flex justify-start items-center border-2 border-white text-white gap-[10px] p-4 cursor-pointer text-[14px] rounded w-[80%] hover:bg-grey"
+              className="absolute bottom-[50px] flex justify-start items-center border-2 border-black text-black gap-[10px] p-4 cursor-pointer text-[14px] rounded w-[80%] hover:bg-grey"
             >
               Déconnexion
             </div>
@@ -75,15 +83,15 @@ LOGO
       </section>
 
       {/* MAIN CONTENT */}
-      <section className="flex flex-col w-full overflow-y-scroll bg-black">
+      <section className="flex flex-col w-full overflow-y-scroll bg-white">
         {/* TOPBAR */}
         <div className="flex justify-between items-center p-5 w-full">
 
-          LOGO
+          <p className="text-black">LOGO</p>
 
           {/* Burger visible partout */}
           <button
-            className="text-white text-3xl"
+            className="text-black text-3xl"
             onClick={toggleSidebar}
           >
             {isSidebarOpen ? <MdClose /> : <MdMenu />}

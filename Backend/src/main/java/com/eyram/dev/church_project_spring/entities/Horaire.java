@@ -1,5 +1,6 @@
 package com.eyram.dev.church_project_spring.entities;
 
+import com.eyram.dev.church_project_spring.enums.JourSemaineEnum;
 import com.eyram.dev.church_project_spring.utils.BaseEntity;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -27,9 +28,9 @@ public class Horaire extends BaseEntity implements Serializable {
     @Column(name = "public_id", nullable = false, unique = true, updatable = false)
     private UUID publicId;
 
-    @Enumerated(EnumType.STRING) // persiste "MONDAY", "TUESDAY"... au lieu d'un int
+    @Enumerated(EnumType.STRING)
     @Column(name = "jour_semaine", nullable = false, length = 16)
-    private DayOfWeek jourSemaine;
+    private JourSemaineEnum jourSemaine;
 
     @Column(name = "heure", nullable = false)
     private LocalTime heure;
@@ -37,12 +38,12 @@ public class Horaire extends BaseEntity implements Serializable {
     @Column(name = "status_del", nullable = false)
     private Boolean statusDel = false;
 
-    public Horaire(Long id, UUID publicId, DayOfWeek jourSemaine, LocalTime heure, Boolean statusDel) {
+    public Horaire(Long id, UUID publicId, JourSemaineEnum jourSemaine, LocalTime heure, Boolean statusDel) {
         this.id = id;
         this.publicId = publicId;
         this.jourSemaine = jourSemaine;
         this.heure = heure;
-        this.statusDel = statusDel != null ? statusDel : false;
+        this.statusDel = statusDel;
     }
 
     @Override

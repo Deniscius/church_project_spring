@@ -2,11 +2,11 @@ package com.eyram.dev.church_project_spring.service.impl;
 
 import com.eyram.dev.church_project_spring.DTO.request.DemandeRequest;
 import com.eyram.dev.church_project_spring.DTO.response.DemandeResponse;
-import com.eyram.dev.church_project_spring.entities.Client;
+import com.eyram.dev.church_project_spring.entities.Fidele;
 import com.eyram.dev.church_project_spring.entities.Demande;
 import com.eyram.dev.church_project_spring.enums.StatusValidationEnum;
 import com.eyram.dev.church_project_spring.mappers.DemandeMapper;
-import com.eyram.dev.church_project_spring.repository.ClientRepository;
+import com.eyram.dev.church_project_spring.repository.FideleRepository;
 import com.eyram.dev.church_project_spring.repository.DemandeRepository;
 import com.eyram.dev.church_project_spring.service.DemandeService;
 import com.eyram.dev.church_project_spring.utils.exception.RequestNotFoundException;
@@ -24,12 +24,12 @@ import java.util.stream.Collectors;
 public class DemandeServiceImpl implements DemandeService {
 
     private final DemandeRepository demandeRepository;
-    private final ClientRepository clientRepository;
+    private final FideleRepository fideleRepository;
     private final DemandeMapper demandeMapper;
 
-    public DemandeServiceImpl(DemandeRepository demandeRepository, ClientRepository clientRepository, DemandeMapper demandeMapper) {
+    public DemandeServiceImpl(DemandeRepository demandeRepository, FideleRepository fideleRepository, DemandeMapper demandeMapper) {
         this.demandeRepository = demandeRepository;
-        this.clientRepository = clientRepository;
+        this.fideleRepository = fideleRepository;
         this.demandeMapper = demandeMapper;
     }
 
@@ -39,10 +39,10 @@ public class DemandeServiceImpl implements DemandeService {
             throw new RequestNotFoundException("La requête de la demande n'a pas été reçue");
         }
 
-        Client client = clientRepository.findByPublicId(request.clientPublicId()).orElseThrow(() -> new EntityNotFoundException("Client non trouvé avec l'identifiant public : " + request.clientPublicId()));
+        Fidele fidele = fideleRepository.findByPublicId(request.clientPublicId()).orElseThrow(() -> new EntityNotFoundException("Fidele non trouvé avec l'identifiant public : " + request.clientPublicId()));
 
         Demande demande = demandeMapper.dtoToModel(request);
-        demande.setClient(client);
+        demande.setFidele(fidele);
         demande.setStatusDel(false);
         demande.setStatusValidationEnum(StatusValidationEnum.EN_ATTENTE);
 
@@ -63,9 +63,9 @@ public class DemandeServiceImpl implements DemandeService {
 
     @Override
     public List<DemandeResponse> getAllByClient(UUID clientPublicId) {
-        Client client = clientRepository.findByPublicId(clientPublicId).orElseThrow(() -> new EntityNotFoundException("Client non trouvé avec l'identifiant public : " + clientPublicId));
+        Fidele fidele = fideleRepository.findByPublicId(clientPublicId).orElseThrow(() -> new EntityNotFoundException("Fidele non trouvé avec l'identifiant public : " + clientPublicId));
 
-        return demandeRepository.findByClient(client).stream().filter(d -> !Boolean.TRUE.equals(d.getStatusDel())).map(demandeMapper::modelToDto).collect(Collectors.toList());
+        return demandeRepository.findByFidele(fidele).stream().filter(d -> !Boolean.TRUE.equals(d.getStatusDel())).map(demandeMapper::modelToDto).collect(Collectors.toList());
     }
 
     @Override

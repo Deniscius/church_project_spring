@@ -1,6 +1,6 @@
 package com.eyram.dev.church_project_spring.repository;
 
-import com.eyram.dev.church_project_spring.entities.Client;
+import com.eyram.dev.church_project_spring.entities.Fidele;
 import com.eyram.dev.church_project_spring.entities.Demande;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -15,7 +15,7 @@ public interface DemandeRepository extends JpaRepository<Demande, Long> {
     Optional<Demande> findByPublicId(UUID publicId);
     Optional<Demande> findByStatusDel(Boolean statusDel);
     Optional<Demande> findByDateDemande(Date dateDemande);
-    List<Demande> findByClient(Client client);
+    List<Demande> findByFidele(Fidele fidele);
 
 
 }

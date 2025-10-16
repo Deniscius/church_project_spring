@@ -18,7 +18,7 @@ import java.util.UUID;
 @Getter
 @Setter
 @Data
-public class Client extends BaseEntity implements Serializable {
+public class Fidele extends BaseEntity implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -40,11 +40,11 @@ public class Client extends BaseEntity implements Serializable {
     @Column(name = "status_del")
     private Boolean statusDel = false;
 
-    public Client() {
+    public Fidele() {
 
     }
 
-    public Client(Long id, UUID publicId, String nom, String prenoms, String tel, boolean statusDel, List<Demande> demandes) {
+    public Fidele(Long id, UUID publicId, String nom, String prenoms, String tel, boolean statusDel, List<Demande> demandes) {
         this.id = id;
         this.publicId = publicId;
         this.nom = nom;
@@ -55,14 +55,14 @@ public class Client extends BaseEntity implements Serializable {
     }
 
     @JsonIgnore
-    @OneToMany(mappedBy = "client")
+    @OneToMany(mappedBy = "fidele")
     private List<Demande> demandes;
 
 
 
     @Override
     public String toString() {
-        return "Client{" +
+        return "Fidele{" +
                 "id=" + id +
                 ", publicId=" + publicId +
                 ", nom='" + nom + '\'' +

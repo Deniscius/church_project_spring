@@ -10,6 +10,6 @@ public record DemandeResponse(
         LocalDate dateDemande,
         StatusValidationEnum statusValidationEnum,
         Boolean statusDel,
-        ClientResponse client,
+        FideleResponse client,
         TypeDemandeResponse typeDemande
 ) {}

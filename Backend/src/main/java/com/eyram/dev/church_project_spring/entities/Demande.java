@@ -38,8 +38,8 @@ public class Demande extends BaseEntity implements Serializable {
     private Boolean statusDel;
 
     @ManyToOne()
-    @JoinColumn(name = "client_id", nullable = false)
-    private Client client;
+    @JoinColumn(name = "fidele", nullable = false)
+    private Fidele fidele;
 
     @ManyToOne
     @JoinColumn(name = "type_demande_id", nullable = false)
@@ -54,19 +54,19 @@ public class Demande extends BaseEntity implements Serializable {
                 ", dateDemande=" + dateDemande +
                 ", statusValidation=" + statusValidationEnum +
                 ", statusDel=" + statusDel +
-                ", client=" + client +
+                ", fidele=" + fidele +
                 ", typeDemande=" + typeDemande +
                 '}';
     }
 
-    public Demande(Long id, UUID publicId, String intention, LocalDate dateDemande, StatusValidationEnum statusValidationEnum, Boolean statusDel, Client client, TypeDemande typeDemande) {
+    public Demande(Long id, UUID publicId, String intention, LocalDate dateDemande, StatusValidationEnum statusValidationEnum, Boolean statusDel, Fidele fidele, TypeDemande typeDemande) {
         this.id = id;
         this.publicId = publicId;
         this.intention = intention;
         this.dateDemande = dateDemande;
         this.statusValidationEnum = statusValidationEnum;
         this.statusDel = statusDel;
-        this.client = client;
+        this.fidele = fidele;
         this.typeDemande = typeDemande;
     }
 

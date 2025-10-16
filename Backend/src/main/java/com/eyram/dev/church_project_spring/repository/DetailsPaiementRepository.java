@@ -1,11 +1,9 @@
 package com.eyram.dev.church_project_spring.repository;
 
-import com.eyram.dev.church_project_spring.entities.Client;
 import com.eyram.dev.church_project_spring.entities.DetailsPaiement;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDate;
-import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;

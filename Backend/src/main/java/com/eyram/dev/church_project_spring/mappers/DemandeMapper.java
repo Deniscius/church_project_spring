@@ -2,11 +2,11 @@ package com.eyram.dev.church_project_spring.mappers;
 
 import com.eyram.dev.church_project_spring.DTO.request.DemandeRequest;
 import com.eyram.dev.church_project_spring.DTO.response.DemandeResponse;
-import com.eyram.dev.church_project_spring.entities.Client;
+import com.eyram.dev.church_project_spring.entities.Fidele;
 import com.eyram.dev.church_project_spring.entities.Demande;
 import com.eyram.dev.church_project_spring.entities.TypeDemande;
 import com.eyram.dev.church_project_spring.enums.StatusValidationEnum;
-import com.eyram.dev.church_project_spring.repository.ClientRepository;
+import com.eyram.dev.church_project_spring.repository.FideleRepository;
 import com.eyram.dev.church_project_spring.repository.TypeDemandeRepository;
 import com.eyram.dev.church_project_spring.utils.exception.RequestNotFoundException;
 import org.springframework.stereotype.Component;
@@ -15,18 +15,18 @@ import java.util.UUID;
 
 @Component
 public class DemandeMapper {
-    private final ClientRepository clientRepository;
+    private final FideleRepository fideleRepository;
     private final TypeDemandeRepository typeDemandeRepository;
-    private final ClientMapper clientMapper;
+    private final FideleMapper fideleMapper;
     private final TypeDemandeMapper typeDemandeMapper;
 
-    public DemandeMapper(ClientRepository clientRepository,
+    public DemandeMapper(FideleRepository fideleRepository,
                          TypeDemandeRepository typeDemandeRepository,
-                         ClientMapper clientMapper,
+                         FideleMapper fideleMapper,
                          TypeDemandeMapper typeDemandeMapper) {
-        this.clientRepository = clientRepository;
+        this.fideleRepository = fideleRepository;
         this.typeDemandeRepository = typeDemandeRepository;
-        this.clientMapper = clientMapper;
+        this.fideleMapper = fideleMapper;
         this.typeDemandeMapper = typeDemandeMapper;
     }
 
@@ -35,9 +35,9 @@ public class DemandeMapper {
             throw new RequestNotFoundException("Requête non trouvée");
         }
 
-        Client client = clientRepository.findByPublicId(request.clientPublicId())
+        Fidele fidele = fideleRepository.findByPublicId(request.clientPublicId())
                 .orElseThrow(() -> new RequestNotFoundException(
-                        "Client non trouvé avec l'identifiant public : " + request.clientPublicId()));
+                        "Fidele non trouvé avec l'identifiant public : " + request.clientPublicId()));
 
         TypeDemande typeDemande = typeDemandeRepository.findByPublicId(request.typeDemandePublicId())
                 .orElseThrow(() -> new RequestNotFoundException(
@@ -49,7 +49,7 @@ public class DemandeMapper {
         demande.setDateDemande(request.dateDemande());
         demande.setStatusValidationEnum(StatusValidationEnum.EN_ATTENTE);
         demande.setStatusDel(false);
-        demande.setClient(client);
+        demande.setFidele(fidele);
         demande.setTypeDemande(typeDemande);
 
         return demande;
@@ -67,7 +67,7 @@ public class DemandeMapper {
                 entity.getDateDemande(),
                 entity.getStatusValidationEnum(),
                 entity.getStatusDel(),
-                clientMapper.modelToDto(entity.getClient()),
+                fideleMapper.modelToDto(entity.getFidele()),
                 typeDemandeMapper.modelToDto(entity.getTypeDemande())
         );
 

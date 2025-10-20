@@ -4,7 +4,7 @@ import com.eyram.dev.church_project_spring.DTO.request.FideleRequest;
 import com.eyram.dev.church_project_spring.DTO.response.FideleResponse;
 import com.eyram.dev.church_project_spring.entities.Fidele;
 import com.eyram.dev.church_project_spring.mappers.FideleMapper;
-import com.eyram.dev.church_project_spring.repository.FideleRepository;
+import com.eyram.dev.church_project_spring.repositories.FideleRepository;
 import com.eyram.dev.church_project_spring.service.FideleService;
 import com.eyram.dev.church_project_spring.utils.exception.RequestNotFoundException;
 import com.eyram.dev.church_project_spring.utils.exception.TrackingIdNotFoundException;

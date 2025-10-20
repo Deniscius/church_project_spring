@@ -3,7 +3,7 @@ package com.eyram.dev.church_project_spring.service.impl;
 import com.eyram.dev.church_project_spring.DTO.request.LocaliteRequest;
 import com.eyram.dev.church_project_spring.DTO.response.LocaliteResponse;
 import com.eyram.dev.church_project_spring.entities.Localite;
-import com.eyram.dev.church_project_spring.repository.LocaliteRepository;
+import com.eyram.dev.church_project_spring.repositories.LocaliteRepository;
 import com.eyram.dev.church_project_spring.service.LocaliteService;
 import org.springframework.stereotype.Service;
 

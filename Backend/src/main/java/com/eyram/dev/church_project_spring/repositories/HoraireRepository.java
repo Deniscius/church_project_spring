@@ -1,10 +1,9 @@
-package com.eyram.dev.church_project_spring.repository;
+package com.eyram.dev.church_project_spring.repositories;
 
 import com.eyram.dev.church_project_spring.entities.Horaire;
 import com.eyram.dev.church_project_spring.enums.JourSemaineEnum;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import java.time.DayOfWeek;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;

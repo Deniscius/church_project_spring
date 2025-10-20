@@ -2,19 +2,21 @@ package com.eyram.dev.church_project_spring.mappers;
 
 import com.eyram.dev.church_project_spring.DTO.request.DemandeRequest;
 import com.eyram.dev.church_project_spring.DTO.response.DemandeResponse;
-import com.eyram.dev.church_project_spring.entities.Fidele;
 import com.eyram.dev.church_project_spring.entities.Demande;
+import com.eyram.dev.church_project_spring.entities.Fidele;
 import com.eyram.dev.church_project_spring.entities.TypeDemande;
 import com.eyram.dev.church_project_spring.enums.StatusValidationEnum;
-import com.eyram.dev.church_project_spring.repository.FideleRepository;
-import com.eyram.dev.church_project_spring.repository.TypeDemandeRepository;
+import com.eyram.dev.church_project_spring.repositories.FideleRepository;
+import com.eyram.dev.church_project_spring.repositories.TypeDemandeRepository;
 import com.eyram.dev.church_project_spring.utils.exception.RequestNotFoundException;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
 import java.util.UUID;
 
 @Component
 public class DemandeMapper {
+
     private final FideleRepository fideleRepository;
     private final TypeDemandeRepository typeDemandeRepository;
     private final FideleMapper fideleMapper;
@@ -31,35 +33,37 @@ public class DemandeMapper {
     }
 
     public Demande dtoToModel(DemandeRequest request) {
-        if (request == null) {
-            throw new RequestNotFoundException("Requête non trouvée");
+        if (request == null) throw new RequestNotFoundException("Requête non trouvée");
+
+        Fidele fidele = fideleRepository.findByPublicId(request.fidelePublicId())
+                .orElseThrow(() -> new RequestNotFoundException(
+                        "Fidèle non trouvé : " + request.fidelePublicId()));
+        TypeDemande typeDemande = null;
+        if (request.typeDemandePublicId() != null) {
+            typeDemande = typeDemandeRepository.findByPublicId(request.typeDemandePublicId())
+                    .orElseThrow(() -> new RequestNotFoundException(
+                            "TypeDemande non trouvé : " + request.typeDemandePublicId()));
         }
 
-        Fidele fidele = fideleRepository.findByPublicId(request.clientPublicId())
-                .orElseThrow(() -> new RequestNotFoundException(
-                        "Fidele non trouvé avec l'identifiant public : " + request.clientPublicId()));
+        Demande d = new Demande();
+        d.setPublicId(UUID.randomUUID());
+        d.setIntention(request.intention());
+        d.setDateDemande(request.dateDemande() != null ? request.dateDemande() : LocalDate.now());
+        d.setStatusValidationEnum(StatusValidationEnum.EN_ATTENTE);
+        d.setStatusDel(false);
 
-        TypeDemande typeDemande = typeDemandeRepository.findByPublicId(request.typeDemandePublicId())
-                .orElseThrow(() -> new RequestNotFoundException(
-                        "TypeDemande non trouvé avec l'identifiant public : " + request.typeDemandePublicId()));
 
-        Demande demande = new Demande();
-        demande.setPublicId(UUID.randomUUID());
-        demande.setIntention(request.intention());
-        demande.setDateDemande(request.dateDemande());
-        demande.setStatusValidationEnum(StatusValidationEnum.EN_ATTENTE);
-        demande.setStatusDel(false);
-        demande.setFidele(fidele);
-        demande.setTypeDemande(typeDemande);
-
-        return demande;
+        d.setTypeDemandeEnum(request.typeDemandeEnum());
+        d.setDureeMesse(request.dureeMesse());
+        d.setDates(request.dates());
+        d.setFidele(fidele);
+        d.setTypeDemande(typeDemande);
+        return d;
     }
 
 
     public DemandeResponse modelToDto(Demande entity) {
-        if (entity == null) {
-            throw new RequestNotFoundException("Demande non trouvée");
-        }
+        if (entity == null) throw new RequestNotFoundException("Demande non trouvée");
 
         return new DemandeResponse(
                 entity.getPublicId(),
@@ -67,10 +71,12 @@ public class DemandeMapper {
                 entity.getDateDemande(),
                 entity.getStatusValidationEnum(),
                 entity.getStatusDel(),
+                entity.getTypeDemandeEnum(),
+                entity.getDureeMesse(),
+                entity.getDates(),
+                entity.getPrixTotal(),
                 fideleMapper.modelToDto(entity.getFidele()),
-                typeDemandeMapper.modelToDto(entity.getTypeDemande())
+                entity.getTypeDemande() != null ? typeDemandeMapper.modelToDto(entity.getTypeDemande()) : null
         );
-
     }
-
 }

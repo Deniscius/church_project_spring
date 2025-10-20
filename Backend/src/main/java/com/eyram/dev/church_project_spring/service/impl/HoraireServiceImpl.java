@@ -4,7 +4,7 @@ import com.eyram.dev.church_project_spring.DTO.request.HoraireRequest;
 import com.eyram.dev.church_project_spring.DTO.response.HoraireResponse;
 import com.eyram.dev.church_project_spring.entities.Horaire;
 import com.eyram.dev.church_project_spring.mappers.HoraireMapper;
-import com.eyram.dev.church_project_spring.repository.HoraireRepository;
+import com.eyram.dev.church_project_spring.repositories.HoraireRepository;
 import com.eyram.dev.church_project_spring.service.HoraireService;
 import com.eyram.dev.church_project_spring.utils.exception.RequestNotFoundException;
 import com.eyram.dev.church_project_spring.utils.exception.TrackingIdNotFoundException;

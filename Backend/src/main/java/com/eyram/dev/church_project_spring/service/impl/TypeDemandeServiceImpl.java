@@ -4,7 +4,7 @@ import com.eyram.dev.church_project_spring.DTO.request.TypeDemandeRequest;
 import com.eyram.dev.church_project_spring.DTO.response.TypeDemandeResponse;
 import com.eyram.dev.church_project_spring.entities.TypeDemande;
 import com.eyram.dev.church_project_spring.mappers.TypeDemandeMapper;
-import com.eyram.dev.church_project_spring.repository.TypeDemandeRepository;
+import com.eyram.dev.church_project_spring.repositories.TypeDemandeRepository;
 import com.eyram.dev.church_project_spring.service.TypeDemandeService;
 import com.eyram.dev.church_project_spring.utils.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;

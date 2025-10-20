@@ -4,7 +4,7 @@ import com.eyram.dev.church_project_spring.DTO.request.TypePaiementRequest;
 import com.eyram.dev.church_project_spring.DTO.response.TypePaiementResponse;
 import com.eyram.dev.church_project_spring.entities.TypePaiement;
 import com.eyram.dev.church_project_spring.mappers.TypePaiementMapper;
-import com.eyram.dev.church_project_spring.repository.TypePaiementRepository;
+import com.eyram.dev.church_project_spring.repositories.TypePaiementRepository;
 import com.eyram.dev.church_project_spring.service.TypePaiementService;
 import com.eyram.dev.church_project_spring.utils.exception.RequestNotFoundException;
 import com.eyram.dev.church_project_spring.utils.exception.TrackingIdNotFoundException;

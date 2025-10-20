@@ -3,7 +3,7 @@ package com.eyram.dev.church_project_spring.service.impl;
 import com.eyram.dev.church_project_spring.DTO.request.FactureResquest;
 import com.eyram.dev.church_project_spring.DTO.response.FactureResponse;
 import com.eyram.dev.church_project_spring.entities.Facture;
-import com.eyram.dev.church_project_spring.repository.FactureRepository;
+import com.eyram.dev.church_project_spring.repositories.FactureRepository;
 import com.eyram.dev.church_project_spring.service.FactureService;
 import com.eyram.dev.church_project_spring.utils.exception.RequestNotFoundException;
 import com.eyram.dev.church_project_spring.utils.exception.TrackingIdNotFoundException;

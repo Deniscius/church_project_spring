@@ -4,7 +4,7 @@ import com.eyram.dev.church_project_spring.DTO.request.ParoisseRequest;
 import com.eyram.dev.church_project_spring.DTO.response.ParoisseResponse;
 import com.eyram.dev.church_project_spring.entities.Paroisse;
 import com.eyram.dev.church_project_spring.mappers.ParoisseMapper;
-import com.eyram.dev.church_project_spring.repository.ParoisseRepository;
+import com.eyram.dev.church_project_spring.repositories.ParoisseRepository;
 import com.eyram.dev.church_project_spring.service.ParoisseService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;

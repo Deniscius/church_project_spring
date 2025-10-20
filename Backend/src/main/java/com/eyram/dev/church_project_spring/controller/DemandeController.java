@@ -5,71 +5,80 @@ import com.eyram.dev.church_project_spring.DTO.response.DemandeResponse;
 import com.eyram.dev.church_project_spring.enums.StatusValidationEnum;
 import com.eyram.dev.church_project_spring.service.DemandeService;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/demandes")
+@RequiredArgsConstructor
 public class DemandeController {
 
     private final DemandeService demandeService;
 
-    public DemandeController(DemandeService demandeService) {
-        this.demandeService = demandeService;
-    }
-
     @PostMapping
     public ResponseEntity<DemandeResponse> create(@Valid @RequestBody DemandeRequest demande) {
         DemandeResponse response = demandeService.create(demande);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        // Location: /demandes/{publicId}
+        return ResponseEntity
+                .created(URI.create("/demandes/" + response.publicId()))
+                .body(response);
     }
 
     @GetMapping("/{publicId}")
     public ResponseEntity<DemandeResponse> getByPublicId(@PathVariable UUID publicId) {
-        DemandeResponse response = demandeService.getByPublicId(publicId);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(demandeService.getByPublicId(publicId));
     }
 
+    // -------- Variante A: ta version sans pagination --------
     @GetMapping
     public ResponseEntity<List<DemandeResponse>> getAll() {
-        List<DemandeResponse> demandes = demandeService.getAll();
-        return ResponseEntity.ok(demandes);
+        return ResponseEntity.ok(demandeService.getAll());
     }
 
-    @GetMapping("/by-client/{clientPublicId}")
-    public ResponseEntity<List<DemandeResponse>> getAllByClient(@PathVariable UUID clientPublicId) {
-        List<DemandeResponse> demandes = demandeService.getAllByClient(clientPublicId);
-        return ResponseEntity.ok(demandes);
+    @GetMapping(params = "fidelePublicId")
+    public ResponseEntity<List<DemandeResponse>> getAllByFidele(@RequestParam UUID fidelePublicId) {
+        return ResponseEntity.ok(demandeService.getAllByFidele(fidelePublicId));
     }
 
-    @GetMapping("/by-status/{status}")
-    public ResponseEntity<List<DemandeResponse>> getAllByStatus(@PathVariable("status") StatusValidationEnum status) {
-        List<DemandeResponse> demandes = demandeService.getAllByStatus(status);
-        return ResponseEntity.ok(demandes);
+    @GetMapping(params = "status")
+    public ResponseEntity<List<DemandeResponse>> getAllByStatus(@RequestParam StatusValidationEnum status) {
+        return ResponseEntity.ok(demandeService.getAllByStatus(status));
     }
+
+    // -------- Variante B: endpoint unique avec pagination & filtres (optionnel) --------
+    // @GetMapping("/search")
+    // public ResponseEntity<Page<DemandeResponse>> search(
+    //         @RequestParam(required = false) UUID fidelePublicId,
+    //         @RequestParam(required = false) StatusValidationEnum status,
+    //         @PageableDefault(size = 20, sort = "dateDemande") Pageable pageable) {
+    //     Page<DemandeResponse> page = demandeService.search(fidelePublicId, status, pageable);
+    //     return ResponseEntity.ok(page);
+    // }
 
     @PutMapping("/{publicId}")
     public ResponseEntity<DemandeResponse> update(@PathVariable UUID publicId,
                                                   @Valid @RequestBody DemandeRequest demande) {
-        DemandeResponse response = demandeService.update(publicId, demande);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(demandeService.update(publicId, demande));
     }
 
     @PatchMapping("/validate/{publicId}")
     public ResponseEntity<DemandeResponse> validateDemande(@PathVariable UUID publicId) {
-        DemandeResponse response = demandeService.validateDemande(publicId);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(demandeService.validateDemande(publicId));
     }
 
     @PatchMapping("/cancel/{publicId}")
     public ResponseEntity<DemandeResponse> cancelDemande(@PathVariable UUID publicId) {
-        DemandeResponse response = demandeService.cancelDemande(publicId);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(demandeService.cancelDemande(publicId));
     }
 
     @DeleteMapping("/{publicId}")

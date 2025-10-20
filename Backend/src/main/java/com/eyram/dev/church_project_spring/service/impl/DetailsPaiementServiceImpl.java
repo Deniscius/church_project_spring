@@ -1,7 +1,7 @@
 package com.eyram.dev.church_project_spring.service.impl;
 
 import com.eyram.dev.church_project_spring.entities.DetailsPaiement;
-import com.eyram.dev.church_project_spring.repository.DetailsPaiementRepository;
+import com.eyram.dev.church_project_spring.repositories.DetailsPaiementRepository;
 import com.eyram.dev.church_project_spring.service.DetailsPaiementService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;

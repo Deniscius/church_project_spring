@@ -17,7 +17,18 @@ const DashboardLayout = () => {
       label: 'Dashboard',
       link: '/dashboard/',
     },
-
+    {
+      label: 'Messes Hebdomadaires',
+      link: '/dashboard/messes/hebdomadaires',
+    },
+    {
+      label: 'Messes Dominicales',
+      link: '/dashboard/messes/dominicales',
+    },
+    {
+      label: 'Messes Spéciales',
+      link: '/dashboard/messes/spéciales',
+    }
   ];
 
   const [isOpen, setIsOpen] = useState(false);
@@ -47,11 +58,11 @@ const DashboardLayout = () => {
     <div className="h-screen w-screen flex bg-white">
       {/* SIDEBAR */}
       <section
-        className={`bg-white h-full shadow-2xl border-r min-w-[250px] max-w-[80%] flex flex-col z-50
+        className={`bg-black h-full shadow-2xl border-r min-w-[250px] max-w-[80%] flex flex-col z-50
       fixed  transition-transform duration-300
       ${isSidebarOpen ? "translate-x-0 xl:relative" : "-translate-x-full"}`}
       >
-        <Link to={"/dashboard/"}>
+        <Link to={"/dashboard/"} className='text-white'>
           LOGO
         </Link>
 
@@ -74,7 +85,7 @@ const DashboardLayout = () => {
             ))}
 
             <div
-              className="absolute bottom-[50px] flex justify-start items-center border-2 border-black text-black gap-[10px] p-4 cursor-pointer text-[14px] rounded w-[80%] hover:bg-grey"
+              className="absolute bottom-[50px] flex justify-start items-center border-2 border-white text-white gap-[10px] p-4 cursor-pointer text-[14px] rounded w-[80%] hover:bg-grey"
             >
               Déconnexion
             </div>
@@ -91,7 +102,7 @@ const DashboardLayout = () => {
 
           {/* Burger visible partout */}
           <button
-            className="text-black text-3xl"
+            className="text-white text-3xl border bg-black rounded-full p-2"
             onClick={toggleSidebar}
           >
             {isSidebarOpen ? <MdClose /> : <MdMenu />}

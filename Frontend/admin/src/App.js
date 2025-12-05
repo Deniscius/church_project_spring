@@ -5,6 +5,9 @@ import PasswordRecovery from './pages/auth/PasswordRecovery';
 import AuthLayout from './layouts/AuthLayout';
 import DashboardLayout from './layouts/DashboardLayout';
 import Board from './pages/dashboard/Board';
+import WeeklyMasses from './pages/dashboard/massManagement/WeeklyMasses';
+import SundayMasses from './pages/dashboard/massManagement/SundayMasses';
+import SpecialMasses from './pages/dashboard/massManagement/SpecialMasses';
 
 function App() {
   return (
@@ -20,6 +23,11 @@ function App() {
       }>
 
         <Route path="/dashboard/" element={<Board />} />
+
+
+        <Route path="messes/hebdomadaires/" element={<WeeklyMasses />} />
+        <Route path="messes/dominicales/" element={<SundayMasses />} />
+        <Route path="messes/spéciales/" element={<SpecialMasses />} />
 
       </Route>
 

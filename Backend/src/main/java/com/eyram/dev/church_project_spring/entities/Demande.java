@@ -18,7 +18,8 @@ import java.util.UUID;
 @Table(name = "demande")
 @Getter @Setter
 public class Demande extends BaseEntity implements Serializable {
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @UuidGenerator
@@ -31,56 +32,38 @@ public class Demande extends BaseEntity implements Serializable {
     @Column(name = "date_demande", length = 100)
     private LocalDate dateDemande;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status_validation")
-    private StatusValidationEnum statusValidationEnum;
+    @Column(name = "code_suivi", length = 8)
+    private String code_suivi;
 
+    @Column(name = "fidele_nom", length = 100)
+    private String fdidele_nom;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "type_demande", nullable = false)
-    private TypeDemandeEnum typeDemandeEnum;
+    @Column(name = "fidele_prenom", length = 255)
+    private String fidele_prenom;
 
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "duree_messe", nullable = false)
-    private DureeMesseEnum dureeMesse;
-
-
-    @ElementCollection
-    @CollectionTable(name = "demande_dates", joinColumns = @JoinColumn(name = "demande_id"))
-    @Column(name = "jour_cible", nullable = false)
-    private java.util.List<LocalDate> dates;
-
-    @Column(name = "prix_total", nullable = false)
-    private Integer prixTotal;
-
-    @Column(name = "status_del", nullable = false)
-    private Boolean statusDel = false;
+    @Column(name = "fidele_tel", length = 15)
+    private int fidele_tel;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "fidele_id", nullable = false)
-    private Fidele fidele;
-
-    @ManyToOne(fetch = FetchType.LAZY, optional = true)
-    @JoinColumn(name = "type_demande_id")
+    @JoinColumn(name = "type_demande_id", nullable = false)
     private TypeDemande typeDemande;
 
 
-    public Demande(Long id, UUID publicId, String intention, LocalDate dateDemande, StatusValidationEnum statusValidationEnum, TypeDemandeEnum typeDemandeEnum, DureeMesseEnum dureeMesse, List<LocalDate> dates, Integer prixTotal, Boolean statusDel, Fidele fidele, TypeDemande typeDemande) {
+    public Demande(Long id, UUID publicId, String intention, LocalDate dateDemande, String code_suivi, String fdidele_nom, String fidele_prenom, int fidele_tel, TypeDemande typeDemande) {
         this.id = id;
         this.publicId = publicId;
         this.intention = intention;
         this.dateDemande = dateDemande;
-        this.statusValidationEnum = statusValidationEnum;
-        this.typeDemandeEnum = typeDemandeEnum;
-        this.dureeMesse = dureeMesse;
-        this.dates = dates;
-        this.prixTotal = prixTotal;
-        this.statusDel = statusDel;
-        this.fidele = fidele;
+        this.code_suivi = code_suivi;
+        this.fdidele_nom = fdidele_nom;
+        this.fidele_prenom = fidele_prenom;
+        this.fidele_tel = fidele_tel;
         this.typeDemande = typeDemande;
     }
 
+    public Demande(){
+
+    }
 
     @Override
     public String toString() {
@@ -89,18 +72,11 @@ public class Demande extends BaseEntity implements Serializable {
                 ", publicId=" + publicId +
                 ", intention='" + intention + '\'' +
                 ", dateDemande=" + dateDemande +
-                ", statusValidationEnum=" + statusValidationEnum +
-                ", typeDemandeEnum=" + typeDemandeEnum +
-                ", dureeMesse=" + dureeMesse +
-                ", dates=" + dates +
-                ", prixTotal=" + prixTotal +
-                ", statusDel=" + statusDel +
-                ", fidele=" + fidele +
+                ", code_suivi='" + code_suivi + '\'' +
+                ", fdidele_nom='" + fdidele_nom + '\'' +
+                ", fidele_prenom='" + fidele_prenom + '\'' +
+                ", fidele_tel=" + fidele_tel +
                 ", typeDemande=" + typeDemande +
                 '}';
-    }
-
-    public Demande() {
-
     }
 }

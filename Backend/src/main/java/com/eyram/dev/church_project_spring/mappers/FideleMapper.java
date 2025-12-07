@@ -2,7 +2,6 @@ package com.eyram.dev.church_project_spring.mappers;
 
 import com.eyram.dev.church_project_spring.DTO.request.FideleRequest;
 import com.eyram.dev.church_project_spring.DTO.response.FideleResponse;
-import com.eyram.dev.church_project_spring.entities.Fidele;
 import com.eyram.dev.church_project_spring.utils.exception.RequestNotFoundException;
 import org.springframework.stereotype.Component;
 

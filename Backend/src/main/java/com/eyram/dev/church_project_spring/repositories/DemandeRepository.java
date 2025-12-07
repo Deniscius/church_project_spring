@@ -1,7 +1,6 @@
 package com.eyram.dev.church_project_spring.repositories;
 
 import com.eyram.dev.church_project_spring.entities.Demande;
-import com.eyram.dev.church_project_spring.entities.Fidele;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

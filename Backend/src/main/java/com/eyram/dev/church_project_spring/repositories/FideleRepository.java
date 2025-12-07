@@ -1,6 +1,5 @@
 package com.eyram.dev.church_project_spring.repositories;
 
-import com.eyram.dev.church_project_spring.entities.Fidele;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

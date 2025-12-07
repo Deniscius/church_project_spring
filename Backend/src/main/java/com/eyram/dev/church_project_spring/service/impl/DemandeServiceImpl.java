@@ -3,7 +3,6 @@ package com.eyram.dev.church_project_spring.service.impl;
 import com.eyram.dev.church_project_spring.DTO.request.DemandeRequest;
 import com.eyram.dev.church_project_spring.DTO.response.DemandeResponse;
 import com.eyram.dev.church_project_spring.entities.Demande;
-import com.eyram.dev.church_project_spring.entities.Fidele;
 import com.eyram.dev.church_project_spring.enums.StatusValidationEnum;
 import com.eyram.dev.church_project_spring.mappers.DemandeMapper;
 import com.eyram.dev.church_project_spring.repositories.DemandeRepository;

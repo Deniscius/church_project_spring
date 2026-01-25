@@ -669,3 +669,11 @@ Note: Pas de service SMS (coût élevé)
 ---
 
 Cette architecture web est **moderne, scalable et sécurisée** ! 🚀
+
+Entities
+Utils
+Repositiries
+DTO 
+Mapprrs
+service
+Controlle

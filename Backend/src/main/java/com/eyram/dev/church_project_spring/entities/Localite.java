@@ -1,19 +1,22 @@
 package com.eyram.dev.church_project_spring.entities;
 
 import com.eyram.dev.church_project_spring.utils.BaseEntity;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
+import lombok.Data;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.UuidGenerator;
 
 
 import java.io.Serializable;
+import java.util.List;
 import java.util.UUID;
 
-@Entity
-@Table(name = "localite")
 @Getter
 @Setter
+@Entity
+@Table(name = "localite")
 public class Localite extends BaseEntity implements Serializable {
 
     @Id
@@ -30,29 +33,21 @@ public class Localite extends BaseEntity implements Serializable {
     @Column(name = "ville")
     private String ville;
 
-    @Column(name = "status_del")
-    private Boolean statusDel = false;
+    @JsonIgnore
+    @OneToMany(mappedBy = "localite")
+    private List<Paroisse> paroisses;
 
-    public Localite(Long id, UUID publicId, String quartier, String ville, Boolean statusDel) {
+    public Localite(Long id, UUID publicId, String quartier, String ville, List<Paroisse> paroisses) {
         this.id = id;
         this.publicId = publicId;
         this.quartier = quartier;
         this.ville = ville;
-        this.statusDel = statusDel;
+        this.paroisses = paroisses;
     }
 
     public Localite() {
 
     }
 
-    @Override
-    public String toString() {
-        return "Localite{" +
-                "id=" + id +
-                ", publicId='" + publicId + '\'' +
-                ", quartier='" + quartier + '\'' +
-                ", ville='" + ville + '\'' +
-                ", statusDel=" + statusDel +
-                '}';
-    }
+
 }

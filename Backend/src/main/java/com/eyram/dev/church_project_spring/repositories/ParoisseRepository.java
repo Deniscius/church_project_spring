@@ -8,9 +8,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface ParoisseRepository extends JpaRepository<Paroisse, Long> {
-    Optional<Paroisse> findById(Long id);
-    Optional<Paroisse> findByNom(String nom);
-    Optional<Paroisse> findByPublicId(UUID publicId);
-    List<Paroisse> findAll();
-    void deleteByPublicId(UUID publicId);
+    Optional<Paroisse> findByPublicIdAndStatusDelFalse(UUID publicId);
+    List<Paroisse> findAllByStatusDelFalse();
+    boolean existsByNomIgnoreCaseAndLocalite_PublicIdAndStatusDelFalse(String nom, UUID localitePublicId);
 }

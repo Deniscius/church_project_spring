@@ -10,9 +10,7 @@ public interface LocaliteService {
 
     LocaliteResponse create(LocaliteRequest request);
     LocaliteResponse getByPublicId(UUID publicId);
-    void delete(UUID publicId);
-    LocaliteResponse update(UUID publicId, LocaliteRequest request);
     List<LocaliteResponse> getAll();
-
-
+    LocaliteResponse update(UUID publicId, LocaliteRequest request);
+    void deleteByPublicId(UUID publicId);
 }

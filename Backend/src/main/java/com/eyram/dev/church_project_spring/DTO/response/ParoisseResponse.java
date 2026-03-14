@@ -5,7 +5,13 @@ import java.util.UUID;
 public record ParoisseResponse(
         UUID publicId,
         String nom,
-        String tel,
-        Boolean statusDel
+        String adresse,
+        String email,
+        String telephone,
+        Boolean isActive,
+        Boolean statusDel,
+        UUID localitePublicId,
+        String localiteVille,
+        String localiteQuartier
 ) {
 }

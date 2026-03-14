@@ -4,64 +4,51 @@ import com.eyram.dev.church_project_spring.DTO.request.ParoisseRequest;
 import com.eyram.dev.church_project_spring.DTO.response.ParoisseResponse;
 import com.eyram.dev.church_project_spring.service.ParoisseService;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/paroisses")
+@RequiredArgsConstructor
 public class ParoisseController {
 
     private final ParoisseService paroisseService;
 
-    public ParoisseController(ParoisseService paroisseService) {
-        this.paroisseService = paroisseService;
-    }
-
-
     @PostMapping
-    public ResponseEntity<ParoisseResponse> create(@Valid @RequestBody ParoisseRequest paroisseRequest) {
-        ParoisseResponse response = paroisseService.create(paroisseRequest);
+    public ResponseEntity<ParoisseResponse> create(@Valid @RequestBody ParoisseRequest request) {
+        ParoisseResponse response = paroisseService.create(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-
+    @GetMapping
+    public ResponseEntity<List<ParoisseResponse>> getAll() {
+        List<ParoisseResponse> responses = paroisseService.getAll();
+        return ResponseEntity.ok(responses);
+    }
 
     @GetMapping("/{publicId}")
-    public ResponseEntity<ParoisseResponse> getById(@PathVariable UUID publicId) {
+    public ResponseEntity<ParoisseResponse> getByPublicId(@PathVariable UUID publicId) {
         ParoisseResponse response = paroisseService.getByPublicId(publicId);
         return ResponseEntity.ok(response);
     }
 
-
-    @GetMapping
-    public ResponseEntity<List<ParoisseResponse>> listAll() {
-        List<ParoisseResponse> paroisses = paroisseService.list();
-        return ResponseEntity.ok(paroisses);
-    }
-
-
     @PutMapping("/{publicId}")
-    public ResponseEntity<ParoisseResponse> update(@PathVariable UUID publicId,
-                                                   @Valid @RequestBody ParoisseRequest paroisseRequest) {
-        ParoisseResponse response = paroisseService.update(paroisseRequest);
+    public ResponseEntity<ParoisseResponse> update(
+            @PathVariable UUID publicId,
+            @Valid @RequestBody ParoisseRequest request
+    ) {
+        ParoisseResponse response = paroisseService.update(publicId, request);
         return ResponseEntity.ok(response);
     }
 
-
     @DeleteMapping("/{publicId}")
-    public ResponseEntity<Map<String, String>> deleteByPublicId(@PathVariable UUID publicId) {
+    public ResponseEntity<Void> deleteByPublicId(@PathVariable UUID publicId) {
         paroisseService.deleteByPublicId(publicId);
-        return ResponseEntity.ok(Map.of("message", "Paroisse supprimée avec succès"));
-    }
-
-    @DeleteMapping("/name/{nom}")
-    public ResponseEntity<Map<String, String>> deleteByName(@PathVariable String nom) {
-        paroisseService.deleteByName(nom);
-        return ResponseEntity.ok(Map.of("message", "Paroisse supprimée avec succès"));
+        return ResponseEntity.noContent().build();
     }
 }

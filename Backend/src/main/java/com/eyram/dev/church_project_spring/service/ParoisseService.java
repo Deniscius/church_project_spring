@@ -7,11 +7,10 @@ import java.util.List;
 import java.util.UUID;
 
 public interface ParoisseService {
-    ParoisseResponse create( ParoisseRequest request);
-    List<ParoisseResponse> list();
-    ParoisseResponse update( ParoisseRequest request);
-    ParoisseResponse deleteByName(String name);
-    ParoisseResponse deleteByPublicId(UUID publicId);
-    ParoisseResponse getByPublicId(UUID publicId);
 
+    ParoisseResponse create(ParoisseRequest request);
+    List<ParoisseResponse> getAll();
+    ParoisseResponse getByPublicId(UUID publicId);
+    ParoisseResponse update(UUID publicId, ParoisseRequest request);
+    void deleteByPublicId(UUID publicId);
 }

@@ -3,37 +3,21 @@ package com.eyram.dev.church_project_spring.mappers;
 import com.eyram.dev.church_project_spring.DTO.request.ParoisseRequest;
 import com.eyram.dev.church_project_spring.DTO.response.ParoisseResponse;
 import com.eyram.dev.church_project_spring.entities.Paroisse;
-import com.eyram.dev.church_project_spring.utils.exception.RequestNotFoundException;
-import org.springframework.stereotype.Component;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
-import java.util.UUID;
+@Mapper(componentModel = "spring")
+public interface ParoisseMapper {
 
-@Component
-public class ParoisseMapper {
-    public Paroisse dtoToModel(ParoisseRequest paroisseRequest) {
-        if (paroisseRequest == null) {
-            throw new RequestNotFoundException("Request is null");
-        }
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "publicId", ignore = true)
+    @Mapping(target = "statusDel", ignore = true)
+    @Mapping(target = "isActive", ignore = true)
+    @Mapping(target = "localite", ignore = true)
+    Paroisse dtoToModel(ParoisseRequest request);
 
-        Paroisse paroisse = new Paroisse();
-        paroisse.setPublicId(UUID.randomUUID());
-        paroisse.setNom(paroisseRequest.nom());
-        paroisse.setTel(paroisseRequest.tel());
-        paroisse.setStatusDel(false);
-
-        return paroisse;
-    }
-
-    public ParoisseResponse modelToDto(Paroisse entity) {
-        if (entity == null) {
-            throw new RequestNotFoundException("Paroisse entity is null");
-        }
-
-        return new ParoisseResponse(
-                entity.getPublicId(),
-                entity.getNom(),
-                entity.getTel(),
-                entity.getStatusDel()
-        );
-    }
+    @Mapping(target = "localitePublicId", source = "localite.publicId")
+    @Mapping(target = "localiteVille", source = "localite.ville")
+    @Mapping(target = "localiteQuartier", source = "localite.quartier")
+    ParoisseResponse modelToDto(Paroisse entity);
 }

@@ -20,40 +20,43 @@ public class Paroisse extends BaseEntity implements Serializable {
     private Long id;
 
     @UuidGenerator
-    @Column(name = "public_id", nullable = false)
+    @Column(name = "public_id", unique = true, nullable = false, updatable = false)
     private UUID publicId;
 
-    @Column(name = "nom", length = 50)
-    private String nom ;
+    @Column(name = "nom", length = 100, nullable = false)
+    private String nom;
 
+    @Column(name = "adresse", length = 200, nullable = false)
+    private String adresse;
 
-    @Column(name = "tel", length = 50)
-    private String tel ;
+    @Column(name = "email", length = 150)
+    private String email;
+
+    @Column(name = "telephone", length = 50)
+    private String telephone;
+
+    @Column(name = "is_active", nullable = false)
+    private Boolean isActive = true;
 
     @Column(name = "status_del")
     private Boolean statusDel = false;
 
-    public Paroisse(Long id, UUID publicId, String nom, String tel, boolean statusDel) {
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "localite_id", nullable = false)
+    private Localite localite;
+
+    public Paroisse() {
+    }
+
+    public Paroisse(Long id, UUID publicId, String nom, String adresse, String email, String telephone, Boolean isActive, Boolean statusDel, Localite localite) {
         this.id = id;
         this.publicId = publicId;
         this.nom = nom;
-        this.tel = tel;
+        this.adresse = adresse;
+        this.email = email;
+        this.telephone = telephone;
+        this.isActive = isActive;
         this.statusDel = statusDel;
-    }
-
-
-    public Paroisse() {
-
-    }
-
-    @Override
-    public String toString() {
-        return "Paroisse{" +
-                "id=" + id +
-                ", publicId=" + publicId +
-                ", nom='" + nom + '\'' +
-                ", tel='" + tel + '\'' +
-                ", statusDel=" + statusDel +
-                '}';
+        this.localite = localite;
     }
 }

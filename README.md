@@ -355,7 +355,7 @@ Curé (Dashboard)
     │     access_token: "eyJ...",
     │     refresh_token: "...",
     │     user: {...},
-    │     role: "CURE"
+    │     user: "CURE"
     │   }
     │
     └─> Redirection : /dashboard

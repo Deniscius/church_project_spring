@@ -38,9 +38,6 @@ public class Paroisse extends BaseEntity implements Serializable {
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
 
-    @Column(name = "status_del")
-    private Boolean statusDel = false;
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "localite_id", nullable = false)
     private Localite localite;
@@ -48,7 +45,8 @@ public class Paroisse extends BaseEntity implements Serializable {
     public Paroisse() {
     }
 
-    public Paroisse(Long id, UUID publicId, String nom, String adresse, String email, String telephone, Boolean isActive, Boolean statusDel, Localite localite) {
+    public Paroisse(Long id, UUID publicId, String nom, String adresse, String email,
+                    String telephone, Boolean isActive, Localite localite) {
         this.id = id;
         this.publicId = publicId;
         this.nom = nom;
@@ -56,7 +54,6 @@ public class Paroisse extends BaseEntity implements Serializable {
         this.email = email;
         this.telephone = telephone;
         this.isActive = isActive;
-        this.statusDel = statusDel;
         this.localite = localite;
     }
 }

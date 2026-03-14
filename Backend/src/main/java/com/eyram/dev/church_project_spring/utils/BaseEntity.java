@@ -20,12 +20,9 @@ public abstract class BaseEntity implements Serializable {
     private LocalDateTime updatedAt;
 
     private Boolean statusDel = false;
-
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
-
-
 
     public void setCreatedAt(LocalDateTime createdAt) {
 

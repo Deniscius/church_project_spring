@@ -3,11 +3,9 @@ package com.eyram.dev.church_project_spring.entities;
 import com.eyram.dev.church_project_spring.utils.BaseEntity;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
-import lombok.Data;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.UuidGenerator;
-
 
 import java.io.Serializable;
 import java.util.List;
@@ -24,7 +22,7 @@ public class Localite extends BaseEntity implements Serializable {
     private Long id;
 
     @UuidGenerator
-    @Column(name = "public_id")
+    @Column(name = "public_id", unique = true, nullable = false, updatable = false)
     private UUID publicId;
 
     @Column(name = "quartier", length = 200)
@@ -46,8 +44,5 @@ public class Localite extends BaseEntity implements Serializable {
     }
 
     public Localite() {
-
     }
-
-
 }

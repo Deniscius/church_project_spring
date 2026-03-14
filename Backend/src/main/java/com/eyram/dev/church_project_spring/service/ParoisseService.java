@@ -1,7 +1,6 @@
 package com.eyram.dev.church_project_spring.service;
-
-import com.eyram.dev.church_project_spring.DTO.request.ParoisseRequest;
 import com.eyram.dev.church_project_spring.DTO.response.ParoisseResponse;
+import com.eyram.dev.church_project_spring.DTO.request.ParoisseRequest;
 
 import java.util.List;
 import java.util.UUID;

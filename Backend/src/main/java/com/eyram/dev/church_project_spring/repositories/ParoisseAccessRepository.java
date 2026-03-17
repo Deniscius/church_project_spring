@@ -1,4 +1,4 @@
-package com.eyram.dev.church_project_spring.repository;
+package com.eyram.dev.church_project_spring.repositories;
 
 import com.eyram.dev.church_project_spring.entities.Paroisse;
 import com.eyram.dev.church_project_spring.entities.ParoisseAccess;

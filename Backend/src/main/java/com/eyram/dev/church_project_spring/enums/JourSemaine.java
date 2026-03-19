@@ -25,4 +25,9 @@ public enum JourSemaine {
     public int getOrdre() {
         return ordre;
     }
+
+    @Override
+    public String toString() {
+        return libelle;
+    }
 }

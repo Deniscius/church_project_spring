@@ -1,17 +1,15 @@
 package com.eyram.dev.church_project_spring.DTO.response;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.UUID;
 
-public record HoraireResponse(
+public record DemandeDateResponse(
         UUID publicId,
-        String jourSemaine,
-        LocalTime heureCelebration,
-        String libelle,
-        Boolean isActive,
-        UUID paroissePublicId,
-        String paroisseNom,
+        Integer ordre,
+        LocalDate dateCelebration,
+        UUID demandePublicId,
+        String codeSuivieDemande,
         Boolean statusDel,
         LocalDateTime createdAt,
         LocalDateTime updatedAt

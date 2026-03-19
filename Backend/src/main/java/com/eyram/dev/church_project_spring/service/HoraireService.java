@@ -18,5 +18,7 @@ public interface HoraireService {
 
     List<HoraireResponse> getByParoisse(UUID paroissePublicId);
 
+    List<HoraireResponse> getActiveByParoisse(UUID paroissePublicId);
+
     void deleteByPublicId(UUID publicId);
 }

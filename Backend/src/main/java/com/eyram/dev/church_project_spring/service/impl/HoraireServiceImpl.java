@@ -13,7 +13,6 @@ import com.eyram.dev.church_project_spring.utils.exception.ResourceNotFoundExcep
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -27,52 +26,58 @@ public class HoraireServiceImpl implements HoraireService {
 
     @Override
     public HoraireResponse create(HoraireRequest request) {
+
         Paroisse paroisse = paroisseRepository.findByPublicIdAndStatusDelFalse(request.paroissePublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Paroisse introuvable"));
 
-        boolean exists = horaireRepository.existsByParoisseAndJourSemaineAndHeureCelebrationAndStatusDelFalse(
-                paroisse,
+        boolean exists = horaireRepository.existsByJourSemaineAndHeureCelebrationAndParoisseAndStatusDelFalse(
                 request.jourSemaine(),
-                request.heureCelebration()
+                request.heureCelebration(),
+                paroisse
         );
 
         if (exists) {
-            throw new AlreadyExistException("Un horaire existe déjà pour ce jour et cette heure dans cette paroisse");
+            throw new AlreadyExistException("Cet horaire existe déjà pour cette paroisse");
         }
 
-        Horaire horaire = horaireMapper.toEntity(request);
+        Horaire horaire = horaireMapper.dtoToModel(request);
         horaire.setParoisse(paroisse);
 
         Horaire savedHoraire = horaireRepository.save(horaire);
-        return horaireMapper.toResponse(savedHoraire);
+        return horaireMapper.modelToDto(savedHoraire);
     }
 
     @Override
     public HoraireResponse update(UUID publicId, HoraireRequest request) {
+
         Horaire existingHoraire = horaireRepository.findByPublicIdAndStatusDelFalse(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Horaire introuvable"));
 
         Paroisse paroisse = paroisseRepository.findByPublicIdAndStatusDelFalse(request.paroissePublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Paroisse introuvable"));
 
-        boolean changed =
-                !existingHoraire.getParoisse().getPublicId().equals(request.paroissePublicId())
-                        || !existingHoraire.getJourSemaine().equals(request.jourSemaine())
-                        || !existingHoraire.getHeureCelebration().equals(request.heureCelebration());
+        boolean dataChanged =
+                !existingHoraire.getJourSemaine().equals(request.jourSemaine()) ||
+                        !existingHoraire.getHeureCelebration().equals(request.heureCelebration()) ||
+                        !existingHoraire.getParoisse().getPublicId().equals(request.paroissePublicId());
 
-        if (changed && horaireRepository.existsByParoisseAndJourSemaineAndHeureCelebrationAndStatusDelFalse(
-                paroisse,
-                request.jourSemaine(),
-                request.heureCelebration()
-        )) {
-            throw new AlreadyExistException("Un horaire existe déjà pour ce jour et cette heure dans cette paroisse");
+        if (dataChanged) {
+            boolean exists = horaireRepository.existsByJourSemaineAndHeureCelebrationAndParoisseAndStatusDelFalse(
+                    request.jourSemaine(),
+                    request.heureCelebration(),
+                    paroisse
+            );
+
+            if (exists) {
+                throw new AlreadyExistException("Cet horaire existe déjà pour cette paroisse");
+            }
         }
 
-        horaireMapper.updateEntityFromRequest(request, existingHoraire);
+        horaireMapper.updateEntityFromDto(request, existingHoraire);
         existingHoraire.setParoisse(paroisse);
 
         Horaire updatedHoraire = horaireRepository.save(existingHoraire);
-        return horaireMapper.toResponse(updatedHoraire);
+        return horaireMapper.modelToDto(updatedHoraire);
     }
 
     @Override
@@ -80,17 +85,14 @@ public class HoraireServiceImpl implements HoraireService {
         Horaire horaire = horaireRepository.findByPublicIdAndStatusDelFalse(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Horaire introuvable"));
 
-        return horaireMapper.toResponse(horaire);
+        return horaireMapper.modelToDto(horaire);
     }
 
     @Override
     public List<HoraireResponse> getAll() {
-        return horaireRepository.findAllByStatusDelFalse()
+        return horaireRepository.findByStatusDelFalse()
                 .stream()
-                .sorted(Comparator
-                        .comparing((Horaire h) -> h.getJourSemaine().getOrdre())
-                        .thenComparing(Horaire::getHeureCelebration))
-                .map(horaireMapper::toResponse)
+                .map(horaireMapper::modelToDto)
                 .toList();
     }
 
@@ -99,12 +101,20 @@ public class HoraireServiceImpl implements HoraireService {
         Paroisse paroisse = paroisseRepository.findByPublicIdAndStatusDelFalse(paroissePublicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Paroisse introuvable"));
 
-        return horaireRepository.findAllByParoisseAndStatusDelFalse(paroisse)
+        return horaireRepository.findByParoisseAndStatusDelFalse(paroisse)
                 .stream()
-                .sorted(Comparator
-                        .comparing((Horaire h) -> h.getJourSemaine().getOrdre())
-                        .thenComparing(Horaire::getHeureCelebration))
-                .map(horaireMapper::toResponse)
+                .map(horaireMapper::modelToDto)
+                .toList();
+    }
+
+    @Override
+    public List<HoraireResponse> getActiveByParoisse(UUID paroissePublicId) {
+        Paroisse paroisse = paroisseRepository.findByPublicIdAndStatusDelFalse(paroissePublicId)
+                .orElseThrow(() -> new ResourceNotFoundException("Paroisse introuvable"));
+
+        return horaireRepository.findByParoisseAndIsActiveTrueAndStatusDelFalse(paroisse)
+                .stream()
+                .map(horaireMapper::modelToDto)
                 .toList();
     }
 

@@ -2,6 +2,7 @@ package com.eyram.dev.church_project_spring.repositories;
 
 import com.eyram.dev.church_project_spring.entities.Paroisse;
 import com.eyram.dev.church_project_spring.entities.TypeDemande;
+import com.eyram.dev.church_project_spring.enums.TypeDemandeEnum;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -12,11 +13,20 @@ public interface TypeDemandeRepository extends JpaRepository<TypeDemande, Long> 
 
     Optional<TypeDemande> findByPublicIdAndStatusDelFalse(UUID publicId);
 
-    List<TypeDemande> findAllByStatusDelFalse();
+    List<TypeDemande> findByStatusDelFalse();
 
-    List<TypeDemande> findAllByParoisseAndStatusDelFalse(Paroisse paroisse);
+    List<TypeDemande> findByParoisseAndStatusDelFalse(Paroisse paroisse);
 
-    List<TypeDemande> findAllByParoisseAndIsActiveTrueAndStatusDelFalse(Paroisse paroisse);
+    List<TypeDemande> findByTypeDemandeEnumAndStatusDelFalse(TypeDemandeEnum typeDemandeEnum);
 
-    boolean existsByLibelleIgnoreCaseAndParoisseAndStatusDelFalse(String libelle, Paroisse paroisse);
+    List<TypeDemande> findByParoisseAndTypeDemandeEnumAndStatusDelFalse(
+            Paroisse paroisse,
+            TypeDemandeEnum typeDemandeEnum
+    );
+
+    boolean existsByLibelleIgnoreCaseAndParoisseAndTypeDemandeEnumAndStatusDelFalse(
+            String libelle,
+            Paroisse paroisse,
+            TypeDemandeEnum typeDemandeEnum
+    );
 }

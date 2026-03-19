@@ -14,15 +14,15 @@ public interface HoraireRepository extends JpaRepository<Horaire, Long> {
 
     Optional<Horaire> findByPublicIdAndStatusDelFalse(UUID publicId);
 
-    List<Horaire> findAllByStatusDelFalse();
+    List<Horaire> findByStatusDelFalse();
 
-    List<Horaire> findAllByParoisseAndStatusDelFalse(Paroisse paroisse);
+    List<Horaire> findByParoisseAndStatusDelFalse(Paroisse paroisse);
 
-    List<Horaire> findAllByParoisseAndIsActiveTrueAndStatusDelFalse(Paroisse paroisse);
+    List<Horaire> findByParoisseAndIsActiveTrueAndStatusDelFalse(Paroisse paroisse);
 
-    boolean existsByParoisseAndJourSemaineAndHeureCelebrationAndStatusDelFalse(
-            Paroisse paroisse,
+    boolean existsByJourSemaineAndHeureCelebrationAndParoisseAndStatusDelFalse(
             JourSemaine jourSemaine,
-            LocalTime heureCelebration
+            LocalTime heureCelebration,
+            Paroisse paroisse
     );
 }

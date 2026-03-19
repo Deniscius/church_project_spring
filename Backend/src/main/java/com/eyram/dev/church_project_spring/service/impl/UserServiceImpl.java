@@ -4,7 +4,7 @@ import com.eyram.dev.church_project_spring.DTO.request.UserRequest;
 import com.eyram.dev.church_project_spring.DTO.response.UserResponse;
 import com.eyram.dev.church_project_spring.entities.User;
 import com.eyram.dev.church_project_spring.mappers.UserMapper;
-import com.eyram.dev.church_project_spring.repository.UserRepository;
+import com.eyram.dev.church_project_spring.repositories.UserRepository;
 import com.eyram.dev.church_project_spring.service.UserService;
 import com.eyram.dev.church_project_spring.utils.exception.AlreadyExistException;
 import com.eyram.dev.church_project_spring.utils.exception.ResourceNotFoundException;

@@ -40,12 +40,12 @@ public class ParoisseAccessServiceImpl implements ParoisseAccessService {
             throw new AlreadyExistException("Cet accès existe déjà pour cet utilisateur et cette paroisse");
         }
 
-        ParoisseAccess paroisseAccess = paroisseAccessMapper.toEntity(request);
+        ParoisseAccess paroisseAccess = paroisseAccessMapper.dtoToModel(request);
         paroisseAccess.setUser(user);
         paroisseAccess.setParoisse(paroisse);
 
         ParoisseAccess savedParoisseAccess = paroisseAccessRepository.save(paroisseAccess);
-        return paroisseAccessMapper.toResponse(savedParoisseAccess);
+        return paroisseAccessMapper.modelToDto(savedParoisseAccess);
     }
 
     @Override
@@ -68,12 +68,12 @@ public class ParoisseAccessServiceImpl implements ParoisseAccessService {
             throw new AlreadyExistException("Cet accès existe déjà pour cet utilisateur et cette paroisse");
         }
 
-        paroisseAccessMapper.updateEntityFromRequest(request, existingParoisseAccess);
+        paroisseAccessMapper.updateEntityFromDto(request, existingParoisseAccess);
         existingParoisseAccess.setUser(user);
         existingParoisseAccess.setParoisse(paroisse);
 
         ParoisseAccess updatedParoisseAccess = paroisseAccessRepository.save(existingParoisseAccess);
-        return paroisseAccessMapper.toResponse(updatedParoisseAccess);
+        return paroisseAccessMapper.modelToDto(updatedParoisseAccess);
     }
 
     @Override
@@ -81,14 +81,14 @@ public class ParoisseAccessServiceImpl implements ParoisseAccessService {
         ParoisseAccess paroisseAccess = paroisseAccessRepository.findByPublicIdAndStatusDelFalse(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Accès paroisse introuvable"));
 
-        return paroisseAccessMapper.toResponse(paroisseAccess);
+        return paroisseAccessMapper.modelToDto(paroisseAccess);
     }
 
     @Override
     public List<ParoisseAccessResponse> getAll() {
         return paroisseAccessRepository.findByStatusDelFalse()
                 .stream()
-                .map(paroisseAccessMapper::toResponse)
+                .map(paroisseAccessMapper::modelToDto)
                 .toList();
     }
 
@@ -99,7 +99,7 @@ public class ParoisseAccessServiceImpl implements ParoisseAccessService {
 
         return paroisseAccessRepository.findByUserAndStatusDelFalse(user)
                 .stream()
-                .map(paroisseAccessMapper::toResponse)
+                .map(paroisseAccessMapper::modelToDto)
                 .toList();
     }
 
@@ -110,7 +110,7 @@ public class ParoisseAccessServiceImpl implements ParoisseAccessService {
 
         return paroisseAccessRepository.findByParoisseAndStatusDelFalse(paroisse)
                 .stream()
-                .map(paroisseAccessMapper::toResponse)
+                .map(paroisseAccessMapper::modelToDto)
                 .toList();
     }
 

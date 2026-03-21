@@ -38,6 +38,7 @@ public class FactureServiceImpl implements FactureService {
 
         Facture facture = factureMapper.dtoToModel(request);
         facture.setDemande(demande);
+        facture.setMontant(demande.getMontant().intValue());
 
         if (request.refFacture() == null || request.refFacture().isBlank()) {
             facture.setRefFacture(generateRefFacture());
@@ -71,6 +72,8 @@ public class FactureServiceImpl implements FactureService {
                 .toList();
     }
 
+
+
     @Override
     public FactureResponse update(UUID publicId, FactureRequest request) {
 
@@ -98,6 +101,7 @@ public class FactureServiceImpl implements FactureService {
 
         factureMapper.dtoToModel(request, facture);
         facture.setDemande(demande);
+        facture.setMontant(demande.getMontant().intValue());
 
         if (request.refFacture() == null || request.refFacture().isBlank()) {
             if (facture.getRefFacture() == null || facture.getRefFacture().isBlank()) {
@@ -123,6 +127,17 @@ public class FactureServiceImpl implements FactureService {
     }
 
     private String generateRefFacture() {
-        return "FAC-" + LocalDateTime.now().getYear() + "-" + System.currentTimeMillis();
+        return "FAC" + LocalDateTime.now().getYear() + "-" + System.currentTimeMillis();
     }
+
+
+    @Override
+    public FactureResponse getByCodeSuivie(String codeSuivie) {
+        Facture facture = factureRepository.findByDemandeCodeSuivieAndStatusDelFalse(codeSuivie)
+                .orElseThrow(() -> new ResourceNotFoundException("Facture introuvable pour ce code de suivi"));
+
+        return factureMapper.modelToDto(facture);
+    }
+
+
 }

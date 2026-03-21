@@ -7,7 +7,7 @@ import com.eyram.dev.church_project_spring.enums.StatutDemandeEnum;
 import java.util.List;
 import java.util.UUID;
 
-public interface DemandeService {
+public interface    DemandeService {
 
     DemandeResponse create(DemandeRequest request);
 
@@ -22,6 +22,8 @@ public interface DemandeService {
     List<DemandeResponse> getByParoisse(UUID paroissePublicId);
 
     List<DemandeResponse> getByParoisseAndStatut(UUID paroissePublicId, StatutDemandeEnum statutDemande);
+
+    List<DemandeResponse> getByTypePaiement(UUID typePaiementPublicId);
 
     void deleteByPublicId(UUID publicId);
 }

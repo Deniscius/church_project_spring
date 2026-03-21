@@ -20,9 +20,6 @@ public record DetailsPaiementRequest(
         @NotNull(message = "Le statut du paiement est obligatoire")
         StatutPaiementEnum statutPaiement,
 
-        @NotNull(message = "Le mode de paiement est obligatoire")
-        ModePaiement modePaiement,
-
         @NotBlank(message = "Le numéro est obligatoire")
         String numero,
 

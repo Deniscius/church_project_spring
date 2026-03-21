@@ -2,7 +2,9 @@ package com.eyram.dev.church_project_spring.controller;
 
 import com.eyram.dev.church_project_spring.DTO.request.DetailsPaiementRequest;
 import com.eyram.dev.church_project_spring.DTO.response.DetailsPaiementResponse;
+import com.eyram.dev.church_project_spring.DTO.response.FactureResponse;
 import com.eyram.dev.church_project_spring.service.DetailsPaiementService;
+import com.eyram.dev.church_project_spring.service.impl.FactureServiceImpl;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -16,6 +18,7 @@ import java.util.UUID;
 public class DetailsPaiementController {
 
     private final DetailsPaiementService detailsPaiementService;
+    private final FactureServiceImpl factureServiceImpl;
 
     @PostMapping
     public DetailsPaiementResponse create(@Valid @RequestBody DetailsPaiementRequest request) {
@@ -41,5 +44,11 @@ public class DetailsPaiementController {
     @DeleteMapping("/{publicId}")
     public void delete(@PathVariable UUID publicId) {
         detailsPaiementService.delete(publicId);
+    }
+
+
+    @GetMapping("/code-suivie/{codeSuivie}")
+    public FactureResponse getByCodeSuivie(@PathVariable String codeSuivie) {
+        return factureServiceImpl.getByCodeSuivie(codeSuivie);
     }
 }

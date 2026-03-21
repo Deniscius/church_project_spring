@@ -11,9 +11,6 @@ public record FactureRequest(
 
         LocalDateTime datePaiement,
 
-        @NotNull(message = "Le montant est obligatoire")
-        Integer montant,
-
         @NotNull(message = "Le statut de paiement est obligatoire")
         StatutPaiementEnum statutPaiement,
 

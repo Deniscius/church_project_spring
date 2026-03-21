@@ -5,6 +5,7 @@ import com.eyram.dev.church_project_spring.DTO.response.DetailsPaiementResponse;
 import com.eyram.dev.church_project_spring.entities.DetailsPaiement;
 import com.eyram.dev.church_project_spring.entities.Facture;
 import com.eyram.dev.church_project_spring.entities.TypePaiement;
+import com.eyram.dev.church_project_spring.enums.StatutPaiementEnum;
 import com.eyram.dev.church_project_spring.mappers.DetailsPaiementMapper;
 import com.eyram.dev.church_project_spring.repositories.DetailsPaiementRepository;
 import com.eyram.dev.church_project_spring.repositories.FactureRepository;
@@ -36,6 +37,11 @@ public class DetailsPaiementServiceImpl implements DetailsPaiementService {
         Facture facture = factureRepository.findByPublicIdAndStatusDelFalse(request.facturePublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Facture introuvable"));
 
+        if (facture.getDemande().getTypePaiement() == null ||
+                !facture.getDemande().getTypePaiement().getPublicId().equals(typePaiement.getPublicId())) {
+            throw new IllegalArgumentException("Le type de paiement ne correspond pas à la demande");
+        }
+
         detailsPaiementRepository.findByFacturePublicIdAndStatusDelFalse(request.facturePublicId())
                 .ifPresent(existing -> {
                     throw new AlreadyExistException("Un détail paiement existe déjà pour cette facture");
@@ -46,6 +52,10 @@ public class DetailsPaiementServiceImpl implements DetailsPaiementService {
         detailsPaiement.setFacture(facture);
 
         DetailsPaiement detailsPaiementSave = detailsPaiementRepository.save(detailsPaiement);
+
+        facture.setStatutPaiement(request.statutPaiement());
+        facture.setDatePaiement(request.dateDetailsPaiement());
+        factureRepository.save(facture);
 
         return detailsPaiementMapper.modelToDto(detailsPaiementSave);
     }
@@ -79,6 +89,11 @@ public class DetailsPaiementServiceImpl implements DetailsPaiementService {
         Facture facture = factureRepository.findByPublicIdAndStatusDelFalse(request.facturePublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Facture introuvable"));
 
+        if (facture.getDemande().getTypePaiement() == null ||
+                !facture.getDemande().getTypePaiement().getPublicId().equals(typePaiement.getPublicId())) {
+            throw new IllegalArgumentException("Le type de paiement ne correspond pas à la demande");
+        }
+
         detailsPaiementRepository.findByFacturePublicIdAndStatusDelFalse(request.facturePublicId())
                 .ifPresent(existing -> {
                     if (!existing.getPublicId().equals(publicId)) {
@@ -92,6 +107,10 @@ public class DetailsPaiementServiceImpl implements DetailsPaiementService {
 
         DetailsPaiement detailsPaiementUpdate = detailsPaiementRepository.save(detailsPaiement);
 
+        facture.setStatutPaiement(request.statutPaiement());
+        facture.setDatePaiement(request.dateDetailsPaiement());
+        factureRepository.save(facture);
+
         return detailsPaiementMapper.modelToDto(detailsPaiementUpdate);
     }
 
@@ -103,5 +122,12 @@ public class DetailsPaiementServiceImpl implements DetailsPaiementService {
 
         detailsPaiement.setStatusDel(true);
         detailsPaiementRepository.save(detailsPaiement);
+
+        Facture facture = detailsPaiement.getFacture();
+        if (facture != null) {
+            facture.setStatutPaiement(StatutPaiementEnum.NON_PAYE);
+            facture.setDatePaiement(null);
+            factureRepository.save(facture);
+        }
     }
 }

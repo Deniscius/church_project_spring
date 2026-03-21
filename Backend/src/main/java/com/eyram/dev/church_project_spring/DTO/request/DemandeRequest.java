@@ -35,6 +35,9 @@ public record DemandeRequest(
         @NotNull(message = "Le forfait tarifaire est obligatoire")
         UUID forfaitTarifPublicId,
 
+        @NotNull(message = "Le type de paiement est obligatoire")
+        UUID typePaiementPublicId,
+
         UUID horairePublicId,
 
         UUID userPublicId

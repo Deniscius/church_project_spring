@@ -18,7 +18,7 @@ public interface DemandeRepository extends JpaRepository<Demande, Long> {
     List<Demande> findByStatusDelFalse();
 
     List<Demande> findByParoisseAndStatusDelFalse(Paroisse paroisse);
-
+    List<Demande> findByTypePaiementPublicIdAndStatusDelFalse(UUID typePaiementPublicId);
     List<Demande> findByParoisseAndStatutDemandeAndStatusDelFalse(Paroisse paroisse, StatutDemandeEnum statutDemande);
 
     boolean existsByCodeSuivieAndStatusDelFalse(String codeSuivie);

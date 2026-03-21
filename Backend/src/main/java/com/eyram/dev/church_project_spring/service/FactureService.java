@@ -12,6 +12,8 @@ public interface FactureService {
 
     FactureResponse getByPublicId(UUID publicId);
 
+    FactureResponse getByCodeSuivie(String codeSuivie);
+
     List<FactureResponse> getAll();
 
     FactureResponse update(UUID publicId, FactureRequest request);

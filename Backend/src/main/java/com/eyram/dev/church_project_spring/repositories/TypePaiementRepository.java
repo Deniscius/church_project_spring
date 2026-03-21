@@ -14,5 +14,7 @@ public interface TypePaiementRepository extends JpaRepository<TypePaiement, Long
 
     Optional<TypePaiement> findByModeAndStatusDelFalse(ModePaiement mode);
 
+
+
     List<TypePaiement> findAllByStatusDelFalse();
 }

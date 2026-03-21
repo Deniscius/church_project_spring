@@ -64,4 +64,9 @@ public class DemandeController {
         demandeService.deleteByPublicId(publicId);
         return ResponseEntity.noContent().build();
     }
+
+    @GetMapping("/type-paiement/{typePaiementPublicId}")
+    public List<DemandeResponse> getByTypePaiement(@PathVariable UUID typePaiementPublicId) {
+        return demandeService.getByTypePaiement(typePaiementPublicId);
+    }
 }

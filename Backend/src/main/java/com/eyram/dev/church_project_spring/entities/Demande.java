@@ -91,4 +91,9 @@ public class Demande extends BaseEntity implements Serializable {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private User user;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "type_paiement_id")
+    private TypePaiement typePaiement;
+
 }

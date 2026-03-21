@@ -28,9 +28,11 @@ public class DemandeServiceImpl implements DemandeService {
     private final HoraireRepository horaireRepository;
     private final UserRepository userRepository;
     private final DemandeMapper demandeMapper;
+    private final TypePaiementRepository typePaiementRepository;
 
     @Override
     public DemandeResponse create(DemandeRequest request) {
+
 
         Paroisse paroisse = paroisseRepository.findByPublicIdAndStatusDelFalse(request.paroissePublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Paroisse introuvable"));
@@ -63,12 +65,16 @@ public class DemandeServiceImpl implements DemandeService {
 
         validateHoraire(request.heurePersonnalisee(), horaire, forfaitTarif);
 
+        TypePaiement typePaiement = typePaiementRepository.findByPublicIdAndStatusDelFalse(request.typePaiementPublicId())
+                .orElseThrow(() -> new ResourceNotFoundException("Type de paiement introuvable"));
+
         Demande demande = demandeMapper.dtoToModel(request);
         demande.setParoisse(paroisse);
         demande.setTypeDemande(typeDemande);
         demande.setForfaitTarif(forfaitTarif);
         demande.setHoraire(horaire);
         demande.setUser(user);
+        demande.setTypePaiement(typePaiement);
         demande.setMontant(forfaitTarif.getMontantForfait());
         demande.setCodeSuivie(generateTrackingCode());
 
@@ -113,12 +119,16 @@ public class DemandeServiceImpl implements DemandeService {
 
         validateHoraire(request.heurePersonnalisee(), horaire, forfaitTarif);
 
+        TypePaiement typePaiement = typePaiementRepository.findByPublicIdAndStatusDelFalse(request.typePaiementPublicId())
+                .orElseThrow(() -> new ResourceNotFoundException("Type de paiement introuvable"));
+
         demandeMapper.updateEntityFromDto(request, existingDemande);
         existingDemande.setParoisse(paroisse);
         existingDemande.setTypeDemande(typeDemande);
         existingDemande.setForfaitTarif(forfaitTarif);
         existingDemande.setHoraire(horaire);
         existingDemande.setUser(user);
+        existingDemande.setTypePaiement(typePaiement);
         existingDemande.setMontant(forfaitTarif.getMontantForfait());
 
         Demande updatedDemande = demandeRepository.save(existingDemande);
@@ -198,8 +208,16 @@ public class DemandeServiceImpl implements DemandeService {
     private String generateTrackingCode() {
         String code;
         do {
-            code = "DEM-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+            code = "DEM" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         } while (demandeRepository.existsByCodeSuivieAndStatusDelFalse(code));
         return code;
+    }
+
+    @Override
+    public List<DemandeResponse> getByTypePaiement(UUID typePaiementPublicId) {
+        return demandeRepository.findByTypePaiementPublicIdAndStatusDelFalse(typePaiementPublicId)
+                .stream()
+                .map(demandeMapper::modelToDto)
+                .toList();
     }
 }

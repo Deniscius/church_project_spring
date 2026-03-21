@@ -5,7 +5,6 @@ public enum ModePaiement {
     TMONEY,
     FLOOZ,
     ESPECES,
-    CARTE,
-    AUTRE
+    CARTE
 
 }

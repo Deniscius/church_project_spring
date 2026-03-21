@@ -1,5 +1,6 @@
 package com.eyram.dev.church_project_spring.DTO.response;
 
+import com.eyram.dev.church_project_spring.enums.ModePaiement;
 import com.eyram.dev.church_project_spring.enums.StatutDemandeEnum;
 import com.eyram.dev.church_project_spring.enums.StatutPaiementEnum;
 import com.eyram.dev.church_project_spring.enums.StatutValidationEnum;
@@ -39,6 +40,10 @@ public record DemandeResponse(
 
         UUID userPublicId,
         String username,
+
+        UUID typePaiementPublicId,
+        String typePaiementLibelle,
+        ModePaiement modePaiement,
 
         Boolean statusDel,
         LocalDateTime createdAt,

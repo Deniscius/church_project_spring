@@ -2,12 +2,14 @@ package com.eyram.dev.church_project_spring.entities;
 
 import com.eyram.dev.church_project_spring.enums.ModePaiement;
 import com.eyram.dev.church_project_spring.utils.BaseEntity;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.UuidGenerator;
 
 import java.io.Serializable;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -31,4 +33,7 @@ public class TypePaiement extends BaseEntity implements Serializable {
     @Column(name = "mode", nullable = false)
     private ModePaiement mode;
 
+    @JsonIgnore
+    @OneToMany(mappedBy = "typePaiement")
+    private List<Demande> demandes;
 }

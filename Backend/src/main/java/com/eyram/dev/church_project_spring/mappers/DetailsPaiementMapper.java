@@ -21,7 +21,6 @@ public interface DetailsPaiementMapper {
 
     @Mapping(target = "typePaiementPublicId", source = "typePaiement.publicId")
     @Mapping(target = "typePaiementLibelle", source = "typePaiement.libelle")
-    @Mapping(target = "modePaiement", source = "typePaiement.mode")
     @Mapping(target = "facturePublicId", source = "facture.publicId")
     @Mapping(target = "refFacture", source = "facture.refFacture")
     DetailsPaiementResponse modelToDto(DetailsPaiement detailsPaiement);

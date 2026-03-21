@@ -28,6 +28,7 @@ public interface DemandeMapper {
     @Mapping(target = "forfaitTarif", ignore = true)
     @Mapping(target = "horaire", ignore = true)
     @Mapping(target = "user", ignore = true)
+    @Mapping(target = "typePaiement", ignore = true)
     Demande dtoToModel(DemandeRequest request);
 
     @Mapping(target = "paroissePublicId", source = "paroisse.publicId")
@@ -40,6 +41,10 @@ public interface DemandeMapper {
     @Mapping(target = "horaireLibelle", source = "horaire.libelle")
     @Mapping(target = "userPublicId", source = "user.publicId")
     @Mapping(target = "username", source = "user.username")
+    @Mapping(target = "typePaiementPublicId", source = "typePaiement.publicId")
+    @Mapping(target = "typePaiementLibelle", source = "typePaiement.libelle")
+    @Mapping(target = "modePaiement", source = "typePaiement.mode")
+
     DemandeResponse modelToDto(Demande entity);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
@@ -59,5 +64,6 @@ public interface DemandeMapper {
     @Mapping(target = "forfaitTarif", ignore = true)
     @Mapping(target = "horaire", ignore = true)
     @Mapping(target = "user", ignore = true)
+    @Mapping(target = "typePaiement", ignore = true)
     void updateEntityFromDto(DemandeRequest request, @MappingTarget Demande entity);
 }

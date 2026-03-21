@@ -1,6 +1,5 @@
 package com.eyram.dev.church_project_spring.entities;
 
-import com.eyram.dev.church_project_spring.enums.ModePaiement;
 import com.eyram.dev.church_project_spring.enums.StatutPaiementEnum;
 import com.eyram.dev.church_project_spring.utils.BaseEntity;
 import jakarta.persistence.*;
@@ -38,10 +37,6 @@ public class DetailsPaiement extends BaseEntity implements Serializable {
     @Enumerated(EnumType.STRING)
     @Column(name = "statut_paiement", nullable = false)
     private StatutPaiementEnum statutPaiement;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "mode_paiement", nullable = false)
-    private ModePaiement modePaiement;
 
     @Column(name = "numero", length = 30)
     private String numero;

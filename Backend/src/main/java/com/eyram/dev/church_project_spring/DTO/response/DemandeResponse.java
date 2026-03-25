@@ -4,12 +4,14 @@ import com.eyram.dev.church_project_spring.enums.ModePaiement;
 import com.eyram.dev.church_project_spring.enums.StatutDemandeEnum;
 import com.eyram.dev.church_project_spring.enums.StatutPaiementEnum;
 import com.eyram.dev.church_project_spring.enums.StatutValidationEnum;
+import com.fasterxml.jackson.annotation.JsonInclude;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.UUID;
 
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record DemandeResponse(
         UUID publicId,
         String intention,
@@ -47,6 +49,12 @@ public record DemandeResponse(
 
         Boolean statusDel,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+
+        UUID facturePublicId,
+        String refFacture,
+        LocalDateTime dateDetailsPaiement,
+        String idTransaction,
+        String numero
 ) {
 }

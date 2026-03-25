@@ -19,4 +19,6 @@ public interface FactureService {
     FactureResponse update(UUID publicId, FactureRequest request);
 
     void delete(UUID publicId);
+
+
 }

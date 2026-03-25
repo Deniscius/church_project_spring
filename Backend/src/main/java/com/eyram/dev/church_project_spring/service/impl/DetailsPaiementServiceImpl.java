@@ -37,32 +37,63 @@ public class DetailsPaiementServiceImpl implements DetailsPaiementService {
         Facture facture = factureRepository.findByPublicIdAndStatusDelFalse(request.facturePublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Facture introuvable"));
 
-        if (facture.getDemande().getTypePaiement() == null ||
-                !facture.getDemande().getTypePaiement().getPublicId().equals(typePaiement.getPublicId())) {
+        if (facture.getDemande() == null
+                || facture.getDemande().getTypePaiement() == null
+                || !facture.getDemande().getTypePaiement().getPublicId().equals(typePaiement.getPublicId())) {
             throw new IllegalArgumentException("Le type de paiement ne correspond pas à la demande");
         }
 
-        detailsPaiementRepository.findByFacturePublicIdAndStatusDelFalse(request.facturePublicId())
-                .ifPresent(existing -> {
-                    throw new AlreadyExistException("Un détail paiement existe déjà pour cette facture");
-                });
+        DetailsPaiement existingDetails = detailsPaiementRepository
+                .findByFacturePublicId(request.facturePublicId())
+                .orElse(null);
+
+        if (existingDetails != null) {
+            if (Boolean.FALSE.equals(existingDetails.getStatusDel())) {
+                throw new AlreadyExistException("Un détail paiement existe déjà pour cette facture");
+            }
+
+            existingDetails.setStatusDel(false);
+            existingDetails.setDateDetailsPaiement(request.dateDetailsPaiement());
+            existingDetails.setMontant(request.montant());
+            existingDetails.setNumero(request.numero());
+            existingDetails.setStatutPaiement(request.statutPaiement());
+            existingDetails.setTypePaiement(typePaiement);
+            existingDetails.setFacture(facture);
+
+            if (request.idTransaction() == null || request.idTransaction().isBlank()) {
+                existingDetails.setIdTransaction(generateTransactionId());
+            } else {
+                existingDetails.setIdTransaction(request.idTransaction());
+            }
+
+            DetailsPaiement reactivatedDetails = detailsPaiementRepository.save(existingDetails);
+
+            facture.setStatutPaiement(request.statutPaiement());
+            facture.setDatePaiement(request.dateDetailsPaiement());
+            factureRepository.save(facture);
+
+            return detailsPaiementMapper.modelToDto(reactivatedDetails);
+        }
 
         DetailsPaiement detailsPaiement = detailsPaiementMapper.dtoToModel(request);
         detailsPaiement.setTypePaiement(typePaiement);
         detailsPaiement.setFacture(facture);
 
-        DetailsPaiement detailsPaiementSave = detailsPaiementRepository.save(detailsPaiement);
+        if (request.idTransaction() == null || request.idTransaction().isBlank()) {
+            detailsPaiement.setIdTransaction(generateTransactionId());
+        }
+
+        DetailsPaiement savedDetailsPaiement = detailsPaiementRepository.save(detailsPaiement);
 
         facture.setStatutPaiement(request.statutPaiement());
         facture.setDatePaiement(request.dateDetailsPaiement());
         factureRepository.save(facture);
 
-        return detailsPaiementMapper.modelToDto(detailsPaiementSave);
+        return detailsPaiementMapper.modelToDto(savedDetailsPaiement);
     }
 
     @Override
     public DetailsPaiementResponse getByPublicId(UUID publicId) {
-
         DetailsPaiement detailsPaiement = detailsPaiementRepository.findByPublicIdAndStatusDelFalse(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Détail paiement introuvable"));
 
@@ -89,8 +120,9 @@ public class DetailsPaiementServiceImpl implements DetailsPaiementService {
         Facture facture = factureRepository.findByPublicIdAndStatusDelFalse(request.facturePublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Facture introuvable"));
 
-        if (facture.getDemande().getTypePaiement() == null ||
-                !facture.getDemande().getTypePaiement().getPublicId().equals(typePaiement.getPublicId())) {
+        if (facture.getDemande() == null
+                || facture.getDemande().getTypePaiement() == null
+                || !facture.getDemande().getTypePaiement().getPublicId().equals(typePaiement.getPublicId())) {
             throw new IllegalArgumentException("Le type de paiement ne correspond pas à la demande");
         }
 
@@ -105,13 +137,17 @@ public class DetailsPaiementServiceImpl implements DetailsPaiementService {
         detailsPaiement.setTypePaiement(typePaiement);
         detailsPaiement.setFacture(facture);
 
-        DetailsPaiement detailsPaiementUpdate = detailsPaiementRepository.save(detailsPaiement);
+        if (detailsPaiement.getIdTransaction() == null || detailsPaiement.getIdTransaction().isBlank()) {
+            detailsPaiement.setIdTransaction(generateTransactionId());
+        }
+
+        DetailsPaiement updatedDetailsPaiement = detailsPaiementRepository.save(detailsPaiement);
 
         facture.setStatutPaiement(request.statutPaiement());
         facture.setDatePaiement(request.dateDetailsPaiement());
         factureRepository.save(facture);
 
-        return detailsPaiementMapper.modelToDto(detailsPaiementUpdate);
+        return detailsPaiementMapper.modelToDto(updatedDetailsPaiement);
     }
 
     @Override
@@ -129,5 +165,9 @@ public class DetailsPaiementServiceImpl implements DetailsPaiementService {
             facture.setDatePaiement(null);
             factureRepository.save(facture);
         }
+    }
+
+    private String generateTransactionId() {
+        return "TXN-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
 }

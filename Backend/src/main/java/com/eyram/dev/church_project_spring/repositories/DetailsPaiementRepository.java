@@ -13,5 +13,7 @@ public interface DetailsPaiementRepository extends JpaRepository<DetailsPaiement
 
     List<DetailsPaiement> findAllByStatusDelFalse();
 
+    Optional<DetailsPaiement> findByFacturePublicId(UUID facturePublicId);
+
     Optional<DetailsPaiement> findByFacturePublicIdAndStatusDelFalse(UUID facturePublicId);
 }

@@ -11,11 +11,17 @@ import java.util.UUID;
 
 public interface DemandeDateRepository extends JpaRepository<DemandeDate, Long> {
 
+    List<DemandeDate> findByDemandeAndStatusDelFalseOrderByOrdreAsc(Demande demande);
+
     Optional<DemandeDate> findByPublicIdAndStatusDelFalse(UUID publicId);
 
     List<DemandeDate> findByStatusDelFalse();
 
-    List<DemandeDate> findByDemandeAndStatusDelFalseOrderByOrdreAsc(Demande demande);
+    List<DemandeDate> findByDemandePublicIdAndStatusDelFalse(UUID demandePublicId);
+
+    List<DemandeDate> findByDemande_Id(Long demandeId);
+
+    List<DemandeDate> findByDemande_IdAndStatusDelFalse(Long demandeId);
 
     boolean existsByDemandeAndOrdreAndStatusDelFalse(Demande demande, Integer ordre);
 

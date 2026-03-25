@@ -4,6 +4,8 @@ import com.eyram.dev.church_project_spring.DTO.request.DemandeRequest;
 import com.eyram.dev.church_project_spring.DTO.response.DemandeResponse;
 import com.eyram.dev.church_project_spring.entities.*;
 import com.eyram.dev.church_project_spring.enums.StatutDemandeEnum;
+import com.eyram.dev.church_project_spring.enums.StatutPaiementEnum;
+import com.eyram.dev.church_project_spring.enums.StatutValidationEnum;
 import com.eyram.dev.church_project_spring.mappers.DemandeMapper;
 import com.eyram.dev.church_project_spring.repositories.*;
 import com.eyram.dev.church_project_spring.service.DemandeService;
@@ -11,9 +13,12 @@ import com.eyram.dev.church_project_spring.utils.exception.ResourceNotFoundExcep
 import com.eyram.dev.church_project_spring.utils.exception.TrackingIdNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -29,10 +34,13 @@ public class DemandeServiceImpl implements DemandeService {
     private final UserRepository userRepository;
     private final DemandeMapper demandeMapper;
     private final TypePaiementRepository typePaiementRepository;
+    private final FactureRepository factureRepository;
+    private final DetailsPaiementRepository detailsPaiementRepository;
+    private final DemandeDateRepository demandeDateRepository;
 
+    @Transactional
     @Override
     public DemandeResponse create(DemandeRequest request) {
-
 
         Paroisse paroisse = paroisseRepository.findByPublicIdAndStatusDelFalse(request.paroissePublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Paroisse introuvable"));
@@ -68,6 +76,8 @@ public class DemandeServiceImpl implements DemandeService {
         TypePaiement typePaiement = typePaiementRepository.findByPublicIdAndStatusDelFalse(request.typePaiementPublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Type de paiement introuvable"));
 
+        validateDates(request, forfaitTarif);
+
         Demande demande = demandeMapper.dtoToModel(request);
         demande.setParoisse(paroisse);
         demande.setTypeDemande(typeDemande);
@@ -78,10 +88,25 @@ public class DemandeServiceImpl implements DemandeService {
         demande.setMontant(forfaitTarif.getMontantForfait());
         demande.setCodeSuivie(generateTrackingCode());
 
+        applyInitialStatuses(demande, forfaitTarif);
+
         Demande savedDemande = demandeRepository.save(demande);
-        return demandeMapper.modelToDto(savedDemande);
+
+        generateDemandeDates(savedDemande, request);
+
+        Facture facture = new Facture();
+        facture.setDemande(savedDemande);
+        facture.setMontant(savedDemande.getMontant().intValue());
+        facture.setStatutPaiement(savedDemande.getStatutPaiement());
+        facture.setDatePaiement(null);
+        facture.setRefFacture(generateFactureReference());
+
+        factureRepository.save(facture);
+
+        return buildDemandeResponse(savedDemande);
     }
 
+    @Transactional
     @Override
     public DemandeResponse update(UUID publicId, DemandeRequest request) {
 
@@ -118,6 +143,7 @@ public class DemandeServiceImpl implements DemandeService {
         }
 
         validateHoraire(request.heurePersonnalisee(), horaire, forfaitTarif);
+        validateDates(request, forfaitTarif);
 
         TypePaiement typePaiement = typePaiementRepository.findByPublicIdAndStatusDelFalse(request.typePaiementPublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Type de paiement introuvable"));
@@ -131,8 +157,22 @@ public class DemandeServiceImpl implements DemandeService {
         existingDemande.setTypePaiement(typePaiement);
         existingDemande.setMontant(forfaitTarif.getMontantForfait());
 
+        applyInitialStatuses(existingDemande, forfaitTarif);
+
         Demande updatedDemande = demandeRepository.save(existingDemande);
-        return demandeMapper.modelToDto(updatedDemande);
+
+        refreshDemandeDates(updatedDemande, request);
+
+        Facture facture = factureRepository.findByDemandePublicIdAndStatusDelFalse(publicId)
+                .orElse(null);
+
+        if (facture != null) {
+            facture.setMontant(updatedDemande.getMontant().intValue());
+            facture.setStatutPaiement(updatedDemande.getStatutPaiement());
+            factureRepository.save(facture);
+        }
+
+        return buildDemandeResponse(updatedDemande);
     }
 
     @Override
@@ -140,7 +180,7 @@ public class DemandeServiceImpl implements DemandeService {
         Demande demande = demandeRepository.findByPublicIdAndStatusDelFalse(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Demande introuvable"));
 
-        return demandeMapper.modelToDto(demande);
+        return buildDemandeResponse(demande);
     }
 
     @Override
@@ -148,14 +188,14 @@ public class DemandeServiceImpl implements DemandeService {
         Demande demande = demandeRepository.findByCodeSuivieAndStatusDelFalse(codeSuivie)
                 .orElseThrow(() -> new TrackingIdNotFoundException("Code de suivi introuvable"));
 
-        return demandeMapper.modelToDto(demande);
+        return buildDemandeResponse(demande);
     }
 
     @Override
     public List<DemandeResponse> getAll() {
         return demandeRepository.findByStatusDelFalse()
                 .stream()
-                .map(demandeMapper::modelToDto)
+                .map(this::buildDemandeResponse)
                 .toList();
     }
 
@@ -166,7 +206,7 @@ public class DemandeServiceImpl implements DemandeService {
 
         return demandeRepository.findByParoisseAndStatusDelFalse(paroisse)
                 .stream()
-                .map(demandeMapper::modelToDto)
+                .map(this::buildDemandeResponse)
                 .toList();
     }
 
@@ -177,7 +217,7 @@ public class DemandeServiceImpl implements DemandeService {
 
         return demandeRepository.findByParoisseAndStatutDemandeAndStatusDelFalse(paroisse, statutDemande)
                 .stream()
-                .map(demandeMapper::modelToDto)
+                .map(this::buildDemandeResponse)
                 .toList();
     }
 
@@ -188,6 +228,147 @@ public class DemandeServiceImpl implements DemandeService {
 
         demande.setStatusDel(true);
         demandeRepository.save(demande);
+    }
+
+    @Override
+    public List<DemandeResponse> getByTypePaiement(UUID typePaiementPublicId) {
+        return demandeRepository.findByTypePaiementPublicIdAndStatusDelFalse(typePaiementPublicId)
+                .stream()
+                .map(this::buildDemandeResponse)
+                .toList();
+    }
+
+    private void applyInitialStatuses(Demande demande, ForfaitTarif forfaitTarif) {
+        boolean isSpecialRequest = forfaitTarif.getNomForfait() != null
+                && forfaitTarif.getNomForfait().trim().equalsIgnoreCase("Messe spéciale");
+
+        if (isSpecialRequest) {
+            demande.setStatutValidation(StatutValidationEnum.EN_ATTENTE);
+            demande.setStatutDemande(StatutDemandeEnum.EN_ATTENTE);
+        } else {
+            demande.setStatutValidation(StatutValidationEnum.VALIDEE);
+            demande.setStatutDemande(StatutDemandeEnum.VALIDEE);
+        }
+
+        demande.setStatutPaiement(StatutPaiementEnum.NON_PAYE);
+    }
+
+    private void validateDates(DemandeRequest request, ForfaitTarif forfaitTarif) {
+        Integer nombreCelebrations = forfaitTarif.getNombreCelebration();
+
+        if (nombreCelebrations == null || nombreCelebrations <= 0) {
+            throw new IllegalArgumentException("Le forfait ne définit pas un nombre valide de célébrations");
+        }
+
+        if (request.dateDebut() == null) {
+            throw new IllegalArgumentException("La date de début est obligatoire");
+        }
+    }
+
+    private void generateDemandeDates(Demande demande, DemandeRequest request) {
+        Integer nombreCelebrations = demande.getForfaitTarif().getNombreCelebration();
+
+        if (nombreCelebrations == null || nombreCelebrations <= 0) {
+            return;
+        }
+
+        List<DemandeDate> demandeDates = new ArrayList<>();
+
+        for (int i = 1; i <= nombreCelebrations; i++) {
+            DemandeDate demandeDate = new DemandeDate();
+            demandeDate.setDemande(demande);
+            demandeDate.setOrdre(i);
+            demandeDate.setDateCelebration(request.dateDebut().plusDays(i - 1));
+            demandeDates.add(demandeDate);
+        }
+
+        demandeDateRepository.saveAll(demandeDates);
+    }
+
+    private void refreshDemandeDates(Demande demande, DemandeRequest request) {
+        List<DemandeDate> anciennesDates =
+                demandeDateRepository.findByDemande_IdAndStatusDelFalse(demande.getId());
+
+        if (!anciennesDates.isEmpty()) {
+            anciennesDates.forEach(item -> item.setStatusDel(true));
+            demandeDateRepository.saveAll(anciennesDates);
+        }
+
+        generateDemandeDates(demande, request);
+    }
+
+    private DemandeResponse buildDemandeResponse(Demande demande) {
+        DemandeResponse base = demandeMapper.modelToDto(demande);
+
+        UUID facturePublicId = null;
+        String refFacture = null;
+        LocalDateTime dateDetailsPaiement = null;
+        String idTransaction = null;
+        String numero = null;
+
+        Facture facture = factureRepository.findByDemandePublicIdAndStatusDelFalse(demande.getPublicId())
+                .orElse(null);
+
+        if (facture != null) {
+            facturePublicId = facture.getPublicId();
+            refFacture = facture.getRefFacture();
+
+            DetailsPaiement details = detailsPaiementRepository
+                    .findByFacturePublicIdAndStatusDelFalse(facture.getPublicId())
+                    .orElse(null);
+
+            if (details != null) {
+                dateDetailsPaiement = details.getDateDetailsPaiement();
+                idTransaction = details.getIdTransaction();
+                numero = details.getNumero();
+            }
+        }
+
+        return new DemandeResponse(
+                base.publicId(),
+                base.intention(),
+                base.codeSuivie(),
+                base.nomFidele(),
+                base.prenomFidele(),
+                base.telFidele(),
+                base.emailFidele(),
+                base.montant(),
+                base.nomCoursier(),
+                base.statutPaiement(),
+                base.statutValidation(),
+                base.validateBy(),
+                base.heurePersonnalisee(),
+                base.statutDemande(),
+
+                base.paroissePublicId(),
+                base.paroisseNom(),
+
+                base.typeDemandePublicId(),
+                base.typeDemandeLibelle(),
+
+                base.forfaitTarifPublicId(),
+                base.forfaitTarifNom(),
+
+                base.horairePublicId(),
+                base.horaireLibelle(),
+
+                base.userPublicId(),
+                base.username(),
+
+                base.typePaiementPublicId(),
+                base.typePaiementLibelle(),
+                base.modePaiement(),
+
+                base.statusDel(),
+                base.createdAt(),
+                base.updatedAt(),
+
+                facturePublicId,
+                refFacture,
+                dateDetailsPaiement,
+                idTransaction,
+                numero
+        );
     }
 
     private void validateHoraire(LocalTime heurePersonnalisee, Horaire horaire, ForfaitTarif forfaitTarif) {
@@ -208,16 +389,16 @@ public class DemandeServiceImpl implements DemandeService {
     private String generateTrackingCode() {
         String code;
         do {
-            code = "DEM" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+            code = "DEM-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         } while (demandeRepository.existsByCodeSuivieAndStatusDelFalse(code));
         return code;
     }
 
-    @Override
-    public List<DemandeResponse> getByTypePaiement(UUID typePaiementPublicId) {
-        return demandeRepository.findByTypePaiementPublicIdAndStatusDelFalse(typePaiementPublicId)
-                .stream()
-                .map(demandeMapper::modelToDto)
-                .toList();
+    private String generateFactureReference() {
+        String ref;
+        do {
+            ref = "FAC" + System.currentTimeMillis();
+        } while (factureRepository.findByRefFactureAndStatusDelFalse(ref).isPresent());
+        return ref;
     }
 }

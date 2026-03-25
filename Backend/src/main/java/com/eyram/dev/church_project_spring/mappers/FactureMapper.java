@@ -22,6 +22,9 @@ public interface FactureMapper {
     @Mapping(target = "codeSuivieDemande", source = "demande.codeSuivie")
     @Mapping(target = "nomFidele", source = "demande.nomFidele")
     @Mapping(target = "prenomFidele", source = "demande.prenomFidele")
+    @Mapping(target = "typePaiementPublicId", source = "demande.typePaiement.publicId")
+    @Mapping(target = "typePaiementLibelle", source = "demande.typePaiement.libelle")
+    @Mapping(target = "modePaiement", source = "demande.typePaiement.mode")
     FactureResponse modelToDto(Facture facture);
 
     @Mapping(target = "id", ignore = true)

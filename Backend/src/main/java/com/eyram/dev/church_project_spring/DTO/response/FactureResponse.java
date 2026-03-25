@@ -1,5 +1,6 @@
 package com.eyram.dev.church_project_spring.DTO.response;
 
+import com.eyram.dev.church_project_spring.enums.ModePaiement;
 import com.eyram.dev.church_project_spring.enums.StatutPaiementEnum;
 
 import java.time.LocalDateTime;
@@ -11,9 +12,14 @@ public record FactureResponse(
         LocalDateTime datePaiement,
         Integer montant,
         StatutPaiementEnum statutPaiement,
+
         UUID demandePublicId,
         String codeSuivieDemande,
         String nomFidele,
-        String prenomFidele
+        String prenomFidele,
+
+        UUID typePaiementPublicId,
+        String typePaiementLibelle,
+        ModePaiement modePaiement
 ) {
 }

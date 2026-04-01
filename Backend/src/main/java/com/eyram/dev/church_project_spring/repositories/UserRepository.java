@@ -16,4 +16,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByUsernameAndStatusDelFalse(String username);
 
     List<User> findByStatusDelFalse();
+
+    long countByStatusDelFalse();
 }

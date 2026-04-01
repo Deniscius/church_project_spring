@@ -1,5 +1,6 @@
 package com.eyram.dev.church_project_spring.DTO.request;
 
+import com.eyram.dev.church_project_spring.enums.UserRole;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -25,7 +26,9 @@ public record UserRequest(
         Boolean isGlobal,
 
         @NotNull(message = "Le statut actif est obligatoire")
-        Boolean isActive
+        Boolean isActive,
+
+        UserRole role
 
 ) {
 }

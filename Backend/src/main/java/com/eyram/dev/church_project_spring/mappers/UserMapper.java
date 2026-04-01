@@ -16,6 +16,7 @@ public interface UserMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "statusDel", ignore = true)
+    @Mapping(target = "role", expression = "java(request.role() != null ? request.role() : com.eyram.dev.church_project_spring.enums.UserRole.USER)")
     User toEntity(UserRequest request);
 
     @Mapping(target = "fullName", expression = "java(user.getFullName())")
@@ -27,5 +28,6 @@ public interface UserMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "statusDel", ignore = true)
+    @Mapping(target = "role", expression = "java(request.role() != null ? request.role() : user.getRole())")
     void updateEntityFromRequest(UserRequest request, @MappingTarget User user);
 }

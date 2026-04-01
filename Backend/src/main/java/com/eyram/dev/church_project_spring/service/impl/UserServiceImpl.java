@@ -49,6 +49,9 @@ public class UserServiceImpl implements UserService {
         }
 
         userMapper.updateEntityFromRequest(request, user);
+        if (request.role() != null) {
+            user.setRole(request.role());
+        }
         user.setPassword(passwordEncoder.encode(request.password()));
 
         User updatedUser = userRepository.save(user);

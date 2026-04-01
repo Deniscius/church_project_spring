@@ -1,5 +1,6 @@
 package com.eyram.dev.church_project_spring.entities;
 
+import com.eyram.dev.church_project_spring.enums.UserRole;
 import com.eyram.dev.church_project_spring.utils.BaseEntity;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
@@ -50,6 +51,10 @@ public class User extends BaseEntity implements Serializable {
 
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role", nullable = false, length = 32, columnDefinition = "varchar(32) default 'USER'")
+    private UserRole role = UserRole.USER;
 
     @JsonIgnore
     @OneToMany(mappedBy = "user")

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Route } from 'react-router-dom';
 import PublicLayout from '../../layouts/PublicLayout';
+import PublicDemandeDraftLayout from './PublicDemandeDraftLayout';
 import HomePage from '../../pages/public/HomePage';
 import NewRequestPage from '../../pages/public/NewRequestPage';
 import RequestRecapPage from '../../pages/public/RequestRecapPage';
@@ -14,9 +15,11 @@ export function PublicRoutes() {
   return (
     <Route element={<PublicLayout />}>
       <Route path="/" element={<HomePage />} />
-      <Route path="/demande" element={<NewRequestPage />} />
-      <Route path="/demande/recapitulatif" element={<RequestRecapPage />} />
-      <Route path="/demande/confirmation" element={<RequestConfirmationPage />} />
+      <Route element={<PublicDemandeDraftLayout />}>
+        <Route path="/demande" element={<NewRequestPage />} />
+        <Route path="/demande/recapitulatif" element={<RequestRecapPage />} />
+        <Route path="/demande/confirmation" element={<RequestConfirmationPage />} />
+      </Route>
       <Route path="/suivi" element={<TrackingPage />} />
       <Route path="/suivi/resultat" element={<TrackingResultPage />} />
       <Route path="/facture/:codeSuivie" element={<PublicInvoicePage />} />

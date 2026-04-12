@@ -1,6 +1,20 @@
-import { mockRequestTypes } from '../data/mockData';
+import { apiClient } from './http/apiClient';
 
 export const requestTypeService = {
-  getAll: async () => mockRequestTypes,
-  getById: async (id) => mockRequestTypes.find((item) => item.id === Number(id)),
+  getAll: () => apiClient('/type-demandes', {}, { auth: true }),
+
+  getByParish: (paroissePublicId) =>
+    apiClient(`/type-demandes/paroisse/${paroissePublicId}`, {}, { auth: true }),
+
+  /** Référentiel public (sans JWT) */
+  getByParishPublic: (paroissePublicId) =>
+    apiClient(`/type-demandes/paroisse/${paroissePublicId}`, {}, { auth: false }),
+
+  getById: (publicId) => apiClient(`/type-demandes/${publicId}`, {}, { auth: true }),
+
+  create: (payload) =>
+    apiClient('/type-demandes', { method: 'POST', body: JSON.stringify(payload) }, { auth: true }),
+
+  update: (publicId, payload) =>
+    apiClient(`/type-demandes/${publicId}`, { method: 'PUT', body: JSON.stringify(payload) }, { auth: true }),
 };

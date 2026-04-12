@@ -1,3 +1,6 @@
+import { apiClient } from './http/apiClient';
+
 export const requestDateService = {
-  createMany: async (payload) => payload,
+  getByDemande: (demandePublicId) =>
+    apiClient(`/demande-dates/demande/${demandePublicId}`, {}, { auth: false }),
 };

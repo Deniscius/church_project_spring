@@ -1,5 +1,6 @@
 export const ROLES = {
   ADMIN: 'ADMIN',
+  USER: 'USER',
   GESTIONNAIRE: 'GESTIONNAIRE',
   SECRETAIRE: 'SECRETAIRE',
   CONSULTATION: 'CONSULTATION',
@@ -7,7 +8,8 @@ export const ROLES = {
 };
 
 export const ROLE_LABELS = {
-  ADMIN: 'Administrateur paroisse',
+  ADMIN: 'Administrateur',
+  USER: 'Utilisateur',
   GESTIONNAIRE: 'Gestionnaire',
   SECRETAIRE: 'Secrétaire',
   CONSULTATION: 'Consultation',

@@ -1,9 +1,9 @@
 import React from 'react';
 
-export default function AppButton({ children, variant = 'primary', type = 'button' }) {
+export default function AppButton({ children, variant = 'primary', type = 'button', ...rest }) {
   const className = variant === 'secondary' ? 'btn btn-secondary' : 'btn btn-primary';
   return (
-    <button type={type} className={className}>
+    <button type={type} className={className} {...rest}>
       {children}
     </button>
   );

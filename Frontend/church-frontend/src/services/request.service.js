@@ -1,10 +1,21 @@
-import { mockRequests } from '../data/mockData';
+import { apiClient } from './http/apiClient';
 
 export const requestService = {
-  getAll: async () => mockRequests,
-  getById: async (id) => mockRequests.find((item) => item.id === Number(id)),
-  getByTrackingCode: async (code) => mockRequests.find((item) => item.trackingCode === code),
-  create: async (payload) => payload,
-  update: async (id, payload) => ({ id, ...payload }),
-  remove: async (id) => id,
+  getAll: () => apiClient('/demandes', {}, { auth: true }),
+
+  getByParish: (paroissePublicId) =>
+    apiClient(`/demandes/paroisse/${paroissePublicId}`, {}, { auth: true }),
+
+  getById: (publicId) => apiClient(`/demandes/${publicId}`, {}, { auth: true }),
+
+  getByTrackingCode: (code) =>
+    apiClient(`/demandes/code/${encodeURIComponent(code)}`, {}, { auth: false }),
+
+  create: (payload) =>
+    apiClient('/demandes', { method: 'POST', body: JSON.stringify(payload) }, { auth: false }),
+
+  update: (publicId, payload) =>
+    apiClient(`/demandes/${publicId}`, { method: 'PUT', body: JSON.stringify(payload) }, { auth: true }),
+
+  remove: (publicId) => apiClient(`/demandes/${publicId}`, { method: 'DELETE' }, { auth: true }),
 };

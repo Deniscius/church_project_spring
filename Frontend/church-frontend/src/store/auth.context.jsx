@@ -1,31 +1,47 @@
 import { createContext, useContext, useMemo, useState } from 'react';
-import { mockParish, mockUser } from '../data/mockData';
+import { setActiveParishId } from '../constants/authStorage';
+import { authService } from '../services/auth.service';
+import { mapJwtToUser } from '../utils/mapJwtToUser';
 
 const AuthContext = createContext(null);
 
+function initialSession() {
+  const persisted = authService.getPersistedSession();
+  if (persisted) {
+    return {
+      isAuthenticated: true,
+      user: persisted.user,
+      token: persisted.token,
+    };
+  }
+  return {
+    isAuthenticated: false,
+    user: null,
+    token: null,
+  };
+}
+
 export function AuthProvider({ children }) {
-  const [session, setSession] = useState({
-    isAuthenticated: true,
-    user: mockUser,
-    token: 'demo-token',
-  });
+  const [session, setSession] = useState(initialSession);
 
   const login = async (payload) => {
-    const updatedUser = {
-      ...mockUser,
-      username: payload?.username || mockUser.username,
-    };
-
+    const jwt = await authService.login({
+      username: payload.username,
+      password: payload.password,
+    });
+    const user = mapJwtToUser(jwt);
+    authService.persistSession(jwt.accessToken, user);
     setSession({
       isAuthenticated: true,
-      user: updatedUser,
-      token: 'demo-token',
+      user,
+      token: jwt.accessToken,
     });
-
-    return { user: updatedUser, parish: mockParish };
+    return { user };
   };
 
   const logout = () => {
+    setActiveParishId(null);
+    authService.logout();
     setSession({
       isAuthenticated: false,
       user: null,

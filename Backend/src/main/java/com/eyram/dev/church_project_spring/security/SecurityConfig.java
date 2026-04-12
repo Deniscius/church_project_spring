@@ -6,6 +6,7 @@ import com.eyram.dev.church_project_spring.security.jwt.JwtUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -64,6 +65,18 @@ public class SecurityConfig {
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers("/error").permitAll()
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        /* Parcours public : dépôt et consultation par code */
+                        .requestMatchers(HttpMethod.POST, "/demandes").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/demandes/code/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/facture/code-suivie/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/details-paiement/code-suivie/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/paroisses/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/type-demandes/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/forfait-tarifs/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/horaires/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/type-paiement/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/demande-dates/demande/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .authenticationProvider(authenticationProvider)

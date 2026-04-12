@@ -1,5 +1,10 @@
-import { mockLocalities } from '../data/mockData';
+import { apiClient } from './http/apiClient';
 
 export const localityService = {
-  getAll: async () => mockLocalities,
+  getAll: () => apiClient('/localites', {}, { auth: true }),
+
+  getById: (publicId) => apiClient(`/localites/${publicId}`, {}, { auth: true }),
+
+  create: (payload) =>
+    apiClient('/localites', { method: 'POST', body: JSON.stringify(payload) }, { auth: true }),
 };

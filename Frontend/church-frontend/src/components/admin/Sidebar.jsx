@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useTenant } from '../../hooks/useTenant';
 import { formatRole } from '../../utils/roleMapper';
 
-const menu = [
+const parishMenu = [
   { to: '/admin/dashboard', label: 'Dashboard' },
   { to: '/admin/demandes', label: 'Demandes' },
   { to: '/admin/paiements', label: 'Paiements' },
@@ -13,6 +13,9 @@ const menu = [
   { to: '/admin/types-demandes', label: 'Types de demande' },
   { to: '/admin/forfaits', label: 'Forfaits' },
   { to: '/admin/profil', label: 'Profil' },
+];
+
+const superMenu = [
   { to: '/admin/paroisses', label: 'Paroisses' },
   { to: '/admin/utilisateurs', label: 'Utilisateurs' },
   { to: '/admin/acces-paroisses', label: 'Accès paroisses' },
@@ -23,6 +26,8 @@ const menu = [
 export default function Sidebar() {
   const { user } = useAuth();
   const { activeParish } = useTenant();
+  const showSuper = user?.role === 'ADMIN';
+  const menu = showSuper ? [...parishMenu, ...superMenu] : parishMenu;
 
   return (
     <aside className="sidebar">

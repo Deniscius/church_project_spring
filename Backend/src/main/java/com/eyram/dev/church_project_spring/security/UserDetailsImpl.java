@@ -39,7 +39,7 @@ public class UserDetailsImpl implements UserDetails {
     }
 
     public static UserDetailsImpl build(User user) {
-        UserRole role = user.getRole() != null ? user.getRole() : UserRole.USER;
+        UserRole role = user.getRole();
         List<GrantedAuthority> authorities = List.of(
                 new SimpleGrantedAuthority("ROLE_" + role.name())
         );

@@ -1,17 +1,29 @@
 package com.eyram.dev.church_project_spring.entities;
 
-import com.eyram.dev.church_project_spring.enums.UserRole;
-import com.eyram.dev.church_project_spring.utils.BaseEntity;
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
-import org.hibernate.annotations.UuidGenerator;
-
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+
+import org.hibernate.annotations.UuidGenerator;
+
+import com.eyram.dev.church_project_spring.enums.UserRole;
+import com.eyram.dev.church_project_spring.utils.BaseEntity;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
+import jakarta.persistence.UniqueConstraint;
+import lombok.Getter;
+import lombok.Setter;
 
 @Entity
 @Table(
@@ -53,8 +65,8 @@ public class User extends BaseEntity implements Serializable {
     private Boolean isActive = true;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "role", nullable = false, length = 32, columnDefinition = "varchar(32) default 'USER'")
-    private UserRole role = UserRole.USER;
+    @Column(name = "role", nullable = false, length = 32)
+    private UserRole role;
 
     @JsonIgnore
     @OneToMany(mappedBy = "user")

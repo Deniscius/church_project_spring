@@ -2,8 +2,8 @@
  * Adapte la réponse JWT du backend vers le modèle utilisateur attendu par l’UI.
  */
 export function mapJwtToUser(jwt) {
-  const rawRole = jwt.roles?.[0] ?? 'ROLE_USER';
-  const role = String(rawRole).replace(/^ROLE_/, '') || 'USER';
+  const rawRole = jwt.roles?.[0];
+  const role = String(rawRole).replace(/^ROLE_/, '');
 
   const full = (jwt.fullName || '').trim();
   const space = full.indexOf(' ');

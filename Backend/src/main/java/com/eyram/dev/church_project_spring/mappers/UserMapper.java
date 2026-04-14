@@ -1,11 +1,12 @@
 package com.eyram.dev.church_project_spring.mappers;
 
-import com.eyram.dev.church_project_spring.DTO.request.UserRequest;
-import com.eyram.dev.church_project_spring.DTO.response.UserResponse;
-import com.eyram.dev.church_project_spring.entities.User;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
+
+import com.eyram.dev.church_project_spring.DTO.request.UserRequest;
+import com.eyram.dev.church_project_spring.DTO.response.UserResponse;
+import com.eyram.dev.church_project_spring.entities.User;
 
 @Mapper(componentModel = "spring")
 public interface UserMapper {
@@ -16,7 +17,6 @@ public interface UserMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "statusDel", ignore = true)
-    @Mapping(target = "role", expression = "java(request.role() != null ? request.role() : com.eyram.dev.church_project_spring.enums.UserRole.USER)")
     User toEntity(UserRequest request);
 
     @Mapping(target = "fullName", expression = "java(user.getFullName())")

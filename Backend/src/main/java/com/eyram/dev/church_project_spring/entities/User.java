@@ -1,10 +1,10 @@
 package com.eyram.dev.church_project_spring.entities;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+import org.hibernate.annotations.Check;
 import org.hibernate.annotations.UuidGenerator;
 
 import com.eyram.dev.church_project_spring.enums.UserRole;
@@ -35,7 +35,7 @@ import lombok.Setter;
 )
 @Getter
 @Setter
-public class User extends BaseEntity implements Serializable {
+public class User extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -66,6 +66,7 @@ public class User extends BaseEntity implements Serializable {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false, length = 32)
+    @Check(constraints = "(role IN ('SECRETAIRE', 'CURE', 'ADMIN', 'SUPER_ADMIN'))")
     private UserRole role;
 
     @JsonIgnore

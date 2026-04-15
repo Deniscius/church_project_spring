@@ -19,7 +19,8 @@ public interface UserMapper {
     @Mapping(target = "statusDel", ignore = true)
     User toEntity(UserRequest request);
 
-    @Mapping(target = "fullName", expression = "java(user.getFullName())")
+    @Mapping(target = "publicId", source = "publicId")
+    @Mapping(target = "paroisses", source = "paroisseAccesses")
     UserResponse toResponse(User user);
 
     @Mapping(target = "id", ignore = true)

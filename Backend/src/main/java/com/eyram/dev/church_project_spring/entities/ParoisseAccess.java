@@ -1,14 +1,26 @@
 package com.eyram.dev.church_project_spring.entities;
 
-import com.eyram.dev.church_project_spring.enums.RoleParoisse;
-import com.eyram.dev.church_project_spring.utils.BaseEntity;
-import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import java.util.UUID;
+
 import org.hibernate.annotations.UuidGenerator;
 
-import java.io.Serializable;
-import java.util.UUID;
+import com.eyram.dev.church_project_spring.enums.RoleParoisse;
+import com.eyram.dev.church_project_spring.utils.BaseEntity;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import lombok.Getter;
+import lombok.Setter;
 
 @Entity
 @Table(
@@ -19,7 +31,7 @@ import java.util.UUID;
 )
 @Getter
 @Setter
-public class ParoisseAccess extends BaseEntity implements Serializable {
+public class ParoisseAccess extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

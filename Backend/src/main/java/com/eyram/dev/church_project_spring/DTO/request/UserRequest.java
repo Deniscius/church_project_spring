@@ -1,6 +1,9 @@
 package com.eyram.dev.church_project_spring.DTO.request;
 
+import java.util.List;
+
 import com.eyram.dev.church_project_spring.enums.UserRole;
+
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -28,7 +31,9 @@ public record UserRequest(
         @NotNull(message = "Le statut actif est obligatoire")
         Boolean isActive,
 
-        UserRole role
+        UserRole role,
+
+        List<ParoisseAssignmentRequest> paroisses
 
 ) {
 }

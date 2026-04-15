@@ -26,7 +26,7 @@ export default function RoleGuard({
 
   // ✅ Si pas d'authentification, rediriger vers login
   if (!isAuthenticated || !user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/admin/login" replace />;
   }
 
   // ✅ Si pas de restrictions ou l'utilisateur a les bons rôles

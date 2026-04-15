@@ -26,7 +26,7 @@ export default function PermissionGuard({
 
   // ✅ Si pas d'authentification
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/admin/login" replace />;
   }
 
   // ✅ Si pas de restrictions

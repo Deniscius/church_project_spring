@@ -1,5 +1,6 @@
 package com.eyram.dev.church_project_spring.config;
 
+import com.eyram.dev.church_project_spring.enums.UserRole;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "app.admin-seed")
@@ -20,6 +21,11 @@ public class AdminSeedProperties {
     private String nom = "Administrateur";
 
     private String prenom = "Système";
+
+    /**
+     * Rôle du compte seed (SUPER_ADMIN recommandé pour le bootstrap).
+     */
+    private UserRole role = UserRole.SUPER_ADMIN;
 
     public boolean isEnabled() {
         return enabled;
@@ -59,5 +65,13 @@ public class AdminSeedProperties {
 
     public void setPrenom(String prenom) {
         this.prenom = prenom;
+    }
+
+    public UserRole getRole() {
+        return role;
+    }
+
+    public void setRole(UserRole role) {
+        this.role = role;
     }
 }

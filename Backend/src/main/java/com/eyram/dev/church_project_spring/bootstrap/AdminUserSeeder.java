@@ -56,12 +56,13 @@ public class AdminUserSeeder implements ApplicationRunner {
         admin.setPrenom(seedProperties.getPrenom());
         admin.setIsGlobal(true);
         admin.setIsActive(true);
-        admin.setRole(UserRole.ADMIN);
+        admin.setRole(seedProperties.getRole() != null ? seedProperties.getRole() : UserRole.SUPER_ADMIN);
 
         userRepository.save(admin);
 
         log.warn(
-                "Compte administrateur initial créé (username='{}'). Changez le mot de passe et désactivez app.admin-seed en production.",
-                admin.getUsername());
+                "Compte seed initial créé (username='{}', role='{}'). Changez le mot de passe et désactivez app.admin-seed en production.",
+                admin.getUsername(),
+                admin.getRole());
     }
 }

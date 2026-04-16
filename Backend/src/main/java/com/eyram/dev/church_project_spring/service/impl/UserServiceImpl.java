@@ -9,14 +9,17 @@ import com.eyram.dev.church_project_spring.service.UserService;
 import com.eyram.dev.church_project_spring.utils.exception.AlreadyExistException;
 import com.eyram.dev.church_project_spring.utils.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
@@ -49,16 +52,21 @@ public class UserServiceImpl implements UserService {
         }
 
         userMapper.updateEntityFromRequest(request, user);
+
         if (request.role() != null) {
             user.setRole(request.role());
         }
-        user.setPassword(passwordEncoder.encode(request.password()));
+
+        if (StringUtils.hasText(request.password())) {
+            user.setPassword(passwordEncoder.encode(request.password()));
+        }
 
         User updatedUser = userRepository.save(user);
         return userMapper.toResponse(updatedUser);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public UserResponse getByPublicId(UUID publicId) {
         User user = userRepository.findByPublicIdAndStatusDelFalse(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur introuvable"));
@@ -67,10 +75,10 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<UserResponse> getAll() {
-        return userRepository.findAll()
+        return userRepository.findByStatusDelFalse()
                 .stream()
-                .filter(user -> Boolean.FALSE.equals(user.getStatusDel()))
                 .map(userMapper::toResponse)
                 .toList();
     }
@@ -80,6 +88,7 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findByPublicIdAndStatusDelFalse(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur introuvable"));
 
+        user.setIsActive(false);
         user.setStatusDel(true);
         userRepository.save(user);
     }

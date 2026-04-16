@@ -8,6 +8,7 @@ import com.eyram.dev.church_project_spring.enums.StatutPaiementEnum;
 import com.eyram.dev.church_project_spring.enums.StatutValidationEnum;
 import com.eyram.dev.church_project_spring.mappers.DemandeMapper;
 import com.eyram.dev.church_project_spring.repositories.*;
+import com.eyram.dev.church_project_spring.security.TenantAccessService;
 import com.eyram.dev.church_project_spring.service.DemandeService;
 import com.eyram.dev.church_project_spring.utils.exception.ResourceNotFoundException;
 import com.eyram.dev.church_project_spring.utils.exception.TrackingIdNotFoundException;
@@ -15,7 +16,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -24,6 +24,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class DemandeServiceImpl implements DemandeService {
 
     private final DemandeRepository demandeRepository;
@@ -37,8 +38,8 @@ public class DemandeServiceImpl implements DemandeService {
     private final FactureRepository factureRepository;
     private final DetailsPaiementRepository detailsPaiementRepository;
     private final DemandeDateRepository demandeDateRepository;
+    private final TenantAccessService tenantAccessService;
 
-    @Transactional
     @Override
     public DemandeResponse create(DemandeRequest request) {
 
@@ -106,15 +107,18 @@ public class DemandeServiceImpl implements DemandeService {
         return buildDemandeResponse(savedDemande);
     }
 
-    @Transactional
     @Override
     public DemandeResponse update(UUID publicId, DemandeRequest request) {
 
         Demande existingDemande = demandeRepository.findByPublicIdAndStatusDelFalse(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Demande introuvable"));
 
+        tenantAccessService.checkParoisseAccess(existingDemande.getParoisse());
+
         Paroisse paroisse = paroisseRepository.findByPublicIdAndStatusDelFalse(request.paroissePublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Paroisse introuvable"));
+
+        tenantAccessService.checkParoisseAccess(paroisse);
 
         TypeDemande typeDemande = typeDemandeRepository.findByPublicIdAndStatusDelFalse(request.typeDemandePublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Type de demande introuvable"));
@@ -176,14 +180,18 @@ public class DemandeServiceImpl implements DemandeService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public DemandeResponse getByPublicId(UUID publicId) {
         Demande demande = demandeRepository.findByPublicIdAndStatusDelFalse(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Demande introuvable"));
+
+        tenantAccessService.checkParoisseAccess(demande.getParoisse());
 
         return buildDemandeResponse(demande);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public DemandeResponse getByCodeSuivie(String codeSuivie) {
         Demande demande = demandeRepository.findByCodeSuivieAndStatusDelFalse(codeSuivie)
                 .orElseThrow(() -> new TrackingIdNotFoundException("Code de suivi introuvable"));
@@ -192,17 +200,31 @@ public class DemandeServiceImpl implements DemandeService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<DemandeResponse> getAll() {
+        if (tenantAccessService.isGlobalUser()) {
+            return demandeRepository.findByStatusDelFalse()
+                    .stream()
+                    .map(this::buildDemandeResponse)
+                    .toList();
+        }
+
+        User currentUser = tenantAccessService.getCurrentUser();
+
         return demandeRepository.findByStatusDelFalse()
                 .stream()
+                .filter(demande -> tenantAccessService.canAccessParoisse(demande.getParoisse()))
                 .map(this::buildDemandeResponse)
                 .toList();
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<DemandeResponse> getByParoisse(UUID paroissePublicId) {
         Paroisse paroisse = paroisseRepository.findByPublicIdAndStatusDelFalse(paroissePublicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Paroisse introuvable"));
+
+        tenantAccessService.checkParoisseAccess(paroisse);
 
         return demandeRepository.findByParoisseAndStatusDelFalse(paroisse)
                 .stream()
@@ -211,9 +233,12 @@ public class DemandeServiceImpl implements DemandeService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<DemandeResponse> getByParoisseAndStatut(UUID paroissePublicId, StatutDemandeEnum statutDemande) {
         Paroisse paroisse = paroisseRepository.findByPublicIdAndStatusDelFalse(paroissePublicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Paroisse introuvable"));
+
+        tenantAccessService.checkParoisseAccess(paroisse);
 
         return demandeRepository.findByParoisseAndStatutDemandeAndStatusDelFalse(paroisse, statutDemande)
                 .stream()
@@ -226,14 +251,18 @@ public class DemandeServiceImpl implements DemandeService {
         Demande demande = demandeRepository.findByPublicIdAndStatusDelFalse(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Demande introuvable"));
 
+        tenantAccessService.checkParoisseAccess(demande.getParoisse());
+
         demande.setStatusDel(true);
         demandeRepository.save(demande);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<DemandeResponse> getByTypePaiement(UUID typePaiementPublicId) {
         return demandeRepository.findByTypePaiementPublicIdAndStatusDelFalse(typePaiementPublicId)
                 .stream()
+                .filter(demande -> tenantAccessService.isGlobalUser() || tenantAccessService.canAccessParoisse(demande.getParoisse()))
                 .map(this::buildDemandeResponse)
                 .toList();
     }

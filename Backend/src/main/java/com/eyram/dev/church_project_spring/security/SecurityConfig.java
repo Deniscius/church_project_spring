@@ -1,5 +1,6 @@
 package com.eyram.dev.church_project_spring.security;
 
+import com.eyram.dev.church_project_spring.context.HibernateTenantFilterActivator;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -47,8 +48,16 @@ public class SecurityConfig {
     }
 
     @Bean
-    public AuthTokenFilter authTokenFilter(JwtUtils jwtUtils, UserDetailsService userDetailsService) {
-        return new AuthTokenFilter(jwtUtils, userDetailsService);
+    public HibernateTenantFilterActivator hibernateTenantFilterActivator() {
+        return new HibernateTenantFilterActivator();
+    }
+
+    @Bean
+    public AuthTokenFilter authTokenFilter(
+            JwtUtils jwtUtils,
+            UserDetailsService userDetailsService,
+            HibernateTenantFilterActivator hibernateTenantFilterActivator) {
+        return new AuthTokenFilter(jwtUtils, userDetailsService, hibernateTenantFilterActivator);
     }
 
     @Bean

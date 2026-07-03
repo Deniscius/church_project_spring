@@ -62,6 +62,8 @@ public class JwtUtils {
     public String generateToken(UserDetailsImpl user) {
         return Jwts.builder()
                 .subject(user.getUsername())
+                .claim("tenantId", user.getTenantId())   // ← null si SUPER_ADMIN global
+                .claim("isGlobal", user.isGlobal())      // ← true si accès total
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + jwtExpirationMs))
                 .signWith(signingKey())

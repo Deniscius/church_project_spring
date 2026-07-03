@@ -8,6 +8,9 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.Filter;
+import org.hibernate.annotations.FilterDef;
+import org.hibernate.annotations.ParamDef;
 import org.hibernate.annotations.UuidGenerator;
 
 import java.io.Serializable;
@@ -20,6 +23,11 @@ import java.util.UUID;
 @Getter
 @Setter
 @NoArgsConstructor
+@FilterDef(
+        name = "tenantFilter",
+        parameters = @ParamDef(name= "tenantId", type = Long.class)
+)
+@Filter(name="tenantFilter", condition="paroisse_id = :tenantId")
 public class Demande extends BaseEntity implements Serializable {
 
     @Id

@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
 import org.hibernate.annotations.Check;
 import org.hibernate.annotations.UuidGenerator;
 
@@ -35,6 +37,7 @@ import lombok.Setter;
 )
 @Getter
 @Setter
+@AllArgsConstructor
 public class User extends BaseEntity {
 
     @Id

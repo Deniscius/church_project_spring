@@ -48,14 +48,18 @@ public class AuthTokenFilter extends OncePerRequestFilter {
                 UserDetailsImpl userDetails = (UserDetailsImpl) userDetailsService.loadUserByUsername(username);
 
                 Long tenantId = jwtUtils.extractTenantId(token);
-                TenantContext.setCurrentTenant(tenantId);
-                tenantFilterActivator.activateFilter();
+                Boolean isGlobal = jwtUtils.extractClaim(token, claims -> claims.get("isGlobal", Boolean.class));
 
-                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                        userDetails,
-                        null,
-                        userDetails.getAuthorities()
-                );
+                // Un SUPER_ADMIN global n'a pas de tenant → on ne filtre pas
+                if (tenantId != null && !Boolean.TRUE.equals(isGlobal)) {
+                    TenantContext.setCurrentTenant(tenantId);
+                    tenantFilterActivator.activateFilter();
+                }
+
+                UsernamePasswordAuthenticationToken authentication =
+                        new UsernamePasswordAuthenticationToken(
+                                userDetails, null, userDetails.getAuthorities()
+                        );
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }

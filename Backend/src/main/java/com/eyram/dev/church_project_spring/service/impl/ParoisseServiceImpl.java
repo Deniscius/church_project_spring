@@ -22,7 +22,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Transactional
-public class ParoisseAccessServiceImpl implements ParoisseAccessService {
+public class ParoisseServiceImpl implements ParoisseAccessService {
 
     private final ParoisseAccessRepository paroisseAccessRepository;
     private final UserRepository userRepository;

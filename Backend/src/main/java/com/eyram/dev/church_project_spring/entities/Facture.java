@@ -5,6 +5,9 @@ import com.eyram.dev.church_project_spring.utils.BaseEntity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.Filter;
+import org.hibernate.annotations.FilterDef;
+import org.hibernate.annotations.ParamDef;
 import org.hibernate.annotations.UuidGenerator;
 
 import java.io.Serializable;
@@ -15,6 +18,7 @@ import java.util.UUID;
 @Table(name = "facture")
 @Getter
 @Setter
+@Filter(name="tenantFilter", condition="paroisse_id = :tenantId")
 public class Facture extends BaseEntity implements Serializable {
 
     @Id

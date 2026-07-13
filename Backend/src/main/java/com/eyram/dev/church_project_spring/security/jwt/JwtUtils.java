@@ -1,12 +1,12 @@
 package com.eyram.dev.church_project_spring.security.jwt;
 
 import com.eyram.dev.church_project_spring.security.UserDetailsImpl;
-import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.*;
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.MalformedJwtException;
-import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+
 import io.jsonwebtoken.security.SignatureException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,7 +14,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
+import java.security.Key;
 import java.util.Date;
+import java.util.function.Function;
 
 @Component
 public class JwtUtils {
@@ -22,14 +24,46 @@ public class JwtUtils {
     private static final Logger log = LoggerFactory.getLogger(JwtUtils.class);
 
     @Value("${jwt.secret}")
-    private String jwtSecret;
+    private String jwtSigningKey;
 
     @Value("${jwt.expiration-ms}")
     private long jwtExpirationMs;
 
+
+    /**
+     * Extrait le tenantId (identifiant du user/tenant) depuis le JWT.
+     */
+    public Long extractTenantId(String token) {
+        return extractClaim(token, claims -> claims.get("tenantId", Long.class));
+    }
+
+
+    /**
+     * Extraction générique d'un claim.
+     */
+    public <T> T extractClaim(String token, Function<Claims, T> claimsResolvers) {
+        final Claims claims = extractAllClaims(token);
+        return claimsResolvers.apply(claims);
+    }
+
+    private Claims extractAllClaims(String token) {
+        return Jwts.parser()
+                .setSigningKey(getSigningKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+    }
+
+    private Key getSigningKey() {
+        byte[] keyBytes = Decoders.BASE64.decode(jwtSigningKey);
+        return Keys.hmacShaKeyFor(keyBytes);
+    }
+
     public String generateToken(UserDetailsImpl user) {
         return Jwts.builder()
                 .subject(user.getUsername())
+                .claim("tenantId", user.getTenantId())   // ← null si SUPER_ADMIN global
+                .claim("isGlobal", user.isGlobal())      // ← true si accès total
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + jwtExpirationMs))
                 .signWith(signingKey())
@@ -67,7 +101,7 @@ public class JwtUtils {
     }
 
     private SecretKey signingKey() {
-        byte[] keyBytes = Decoders.BASE64.decode(jwtSecret);
+        byte[] keyBytes = Decoders.BASE64.decode(jwtSigningKey);
         return Keys.hmacShaKeyFor(keyBytes);
     }
 }

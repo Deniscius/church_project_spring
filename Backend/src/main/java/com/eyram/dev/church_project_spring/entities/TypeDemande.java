@@ -6,6 +6,9 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.Filter;
+import org.hibernate.annotations.FilterDef;
+import org.hibernate.annotations.ParamDef;
 import org.hibernate.annotations.UuidGenerator;
 
 import java.io.Serializable;
@@ -18,6 +21,7 @@ import java.util.UUID;
                 @UniqueConstraint(columnNames = {"libelle", "paroisse_id", "type_principal"})
         }
 )
+@Filter(name = "tenantFilter", condition = "paroisse_id = :tenantId")
 @Getter
 @Setter
 @NoArgsConstructor

@@ -16,10 +16,6 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "horaire")
-@FilterDef(
-        name = "tenantFilter",
-        parameters = @ParamDef(name = "tenantId", type = Long.class)
-)
 @Filter(name = "tenantFilter", condition = "paroisse_id = :tenantId")
 @Getter
 @Setter

@@ -21,10 +21,6 @@ import java.util.UUID;
                 @UniqueConstraint(columnNames = {"libelle", "paroisse_id", "type_principal"})
         }
 )
-@FilterDef(
-        name = "tenantFilter",
-        parameters = @ParamDef(name = "tenantId", type = Long.class)
-)
 @Filter(name = "tenantFilter", condition = "paroisse_id = :tenantId")
 @Getter
 @Setter

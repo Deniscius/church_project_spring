@@ -18,10 +18,6 @@ import java.util.UUID;
 @Table(name = "facture")
 @Getter
 @Setter
-@FilterDef(
-        name = "tenantFilter",
-        parameters = @ParamDef(name= "tenantId", type = Long.class)
-)
 @Filter(name="tenantFilter", condition="paroisse_id = :tenantId")
 public class Facture extends BaseEntity implements Serializable {
 

@@ -14,7 +14,6 @@ public record UserResponse(
         String nom,
         String prenom,
         String username,
-        String role,
-        List<ParoisseAccess> paroisses
+        String role
 ) {
 }

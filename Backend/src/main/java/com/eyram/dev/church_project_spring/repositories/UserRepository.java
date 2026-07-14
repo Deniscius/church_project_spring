@@ -1,6 +1,7 @@
 package com.eyram.dev.church_project_spring.repositories;
 
 import com.eyram.dev.church_project_spring.entities.User;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -11,6 +12,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByPublicIdAndStatusDelFalse(UUID publicId);
 
+    @EntityGraph(attributePaths = {
+            "paroisseAccesses",
+            "paroisseAccesses.paroisse"
+    })
     Optional<User> findByUsernameAndStatusDelFalse(String username);
 
     boolean existsByUsernameAndStatusDelFalse(String username);

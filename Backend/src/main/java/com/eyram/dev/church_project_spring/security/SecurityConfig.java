@@ -35,10 +35,20 @@ public class SecurityConfig {
     @Bean
     public DaoAuthenticationProvider authenticationProvider(
             UserDetailsService userDetailsService,
-            PasswordEncoder passwordEncoder) {
-        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
+            PasswordEncoder passwordEncoder
+    ) {
+        DaoAuthenticationProvider provider =
+                new DaoAuthenticationProvider();
+
         provider.setUserDetailsService(userDetailsService);
         provider.setPasswordEncoder(passwordEncoder);
+
+        /*
+         * Permet de distinguer une mauvaise configuration de paroisse
+         * d'un simple mot de passe incorrect.
+         */
+        provider.setHideUserNotFoundExceptions(false);
+
         return provider;
     }
 

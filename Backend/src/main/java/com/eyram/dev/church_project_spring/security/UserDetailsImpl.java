@@ -1,6 +1,5 @@
 package com.eyram.dev.church_project_spring.security;
 
-import com.eyram.dev.church_project_spring.entities.ParoisseAccess;
 import com.eyram.dev.church_project_spring.entities.User;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Getter;
@@ -48,29 +47,25 @@ public class UserDetailsImpl implements UserDetails {
         this.enabled = enabled;
     }
 
-    public static UserDetailsImpl build(User user) {
-        List<GrantedAuthority> authorities = List.of(
-                new SimpleGrantedAuthority(user.getRole().name())
-        );
+    public static UserDetailsImpl build(User user, Long tenantId) {
 
-        Long tenantId = user.getParoisseAccesses().stream()
-                .filter(ParoisseAccess::getActive)
-                .map(pa -> pa.getParoisse().getId())
-                .findFirst()
-                .orElse(null);
+        List<GrantedAuthority> authorities = List.of(
+                new SimpleGrantedAuthority(
+                        "ROLE_" + user.getRole().name()
+                )
+        );
 
         return new UserDetailsImpl(
                 user.getPublicId(),
-                user.getFullName(),       // ← fullName via getFullName()
+                user.getFullName(),
                 user.getUsername(),
                 tenantId,
-                Boolean.TRUE.equals(user.getIsGlobal()),  // ← Boolean → boolean sans NullPointerException
+                Boolean.TRUE.equals(user.getIsGlobal()),
                 user.getPassword(),
                 authorities,
-                Boolean.TRUE.equals(user.getIsActive())   // ← idem pour enabled
+                Boolean.TRUE.equals(user.getIsActive())
         );
     }
-
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() { return authorities; }
 

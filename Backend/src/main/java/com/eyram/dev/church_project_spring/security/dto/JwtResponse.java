@@ -12,18 +12,28 @@ public record JwtResponse(
         UUID publicId,
         String fullName,
         String username,
+        Long tenantId,
+        boolean isGlobal,
         List<String> roles
 ) {
-    public static JwtResponse from(String accessToken, UserDetailsImpl principal) {
-        List<String> roles = principal.getAuthorities().stream()
+
+    public static JwtResponse from(
+            String accessToken,
+            UserDetailsImpl principal
+    ) {
+        List<String> roles = principal.getAuthorities()
+                .stream()
                 .map(GrantedAuthority::getAuthority)
                 .toList();
+
         return new JwtResponse(
                 accessToken,
                 "Bearer",
                 principal.getPublicId(),
                 principal.getFullName(),
                 principal.getUsername(),
+                principal.getTenantId(),
+                principal.isGlobal(),
                 roles
         );
     }

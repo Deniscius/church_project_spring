@@ -331,16 +331,12 @@ public class EnhancedUserService {
      * Mappe un User vers UserResponse.
      */
     private UserResponse mapToResponse(User user) {
-        List<ParoisseAccess> accesses = paroisseAccessRepository
-                .findByUserAndActiveTrueAndStatusDelFalse(user);
-
         return new UserResponse(
                 user.getPublicId(),
                 user.getNom(),
                 user.getPrenom(),
                 user.getUsername(),
-                user.getRole().name(),
-                accesses
+                user.getRole() != null ? user.getRole().name() : null
         );
     }
 }

@@ -19,9 +19,19 @@ public interface UserMapper {
     @Mapping(target = "statusDel", ignore = true)
     User toEntity(UserRequest request);
 
-    @Mapping(target = "publicId", source = "publicId")
-    @Mapping(target = "paroisses", source = "paroisseAccesses")
-    UserResponse toResponse(User user);
+    default UserResponse toResponse(User user) {
+        if (user == null) {
+            return null;
+        }
+
+        return new UserResponse(
+                user.getPublicId(),
+                user.getNom(),
+                user.getPrenom(),
+                user.getUsername(),
+                user.getRole() != null ? user.getRole().name() : null
+        );
+    }
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "publicId", ignore = true)
@@ -29,6 +39,12 @@ public interface UserMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "statusDel", ignore = true)
-    @Mapping(target = "role", expression = "java(request.role() != null ? request.role() : user.getRole())")
-    void updateEntityFromRequest(UserRequest request, @MappingTarget User user);
+    @Mapping(
+            target = "role",
+            expression = "java(request.role() != null ? request.role() : user.getRole())"
+    )
+    void updateEntityFromRequest(
+            UserRequest request,
+            @MappingTarget User user
+    );
 }

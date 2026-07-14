@@ -14,12 +14,23 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserDetailsServiceImpl implements UserDetailsService {
 
     private final UserRepository userRepository;
+    private final UserTenantResolver userTenantResolver;
 
     @Override
     @Transactional(readOnly = true)
-    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        User user = userRepository.findByUsernameAndStatusDelFalse(username)
-                .orElseThrow(() -> new UsernameNotFoundException("Utilisateur introuvable : " + username));
-        return UserDetailsImpl.build(user);
+    public UserDetails loadUserByUsername(String username)
+            throws UsernameNotFoundException {
+
+        User user = userRepository
+                .findByUsernameAndStatusDelFalse(username)
+                .orElseThrow(() ->
+                        new UsernameNotFoundException(
+                                "Utilisateur introuvable : " + username
+                        )
+                );
+
+        Long tenantId = userTenantResolver.resolveTenantId(user);
+
+        return UserDetailsImpl.build(user, tenantId);
     }
 }

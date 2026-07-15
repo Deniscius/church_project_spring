@@ -28,8 +28,8 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * Contrôleur de gestion des utilisateurs avec support multi-tenant.
- * 
- * Endpoitns:
+ *
+ * Endpoints:
  * - POST   /users                          (créer utilisateur)
  * - PUT    /users/{userId}                 (modifier utilisateur)
  * - GET    /users/{userId}                 (consulter utilisateur)
@@ -48,20 +48,6 @@ public class EnhancedUserController {
     /**
      * Crée un nouvel utilisateur.
      * Accès: ADMIN ou SUPER_ADMIN
-     *
-     * Request:
-     * {
-     *   "nom": "Dupont",
-     *   "prenom": "Jean",
-     *   "username": "jean.dupont",
-     *   "password": "SecurePass123!",
-     *   "role": "SECRETAIRE",
-     *   "isGlobal": false,
-     *   "isActive": true,
-     *   "paroisses": [
-     *     { "paroisseId": "...", "roleParoisse": "SECRETAIRE" }
-     *   ]
-     * }
      */
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
@@ -89,7 +75,7 @@ public class EnhancedUserController {
 
     /**
      * Récupère un utilisateur spécifique.
-     * Accès: L'utilisateur lui-même ou ADMIN/SUPER_ADMIN
+     * Accès: ADMIN ou SUPER_ADMIN
      */
     @GetMapping("/{userId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
@@ -126,13 +112,6 @@ public class EnhancedUserController {
 
     /**
      * Assigne une paroisse à un utilisateur.
-     * 
-     * Request:
-     * {
-     *   "paroisseId": "...",
-     *   "roleParoisse": "SECRETAIRE"
-     * }
-     *
      * Accès: ADMIN de cette paroisse ou SUPER_ADMIN
      */
     @PostMapping("/{userId}/paroisses")
@@ -163,9 +142,10 @@ public class EnhancedUserController {
 
     /**
      * Récupère les paroisses d'un utilisateur.
-     * Accès: L'utilisateur lui-même ou ADMIN/SUPER_ADMIN
+     * Accès: ADMIN ou SUPER_ADMIN
      */
     @GetMapping("/{userId}/paroisses")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<List<ParoisseAccess>> getUserParoisses(@PathVariable UUID userId) {
         log.info("GET /admin/users/{}/paroisses - Getting user paroisses", userId);
         List<ParoisseAccess> paroisses = userService.getUserParoisses(userId);

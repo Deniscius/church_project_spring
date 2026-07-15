@@ -17,6 +17,7 @@ import com.eyram.dev.church_project_spring.entities.Paroisse;
 import com.eyram.dev.church_project_spring.entities.ParoisseAccess;
 import com.eyram.dev.church_project_spring.entities.User;
 import com.eyram.dev.church_project_spring.enums.RoleParoisse;
+import com.eyram.dev.church_project_spring.enums.UserRole;
 import com.eyram.dev.church_project_spring.repositories.ParoisseAccessRepository;
 import com.eyram.dev.church_project_spring.repositories.ParoisseRepository;
 import com.eyram.dev.church_project_spring.repositories.UserRepository;
@@ -73,7 +74,10 @@ public class EnhancedUserService {
     public UserResponse updateUser(UUID publicId, UserRequest request, UUID updatedBy) {
         log.info("Updating user: {}", publicId);
 
+        User requester = findActiveUser(updatedBy);
         User user = findActiveUser(publicId);
+        assertCanAccessUser(requester, user);
+        assertCanApplyRequestedScope(requester, request);
 
         validateCommonUserRequest(request);
         validatePasswordForUpdate(request.password());
@@ -223,7 +227,9 @@ public class EnhancedUserService {
 
     @Transactional
     public void deleteUser(UUID userPublicId, UUID deletedBy) {
+        User requester = findActiveUser(deletedBy);
         User user = findActiveUser(userPublicId);
+        assertCanAccessUser(requester, user);
 
         user.setIsActive(false);
         user.setStatusDel(true);
@@ -276,6 +282,18 @@ public class EnhancedUserService {
 
         if (!requesterParoisseId.equals(targetParoisseId)) {
             throw new AccessDeniedException("Accès interdit à cet utilisateur");
+        }
+    }
+
+    private void assertCanApplyRequestedScope(User requester, UserRequest request) {
+        if (Boolean.TRUE.equals(requester.getIsGlobal())) {
+            return;
+        }
+
+        if (Boolean.TRUE.equals(request.isGlobal()) || request.role() == UserRole.SUPER_ADMIN) {
+            throw new AccessDeniedException(
+                    "Un administrateur local ne peut pas accorder des privilèges globaux"
+            );
         }
     }
 

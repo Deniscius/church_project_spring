@@ -44,12 +44,14 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public UserResponse getByPublicId(UUID publicId) {
-        return enhancedUserService.getUserByPublicId(publicId);
+        UUID requestedBy = SecurityUtils.getCurrentUserPublicId();
+        return enhancedUserService.getUserByPublicId(publicId, requestedBy);
     }
 
     @Override
     public List<UserResponse> getAll() {
-        return enhancedUserService.getAllActiveUsers();
+        UUID requestedBy = SecurityUtils.getCurrentUserPublicId();
+        return enhancedUserService.getAllActiveUsers(requestedBy);
     }
 
     @Override

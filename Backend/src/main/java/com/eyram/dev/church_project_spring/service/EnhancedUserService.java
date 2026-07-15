@@ -1,6 +1,7 @@
 package com.eyram.dev.church_project_spring.service;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -24,22 +25,6 @@ import com.eyram.dev.church_project_spring.utils.exception.EntityNotFoundExcepti
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-/**
- * Service de gestion des utilisateurs avec support multi-tenant.
- *
- * Responsabilités:
- * - Création/modification d'utilisateurs
- * - Gestion des accès aux paroisses
- * - Validation des permissions
- * - Audit et logging
- *
- * Bonnes pratiques:
- * - Transactions explicites
- * - Isolation des données par tenant
- * - Validation des permissions à tous les niveaux
- * - Logging et audit de chaque opération
- * - Gestion d'erreurs appropriée
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -50,28 +35,18 @@ public class EnhancedUserService {
     private final ParoisseAccessRepository paroisseAccessRepository;
     private final PasswordEncoder passwordEncoder;
 
-    /**
-     * Crée un nouvel utilisateur.
-     * Seul SUPER_ADMIN ou ADMIN (admin local) peuvent créer des utilisateurs.
-     *
-     * @param request données de l'utilisateur
-     * @param createdBy ID de l'utilisateur créateur (non utilisé - Spring Data Auditing gère les timestamps)
-     * @return réponse de l'utilisateur créé
-     */
     @Transactional
     public UserResponse createUser(UserRequest request, UUID createdBy) {
         log.info("Creating new user: {}", request.username());
 
-        // 1. Valider les données
         validateUserRequest(request);
+        validateTenantAssignmentForCreate(request);
 
-        // 2. Vérifier que l'username est unique
         if (userRepository.existsByUsernameAndStatusDelFalse(request.username())) {
             log.warn("Attempt to create user with duplicate username: {}", request.username());
             throw new BusinessRuleException("Le nom d'utilisateur est déjà pris");
         }
 
-        // 3. Créer l'utilisateur
         User user = new User();
         user.setNom(request.nom());
         user.setPrenom(request.prenom());
@@ -80,48 +55,35 @@ public class EnhancedUserService {
         user.setRole(request.role());
         user.setIsGlobal(request.isGlobal());
         user.setIsActive(request.isActive());
-        user.setStatusDel(false);  // Important: marquer comme actif
+        user.setStatusDel(false);
 
         User savedUser = userRepository.save(user);
-        log.info("User created successfully: {} (ID: {})", savedUser.getUsername(), savedUser.getId());
 
-        // 4. Si des paroisses sont spécifiées, les ajouter
-        if (request.paroisses() != null && !request.paroisses().isEmpty()) {
+        if (!Boolean.TRUE.equals(savedUser.getIsGlobal())) {
             assignParoisses(savedUser, request.paroisses());
         }
 
+        log.info("User created successfully: {} (ID: {})", savedUser.getUsername(), savedUser.getId());
         return mapToResponse(savedUser);
     }
 
-    /**
-     * Met à jour un utilisateur existant.
-     *
-     * @param publicId l'ID public de l'utilisateur
-     * @param request données à mettre à jour
-     * @param updatedBy ID de l'utilisateur qui effectue la modification (non utilisé - Spring Data Auditing gère les timestamps)
-     * @return réponse de l'utilisateur modifié
-     */
     @Transactional
     public UserResponse updateUser(UUID publicId, UserRequest request, UUID updatedBy) {
         log.info("Updating user: {}", publicId);
 
-        // 1. Récupérer l'utilisateur
         User user = userRepository.findByPublicIdAndStatusDelFalse(publicId)
                 .orElseThrow(() -> {
                     log.warn("User not found: {}", publicId);
                     return new EntityNotFoundException("Utilisateur non trouvé");
                 });
 
-        // 2. Valider les données
         validateUserRequest(request);
 
-        // 3. Vérifier l'unicité du username si changé
-        if (!user.getUsername().equals(request.username()) &&
-                userRepository.existsByUsernameAndStatusDelFalse(request.username())) {
+        if (!user.getUsername().equals(request.username())
+                && userRepository.existsByUsernameAndStatusDelFalse(request.username())) {
             throw new BusinessRuleException("Le nom d'utilisateur est déjà pris");
         }
 
-        // 4. Mettre à jour les champs
         user.setNom(request.nom());
         user.setPrenom(request.prenom());
         user.setUsername(request.username());
@@ -138,64 +100,33 @@ public class EnhancedUserService {
         return mapToResponse(updatedUser);
     }
 
-    /**
-     * Assigne une paroisse à un utilisateur.
-     * Crée une entrée ParoisseAccess avec le rôle spécifié.
-     *
-     * @param userPublicId l'ID public (UUID) de l'utilisateur
-     * @param assignment données d'assignation
-     * @param createdBy ID utilisateur qui effectue l'action (non utilisé - Spring Data Auditing gère les timestamps)
-     */
     @Transactional
-    public void assignParoisseToUser(UUID userPublicId, ParoisseAssignmentRequest assignment, UUID createdBy) {
+    public void assignParoisseToUser(
+            UUID userPublicId,
+            ParoisseAssignmentRequest assignment,
+            UUID createdBy
+    ) {
         log.info("Assigning paroisse {} to user (ID: {})", assignment.getParoisseId(), userPublicId);
 
-        // 1. Récupérer l'utilisateur
         User user = userRepository.findByPublicIdAndStatusDelFalse(userPublicId)
                 .orElseThrow(() -> new EntityNotFoundException("Utilisateur non trouvé"));
 
-        // 2. Récupérer la paroisse
-        var paroisse = paroisseRepository.findByPublicIdAndStatusDelFalse(assignment.getParoisseId())
-                .orElseThrow(() -> {
-                    log.warn("Paroisse not found: {}", assignment.getParoisseId());
-                    return new EntityNotFoundException("Paroisse non trouvée");
-                });
-
-        // 3. Vérifier qu'il n'y a pas déjà un accès
-        boolean alreadyExists = paroisseAccessRepository
-                .existsByUserAndParoisseAndStatusDelFalse(user, paroisse);
-        if (alreadyExists) {
-            log.warn("User {} already has access to paroisse {}", userPublicId, paroisse.getId());
-            throw new BusinessRuleException("L'utilisateur a déjà accès à cette paroisse");
+        if (Boolean.TRUE.equals(user.getIsGlobal())) {
+            throw new BusinessRuleException(
+                    "Un utilisateur global ne doit pas être assigné à une paroisse"
+            );
         }
 
-        // 4. Créer l'accès
-        ParoisseAccess access = new ParoisseAccess();
-        access.setUser(user);
-        access.setParoisse(paroisse);
-        access.setRoleParoisse(RoleParoisse.valueOf(assignment.getRoleParoisse()));
-        access.setActive(true);
-        access.setStatusDel(false);  // Important: marquer comme actif
-
-        paroisseAccessRepository.save(access);
-        log.info("Paroisse access created: user {} -> paroisse {} with role {}",
-                userPublicId, paroisse.getId(), assignment.getRoleParoisse());
+        assignParoisse(user, assignment);
     }
 
-    /**
-     * Révoque l'accès d'un utilisateur à une paroisse (soft delete).
-     *
-     * @param userPublicId l'ID public (UUID) de l'utilisateur
-     * @param paroisseId l'ID de la paroisse
-     * @param revokedBy ID de l'utilisateur qui retire l'accès (non utilisé - Spring Data Auditing gère les timestamps)
-     */
     @Transactional
     public void revokeParoisseAccess(UUID userPublicId, Long paroisseId, UUID revokedBy) {
         log.info("Revoking paroisse access for user {} -> paroisse {}", userPublicId, paroisseId);
 
         User user = userRepository.findByPublicIdAndStatusDelFalse(userPublicId)
                 .orElseThrow(() -> new EntityNotFoundException("Utilisateur non trouvé"));
-        
+
         Paroisse paroisse = paroisseRepository.findById(paroisseId)
                 .orElseThrow(() -> new EntityNotFoundException("Paroisse non trouvée"));
 
@@ -203,19 +134,13 @@ public class EnhancedUserService {
                 .findByUserAndParoisseAndStatusDelFalse(user, paroisse)
                 .orElseThrow(() -> new EntityNotFoundException("Accès à la paroisse non trouvé"));
 
-        access.setStatusDel(true);  // Soft delete
+        access.setActive(false);
+        access.setStatusDel(true);
         paroisseAccessRepository.save(access);
 
         log.info("Paroisse access revoked successfully");
     }
 
-    /**
-     * Récupère tous les utilisateurs d'une paroisse.
-     * Respecte l'isolation multi-tenant via statusDel.
-     *
-     * @param paroisseId l'ID de la paroisse
-     * @return liste des utilisateurs de la paroisse
-     */
     @Transactional(readOnly = true)
     public List<UserResponse> getUsersByParoisse(Long paroisseId) {
         log.debug("Fetching users for paroisse: {}", paroisseId);
@@ -232,12 +157,6 @@ public class EnhancedUserService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Récupère les paroisses d'un utilisateur.
-     *
-     * @param userPublicId l'ID public (UUID) de l'utilisateur
-     * @return liste des accès paroissiaux actifs
-     */
     @Transactional(readOnly = true)
     public List<ParoisseAccess> getUserParoisses(UUID userPublicId) {
         User user = userRepository.findByPublicIdAndStatusDelFalse(userPublicId)
@@ -245,12 +164,6 @@ public class EnhancedUserService {
         return paroisseAccessRepository.findByUserAndActiveTrueAndStatusDelFalse(user);
     }
 
-    /**
-     * Récupère un utilisateur spécifique par son ID public.
-     *
-     * @param userPublicId l'ID public (UUID) de l'utilisateur
-     * @return utilisateur avec ses paroisses
-     */
     @Transactional(readOnly = true)
     public UserResponse getUserByPublicId(UUID userPublicId) {
         User user = userRepository.findByPublicIdAndStatusDelFalse(userPublicId)
@@ -258,43 +171,31 @@ public class EnhancedUserService {
         return mapToResponse(user);
     }
 
-    /**
-     * Récupère tous les utilisateurs actifs (non supprimés).
-     * Respecte l'isolation multi-tenant via statusDel.
-     *
-     * @return liste de tous les utilisateurs
-     */
     @Transactional(readOnly = true)
     public List<UserResponse> getAllActiveUsers() {
         log.debug("Fetching all active users");
-        List<User> users = userRepository.findByStatusDelFalse();
-        return users.stream()
+        return userRepository.findByStatusDelFalse()
+                .stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Supprime (soft delete) un utilisateur.
-     * Marque comme deleted mais conserve les données.
-     *
-     * @param userPublicId l'ID public (UUID) de l'utilisateur
-     * @param deletedBy l'ID public de l'utilisateur qui effectue la suppression
-     */
     @Transactional
     public void deleteUser(UUID userPublicId, UUID deletedBy) {
         User user = userRepository.findByPublicIdAndStatusDelFalse(userPublicId)
                 .orElseThrow(() -> new EntityNotFoundException("Utilisateur non trouvé"));
 
-        user.setStatusDel(true);  // Soft delete
+        user.setIsActive(false);
+        user.setStatusDel(true);
         userRepository.save(user);
 
-        log.info("User deleted successfully (soft delete): {} (deleted by: {})", 
-                user.getUsername(), deletedBy);
+        log.info(
+                "User deleted successfully (soft delete): {} (deleted by: {})",
+                user.getUsername(),
+                deletedBy
+        );
     }
 
-    /**
-     * Valide les données de création/modification d'utilisateur.
-     */
     private void validateUserRequest(UserRequest request) {
         if (request.nom() == null || request.nom().isBlank()) {
             throw new BusinessRuleException("Le nom est obligatoire");
@@ -311,25 +212,84 @@ public class EnhancedUserService {
         if (request.role() == null) {
             throw new BusinessRuleException("Le rôle est obligatoire");
         }
-    }
-
-    /**
-     * Assigne plusieurs paroisses à un utilisateur.
-     */
-    private void assignParoisses(User user, List<ParoisseAssignmentRequest> paroisses) {
-        for (ParoisseAssignmentRequest assignment : paroisses) {
-            try {
-                assignParoisseToUser(user.getPublicId(), assignment, null);
-            } catch (Exception ex) {
-                log.warn("Could not assign paroisse to user: {}", ex.getMessage());
-                // Continuer avec les autres paroisses
-            }
+        if (request.isGlobal() == null) {
+            throw new BusinessRuleException("Le statut global est obligatoire");
+        }
+        if (request.isActive() == null) {
+            throw new BusinessRuleException("Le statut actif est obligatoire");
         }
     }
 
-    /**
-     * Mappe un User vers UserResponse.
-     */
+    private void validateTenantAssignmentForCreate(UserRequest request) {
+        List<ParoisseAssignmentRequest> assignments = request.paroisses();
+
+        if (Boolean.TRUE.equals(request.isGlobal())) {
+            if (assignments != null && !assignments.isEmpty()) {
+                throw new BusinessRuleException(
+                        "Un utilisateur global ne doit pas être assigné à une paroisse"
+                );
+            }
+            return;
+        }
+
+        if (assignments == null || assignments.size() != 1) {
+            throw new BusinessRuleException(
+                    "Une seule paroisse active est obligatoire pour un utilisateur non global"
+            );
+        }
+    }
+
+    private void assignParoisses(User user, List<ParoisseAssignmentRequest> assignments) {
+        assignments.forEach(assignment -> assignParoisse(user, assignment));
+    }
+
+    private void assignParoisse(User user, ParoisseAssignmentRequest assignment) {
+        if (assignment == null || assignment.getParoisseId() == null) {
+            throw new BusinessRuleException("La paroisse est obligatoire");
+        }
+
+        Paroisse paroisse = paroisseRepository
+                .findByPublicIdAndStatusDelFalse(assignment.getParoisseId())
+                .orElseThrow(() -> new EntityNotFoundException("Paroisse non trouvée"));
+
+        if (paroisseAccessRepository.existsByUserAndParoisseAndStatusDelFalse(user, paroisse)) {
+            throw new BusinessRuleException("L'utilisateur a déjà accès à cette paroisse");
+        }
+
+        if (!paroisseAccessRepository.findByUserAndActiveTrueAndStatusDelFalse(user).isEmpty()) {
+            throw new BusinessRuleException(
+                    "L'utilisateur possède déjà une paroisse active"
+            );
+        }
+
+        ParoisseAccess access = new ParoisseAccess();
+        access.setUser(user);
+        access.setParoisse(paroisse);
+        access.setRoleParoisse(parseRoleParoisse(assignment.getRoleParoisse()));
+        access.setActive(true);
+        access.setStatusDel(false);
+
+        paroisseAccessRepository.save(access);
+        log.info(
+                "Paroisse access created: user {} -> paroisse {} with role {}",
+                user.getPublicId(),
+                paroisse.getId(),
+                access.getRoleParoisse()
+        );
+    }
+
+    private RoleParoisse parseRoleParoisse(String value) {
+        if (value == null || value.isBlank()) {
+            throw new BusinessRuleException("Le rôle dans la paroisse est obligatoire");
+        }
+
+        try {
+            return RoleParoisse.valueOf(value.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            throw new BusinessRuleException("Le rôle dans la paroisse est invalide");
+        }
+    }
+
     private UserResponse mapToResponse(User user) {
         return new UserResponse(
                 user.getPublicId(),

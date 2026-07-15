@@ -98,11 +98,29 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/type-paiement/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/demande-dates/demande/**").permitAll()
 
-                        // Gestion des utilisateurs
+                        // Gestion des utilisateurs : aucun rôle métier inférieur ne doit accéder aux routes admin.
+                        .requestMatchers("/admin/users", "/admin/users/**")
+                        .hasAnyRole("ADMIN", "SUPER_ADMIN")
                         .requestMatchers(HttpMethod.POST, "/users").hasAnyRole("ADMIN", "SUPER_ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/users/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/users/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
                         .requestMatchers(HttpMethod.GET, "/users").hasAnyRole("ADMIN", "SUPER_ADMIN")
+
+                        // Gestion du référentiel global
+                        .requestMatchers(HttpMethod.POST, "/paroisses", "/localites")
+                        .hasRole("SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/paroisses/**", "/localites/**")
+                        .hasRole("SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/paroisses/**", "/localites/**")
+                        .hasRole("SUPER_ADMIN")
+
+                        // Paramétrage propre à une paroisse
+                        .requestMatchers(HttpMethod.POST, "/horaires", "/type-demandes")
+                        .hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/horaires/**", "/type-demandes/**")
+                        .hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/horaires/**", "/type-demandes/**")
+                        .hasAnyRole("ADMIN", "SUPER_ADMIN")
 
                         // Gestion des demandes après leur dépôt public
                         .requestMatchers(HttpMethod.PUT, "/demandes/**")

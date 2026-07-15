@@ -138,7 +138,7 @@ public class ParoisseManagementService {
 
     /**
      * Assigne un administrateur local à une paroisse.
-     * Crée un utilisateur avec role=ADMIN et l'assigne à la paroisse.
+     * Crée l'utilisateur et son accès paroissial dans une seule transaction.
      *
      * Accès: SUPER_ADMIN
      *
@@ -151,38 +151,35 @@ public class ParoisseManagementService {
     public UserResponse assignAdminToParoisse(Long paroisseId, UserRequest userRequest, UUID assignedBy) {
         log.info("Assigning admin to paroisse: {}", paroisseId);
 
-        // 1. Vérifier que la paroisse existe
-        var paroisse = paroisseRepository.findById(paroisseId)
+        Paroisse paroisse = paroisseRepository.findById(paroisseId)
                 .orElseThrow(() -> {
                     log.warn("Paroisse not found: {}", paroisseId);
                     return new EntityNotFoundException("Paroisse non trouvée");
                 });
 
-        // 2. Créer l'utilisateur avec role ADMIN
-        UserRequest adminRequest = new UserRequest(
-                userRequest.nom(),
-                userRequest.prenom(),
-                userRequest.username(),
-                userRequest.password(),
-                false,  // isGlobal = false (admin local)
-                true,   // isActive = true
-                UserRole.ADMIN,
-                null    // pas de paroisses dans la requête initiale
-        );
-
-        // 3. Créer l'utilisateur
-        UserResponse createdUser = userService.createUser(adminRequest, assignedBy);
-
-        // 4. Assigner la paroisse avec le rôle ADMIN
         ParoisseAssignmentRequest assignment = ParoisseAssignmentRequest.builder()
                 .paroisseId(paroisse.getPublicId())
                 .roleParoisse("ADMIN")
                 .build();
 
-        userService.assignParoisseToUser(createdUser.publicId(), assignment, assignedBy);
+        UserRequest adminRequest = new UserRequest(
+                userRequest.nom(),
+                userRequest.prenom(),
+                userRequest.username(),
+                userRequest.password(),
+                false,
+                true,
+                UserRole.ADMIN,
+                List.of(assignment)
+        );
 
-        log.info("Admin assigned to paroisse successfully: user {} -> paroisse {}", 
-                createdUser.publicId(), paroisseId);
+        UserResponse createdUser = userService.createUser(adminRequest, assignedBy);
+
+        log.info(
+                "Admin assigned to paroisse successfully: user {} -> paroisse {}",
+                createdUser.publicId(),
+                paroisseId
+        );
 
         return createdUser;
     }

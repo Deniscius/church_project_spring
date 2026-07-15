@@ -103,9 +103,11 @@ class DemandeServiceTenantConsistencyTest {
         UUID typeDemandeId = UUID.randomUUID();
         UUID forfaitId = UUID.randomUUID();
 
+        Paroisse existingParish = parish(UUID.randomUUID());
         Paroisse selectedParish = parish(selectedParishId);
+
         Demande existingDemande = new Demande();
-        existingDemande.setParoisse(selectedParish);
+        existingDemande.setParoisse(existingParish);
 
         TypeDemande foreignType = typeDemande(typeDemandeId, parish(UUID.randomUUID()));
 
@@ -128,7 +130,7 @@ class DemandeServiceTenantConsistencyTest {
                 "Le type de demande ne correspond pas à la paroisse choisie",
                 exception.getMessage()
         );
-        verify(tenantAccessService).checkParoisseAccess(existingDemande.getParoisse());
+        verify(tenantAccessService).checkParoisseAccess(existingParish);
         verify(tenantAccessService).checkParoisseAccess(selectedParish);
         verify(forfaitTarifRepository, never()).findByPublicIdAndStatusDelFalse(any());
     }

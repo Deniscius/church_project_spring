@@ -3,10 +3,11 @@ package com.eyram.dev.church_project_spring.controller;
 import com.eyram.dev.church_project_spring.DTO.request.UserRequest;
 import com.eyram.dev.church_project_spring.DTO.response.UserResponse;
 import com.eyram.dev.church_project_spring.service.UserService;
-import jakarta.validation.Valid;
+import jakarta.validation.groups.Default;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -20,13 +21,18 @@ public class UserController {
     private final UserService userService;
 
     @PostMapping
-    public ResponseEntity<UserResponse> create(@Valid @RequestBody UserRequest request) {
+    public ResponseEntity<UserResponse> create(
+            @Validated({Default.class, UserRequest.Create.class})
+            @RequestBody UserRequest request
+    ) {
         return new ResponseEntity<>(userService.create(request), HttpStatus.CREATED);
     }
 
     @PutMapping("/{publicId}")
-    public ResponseEntity<UserResponse> update(@PathVariable UUID publicId,
-                                               @Valid @RequestBody UserRequest request) {
+    public ResponseEntity<UserResponse> update(
+            @PathVariable UUID publicId,
+            @Validated(Default.class) @RequestBody UserRequest request
+    ) {
         return ResponseEntity.ok(userService.update(publicId, request));
     }
 

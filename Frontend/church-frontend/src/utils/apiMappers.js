@@ -62,13 +62,17 @@ export function mapFactureToInvoiceRow(f) {
 }
 
 export function mapUserToRow(u) {
+  const isActive = Boolean(u.isActive);
+
   return {
     id: u.publicId,
     firstName: u.prenom,
     lastName: u.nom,
     username: u.username,
     role: u.role,
-    active: u.isActive ? 'ACTIVE' : 'INACTIVE',
+    active: isActive ? 'ACTIVE' : 'INACTIVE',
+    isActive,
+    isGlobal: Boolean(u.isGlobal),
   };
 }
 

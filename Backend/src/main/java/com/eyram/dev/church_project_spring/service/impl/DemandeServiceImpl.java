@@ -10,6 +10,7 @@ import com.eyram.dev.church_project_spring.mappers.DemandeMapper;
 import com.eyram.dev.church_project_spring.repositories.*;
 import com.eyram.dev.church_project_spring.security.TenantAccessService;
 import com.eyram.dev.church_project_spring.service.DemandeService;
+import com.eyram.dev.church_project_spring.utils.exception.BusinessRuleException;
 import com.eyram.dev.church_project_spring.utils.exception.ResourceNotFoundException;
 import com.eyram.dev.church_project_spring.utils.exception.TrackingIdNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -48,6 +50,8 @@ public class DemandeServiceImpl implements DemandeService {
 
         TypeDemande typeDemande = typeDemandeRepository.findByPublicIdAndStatusDelFalse(request.typeDemandePublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Type de demande introuvable"));
+
+        validateTypeDemandeParoisse(typeDemande, paroisse);
 
         ForfaitTarif forfaitTarif = forfaitTarifRepository.findByPublicIdAndStatusDelFalse(request.forfaitTarifPublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Forfait tarif introuvable"));
@@ -122,6 +126,8 @@ public class DemandeServiceImpl implements DemandeService {
 
         TypeDemande typeDemande = typeDemandeRepository.findByPublicIdAndStatusDelFalse(request.typeDemandePublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Type de demande introuvable"));
+
+        validateTypeDemandeParoisse(typeDemande, paroisse);
 
         ForfaitTarif forfaitTarif = forfaitTarifRepository.findByPublicIdAndStatusDelFalse(request.forfaitTarifPublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Forfait tarif introuvable"));
@@ -265,6 +271,18 @@ public class DemandeServiceImpl implements DemandeService {
                 .filter(demande -> tenantAccessService.isGlobalUser() || tenantAccessService.canAccessParoisse(demande.getParoisse()))
                 .map(this::buildDemandeResponse)
                 .toList();
+    }
+
+    private void validateTypeDemandeParoisse(TypeDemande typeDemande, Paroisse paroisse) {
+        UUID typeParoissePublicId = typeDemande.getParoisse() != null
+                ? typeDemande.getParoisse().getPublicId()
+                : null;
+
+        if (!Objects.equals(typeParoissePublicId, paroisse.getPublicId())) {
+            throw new BusinessRuleException(
+                    "Le type de demande ne correspond pas à la paroisse choisie"
+            );
+        }
     }
 
     private void applyInitialStatuses(Demande demande, ForfaitTarif forfaitTarif) {

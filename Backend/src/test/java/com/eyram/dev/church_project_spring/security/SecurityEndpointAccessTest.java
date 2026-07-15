@@ -7,7 +7,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
+
+import java.util.UUID;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -69,5 +72,62 @@ class SecurityEndpointAccessTest extends AbstractIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("Parish creation requires authentication")
+    void parishCreationRequiresAuthentication() throws Exception {
+        mockMvc.perform(post("/paroisses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(roles = "SECRETAIRE")
+    @DisplayName("Secretary cannot create a parish")
+    void secretaryCannotCreateParish() throws Exception {
+        mockMvc.perform(post("/paroisses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "SUPER_ADMIN")
+    @DisplayName("Super admin reaches parish request validation")
+    void superAdminCanReachParishValidation() throws Exception {
+        mockMvc.perform(post("/paroisses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(roles = "SECRETAIRE")
+    @DisplayName("Secretary cannot configure parish schedules")
+    void secretaryCannotCreateSchedule() throws Exception {
+        mockMvc.perform(post("/horaires")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("Local admin reaches schedule request validation")
+    void adminCanReachScheduleValidation() throws Exception {
+        mockMvc.perform(post("/horaires")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(roles = "SECRETAIRE")
+    @DisplayName("Secretary cannot inspect another user's parish assignments")
+    void secretaryCannotReadUserParishAssignments() throws Exception {
+        mockMvc.perform(get("/admin/users/{userId}/paroisses", UUID.randomUUID()))
+                .andExpect(status().isForbidden());
     }
 }

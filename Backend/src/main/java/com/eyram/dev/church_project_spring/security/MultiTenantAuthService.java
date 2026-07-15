@@ -182,38 +182,4 @@ public class MultiTenantAuthService {
                 .active(access.getActive())
                 .build();
     }
-
-    /**
-     * Vérifie si un utilisateur a accès à une paroisse.
-     */
-    public boolean hasParoisseAccess(Long userId, Long paroisseId) {
-        User user = userRepository.findById(userId).orElse(null);
-        if (user == null) {
-            return false;
-        }
-
-        return user.getParoisseAccesses().stream()
-                .anyMatch(pa -> pa.getParoisse().getId().equals(paroisseId) && !pa.getStatusDel());
-    }
-
-    /**
-     * Vérifie si un utilisateur a un rôle spécifique dans une paroisse.
-     */
-    public boolean hasParoisseRole(Long userId, Long paroisseId, String... roleParoisseNames) {
-        User user = userRepository.findById(userId).orElse(null);
-        if (user == null) {
-            return false;
-        }
-
-        return user.getParoisseAccesses().stream()
-                .filter(pa -> pa.getParoisse().getId().equals(paroisseId) && !pa.getStatusDel())
-                .anyMatch(pa -> {
-                    for (String roleName : roleParoisseNames) {
-                        if (pa.getRoleParoisse().name().equals(roleName)) {
-                            return true;
-                        }
-                    }
-                    return false;
-                });
-    }
 }

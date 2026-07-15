@@ -1,8 +1,11 @@
 package com.eyram.dev.church_project_spring.utils.exception;
 
 import jakarta.validation.ConstraintViolationException;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AuthenticationServiceException;
 import org.springframework.validation.FieldError;
@@ -10,109 +13,53 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.Date;
 import java.util.stream.Collectors;
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(AlreadyExistException.class)
-    public final ResponseEntity<ErrorMessage> handleResourceAlreadyExists(
-            AlreadyExistException ex,
+    private static final String INTERNAL_ERROR_MESSAGE =
+            "Une erreur interne est survenue. Veuillez réessayer plus tard.";
+
+    @ExceptionHandler({AlreadyExistException.class, BusinessRuleException.class})
+    public ResponseEntity<ErrorMessage> handleConflict(
+            RuntimeException ex,
             WebRequest request
     ) {
-        ErrorMessage response = new ErrorMessage(
-                HttpStatus.BAD_REQUEST.value(),
-                new Date(),
-                ex.getMessage(),
-                request.getDescription(false)
-        );
-        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        return buildResponse(HttpStatus.CONFLICT, ex.getMessage(), request);
     }
 
-    @ExceptionHandler(RequestNotFoundException.class)
-    public final ResponseEntity<ErrorMessage> handleRequestNotFoundException(
-            RequestNotFoundException ex,
+    @ExceptionHandler({
+            RequestNotFoundException.class,
+            TrackingIdNotFoundException.class,
+            ResourceNotFoundException.class,
+            EntityNotFoundException.class
+    })
+    public ResponseEntity<ErrorMessage> handleNotFound(
+            RuntimeException ex,
             WebRequest request
     ) {
-        ErrorMessage response = new ErrorMessage(
-                HttpStatus.NOT_FOUND.value(),
-                new Date(),
-                ex.getMessage(),
-                request.getDescription(false)
-        );
-        return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
-    }
-
-    @ExceptionHandler(TrackingIdNotFoundException.class)
-    public final ResponseEntity<ErrorMessage> handleTrackingIdNotFoundException(
-            TrackingIdNotFoundException ex,
-            WebRequest request
-    ) {
-        ErrorMessage response = new ErrorMessage(
-                HttpStatus.NOT_FOUND.value(),
-                new Date(),
-                ex.getMessage(),
-                request.getDescription(false)
-        );
-        return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
-    }
-
-    @ExceptionHandler(ResourceNotFoundException.class)
-    public final ResponseEntity<ErrorMessage> handleResourceNotFound(
-            ResourceNotFoundException ex,
-            WebRequest request
-    ) {
-        ErrorMessage response = new ErrorMessage(
-                HttpStatus.NOT_FOUND.value(),
-                new Date(),
-                ex.getMessage(),
-                request.getDescription(false)
-        );
-        return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
+        return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage(), request);
     }
 
     @ExceptionHandler(AccountDisabledException.class)
-    public final ResponseEntity<ErrorMessage> handleAccountDisabled(
+    public ResponseEntity<ErrorMessage> handleAccountDisabled(
             AccountDisabledException ex,
             WebRequest request
     ) {
-        ErrorMessage response = new ErrorMessage(
-                HttpStatus.FORBIDDEN.value(),
-                new Date(),
-                ex.getMessage(),
-                request.getDescription(false)
-        );
-        return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
+        return buildResponse(HttpStatus.FORBIDDEN, ex.getMessage(), request);
     }
 
     @ExceptionHandler(InvalidCredentialsException.class)
-    public final ResponseEntity<ErrorMessage> handleInvalidCredentials(
+    public ResponseEntity<ErrorMessage> handleInvalidCredentials(
             InvalidCredentialsException ex,
             WebRequest request
     ) {
-        ErrorMessage response = new ErrorMessage(
-                HttpStatus.UNAUTHORIZED.value(),
-                new Date(),
-                ex.getMessage(),
-                request.getDescription(false)
-        );
-        return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
-    }
-
-    @ExceptionHandler(AuthenticationServiceException.class)
-    public ResponseEntity<ErrorMessage> handleAuthenticationServiceException(
-            AuthenticationServiceException ex,
-            WebRequest request
-    ) {
-        ErrorMessage error = new ErrorMessage(
-                HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                new Date(),
-                ex.getMessage(),
-                request.getDescription(false)
-        );
-        return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
+        return buildResponse(HttpStatus.UNAUTHORIZED, ex.getMessage(), request);
     }
 
     @ExceptionHandler(AccessDeniedException.class)
@@ -120,13 +67,7 @@ public class GlobalExceptionHandler {
             AccessDeniedException ex,
             WebRequest request
     ) {
-        ErrorMessage response = new ErrorMessage(
-                HttpStatus.FORBIDDEN.value(),
-                new Date(),
-                "Accès refusé",
-                request.getDescription(false)
-        );
-        return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
+        return buildResponse(HttpStatus.FORBIDDEN, "Accès refusé", request);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
@@ -134,13 +75,7 @@ public class GlobalExceptionHandler {
             IllegalArgumentException ex,
             WebRequest request
     ) {
-        ErrorMessage response = new ErrorMessage(
-                HttpStatus.BAD_REQUEST.value(),
-                new Date(),
-                ex.getMessage(),
-                request.getDescription(false)
-        );
-        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -159,13 +94,7 @@ public class GlobalExceptionHandler {
                 })
                 .collect(Collectors.joining(" ; "));
 
-        ErrorMessage response = new ErrorMessage(
-                HttpStatus.BAD_REQUEST.value(),
-                new Date(),
-                details,
-                request.getDescription(false)
-        );
-        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        return buildResponse(HttpStatus.BAD_REQUEST, details, request);
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
@@ -178,27 +107,72 @@ public class GlobalExceptionHandler {
                 .map(violation -> violation.getPropertyPath() + ": " + violation.getMessage())
                 .collect(Collectors.joining(" ; "));
 
-        ErrorMessage response = new ErrorMessage(
-                HttpStatus.BAD_REQUEST.value(),
-                new Date(),
-                details,
-                request.getDescription(false)
+        return buildResponse(HttpStatus.BAD_REQUEST, details, request);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorMessage> handleHttpMessageNotReadableException(
+            HttpMessageNotReadableException ex,
+            WebRequest request
+    ) {
+        return buildResponse(
+                HttpStatus.BAD_REQUEST,
+                "Le corps de la requête est absent ou invalide",
+                request
         );
-        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorMessage> handleMethodArgumentTypeMismatchException(
+            MethodArgumentTypeMismatchException ex,
+            WebRequest request
+    ) {
+        String message = "Valeur invalide pour le paramètre '" + ex.getName() + "'";
+        return buildResponse(HttpStatus.BAD_REQUEST, message, request);
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorMessage> handleDataIntegrityViolationException(
+            DataIntegrityViolationException ex,
+            WebRequest request
+    ) {
+        log.warn("Database constraint violation on {}", request.getDescription(false), ex);
+        return buildResponse(
+                HttpStatus.CONFLICT,
+                "L'opération entre en conflit avec les données existantes",
+                request
+        );
+    }
+
+    @ExceptionHandler(AuthenticationServiceException.class)
+    public ResponseEntity<ErrorMessage> handleAuthenticationServiceException(
+            AuthenticationServiceException ex,
+            WebRequest request
+    ) {
+        log.error("Authentication service failure on {}", request.getDescription(false), ex);
+        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, INTERNAL_ERROR_MESSAGE, request);
     }
 
     @ExceptionHandler(Exception.class)
-    public final ResponseEntity<ErrorMessage> handleAllException(
+    public ResponseEntity<ErrorMessage> handleAllException(
             Exception ex,
             WebRequest request
     ) {
+        log.error("Unhandled exception on {}", request.getDescription(false), ex);
+        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, INTERNAL_ERROR_MESSAGE, request);
+    }
+
+    private ResponseEntity<ErrorMessage> buildResponse(
+            HttpStatus status,
+            String message,
+            WebRequest request
+    ) {
         ErrorMessage response = new ErrorMessage(
-                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                status.value(),
                 new Date(),
-                ex.getMessage(),
+                message,
                 request.getDescription(false)
         );
-
-        return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+        return ResponseEntity.status(status).body(response);
     }
 }

@@ -4,15 +4,20 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import com.eyram.dev.church_project_spring.DTO.request.ParoisseAssignmentRequest;
+import com.eyram.dev.church_project_spring.DTO.request.UserRequest;
+import com.eyram.dev.church_project_spring.DTO.response.UserResponse;
 import com.eyram.dev.church_project_spring.entities.Localite;
 import com.eyram.dev.church_project_spring.repositories.ParoisseRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -76,7 +81,7 @@ class ParoisseManagementServiceTest {
     @Test
     @DisplayName("Should create paroisse successfully")
     void testCreateParoisseSuccess() {
-        when(paroisseRepository.findAllByStatusDelFalse()).thenReturn(java.util.List.of());
+        when(paroisseRepository.findAllByStatusDelFalse()).thenReturn(List.of());
         when(paroisseRepository.save(any(Paroisse.class))).thenReturn(testParoisse);
 
         Paroisse created = paroisseManagementService.createParoisse(testParoisse, testCreatedBy);
@@ -125,6 +130,79 @@ class ParoisseManagementServiceTest {
     }
 
     @Test
+    @DisplayName("Should create a local admin with its parish in one canonical service call")
+    void testAssignAdminToParoisseAtomically() {
+        UserRequest input = new UserRequest(
+                "Dupont",
+                "Jean",
+                "jean.dupont.admin",
+                "SecurePassword123!",
+                true,
+                false,
+                UserRole.CURE,
+                null
+        );
+        UserResponse expected = new UserResponse(
+                testAdmin.getPublicId(),
+                testAdmin.getNom(),
+                testAdmin.getPrenom(),
+                testAdmin.getUsername(),
+                UserRole.ADMIN.name()
+        );
+
+        when(paroisseRepository.findById(1L)).thenReturn(Optional.of(testParoisse));
+        when(enhancedUserService.createUser(any(UserRequest.class), eq(testCreatedBy)))
+                .thenReturn(expected);
+
+        UserResponse result = paroisseManagementService.assignAdminToParoisse(
+                1L,
+                input,
+                testCreatedBy
+        );
+
+        ArgumentCaptor<UserRequest> requestCaptor = ArgumentCaptor.forClass(UserRequest.class);
+        verify(enhancedUserService).createUser(requestCaptor.capture(), eq(testCreatedBy));
+        verify(enhancedUserService, never()).assignParoisseToUser(
+                any(UUID.class),
+                any(ParoisseAssignmentRequest.class),
+                any(UUID.class)
+        );
+
+        UserRequest adminRequest = requestCaptor.getValue();
+        assertSame(expected, result);
+        assertFalse(adminRequest.isGlobal());
+        assertTrue(adminRequest.isActive());
+        assertEquals(UserRole.ADMIN, adminRequest.role());
+        assertNotNull(adminRequest.paroisses());
+        assertEquals(1, adminRequest.paroisses().size());
+        assertEquals(testParoisse.getPublicId(), adminRequest.paroisses().get(0).getParoisseId());
+        assertEquals("ADMIN", adminRequest.paroisses().get(0).getRoleParoisse());
+    }
+
+    @Test
+    @DisplayName("Should not create an admin when the parish does not exist")
+    void testAssignAdminToMissingParoisse() {
+        UserRequest input = new UserRequest(
+                "Dupont",
+                "Jean",
+                "jean.dupont.admin",
+                "SecurePassword123!",
+                false,
+                true,
+                UserRole.ADMIN,
+                null
+        );
+        when(paroisseRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThrows(
+                EntityNotFoundException.class,
+                () -> paroisseManagementService.assignAdminToParoisse(999L, input, testCreatedBy)
+        );
+
+        verifyNoInteractions(enhancedUserService);
+    }
+
+    @Test
     @DisplayName("Should get paroisse by ID successfully")
     void testGetParoisseByIdSuccess() {
         when(paroisseRepository.findById(1L)).thenReturn(Optional.of(testParoisse));
@@ -147,7 +225,7 @@ class ParoisseManagementServiceTest {
     @Test
     @DisplayName("Should get all active paroisses")
     void testGetAllActiveParoisses() {
-        when(paroisseRepository.findAllByStatusDelFalse()).thenReturn(java.util.List.of(testParoisse));
+        when(paroisseRepository.findAllByStatusDelFalse()).thenReturn(List.of(testParoisse));
 
         var paroisses = paroisseManagementService.getAllActiveParoisses();
 

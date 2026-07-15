@@ -67,15 +67,17 @@ public class EnhancedUserController {
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<UserResponse> getUser(@PathVariable UUID userId) {
         log.info("GET /admin/users/{} - Getting user", userId);
-        UserResponse user = userService.getUserByPublicId(userId);
+        UUID requestedBy = SecurityUtils.getCurrentUserPublicId();
+        UserResponse user = userService.getUserByPublicId(userId, requestedBy);
         return ResponseEntity.ok(user);
     }
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<List<UserResponse>> getAllUsers() {
-        log.info("GET /admin/users - Getting all users");
-        List<UserResponse> users = userService.getAllActiveUsers();
+        log.info("GET /admin/users - Getting users in authorized scope");
+        UUID requestedBy = SecurityUtils.getCurrentUserPublicId();
+        List<UserResponse> users = userService.getAllActiveUsers(requestedBy);
         return ResponseEntity.ok(users);
     }
 
@@ -116,7 +118,8 @@ public class EnhancedUserController {
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<List<ParoisseAccess>> getUserParoisses(@PathVariable UUID userId) {
         log.info("GET /admin/users/{}/paroisses - Getting user paroisses", userId);
-        List<ParoisseAccess> paroisses = userService.getUserParoisses(userId);
+        UUID requestedBy = SecurityUtils.getCurrentUserPublicId();
+        List<ParoisseAccess> paroisses = userService.getUserParoisses(userId, requestedBy);
         return ResponseEntity.ok(paroisses);
     }
 
@@ -124,7 +127,8 @@ public class EnhancedUserController {
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<List<UserResponse>> getUsersByParoisse(@PathVariable Long paroisseId) {
         log.info("GET /admin/users/paroisse/{} - Getting users by paroisse", paroisseId);
-        List<UserResponse> users = userService.getUsersByParoisse(paroisseId);
+        UUID requestedBy = SecurityUtils.getCurrentUserPublicId();
+        List<UserResponse> users = userService.getUsersByParoisse(paroisseId, requestedBy);
         return ResponseEntity.ok(users);
     }
 }

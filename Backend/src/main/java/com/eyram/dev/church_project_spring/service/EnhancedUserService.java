@@ -45,6 +45,9 @@ public class EnhancedUserService {
         validatePasswordForCreate(request.password());
         validateTenantAssignmentForCreate(request);
 
+        User requester = findActiveUser(createdBy);
+        assertCanCreateRequestedScope(requester, request);
+
         if (userRepository.existsByUsernameAndStatusDelFalse(request.username())) {
             log.warn("Attempt to create user with duplicate username: {}", request.username());
             throw new BusinessRuleException("Le nom d'utilisateur est déjà pris");
@@ -288,6 +291,14 @@ public class EnhancedUserService {
 
         if (!requesterParoisseId.equals(targetParoisseId)) {
             throw new AccessDeniedException("Accès interdit à cet utilisateur");
+        }
+    }
+
+    private void assertCanCreateRequestedScope(User requester, UserRequest request) {
+        assertCanApplyRequestedScope(requester, request);
+
+        if (!Boolean.TRUE.equals(request.isGlobal())) {
+            assertCanAssignParoisse(requester, request.paroisses().get(0));
         }
     }
 

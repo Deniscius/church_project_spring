@@ -481,7 +481,9 @@ public class EnhancedUserService {
                 user.getNom(),
                 user.getPrenom(),
                 user.getUsername(),
-                user.getRole() != null ? user.getRole().name() : null
+                user.getRole() != null ? user.getRole().name() : null,
+                user.getIsActive(),
+                user.getIsGlobal()
         );
     }
 }

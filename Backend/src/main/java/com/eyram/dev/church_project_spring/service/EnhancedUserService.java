@@ -5,6 +5,7 @@ import java.util.Locale;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -72,11 +73,7 @@ public class EnhancedUserService {
     public UserResponse updateUser(UUID publicId, UserRequest request, UUID updatedBy) {
         log.info("Updating user: {}", publicId);
 
-        User user = userRepository.findByPublicIdAndStatusDelFalse(publicId)
-                .orElseThrow(() -> {
-                    log.warn("User not found: {}", publicId);
-                    return new EntityNotFoundException("Utilisateur non trouvé");
-                });
+        User user = findActiveUser(publicId);
 
         validateCommonUserRequest(request);
         validatePasswordForUpdate(request.password());
@@ -112,8 +109,7 @@ public class EnhancedUserService {
     ) {
         log.info("Assigning paroisse {} to user (ID: {})", assignment.getParoisseId(), userPublicId);
 
-        User user = userRepository.findByPublicIdAndStatusDelFalse(userPublicId)
-                .orElseThrow(() -> new EntityNotFoundException("Utilisateur non trouvé"));
+        User user = findActiveUser(userPublicId);
 
         if (Boolean.TRUE.equals(user.getIsGlobal())) {
             throw new BusinessRuleException(
@@ -128,8 +124,7 @@ public class EnhancedUserService {
     public void revokeParoisseAccess(UUID userPublicId, Long paroisseId, UUID revokedBy) {
         log.info("Revoking paroisse access for user {} -> paroisse {}", userPublicId, paroisseId);
 
-        User user = userRepository.findByPublicIdAndStatusDelFalse(userPublicId)
-                .orElseThrow(() -> new EntityNotFoundException("Utilisateur non trouvé"));
+        User user = findActiveUser(userPublicId);
 
         Paroisse paroisse = paroisseRepository.findById(paroisseId)
                 .orElseThrow(() -> new EntityNotFoundException("Paroisse non trouvée"));
@@ -145,6 +140,10 @@ public class EnhancedUserService {
         log.info("Paroisse access revoked successfully");
     }
 
+    /**
+     * Accès interne sans filtrage par administrateur appelant.
+     * Les contrôleurs doivent utiliser la surcharge avec requestedBy.
+     */
     @Transactional(readOnly = true)
     public List<UserResponse> getUsersByParoisse(Long paroisseId) {
         log.debug("Fetching users for paroisse: {}", paroisseId);
@@ -152,29 +151,55 @@ public class EnhancedUserService {
         Paroisse paroisse = paroisseRepository.findById(paroisseId)
                 .orElseThrow(() -> new EntityNotFoundException("Paroisse non trouvée"));
 
-        List<ParoisseAccess> accesses = paroisseAccessRepository
-                .findByParoisseAndStatusDelFalse(paroisse);
-
-        return accesses.stream()
-                .filter(access -> Boolean.TRUE.equals(access.getActive()))
-                .map(access -> mapToResponse(access.getUser()))
-                .collect(Collectors.toList());
+        return getActiveUsersForParoisse(paroisse);
     }
 
     @Transactional(readOnly = true)
+    public List<UserResponse> getUsersByParoisse(Long paroisseId, UUID requestedBy) {
+        User requester = findActiveUser(requestedBy);
+        assertCanAccessParoisse(requester, paroisseId);
+        return getUsersByParoisse(paroisseId);
+    }
+
+    /**
+     * Accès interne sans filtrage par administrateur appelant.
+     * Les contrôleurs doivent utiliser la surcharge avec requestedBy.
+     */
+    @Transactional(readOnly = true)
     public List<ParoisseAccess> getUserParoisses(UUID userPublicId) {
-        User user = userRepository.findByPublicIdAndStatusDelFalse(userPublicId)
-                .orElseThrow(() -> new EntityNotFoundException("Utilisateur non trouvé"));
+        User user = findActiveUser(userPublicId);
         return paroisseAccessRepository.findByUserAndActiveTrueAndStatusDelFalse(user);
     }
 
     @Transactional(readOnly = true)
-    public UserResponse getUserByPublicId(UUID userPublicId) {
-        User user = userRepository.findByPublicIdAndStatusDelFalse(userPublicId)
-                .orElseThrow(() -> new EntityNotFoundException("Utilisateur non trouvé"));
-        return mapToResponse(user);
+    public List<ParoisseAccess> getUserParoisses(UUID userPublicId, UUID requestedBy) {
+        User requester = findActiveUser(requestedBy);
+        User target = findActiveUser(userPublicId);
+        assertCanAccessUser(requester, target);
+        return paroisseAccessRepository.findByUserAndActiveTrueAndStatusDelFalse(target);
     }
 
+    /**
+     * Accès interne sans filtrage par administrateur appelant.
+     * Les contrôleurs doivent utiliser la surcharge avec requestedBy.
+     */
+    @Transactional(readOnly = true)
+    public UserResponse getUserByPublicId(UUID userPublicId) {
+        return mapToResponse(findActiveUser(userPublicId));
+    }
+
+    @Transactional(readOnly = true)
+    public UserResponse getUserByPublicId(UUID userPublicId, UUID requestedBy) {
+        User requester = findActiveUser(requestedBy);
+        User target = findActiveUser(userPublicId);
+        assertCanAccessUser(requester, target);
+        return mapToResponse(target);
+    }
+
+    /**
+     * Accès interne sans filtrage par administrateur appelant.
+     * Les contrôleurs doivent utiliser la surcharge avec requestedBy.
+     */
     @Transactional(readOnly = true)
     public List<UserResponse> getAllActiveUsers() {
         log.debug("Fetching all active users");
@@ -184,10 +209,21 @@ public class EnhancedUserService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
+    public List<UserResponse> getAllActiveUsers(UUID requestedBy) {
+        User requester = findActiveUser(requestedBy);
+
+        if (Boolean.TRUE.equals(requester.getIsGlobal())) {
+            return getAllActiveUsers();
+        }
+
+        Long paroisseId = resolveSingleActiveParoisseId(requester);
+        return getUsersByParoisse(paroisseId);
+    }
+
     @Transactional
     public void deleteUser(UUID userPublicId, UUID deletedBy) {
-        User user = userRepository.findByPublicIdAndStatusDelFalse(userPublicId)
-                .orElseThrow(() -> new EntityNotFoundException("Utilisateur non trouvé"));
+        User user = findActiveUser(userPublicId);
 
         user.setIsActive(false);
         user.setStatusDel(true);
@@ -198,6 +234,69 @@ public class EnhancedUserService {
                 user.getUsername(),
                 deletedBy
         );
+    }
+
+    private User findActiveUser(UUID publicId) {
+        return userRepository.findByPublicIdAndStatusDelFalse(publicId)
+                .orElseThrow(() -> new EntityNotFoundException("Utilisateur non trouvé"));
+    }
+
+    private List<UserResponse> getActiveUsersForParoisse(Paroisse paroisse) {
+        return paroisseAccessRepository.findByParoisseAndStatusDelFalse(paroisse)
+                .stream()
+                .filter(access -> Boolean.TRUE.equals(access.getActive()))
+                .map(ParoisseAccess::getUser)
+                .filter(user -> user != null && !Boolean.TRUE.equals(user.getStatusDel()))
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
+    private void assertCanAccessParoisse(User requester, Long paroisseId) {
+        if (Boolean.TRUE.equals(requester.getIsGlobal())) {
+            return;
+        }
+
+        Long requesterParoisseId = resolveSingleActiveParoisseId(requester);
+        if (!requesterParoisseId.equals(paroisseId)) {
+            throw new AccessDeniedException("Accès interdit aux utilisateurs de cette paroisse");
+        }
+    }
+
+    private void assertCanAccessUser(User requester, User target) {
+        if (Boolean.TRUE.equals(requester.getIsGlobal())) {
+            return;
+        }
+
+        if (Boolean.TRUE.equals(target.getIsGlobal())) {
+            throw new AccessDeniedException("Accès interdit à cet utilisateur");
+        }
+
+        Long requesterParoisseId = resolveSingleActiveParoisseId(requester);
+        Long targetParoisseId = resolveSingleActiveParoisseId(target);
+
+        if (!requesterParoisseId.equals(targetParoisseId)) {
+            throw new AccessDeniedException("Accès interdit à cet utilisateur");
+        }
+    }
+
+    private Long resolveSingleActiveParoisseId(User user) {
+        List<ParoisseAccess> accesses = paroisseAccessRepository
+                .findByUserAndActiveTrueAndStatusDelFalse(user);
+
+        List<Long> paroisseIds = accesses.stream()
+                .map(ParoisseAccess::getParoisse)
+                .filter(paroisse -> paroisse != null && paroisse.getId() != null)
+                .map(Paroisse::getId)
+                .distinct()
+                .toList();
+
+        if (paroisseIds.size() != 1) {
+            throw new AccessDeniedException(
+                    "Le compte administrateur doit être associé à une seule paroisse active"
+            );
+        }
+
+        return paroisseIds.get(0);
     }
 
     private void validateCommonUserRequest(UserRequest request) {

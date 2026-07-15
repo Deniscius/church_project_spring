@@ -218,6 +218,63 @@ class EnhancedUserServiceTest {
     }
 
     @Test
+    @DisplayName("Update without a password preserves the existing hash")
+    void testUpdateWithoutPasswordKeepsExistingPassword() {
+        String existingHash = testUser.getPassword();
+        UserRequest updateRequest = new UserRequest(
+                "Dupont",
+                "Jean",
+                "jean.dupont",
+                "",
+                true,
+                true,
+                UserRole.ADMIN,
+                null
+        );
+
+        when(userRepository.findByPublicIdAndStatusDelFalse(testUserId))
+                .thenReturn(Optional.of(testUser));
+        when(userRepository.save(testUser)).thenReturn(testUser);
+
+        UserResponse response = userService.updateUser(testUserId, updateRequest, testCreatedBy);
+
+        assertNotNull(response);
+        assertEquals(existingHash, testUser.getPassword());
+        verify(passwordEncoder, never()).encode(any());
+        verify(userRepository).save(testUser);
+    }
+
+    @Test
+    @DisplayName("Update rejects a new password shorter than eight characters")
+    void testUpdateRejectsShortPassword() {
+        UserRequest updateRequest = new UserRequest(
+                "Dupont",
+                "Jean",
+                "jean.dupont",
+                "short",
+                true,
+                true,
+                UserRole.ADMIN,
+                null
+        );
+
+        when(userRepository.findByPublicIdAndStatusDelFalse(testUserId))
+                .thenReturn(Optional.of(testUser));
+
+        BusinessRuleException exception = assertThrows(
+                BusinessRuleException.class,
+                () -> userService.updateUser(testUserId, updateRequest, testCreatedBy)
+        );
+
+        assertEquals(
+                "Le mot de passe doit contenir au minimum 8 caractères",
+                exception.getMessage()
+        );
+        verify(passwordEncoder, never()).encode(any());
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("Should get user by public ID successfully")
     void testGetUserByPublicIdSuccess() {
         when(userRepository.findByPublicIdAndStatusDelFalse(testUserId)).thenReturn(Optional.of(testUser));

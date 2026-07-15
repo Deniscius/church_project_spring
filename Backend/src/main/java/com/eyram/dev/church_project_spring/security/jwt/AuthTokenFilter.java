@@ -47,11 +47,18 @@ public class AuthTokenFilter extends OncePerRequestFilter {
                 String username = jwtUtils.getUsernameFromToken(token);
                 UserDetailsImpl userDetails = (UserDetailsImpl) userDetailsService.loadUserByUsername(username);
 
-                Long tenantId = jwtUtils.extractTenantId(token);
-                Boolean isGlobal = jwtUtils.extractClaim(token, claims -> claims.get("isGlobal", Boolean.class));
+                /*
+                 * Les informations d'accès sont relues depuis la base à chaque requête.
+                 * Les claims tenant/isGlobal du JWT peuvent être anciens après une
+                 * révocation d'accès, une réaffectation de paroisse ou un changement
+                 * de statut utilisateur ; ils ne doivent donc pas piloter l'isolation.
+                 */
+                if (!userDetails.isEnabled()) {
+                    throw new IllegalStateException("Compte utilisateur désactivé");
+                }
 
-                // Un SUPER_ADMIN global n'a pas de tenant → on ne filtre pas
-                if (tenantId != null && !Boolean.TRUE.equals(isGlobal)) {
+                Long tenantId = userDetails.getTenantId();
+                if (tenantId != null && !userDetails.isGlobal()) {
                     TenantContext.setCurrentTenant(tenantId);
                     tenantFilterActivator.activateFilter();
                 }

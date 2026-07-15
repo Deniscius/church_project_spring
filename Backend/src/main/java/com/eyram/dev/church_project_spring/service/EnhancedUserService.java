@@ -113,7 +113,10 @@ public class EnhancedUserService {
     ) {
         log.info("Assigning paroisse {} to user (ID: {})", assignment.getParoisseId(), userPublicId);
 
+        User requester = findActiveUser(createdBy);
         User user = findActiveUser(userPublicId);
+        assertCanAccessUser(requester, user);
+        assertCanAssignParoisse(requester, assignment);
 
         if (Boolean.TRUE.equals(user.getIsGlobal())) {
             throw new BusinessRuleException(
@@ -128,7 +131,10 @@ public class EnhancedUserService {
     public void revokeParoisseAccess(UUID userPublicId, Long paroisseId, UUID revokedBy) {
         log.info("Revoking paroisse access for user {} -> paroisse {}", userPublicId, paroisseId);
 
+        User requester = findActiveUser(revokedBy);
         User user = findActiveUser(userPublicId);
+        assertCanAccessUser(requester, user);
+        assertCanAccessParoisse(requester, paroisseId);
 
         Paroisse paroisse = paroisseRepository.findById(paroisseId)
                 .orElseThrow(() -> new EntityNotFoundException("Paroisse non trouvée"));
@@ -297,24 +303,47 @@ public class EnhancedUserService {
         }
     }
 
-    private Long resolveSingleActiveParoisseId(User user) {
+    private void assertCanAssignParoisse(
+            User requester,
+            ParoisseAssignmentRequest assignment
+    ) {
+        if (Boolean.TRUE.equals(requester.getIsGlobal())) {
+            return;
+        }
+
+        if (assignment == null || assignment.getParoisseId() == null) {
+            throw new BusinessRuleException("La paroisse est obligatoire");
+        }
+
+        Paroisse requesterParoisse = resolveSingleActiveParoisse(requester);
+        if (!assignment.getParoisseId().equals(requesterParoisse.getPublicId())) {
+            throw new AccessDeniedException(
+                    "Un administrateur local ne peut attribuer que sa propre paroisse"
+            );
+        }
+    }
+
+    private Paroisse resolveSingleActiveParoisse(User user) {
         List<ParoisseAccess> accesses = paroisseAccessRepository
                 .findByUserAndActiveTrueAndStatusDelFalse(user);
 
-        List<Long> paroisseIds = accesses.stream()
+        List<Paroisse> paroisses = accesses.stream()
                 .map(ParoisseAccess::getParoisse)
                 .filter(paroisse -> paroisse != null && paroisse.getId() != null)
-                .map(Paroisse::getId)
                 .distinct()
                 .toList();
 
-        if (paroisseIds.size() != 1) {
+        if (paroisses.size() != 1) {
             throw new AccessDeniedException(
                     "Le compte administrateur doit être associé à une seule paroisse active"
             );
         }
 
-        return paroisseIds.get(0);
+        return paroisses.get(0);
+    }
+
+    private Long resolveSingleActiveParoisseId(User user) {
+        return resolveSingleActiveParoisse(user).getId();
     }
 
     private void validateCommonUserRequest(UserRequest request) {

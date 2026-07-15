@@ -39,7 +39,8 @@ public class EnhancedUserService {
     public UserResponse createUser(UserRequest request, UUID createdBy) {
         log.info("Creating new user: {}", request.username());
 
-        validateUserRequest(request);
+        validateCommonUserRequest(request);
+        validatePasswordForCreate(request.password());
         validateTenantAssignmentForCreate(request);
 
         if (userRepository.existsByUsernameAndStatusDelFalse(request.username())) {
@@ -77,7 +78,8 @@ public class EnhancedUserService {
                     return new EntityNotFoundException("Utilisateur non trouvé");
                 });
 
-        validateUserRequest(request);
+        validateCommonUserRequest(request);
+        validatePasswordForUpdate(request.password());
 
         if (!user.getUsername().equals(request.username())
                 && userRepository.existsByUsernameAndStatusDelFalse(request.username())) {
@@ -87,9 +89,11 @@ public class EnhancedUserService {
         user.setNom(request.nom());
         user.setPrenom(request.prenom());
         user.setUsername(request.username());
-        if (!request.password().isBlank()) {
+
+        if (request.password() != null && !request.password().isBlank()) {
             user.setPassword(passwordEncoder.encode(request.password()));
         }
+
         user.setRole(request.role());
         user.setIsGlobal(request.isGlobal());
         user.setIsActive(request.isActive());
@@ -196,7 +200,7 @@ public class EnhancedUserService {
         );
     }
 
-    private void validateUserRequest(UserRequest request) {
+    private void validateCommonUserRequest(UserRequest request) {
         if (request.nom() == null || request.nom().isBlank()) {
             throw new BusinessRuleException("Le nom est obligatoire");
         }
@@ -206,9 +210,6 @@ public class EnhancedUserService {
         if (request.username() == null || request.username().isBlank()) {
             throw new BusinessRuleException("Le nom d'utilisateur est obligatoire");
         }
-        if (request.password() == null || request.password().length() < 8) {
-            throw new BusinessRuleException("Le mot de passe doit contenir au minimum 8 caractères");
-        }
         if (request.role() == null) {
             throw new BusinessRuleException("Le rôle est obligatoire");
         }
@@ -217,6 +218,33 @@ public class EnhancedUserService {
         }
         if (request.isActive() == null) {
             throw new BusinessRuleException("Le statut actif est obligatoire");
+        }
+    }
+
+    private void validatePasswordForCreate(String password) {
+        if (password == null || password.isBlank()) {
+            throw new BusinessRuleException("Le mot de passe est obligatoire");
+        }
+        validatePasswordLength(password);
+    }
+
+    private void validatePasswordForUpdate(String password) {
+        if (password == null || password.isBlank()) {
+            return;
+        }
+        validatePasswordLength(password);
+    }
+
+    private void validatePasswordLength(String password) {
+        if (password.length() < 8) {
+            throw new BusinessRuleException(
+                    "Le mot de passe doit contenir au minimum 8 caractères"
+            );
+        }
+        if (password.length() > 200) {
+            throw new BusinessRuleException(
+                    "Le mot de passe ne doit pas dépasser 200 caractères"
+            );
         }
     }
 

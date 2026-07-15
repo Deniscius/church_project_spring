@@ -110,25 +110,25 @@ class UserServiceImplCompatibilityTest {
     }
 
     @Test
-    @DisplayName("Read delegates to the canonical service")
+    @DisplayName("Read delegates to the canonical service with the authenticated actor")
     void getByPublicIdDelegatesToCanonicalService() {
-        when(enhancedUserService.getUserByPublicId(userId)).thenReturn(response);
+        when(enhancedUserService.getUserByPublicId(userId, actorId)).thenReturn(response);
 
         UserResponse result = userService.getByPublicId(userId);
 
         assertSame(response, result);
-        verify(enhancedUserService).getUserByPublicId(userId);
+        verify(enhancedUserService).getUserByPublicId(userId, actorId);
     }
 
     @Test
-    @DisplayName("List delegates to the canonical service")
+    @DisplayName("List delegates to the canonical service with the authenticated actor")
     void getAllDelegatesToCanonicalService() {
-        when(enhancedUserService.getAllActiveUsers()).thenReturn(List.of(response));
+        when(enhancedUserService.getAllActiveUsers(actorId)).thenReturn(List.of(response));
 
         List<UserResponse> result = userService.getAll();
 
         assertEquals(List.of(response), result);
-        verify(enhancedUserService).getAllActiveUsers();
+        verify(enhancedUserService).getAllActiveUsers(actorId);
     }
 
     @Test

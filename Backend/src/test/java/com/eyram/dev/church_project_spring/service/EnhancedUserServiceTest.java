@@ -231,7 +231,10 @@ class EnhancedUserServiceTest {
                 UserRole.ADMIN,
                 null
         );
+        User globalActor = globalActor();
 
+        when(userRepository.findByPublicIdAndStatusDelFalse(testCreatedBy))
+                .thenReturn(Optional.of(globalActor));
         when(userRepository.findByPublicIdAndStatusDelFalse(testUserId))
                 .thenReturn(Optional.of(testUser));
         when(userRepository.save(testUser)).thenReturn(testUser);
@@ -257,7 +260,10 @@ class EnhancedUserServiceTest {
                 UserRole.ADMIN,
                 null
         );
+        User globalActor = globalActor();
 
+        when(userRepository.findByPublicIdAndStatusDelFalse(testCreatedBy))
+                .thenReturn(Optional.of(globalActor));
         when(userRepository.findByPublicIdAndStatusDelFalse(testUserId))
                 .thenReturn(Optional.of(testUser));
 
@@ -300,7 +306,12 @@ class EnhancedUserServiceTest {
     @Test
     @DisplayName("Should deactivate and soft delete user")
     void testDeleteUserSuccess() {
-        when(userRepository.findByPublicIdAndStatusDelFalse(testUserId)).thenReturn(Optional.of(testUser));
+        User globalActor = globalActor();
+
+        when(userRepository.findByPublicIdAndStatusDelFalse(testCreatedBy))
+                .thenReturn(Optional.of(globalActor));
+        when(userRepository.findByPublicIdAndStatusDelFalse(testUserId))
+                .thenReturn(Optional.of(testUser));
         when(userRepository.save(any(User.class))).thenReturn(testUser);
 
         userService.deleteUser(testUserId, testCreatedBy);
@@ -335,6 +346,15 @@ class EnhancedUserServiceTest {
         user.setIsActive(true);
         user.setStatusDel(false);
         return user;
+    }
+
+    private User globalActor() {
+        User actor = user(true);
+        actor.setId(2L);
+        actor.setPublicId(testCreatedBy);
+        actor.setUsername("global.admin");
+        actor.setRole(UserRole.SUPER_ADMIN);
+        return actor;
     }
 
     private UserRequest request(boolean global, List<ParoisseAssignmentRequest> assignments) {

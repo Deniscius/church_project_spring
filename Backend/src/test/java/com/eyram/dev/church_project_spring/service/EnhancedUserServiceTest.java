@@ -72,6 +72,8 @@ class EnhancedUserServiceTest {
     @Test
     @DisplayName("Should create global user successfully with valid data")
     void testCreateUserSuccess() {
+        when(userRepository.findByPublicIdAndStatusDelFalse(testCreatedBy))
+                .thenReturn(Optional.of(globalActor()));
         when(userRepository.existsByUsernameAndStatusDelFalse("jean.dupont")).thenReturn(false);
         when(passwordEncoder.encode("SecurePassword123!")).thenReturn("hashedPassword123");
         when(userRepository.save(any(User.class))).thenReturn(testUser);
@@ -97,6 +99,8 @@ class EnhancedUserServiceTest {
         User localUser = user(false);
         UserRequest localRequest = request(false, List.of(assignment(paroissePublicId)));
 
+        when(userRepository.findByPublicIdAndStatusDelFalse(testCreatedBy))
+                .thenReturn(Optional.of(globalActor()));
         when(userRepository.existsByUsernameAndStatusDelFalse("jean.dupont")).thenReturn(false);
         when(passwordEncoder.encode("SecurePassword123!")).thenReturn("hashedPassword123");
         when(userRepository.save(any(User.class))).thenReturn(localUser);
@@ -171,6 +175,8 @@ class EnhancedUserServiceTest {
         User localUser = user(false);
         UserRequest localRequest = request(false, List.of(assignment(missingParishId)));
 
+        when(userRepository.findByPublicIdAndStatusDelFalse(testCreatedBy))
+                .thenReturn(Optional.of(globalActor()));
         when(userRepository.existsByUsernameAndStatusDelFalse("jean.dupont")).thenReturn(false);
         when(passwordEncoder.encode("SecurePassword123!")).thenReturn("hashedPassword123");
         when(userRepository.save(any(User.class))).thenReturn(localUser);
@@ -188,6 +194,8 @@ class EnhancedUserServiceTest {
     @Test
     @DisplayName("Should throw BusinessRuleException when username already exists")
     void testCreateUserDuplicateUsername() {
+        when(userRepository.findByPublicIdAndStatusDelFalse(testCreatedBy))
+                .thenReturn(Optional.of(globalActor()));
         when(userRepository.existsByUsernameAndStatusDelFalse("jean.dupont")).thenReturn(true);
 
         assertThrows(

@@ -7,7 +7,7 @@ import { useAuth } from '../../hooks/useAuth';
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { loginMultiTenant } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -18,7 +18,7 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      const { user } = await login({ username: username.trim(), password });
+      const { user } = await loginMultiTenant({ username: username.trim(), password });
       const isGlobalAdmin = user?.role === 'SUPER_ADMIN' && user?.isGlobal === true;
       navigate(isGlobalAdmin ? '/admin/paroisses' : '/admin/dashboard', { replace: true });
     } catch (err) {

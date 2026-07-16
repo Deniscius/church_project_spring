@@ -147,7 +147,9 @@ class ParoisseManagementServiceTest {
                 testAdmin.getNom(),
                 testAdmin.getPrenom(),
                 testAdmin.getUsername(),
-                UserRole.ADMIN.name()
+                UserRole.ADMIN.name(),
+                testAdmin.getIsActive(),
+                testAdmin.getIsGlobal()
         );
 
         when(paroisseRepository.findById(1L)).thenReturn(Optional.of(testParoisse));

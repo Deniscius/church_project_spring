@@ -65,8 +65,8 @@ class UserResponseContractTest {
                 "Test",
                 "inactive.global",
                 "SecurePassword123!",
-                false,
                 true,
+                false,
                 UserRole.ADMIN,
                 null
         );

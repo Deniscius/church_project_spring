@@ -106,7 +106,7 @@ public class EnhancedUserController {
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<Void> revokeParoisseAccess(
             @PathVariable UUID userId,
-            @PathVariable Long paroisseId
+            @PathVariable UUID paroisseId
     ) {
         log.info("DELETE /admin/users/{}/paroisses/{} - Revoking paroisse access", userId, paroisseId);
         UUID revokedBy = SecurityUtils.getCurrentUserPublicId();
@@ -125,7 +125,7 @@ public class EnhancedUserController {
 
     @GetMapping("/paroisse/{paroisseId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<List<UserResponse>> getUsersByParoisse(@PathVariable Long paroisseId) {
+    public ResponseEntity<List<UserResponse>> getUsersByParoisse(@PathVariable UUID paroisseId) {
         log.info("GET /admin/users/paroisse/{} - Getting users by paroisse", paroisseId);
         UUID requestedBy = SecurityUtils.getCurrentUserPublicId();
         List<UserResponse> users = userService.getUsersByParoisse(paroisseId, requestedBy);

@@ -1,6 +1,7 @@
 package com.eyram.dev.church_project_spring.repositories;
 
 import com.eyram.dev.church_project_spring.entities.DetailsPaiement;
+import com.eyram.dev.church_project_spring.entities.TypePaiement;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -16,4 +17,6 @@ public interface DetailsPaiementRepository extends JpaRepository<DetailsPaiement
     Optional<DetailsPaiement> findByFacturePublicId(UUID facturePublicId);
 
     Optional<DetailsPaiement> findByFacturePublicIdAndStatusDelFalse(UUID facturePublicId);
+
+    boolean existsByTypePaiementAndStatusDelFalse(TypePaiement typePaiement);
 }

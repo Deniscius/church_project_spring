@@ -2,7 +2,7 @@ import React from 'react';
 import { Route } from 'react-router-dom';
 import ProtectedGuard from '../guards/ProtectedGuard';
 import AdminLayout from '../../layouts/AdminLayout';
-import RoleGuard from '../guards/RoleGuard';
+import GlobalAdminGuard from '../guards/GlobalAdminGuard';
 import ParishesPage from '../../pages/superadmin/parishes/ParishesPage';
 import CreateParishPage from '../../pages/superadmin/parishes/CreateParishPage';
 import EditParishPage from '../../pages/superadmin/parishes/EditParishPage';
@@ -16,7 +16,7 @@ import PaymentTypesPage from '../../pages/superadmin/payment-types/PaymentTypesP
 export function SuperAdminRoutes() {
   return (
     <Route element={<ProtectedGuard />}>
-      <Route element={<RoleGuard allowedRoles={['SUPER_ADMIN']} />}>
+      <Route element={<GlobalAdminGuard />}>
         <Route element={<AdminLayout />}>
           <Route path="/admin/paroisses" element={<ParishesPage />} />
           <Route path="/admin/paroisses/nouvelle" element={<CreateParishPage />} />
@@ -26,7 +26,7 @@ export function SuperAdminRoutes() {
           <Route path="/admin/types-paiement" element={<PaymentTypesPage />} />
         </Route>
       </Route>
-      <Route element={<RoleGuard allowedRoles={['SUPER_ADMIN']} />}>
+      <Route element={<GlobalAdminGuard />}>
         <Route element={<AdminLayout />}>
           <Route path="/admin/utilisateurs" element={<UsersPage />} />
           <Route path="/admin/utilisateurs/nouveau" element={<CreateUserPage />} />

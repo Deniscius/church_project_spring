@@ -8,10 +8,13 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.UUID;
+import java.util.List;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -94,10 +97,9 @@ class SecurityEndpointAccessTest extends AbstractIntegrationTest {
     }
 
     @Test
-    @WithMockUser(roles = "SUPER_ADMIN")
     @DisplayName("Super admin reaches parish request validation")
     void superAdminCanReachParishValidation() throws Exception {
-        mockMvc.perform(post("/paroisses")
+        mockMvc.perform(post("/paroisses").with(user(globalSuperAdmin()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isBadRequest());
@@ -123,10 +125,28 @@ class SecurityEndpointAccessTest extends AbstractIntegrationTest {
     }
 
     @Test
-    @WithMockUser(roles = "SUPER_ADMIN")
     @DisplayName("Super admin reaches locality request validation")
     void superAdminCanReachLocalityValidation() throws Exception {
-        mockMvc.perform(post("/localites")
+        mockMvc.perform(post("/localites").with(user(globalSuperAdmin()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("Local admin cannot create a global payment type")
+    void localAdminCannotCreatePaymentType() throws Exception {
+        mockMvc.perform(post("/type-paiement")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("Global super admin reaches payment type request validation")
+    void globalSuperAdminCanReachPaymentTypeValidation() throws Exception {
+        mockMvc.perform(post("/type-paiement").with(user(globalSuperAdmin()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isBadRequest());
@@ -143,10 +163,9 @@ class SecurityEndpointAccessTest extends AbstractIntegrationTest {
     }
 
     @Test
-    @WithMockUser(roles = "SUPER_ADMIN")
     @DisplayName("Super admin reaches parish access request validation")
     void superAdminCanReachParishAccessValidation() throws Exception {
-        mockMvc.perform(post("/paroisse-access")
+        mockMvc.perform(post("/paroisse-access").with(user(globalSuperAdmin()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isBadRequest());
@@ -178,5 +197,38 @@ class SecurityEndpointAccessTest extends AbstractIntegrationTest {
     void secretaryCannotReadUserParishAssignments() throws Exception {
         mockMvc.perform(get("/admin/users/{userId}/paroisses", UUID.randomUUID()))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("A non-global super admin cannot mutate global references")
+    void nonGlobalSuperAdminCannotCreateLocality() throws Exception {
+        UserDetailsImpl nonGlobalSuperAdmin = new UserDetailsImpl(
+                UUID.randomUUID(),
+                "Invalid local super admin",
+                "invalid.super.admin",
+                1L,
+                false,
+                "password",
+                List.of(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN")),
+                true
+        );
+
+        mockMvc.perform(post("/localites").with(user(nonGlobalSuperAdmin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isForbidden());
+    }
+
+    private UserDetailsImpl globalSuperAdmin() {
+        return new UserDetailsImpl(
+                UUID.randomUUID(),
+                "Global super admin",
+                "global.super.admin",
+                null,
+                true,
+                "password",
+                List.of(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN")),
+                true
+        );
     }
 }

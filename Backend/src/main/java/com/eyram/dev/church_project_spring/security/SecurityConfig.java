@@ -9,6 +9,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.authorization.AuthorizationDecision;
+import org.springframework.security.authorization.AuthorizationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -19,6 +21,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
 import org.springframework.web.cors.CorsConfigurationSource;
 
 @Configuration
@@ -101,15 +104,15 @@ public class SecurityConfig {
 
                         // Le référentiel brut des affectations permet de modifier les tenants.
                         .requestMatchers("/paroisse-access", "/paroisse-access/**")
-                        .hasRole("SUPER_ADMIN")
+                        .access(globalSuperAdminAccess())
 
                         // Gestion du référentiel global
-                        .requestMatchers(HttpMethod.POST, "/paroisses", "/localites")
-                        .hasRole("SUPER_ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/paroisses/**", "/localites/**")
-                        .hasRole("SUPER_ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/paroisses/**", "/localites/**")
-                        .hasRole("SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/paroisses", "/localites", "/type-paiement")
+                        .access(globalSuperAdminAccess())
+                        .requestMatchers(HttpMethod.PUT, "/paroisses/**", "/localites/**", "/type-paiement/**")
+                        .access(globalSuperAdminAccess())
+                        .requestMatchers(HttpMethod.DELETE, "/paroisses/**", "/localites/**", "/type-paiement/**")
+                        .access(globalSuperAdminAccess())
 
                         // Paramétrage propre à une paroisse
                         .requestMatchers(HttpMethod.POST, "/horaires", "/type-demandes", "/forfait-tarifs")
@@ -151,14 +154,25 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/demande-dates/**")
                         .hasAnyRole("ADMIN", "SUPER_ADMIN")
 
-                        // Paramétrage système réservé au SUPER_ADMIN
-                        .requestMatchers("/type-paiement", "/type-paiement/**").hasRole("SUPER_ADMIN")
-
                         .anyRequest().authenticated()
                 )
                 .authenticationProvider(authenticationProvider)
                 .addFilterBefore(authTokenFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    private AuthorizationManager<RequestAuthorizationContext> globalSuperAdminAccess() {
+        return (authenticationSupplier, context) -> {
+            var authentication = authenticationSupplier.get();
+            boolean hasSuperAdminRole = authentication.getAuthorities().stream()
+                    .anyMatch(authority -> "ROLE_SUPER_ADMIN".equals(authority.getAuthority()));
+            boolean isGlobal = authentication.getPrincipal() instanceof UserDetailsImpl principal
+                    && principal.isGlobal();
+
+            return new AuthorizationDecision(
+                    authentication.isAuthenticated() && hasSuperAdminRole && isGlobal
+            );
+        };
     }
 }

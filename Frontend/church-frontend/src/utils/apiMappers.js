@@ -93,6 +93,8 @@ export function mapLocaliteToRow(l) {
   return {
     id: l.publicId,
     label: [l.ville, l.quartier].filter(Boolean).join(' — ') || '—',
+    city: l.ville || '—',
+    district: l.quartier || '—',
   };
 }
 

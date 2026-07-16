@@ -2,6 +2,7 @@ package com.eyram.dev.church_project_spring.service;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -39,6 +40,7 @@ public class EnhancedUserService {
 
     @Transactional
     public UserResponse createUser(UserRequest request, UUID createdBy) {
+        request = normalize(request);
         log.info("Creating new user: {}", request.username());
 
         validateCommonUserRequest(request);
@@ -47,8 +49,9 @@ public class EnhancedUserService {
 
         User requester = findActiveUser(createdBy);
         assertCanCreateRequestedScope(requester, request);
+        validateGlobalRoleConsistency(request);
 
-        if (userRepository.existsByUsernameAndStatusDelFalse(request.username())) {
+        if (userRepository.existsByUsernameIgnoreCaseAndStatusDelFalse(request.username())) {
             log.warn("Attempt to create user with duplicate username: {}", request.username());
             throw new BusinessRuleException("Le nom d'utilisateur est déjà pris");
         }
@@ -75,6 +78,7 @@ public class EnhancedUserService {
 
     @Transactional
     public UserResponse updateUser(UUID publicId, UserRequest request, UUID updatedBy) {
+        request = normalize(request);
         log.info("Updating user: {}", publicId);
 
         User requester = findActiveUser(updatedBy);
@@ -82,12 +86,19 @@ public class EnhancedUserService {
         assertCanAccessUser(requester, user);
         assertTenantScopeUnchanged(user, request);
         assertCanApplyRequestedScope(requester, request);
+        validateGlobalRoleConsistency(request);
 
         validateCommonUserRequest(request);
         validatePasswordForUpdate(request.password());
 
+        if (user.getPublicId().equals(requester.getPublicId())
+                && !Boolean.TRUE.equals(request.isActive())) {
+            throw new BusinessRuleException("Vous ne pouvez pas désactiver votre propre compte");
+        }
+        ensureAnotherGlobalSuperAdminExistsBeforeDeactivation(user, request.isActive());
+
         if (!user.getUsername().equals(request.username())
-                && userRepository.existsByUsernameAndStatusDelFalse(request.username())) {
+                && userRepository.existsByUsernameIgnoreCaseAndStatusDelFalse(request.username())) {
             throw new BusinessRuleException("Le nom d'utilisateur est déjà pris");
         }
 
@@ -245,7 +256,7 @@ public class EnhancedUserService {
     @Transactional(readOnly = true)
     public List<UserResponse> getAllActiveUsers() {
         log.debug("Fetching all active users");
-        return userRepository.findByStatusDelFalse()
+        return userRepository.findByStatusDelFalseOrderByNomAscPrenomAsc()
                 .stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
@@ -269,6 +280,17 @@ public class EnhancedUserService {
         User user = findActiveUser(userPublicId);
         assertCanAccessUser(requester, user);
 
+        if (user.getPublicId().equals(requester.getPublicId())) {
+            throw new BusinessRuleException("Vous ne pouvez pas supprimer votre propre compte");
+        }
+        ensureAnotherGlobalSuperAdminExistsBeforeDeactivation(user, false);
+
+        paroisseAccessRepository.findByUserAndStatusDelFalse(user)
+                .forEach(access -> {
+                    access.setActive(false);
+                    access.setStatusDel(true);
+                });
+
         user.setIsActive(false);
         user.setStatusDel(true);
         userRepository.save(user);
@@ -281,6 +303,9 @@ public class EnhancedUserService {
     }
 
     private User findActiveUser(UUID publicId) {
+        if (publicId == null) {
+            throw new IllegalArgumentException("L'identifiant de l'utilisateur est obligatoire");
+        }
         return userRepository.findByPublicIdAndStatusDelFalse(publicId)
                 .orElseThrow(() -> new EntityNotFoundException("Utilisateur non trouvé"));
     }
@@ -290,9 +315,20 @@ public class EnhancedUserService {
                 .findByUserAndParoisseAndStatusDelFalse(user, paroisse)
                 .orElseThrow(() -> new EntityNotFoundException("Accès à la paroisse non trouvé"));
 
+        boolean revokingLastActiveAccess = Boolean.TRUE.equals(access.getActive())
+                && paroisseAccessRepository.findByUserAndActiveTrueAndStatusDelFalse(user)
+                .stream()
+                .allMatch(activeAccess -> activeAccess == access
+                        || Objects.equals(activeAccess.getPublicId(), access.getPublicId()));
+
         access.setActive(false);
         access.setStatusDel(true);
         paroisseAccessRepository.save(access);
+
+        if (revokingLastActiveAccess && Boolean.TRUE.equals(user.getIsActive())) {
+            user.setIsActive(false);
+            userRepository.save(user);
+        }
 
         log.info("Paroisse access revoked successfully");
     }
@@ -498,6 +534,7 @@ public class EnhancedUserService {
 
         Paroisse paroisse = paroisseRepository
                 .findByPublicIdAndStatusDelFalse(assignment.getParoisseId())
+                .filter(value -> Boolean.TRUE.equals(value.getIsActive()))
                 .orElseThrow(() -> new EntityNotFoundException("Paroisse non trouvée"));
 
         if (paroisseAccessRepository.existsByUserAndParoisseAndStatusDelFalse(user, paroisse)) {
@@ -535,6 +572,92 @@ public class EnhancedUserService {
             return RoleParoisse.valueOf(value.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException ex) {
             throw new BusinessRuleException("Le rôle dans la paroisse est invalide");
+        }
+    }
+
+    private UserRequest normalize(UserRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("La requête utilisateur est obligatoire");
+        }
+
+        return new UserRequest(
+                normalizeRequired(request.nom(), 2, 100,
+                        "Le nom est obligatoire",
+                        "Le nom doit contenir entre 2 et 100 caractères"),
+                normalizeRequired(request.prenom(), 2, 150,
+                        "Le prénom est obligatoire",
+                        "Le prénom doit contenir entre 2 et 150 caractères"),
+                normalizeUsername(request.username()),
+                request.password(),
+                request.isGlobal(),
+                request.isActive(),
+                request.role(),
+                request.paroisses()
+        );
+    }
+
+    private String normalizeUsername(String username) {
+        String normalized = normalizeRequired(
+                username,
+                3,
+                100,
+                "Le nom d'utilisateur est obligatoire",
+                "Le nom d'utilisateur doit contenir entre 3 et 100 caractères"
+        ).toLowerCase(Locale.ROOT);
+
+        if (!normalized.matches("^[a-z0-9._-]+$")) {
+            throw new BusinessRuleException(
+                    "Le nom d'utilisateur contient des caractères non autorisés"
+            );
+        }
+        return normalized;
+    }
+
+    private String normalizeRequired(
+            String value,
+            int minLength,
+            int maxLength,
+            String requiredMessage,
+            String lengthMessage
+    ) {
+        if (value == null || value.isBlank()) {
+            throw new BusinessRuleException(requiredMessage);
+        }
+        String normalized = value.strip().replaceAll("\\s+", " ");
+        if (normalized.length() < minLength || normalized.length() > maxLength) {
+            throw new BusinessRuleException(lengthMessage);
+        }
+        return normalized;
+    }
+
+    private void validateGlobalRoleConsistency(UserRequest request) {
+        boolean global = Boolean.TRUE.equals(request.isGlobal());
+        boolean superAdmin = request.role() == UserRole.SUPER_ADMIN;
+
+        if (global != superAdmin) {
+            throw new BusinessRuleException(
+                    "Le rôle SUPER_ADMIN et le statut global doivent être définis ensemble"
+            );
+        }
+    }
+
+    private void ensureAnotherGlobalSuperAdminExistsBeforeDeactivation(
+            User user,
+            Boolean requestedActive
+    ) {
+        boolean deactivating = !Boolean.TRUE.equals(requestedActive);
+        boolean protectedAccount = Boolean.TRUE.equals(user.getIsGlobal())
+                && user.getRole() == UserRole.SUPER_ADMIN
+                && Boolean.TRUE.equals(user.getIsActive());
+
+        if (deactivating
+                && protectedAccount
+                && userRepository.countByStatusDelFalseAndIsActiveTrueAndIsGlobalTrueAndRole(
+                        UserRole.SUPER_ADMIN
+                ) <= 1) {
+            throw new BusinessRuleException(
+                    "Le dernier SUPER_ADMIN actif ne peut pas être désactivé"
+            );
         }
     }
 

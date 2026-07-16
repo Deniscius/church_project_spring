@@ -20,6 +20,7 @@ export default function UsersPage() {
   const [error, setError] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [editingIsGlobal, setEditingIsGlobal] = useState(null);
   const [parishes, setParishes] = useState([]);
   const [formData, setFormData] = useState({
     nom: '',
@@ -62,6 +63,14 @@ export default function UsersPage() {
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
+    if (name === 'role') {
+      setFormData(prev => ({
+        ...prev,
+        role: value,
+        isGlobal: value === 'SUPER_ADMIN',
+      }));
+      return;
+    }
     setFormData(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
@@ -126,6 +135,7 @@ export default function UsersPage() {
           roleParoisse: 'SECRETAIRE',
         });
         setEditingId(userId);
+        setEditingIsGlobal(Boolean(user.isGlobal));
         setShowForm(true);
       }
     } catch {
@@ -149,6 +159,7 @@ export default function UsersPage() {
   const handleCancel = () => {
     setShowForm(false);
     setEditingId(null);
+    setEditingIsGlobal(null);
     setFormData({
       nom: '',
       prenom: '',
@@ -218,6 +229,8 @@ export default function UsersPage() {
                 value={formData.nom}
                 onChange={handleInputChange}
                 required
+                minLength={2}
+                maxLength={100}
                 style={{
                   width: '100%',
                   padding: '8px',
@@ -238,6 +251,8 @@ export default function UsersPage() {
                 value={formData.prenom}
                 onChange={handleInputChange}
                 required
+                minLength={2}
+                maxLength={150}
                 style={{
                   width: '100%',
                   padding: '8px',
@@ -258,6 +273,10 @@ export default function UsersPage() {
                 value={formData.username}
                 onChange={handleInputChange}
                 required
+                minLength={3}
+                maxLength={100}
+                pattern="[A-Za-z0-9._-]+"
+                title="Lettres, chiffres, point, tiret et underscore uniquement"
                 style={{
                   width: '100%',
                   padding: '8px',
@@ -278,6 +297,8 @@ export default function UsersPage() {
                 value={formData.password}
                 onChange={handleInputChange}
                 required={!editingId}
+                minLength={editingId && !formData.password ? undefined : 8}
+                maxLength={200}
                 style={{
                   width: '100%',
                   padding: '8px',
@@ -296,6 +317,7 @@ export default function UsersPage() {
                 name="role"
                 value={formData.role}
                 onChange={handleInputChange}
+                disabled={Boolean(editingId) && editingIsGlobal}
                 style={{
                   width: '100%',
                   padding: '8px',
@@ -307,7 +329,12 @@ export default function UsersPage() {
                 <option value="SECRETAIRE">Secrétaire</option>
                 <option value="CURE">Curé</option>
                 <option value="ADMIN">Admin Local</option>
-                <option value="SUPER_ADMIN">Super Admin</option>
+                <option
+                  value="SUPER_ADMIN"
+                  disabled={Boolean(editingId) && editingIsGlobal === false}
+                >
+                  Super Admin
+                </option>
               </select>
             </div>
           </div>
@@ -325,14 +352,16 @@ export default function UsersPage() {
           </div>
 
           <div style={{ marginBottom: '16px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <input
                 type="checkbox"
                 name="isGlobal"
                 checked={formData.isGlobal}
-                onChange={handleInputChange}
+                disabled
               />
-              <span style={{ fontWeight: 'bold' }}>Administrateur Global (accès à toutes les paroisses)</span>
+              <span style={{ fontWeight: 'bold' }}>
+                Accès global (déduit automatiquement du rôle Super Admin)
+              </span>
             </label>
           </div>
 

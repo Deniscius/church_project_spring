@@ -63,13 +63,13 @@ class EnhancedUserServiceReadScopeTest {
 
         when(userRepository.findByPublicIdAndStatusDelFalse(requesterId))
                 .thenReturn(Optional.of(requester));
-        when(userRepository.findByStatusDelFalse())
+        when(userRepository.findByStatusDelFalseOrderByNomAscPrenomAsc())
                 .thenReturn(List.of(requester, target));
 
         var result = userService.getAllActiveUsers(requesterId);
 
         assertEquals(2, result.size());
-        verify(userRepository).findByStatusDelFalse();
+        verify(userRepository).findByStatusDelFalseOrderByNomAscPrenomAsc();
     }
 
     @Test
@@ -114,7 +114,7 @@ class EnhancedUserServiceReadScopeTest {
 
         assertEquals(1, result.size());
         assertEquals(targetId, result.get(0).publicId());
-        verify(userRepository, never()).findByStatusDelFalse();
+        verify(userRepository, never()).findByStatusDelFalseOrderByNomAscPrenomAsc();
     }
 
     @Test

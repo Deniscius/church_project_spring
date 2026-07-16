@@ -19,7 +19,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const { user } = await login({ username: username.trim(), password });
-      const isGlobalAdmin = ['ADMIN', 'SUPER_ADMIN'].includes(user?.role);
+      const isGlobalAdmin = user?.role === 'SUPER_ADMIN' && user?.isGlobal === true;
       navigate(isGlobalAdmin ? '/admin/paroisses' : '/admin/dashboard', { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Connexion impossible');

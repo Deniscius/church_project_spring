@@ -74,7 +74,7 @@ class EnhancedUserServiceTest {
     void testCreateUserSuccess() {
         when(userRepository.findByPublicIdAndStatusDelFalse(testCreatedBy))
                 .thenReturn(Optional.of(globalActor()));
-        when(userRepository.existsByUsernameAndStatusDelFalse("jean.dupont")).thenReturn(false);
+        when(userRepository.existsByUsernameIgnoreCaseAndStatusDelFalse("jean.dupont")).thenReturn(false);
         when(passwordEncoder.encode("SecurePassword123!")).thenReturn("hashedPassword123");
         when(userRepository.save(any(User.class))).thenReturn(testUser);
 
@@ -101,7 +101,7 @@ class EnhancedUserServiceTest {
 
         when(userRepository.findByPublicIdAndStatusDelFalse(testCreatedBy))
                 .thenReturn(Optional.of(globalActor()));
-        when(userRepository.existsByUsernameAndStatusDelFalse("jean.dupont")).thenReturn(false);
+        when(userRepository.existsByUsernameIgnoreCaseAndStatusDelFalse("jean.dupont")).thenReturn(false);
         when(passwordEncoder.encode("SecurePassword123!")).thenReturn("hashedPassword123");
         when(userRepository.save(any(User.class))).thenReturn(localUser);
         when(paroisseRepository.findByPublicIdAndStatusDelFalse(paroissePublicId))
@@ -177,7 +177,7 @@ class EnhancedUserServiceTest {
 
         when(userRepository.findByPublicIdAndStatusDelFalse(testCreatedBy))
                 .thenReturn(Optional.of(globalActor()));
-        when(userRepository.existsByUsernameAndStatusDelFalse("jean.dupont")).thenReturn(false);
+        when(userRepository.existsByUsernameIgnoreCaseAndStatusDelFalse("jean.dupont")).thenReturn(false);
         when(passwordEncoder.encode("SecurePassword123!")).thenReturn("hashedPassword123");
         when(userRepository.save(any(User.class))).thenReturn(localUser);
         when(paroisseRepository.findByPublicIdAndStatusDelFalse(missingParishId))
@@ -196,13 +196,41 @@ class EnhancedUserServiceTest {
     void testCreateUserDuplicateUsername() {
         when(userRepository.findByPublicIdAndStatusDelFalse(testCreatedBy))
                 .thenReturn(Optional.of(globalActor()));
-        when(userRepository.existsByUsernameAndStatusDelFalse("jean.dupont")).thenReturn(true);
+        when(userRepository.existsByUsernameIgnoreCaseAndStatusDelFalse("jean.dupont")).thenReturn(true);
 
         assertThrows(
                 BusinessRuleException.class,
                 () -> userService.createUser(testUserRequest, testCreatedBy)
         );
         verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Should normalize names and username before persistence")
+    void testCreateUserNormalizesIdentity() {
+        UserRequest request = new UserRequest(
+                "  Dupont  ",
+                " Jean   Paul ",
+                "  JEAN.DUPONT  ",
+                "SecurePassword123!",
+                true,
+                true,
+                UserRole.SUPER_ADMIN,
+                null
+        );
+
+        when(userRepository.findByPublicIdAndStatusDelFalse(testCreatedBy))
+                .thenReturn(Optional.of(globalActor()));
+        when(userRepository.existsByUsernameIgnoreCaseAndStatusDelFalse("jean.dupont"))
+                .thenReturn(false);
+        when(passwordEncoder.encode("SecurePassword123!")).thenReturn("hashedPassword123");
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        UserResponse response = userService.createUser(request, testCreatedBy);
+
+        assertEquals("Dupont", response.nom());
+        assertEquals("Jean Paul", response.prenom());
+        assertEquals("jean.dupont", response.username());
     }
 
     @Test
@@ -215,7 +243,7 @@ class EnhancedUserServiceTest {
                 "short",
                 true,
                 true,
-                UserRole.ADMIN,
+                UserRole.SUPER_ADMIN,
                 null
         );
 
@@ -236,7 +264,7 @@ class EnhancedUserServiceTest {
                 "",
                 true,
                 true,
-                UserRole.ADMIN,
+                UserRole.SUPER_ADMIN,
                 null
         );
         User globalActor = globalActor();
@@ -265,7 +293,7 @@ class EnhancedUserServiceTest {
                 "short",
                 true,
                 true,
-                UserRole.ADMIN,
+                UserRole.SUPER_ADMIN,
                 null
         );
         User globalActor = globalActor();
@@ -320,6 +348,9 @@ class EnhancedUserServiceTest {
                 .thenReturn(Optional.of(globalActor));
         when(userRepository.findByPublicIdAndStatusDelFalse(testUserId))
                 .thenReturn(Optional.of(testUser));
+        when(userRepository.countByStatusDelFalseAndIsActiveTrueAndIsGlobalTrueAndRole(
+                UserRole.SUPER_ADMIN
+        )).thenReturn(2L);
         when(userRepository.save(any(User.class))).thenReturn(testUser);
 
         userService.deleteUser(testUserId, testCreatedBy);
@@ -330,15 +361,104 @@ class EnhancedUserServiceTest {
     }
 
     @Test
+    @DisplayName("Should reject self-deletion")
+    void testDeleteUserRejectsSelfDeletion() {
+        when(userRepository.findByPublicIdAndStatusDelFalse(testUserId))
+                .thenReturn(Optional.of(testUser));
+
+        BusinessRuleException exception = assertThrows(
+                BusinessRuleException.class,
+                () -> userService.deleteUser(testUserId, testUserId)
+        );
+
+        assertEquals("Vous ne pouvez pas supprimer votre propre compte", exception.getMessage());
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Should reject self-deactivation")
+    void testUpdateUserRejectsSelfDeactivation() {
+        UserRequest request = new UserRequest(
+                "Dupont",
+                "Jean",
+                "jean.dupont",
+                "",
+                true,
+                false,
+                UserRole.SUPER_ADMIN,
+                null
+        );
+        when(userRepository.findByPublicIdAndStatusDelFalse(testUserId))
+                .thenReturn(Optional.of(testUser));
+
+        BusinessRuleException exception = assertThrows(
+                BusinessRuleException.class,
+                () -> userService.updateUser(testUserId, request, testUserId)
+        );
+
+        assertEquals("Vous ne pouvez pas désactiver votre propre compte", exception.getMessage());
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Should preserve the last active global super administrator")
+    void testDeleteUserRejectsLastGlobalSuperAdmin() {
+        User actor = globalActor();
+        when(userRepository.findByPublicIdAndStatusDelFalse(testCreatedBy))
+                .thenReturn(Optional.of(actor));
+        when(userRepository.findByPublicIdAndStatusDelFalse(testUserId))
+                .thenReturn(Optional.of(testUser));
+        when(userRepository.countByStatusDelFalseAndIsActiveTrueAndIsGlobalTrueAndRole(
+                UserRole.SUPER_ADMIN
+        )).thenReturn(1L);
+
+        BusinessRuleException exception = assertThrows(
+                BusinessRuleException.class,
+                () -> userService.deleteUser(testUserId, testCreatedBy)
+        );
+
+        assertEquals(
+                "Le dernier SUPER_ADMIN actif ne peut pas être désactivé",
+                exception.getMessage()
+        );
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Should deactivate parish accesses when deleting a local user")
+    void testDeleteUserDeactivatesParishAccesses() {
+        User actor = globalActor();
+        User localUser = user(false);
+        ParoisseAccess access = new ParoisseAccess();
+        access.setActive(true);
+        access.setStatusDel(false);
+
+        when(userRepository.findByPublicIdAndStatusDelFalse(testCreatedBy))
+                .thenReturn(Optional.of(actor));
+        when(userRepository.findByPublicIdAndStatusDelFalse(testUserId))
+                .thenReturn(Optional.of(localUser));
+        when(paroisseAccessRepository.findByUserAndStatusDelFalse(localUser))
+                .thenReturn(List.of(access));
+        when(userRepository.save(localUser)).thenReturn(localUser);
+
+        userService.deleteUser(testUserId, testCreatedBy);
+
+        assertFalse(access.getActive());
+        assertTrue(access.getStatusDel());
+        assertFalse(localUser.getIsActive());
+        assertTrue(localUser.getStatusDel());
+    }
+
+    @Test
     @DisplayName("Should get all active users")
     void testGetAllActiveUsersSuccess() {
-        when(userRepository.findByStatusDelFalse()).thenReturn(List.of(testUser));
+        when(userRepository.findByStatusDelFalseOrderByNomAscPrenomAsc()).thenReturn(List.of(testUser));
 
         var users = userService.getAllActiveUsers();
 
         assertNotNull(users);
         assertEquals(1, users.size());
-        verify(userRepository, times(1)).findByStatusDelFalse();
+        verify(userRepository, times(1)).findByStatusDelFalseOrderByNomAscPrenomAsc();
     }
 
     private User user(boolean global) {
@@ -349,7 +469,7 @@ class EnhancedUserServiceTest {
         user.setPrenom("Jean");
         user.setUsername("jean.dupont");
         user.setPassword("hashedPassword123");
-        user.setRole(UserRole.ADMIN);
+        user.setRole(global ? UserRole.SUPER_ADMIN : UserRole.ADMIN);
         user.setIsGlobal(global);
         user.setIsActive(true);
         user.setStatusDel(false);
@@ -373,7 +493,7 @@ class EnhancedUserServiceTest {
                 "SecurePassword123!",
                 global,
                 true,
-                UserRole.ADMIN,
+                global ? UserRole.SUPER_ADMIN : UserRole.ADMIN,
                 assignments
         );
     }

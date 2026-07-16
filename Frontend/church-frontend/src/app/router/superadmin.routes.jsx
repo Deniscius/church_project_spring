@@ -16,17 +16,21 @@ import PaymentTypesPage from '../../pages/superadmin/payment-types/PaymentTypesP
 export function SuperAdminRoutes() {
   return (
     <Route element={<ProtectedGuard />}>
-      <Route element={<RoleGuard allowedRoles={['ADMIN', 'SUPER_ADMIN']} />}>
+      <Route element={<RoleGuard allowedRoles={['SUPER_ADMIN']} />}>
         <Route element={<AdminLayout />}>
           <Route path="/admin/paroisses" element={<ParishesPage />} />
           <Route path="/admin/paroisses/nouvelle" element={<CreateParishPage />} />
           <Route path="/admin/paroisses/:id/modifier" element={<EditParishPage />} />
-          <Route path="/admin/utilisateurs" element={<UsersPage />} />
-          <Route path="/admin/utilisateurs/nouveau" element={<CreateUserPage />} />
-          <Route path="/admin/utilisateurs/:id/modifier" element={<EditUserPage />} />
           <Route path="/admin/acces-paroisses" element={<ParishAccessPage />} />
           <Route path="/admin/localites" element={<LocalitiesPage />} />
           <Route path="/admin/types-paiement" element={<PaymentTypesPage />} />
+        </Route>
+      </Route>
+      <Route element={<RoleGuard allowedRoles={['ADMIN', 'SUPER_ADMIN']} />}>
+        <Route element={<AdminLayout />}>
+          <Route path="/admin/utilisateurs" element={<UsersPage />} />
+          <Route path="/admin/utilisateurs/nouveau" element={<CreateUserPage />} />
+          <Route path="/admin/utilisateurs/:id/modifier" element={<EditUserPage />} />
         </Route>
       </Route>
     </Route>

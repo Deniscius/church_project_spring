@@ -9,6 +9,8 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Locale;
+
 @Service
 @RequiredArgsConstructor
 public class UserDetailsServiceImpl implements UserDetailsService {
@@ -21,11 +23,15 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     public UserDetails loadUserByUsername(String username)
             throws UsernameNotFoundException {
 
+        String normalizedUsername = username == null
+                ? ""
+                : username.strip().toLowerCase(Locale.ROOT);
+
         User user = userRepository
-                .findByUsernameAndStatusDelFalse(username)
+                .findByUsernameIgnoreCaseAndStatusDelFalse(normalizedUsername)
                 .orElseThrow(() ->
                         new UsernameNotFoundException(
-                                "Utilisateur introuvable : " + username
+                                "Utilisateur introuvable : " + normalizedUsername
                         )
                 );
 

@@ -26,7 +26,7 @@ const superMenu = [
 export default function Sidebar() {
   const { user } = useAuth();
   const { activeParish } = useTenant();
-  const showSuper = ['ADMIN', 'SUPER_ADMIN'].includes(user?.role);
+  const showSuper = user?.role === 'SUPER_ADMIN' && user?.isGlobal === true;
   const menu = showSuper ? [...parishMenu, ...superMenu] : parishMenu;
 
   return (

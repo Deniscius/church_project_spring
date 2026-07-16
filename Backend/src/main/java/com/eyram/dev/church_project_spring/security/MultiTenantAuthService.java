@@ -1,6 +1,7 @@
 package com.eyram.dev.church_project_spring.security;
 
 import java.util.List;
+import java.util.Locale;
 
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationServiceException;
@@ -55,17 +56,22 @@ public class MultiTenantAuthService {
      */
     @Transactional(readOnly = true)
     public MultiTenantLoginResponse loginMultiTenant(LoginRequest request) {
-        log.info("Authentication attempt for user: {}", request.username());
+        if (request == null || request.username() == null || request.username().isBlank()) {
+            throw new InvalidCredentialsException("Identifiants incorrects");
+        }
+
+        String username = request.username().strip().toLowerCase(Locale.ROOT);
+        log.info("Authentication attempt for user: {}", username);
 
         try {
             Authentication authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(request.username(), request.password())
+                    new UsernamePasswordAuthenticationToken(username, request.password())
             );
             UserDetailsImpl principal = (UserDetailsImpl) authentication.getPrincipal();
 
-            User user = userRepository.findByUsernameAndStatusDelFalse(request.username())
+            User user = userRepository.findByUsernameIgnoreCaseAndStatusDelFalse(username)
                     .orElseThrow(() -> {
-                        log.warn("User not found after successful authentication: {}", request.username());
+                        log.warn("User not found after successful authentication: {}", username);
                         return new InvalidCredentialsException("Identifiants incorrects");
                     });
 
@@ -94,7 +100,7 @@ public class MultiTenantAuthService {
 
             log.info(
                     "Login successful for user {} with selectedParoisse: {}",
-                    request.username(),
+                    username,
                     selectedParoisse != null ? selectedParoisse.getParoisseId() : "GLOBAL"
             );
 

@@ -74,7 +74,7 @@ class EnhancedUserServiceCreationScopeTest {
                 .thenReturn(Optional.of(requester));
         when(paroisseAccessRepository.findByUserAndActiveTrueAndStatusDelFalse(requester))
                 .thenReturn(List.of(activeAccess(requester, requesterParoisse)));
-        when(userRepository.existsByUsernameAndStatusDelFalse("new.user")).thenReturn(false);
+        when(userRepository.existsByUsernameIgnoreCaseAndStatusDelFalse("new.user")).thenReturn(false);
         when(passwordEncoder.encode("SecurePassword123!")).thenReturn("encoded-password");
         when(userRepository.save(any(User.class))).thenReturn(savedUser);
         when(paroisseRepository.findByPublicIdAndStatusDelFalse(requesterParoisse.getPublicId()))
@@ -113,7 +113,7 @@ class EnhancedUserServiceCreationScopeTest {
                 () -> userService.createUser(request, requesterId)
         );
 
-        verify(userRepository, never()).existsByUsernameAndStatusDelFalse(any(String.class));
+        verify(userRepository, never()).existsByUsernameIgnoreCaseAndStatusDelFalse(any(String.class));
         verify(userRepository, never()).save(any(User.class));
     }
 
@@ -133,7 +133,7 @@ class EnhancedUserServiceCreationScopeTest {
                 () -> userService.createUser(request, requesterId)
         );
 
-        verify(userRepository, never()).existsByUsernameAndStatusDelFalse(any(String.class));
+        verify(userRepository, never()).existsByUsernameIgnoreCaseAndStatusDelFalse(any(String.class));
         verify(userRepository, never()).save(any(User.class));
     }
 

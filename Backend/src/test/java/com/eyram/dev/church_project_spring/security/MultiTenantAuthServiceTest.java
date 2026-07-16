@@ -71,7 +71,7 @@ class MultiTenantAuthServiceTest {
         ParoisseAccess access = access(user, paroisse, RoleParoisse.SECRETAIRE);
         UserDetailsImpl principal = authenticateAs(user, 10L);
 
-        when(userRepository.findByUsernameAndStatusDelFalse("local.user"))
+        when(userRepository.findByUsernameIgnoreCaseAndStatusDelFalse("local.user"))
                 .thenReturn(Optional.of(user));
         when(paroisseAccessRepository.findByUserAndActiveTrueAndStatusDelFalse(user))
                 .thenReturn(List.of(access));
@@ -86,12 +86,36 @@ class MultiTenantAuthServiceTest {
     }
 
     @Test
+    @DisplayName("Username is normalized before authentication")
+    void usernameIsNormalizedBeforeAuthentication() {
+        LoginRequest request = new LoginRequest("  LOCAL.USER  ", "SecurePassword123!");
+        User user = user(false, true, UserRole.SECRETAIRE, "local.user");
+        Paroisse paroisse = paroisse(10L, true, false);
+        UserDetailsImpl principal = authenticateAs(user, 10L);
+
+        when(userRepository.findByUsernameIgnoreCaseAndStatusDelFalse("local.user"))
+                .thenReturn(Optional.of(user));
+        when(paroisseAccessRepository.findByUserAndActiveTrueAndStatusDelFalse(user))
+                .thenReturn(List.of(access(user, paroisse, RoleParoisse.SECRETAIRE)));
+        when(jwtUtils.generateToken(principal)).thenReturn("jwt-token");
+
+        authService.loginMultiTenant(request);
+
+        verify(authenticationManager).authenticate(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                        "local.user",
+                        "SecurePassword123!"
+                )
+        );
+    }
+
+    @Test
     @DisplayName("Global user logs in without a selected parish")
     void globalUserLogsInWithoutSelectedParish() {
         User user = user(true, true, UserRole.SUPER_ADMIN, "local.user");
         UserDetailsImpl principal = authenticateAs(user, null);
 
-        when(userRepository.findByUsernameAndStatusDelFalse("local.user"))
+        when(userRepository.findByUsernameIgnoreCaseAndStatusDelFalse("local.user"))
                 .thenReturn(Optional.of(user));
         when(paroisseAccessRepository.findByUserAndActiveTrueAndStatusDelFalse(user))
                 .thenReturn(List.of());
@@ -110,7 +134,7 @@ class MultiTenantAuthServiceTest {
         User user = user(false, true, UserRole.SECRETAIRE, "local.user");
         authenticateAs(user, 10L);
 
-        when(userRepository.findByUsernameAndStatusDelFalse("local.user"))
+        when(userRepository.findByUsernameIgnoreCaseAndStatusDelFalse("local.user"))
                 .thenReturn(Optional.of(user));
         when(paroisseAccessRepository.findByUserAndActiveTrueAndStatusDelFalse(user))
                 .thenReturn(List.of());
@@ -131,7 +155,7 @@ class MultiTenantAuthServiceTest {
         Paroisse second = paroisse(20L, true, false);
         authenticateAs(user, 10L);
 
-        when(userRepository.findByUsernameAndStatusDelFalse("local.user"))
+        when(userRepository.findByUsernameIgnoreCaseAndStatusDelFalse("local.user"))
                 .thenReturn(Optional.of(user));
         when(paroisseAccessRepository.findByUserAndActiveTrueAndStatusDelFalse(user))
                 .thenReturn(List.of(
@@ -154,7 +178,7 @@ class MultiTenantAuthServiceTest {
         Paroisse inactiveParoisse = paroisse(10L, false, false);
         authenticateAs(user, 10L);
 
-        when(userRepository.findByUsernameAndStatusDelFalse("local.user"))
+        when(userRepository.findByUsernameIgnoreCaseAndStatusDelFalse("local.user"))
                 .thenReturn(Optional.of(user));
         when(paroisseAccessRepository.findByUserAndActiveTrueAndStatusDelFalse(user))
                 .thenReturn(List.of(access(user, inactiveParoisse, RoleParoisse.SECRETAIRE)));
@@ -182,7 +206,7 @@ class MultiTenantAuthServiceTest {
         );
 
         assertEquals(providerFailure, thrown);
-        verify(userRepository, never()).findByUsernameAndStatusDelFalse(any(String.class));
+        verify(userRepository, never()).findByUsernameIgnoreCaseAndStatusDelFalse(any(String.class));
     }
 
     @Test
@@ -197,7 +221,7 @@ class MultiTenantAuthServiceTest {
         );
 
         assertEquals("Identifiants incorrects", thrown.getMessage());
-        verify(userRepository, never()).findByUsernameAndStatusDelFalse(any(String.class));
+        verify(userRepository, never()).findByUsernameIgnoreCaseAndStatusDelFalse(any(String.class));
     }
 
     private UserDetailsImpl authenticateAs(User user, Long tenantId) {

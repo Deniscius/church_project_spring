@@ -11,7 +11,7 @@ export default function EditParishPage() {
       <AppCard title="Paroisse existante">
         <div className="form-grid">
           <div className="form-field"><label>Nom</label><AppInput defaultValue="Saint Joseph" /></div>
-          <div className="form-field"><label>Localité</label><AppInput defaultValue="Lomé Centre" /></div>
+          <div className="form-field"><label>Doyenné</label><AppInput defaultValue="Lomé Centre" /></div>
         </div>
         <div className="button-row" style={{ marginTop: 18 }}><AppButton>Enregistrer</AppButton></div>
       </AppCard>

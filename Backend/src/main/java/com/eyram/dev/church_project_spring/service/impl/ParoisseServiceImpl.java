@@ -2,10 +2,10 @@ package com.eyram.dev.church_project_spring.service.impl;
 
 import com.eyram.dev.church_project_spring.DTO.request.ParoisseRequest;
 import com.eyram.dev.church_project_spring.DTO.response.ParoisseResponse;
-import com.eyram.dev.church_project_spring.entities.Localite;
+import com.eyram.dev.church_project_spring.entities.Doyenne;
 import com.eyram.dev.church_project_spring.entities.Paroisse;
 import com.eyram.dev.church_project_spring.mappers.ParoisseMapper;
-import com.eyram.dev.church_project_spring.repositories.LocaliteRepository;
+import com.eyram.dev.church_project_spring.repositories.DoyenneRepository;
 import com.eyram.dev.church_project_spring.repositories.ParoisseAccessRepository;
 import com.eyram.dev.church_project_spring.repositories.ParoisseRepository;
 import com.eyram.dev.church_project_spring.security.TenantAccessService;
@@ -28,7 +28,7 @@ public class ParoisseServiceImpl implements ParoisseService {
 
     private final ParoisseRepository paroisseRepository;
     private final ParoisseAccessRepository paroisseAccessRepository;
-    private final LocaliteRepository localiteRepository;
+    private final DoyenneRepository doyenneRepository;
     private final ParoisseMapper paroisseMapper;
     private final TenantAccessService tenantAccessService;
 
@@ -40,22 +40,22 @@ public class ParoisseServiceImpl implements ParoisseService {
             throw new AccessDeniedException("Seul un utilisateur global peut créer une paroisse");
         }
 
-        Localite localite = findActiveLocalite(normalizedRequest.localitePublicId());
+        Doyenne doyenne = findActiveDoyenne(normalizedRequest.doyennePublicId());
 
-        boolean exists = paroisseRepository.existsByNomIgnoreCaseAndLocalite_PublicIdAndStatusDelFalse(
+        boolean exists = paroisseRepository.existsByNomIgnoreCaseAndDoyenne_PublicIdAndStatusDelFalse(
                 normalizedRequest.nom(),
-                normalizedRequest.localitePublicId()
+                normalizedRequest.doyennePublicId()
         );
 
         if (exists) {
-            throw new AlreadyExistException("Cette paroisse existe déjà dans cette localité");
+            throw new AlreadyExistException("Cette paroisse existe déjà dans ce doyenné");
         }
 
         Paroisse paroisse = paroisseMapper.dtoToModel(normalizedRequest);
         paroisse.setPublicId(UUID.randomUUID());
         paroisse.setStatusDel(false);
         paroisse.setIsActive(true);
-        paroisse.setLocalite(localite);
+        paroisse.setDoyenne(doyenne);
 
         Paroisse savedParoisse = paroisseRepository.save(paroisse);
         return paroisseMapper.modelToDto(savedParoisse);
@@ -85,21 +85,21 @@ public class ParoisseServiceImpl implements ParoisseService {
 
         tenantAccessService.checkParoisseAccess(paroisse);
 
-        Localite localite = findActiveLocalite(normalizedRequest.localitePublicId());
+        Doyenne doyenne = findActiveDoyenne(normalizedRequest.doyennePublicId());
 
         boolean exists = paroisseRepository
-                .existsByNomIgnoreCaseAndLocalite_PublicIdAndStatusDelFalseAndPublicIdNot(
+                .existsByNomIgnoreCaseAndDoyenne_PublicIdAndStatusDelFalseAndPublicIdNot(
                         normalizedRequest.nom(),
-                        normalizedRequest.localitePublicId(),
+                        normalizedRequest.doyennePublicId(),
                         publicId
         );
 
         if (exists) {
-            throw new AlreadyExistException("Une autre paroisse avec ce nom existe déjà dans cette localité");
+            throw new AlreadyExistException("Une autre paroisse avec ce nom existe déjà dans ce doyenné");
         }
 
         paroisseMapper.updateEntityFromDto(normalizedRequest, paroisse);
-        paroisse.setLocalite(localite);
+        paroisse.setDoyenne(doyenne);
 
         Paroisse updatedParoisse = paroisseRepository.save(paroisse);
         return paroisseMapper.modelToDto(updatedParoisse);
@@ -129,12 +129,12 @@ public class ParoisseServiceImpl implements ParoisseService {
                 .orElseThrow(() -> new ResourceNotFoundException("Paroisse non trouvée"));
     }
 
-    private Localite findActiveLocalite(UUID publicId) {
+    private Doyenne findActiveDoyenne(UUID publicId) {
         if (publicId == null) {
-            throw new IllegalArgumentException("La localité est obligatoire");
+            throw new IllegalArgumentException("Le doyenné est obligatoire");
         }
-        return localiteRepository.findByPublicIdAndStatusDelFalse(publicId)
-                .orElseThrow(() -> new ResourceNotFoundException("Localité non trouvée"));
+        return doyenneRepository.findByPublicIdAndStatusDelFalse(publicId)
+                .orElseThrow(() -> new ResourceNotFoundException("Doyenné non trouvé"));
     }
 
     private ParoisseRequest normalize(ParoisseRequest request) {
@@ -152,7 +152,7 @@ public class ParoisseServiceImpl implements ParoisseService {
                 normalizeEmail(request.email()),
                 normalizeOptional(request.telephone(), 3, 50,
                         "Le téléphone doit contenir entre 3 et 50 caractères"),
-                request.localitePublicId()
+                request.doyennePublicId()
         );
     }
 

@@ -53,7 +53,7 @@ export const PERMISSIONS = {
   USER_MANAGE: 'user:manage',
   PARISH_MANAGE: 'parish:manage',
   PARISH_ACCESS_MANAGE: 'parish-access:manage',
-  LOCALITY_MANAGE: 'locality:manage',
+  DEANERY_MANAGE: 'deanery:manage',
   PAYMENT_TYPE_MANAGE: 'payment-type:manage',
   PROFILE_READ: 'profile:read',
 };
@@ -74,7 +74,7 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.USER_MANAGE,
     PERMISSIONS.PARISH_MANAGE,
     PERMISSIONS.PARISH_ACCESS_MANAGE,
-    PERMISSIONS.LOCALITY_MANAGE,
+    PERMISSIONS.DEANERY_MANAGE,
     PERMISSIONS.PAYMENT_TYPE_MANAGE,
   ],
   ADMIN: [

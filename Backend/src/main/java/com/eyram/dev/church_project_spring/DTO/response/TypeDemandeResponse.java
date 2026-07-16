@@ -11,6 +11,7 @@ public record TypeDemandeResponse(
         String description,
         TypeDemandeEnum typeDemandeEnum,
         Boolean isActive,
+        Integer delaiMinimumHeures,
         UUID paroissePublicId,
         String paroisseNom,
         Boolean statusDel,

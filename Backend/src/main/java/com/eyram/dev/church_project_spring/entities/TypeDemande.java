@@ -52,6 +52,9 @@ public class TypeDemande extends BaseEntity implements Serializable {
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
 
+    @Column(name = "delai_minimum_heures", nullable = false)
+    private Integer delaiMinimumHeures = 24;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "paroisse_id", nullable = false)
     private Paroisse paroisse;

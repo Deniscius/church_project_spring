@@ -2,11 +2,11 @@ package com.eyram.dev.church_project_spring.service;
 
 import com.eyram.dev.church_project_spring.DTO.request.ParoisseRequest;
 import com.eyram.dev.church_project_spring.DTO.response.ParoisseResponse;
-import com.eyram.dev.church_project_spring.entities.Localite;
+import com.eyram.dev.church_project_spring.entities.Doyenne;
 import com.eyram.dev.church_project_spring.entities.Paroisse;
 import com.eyram.dev.church_project_spring.entities.ParoisseAccess;
 import com.eyram.dev.church_project_spring.mappers.ParoisseMapper;
-import com.eyram.dev.church_project_spring.repositories.LocaliteRepository;
+import com.eyram.dev.church_project_spring.repositories.DoyenneRepository;
 import com.eyram.dev.church_project_spring.repositories.ParoisseAccessRepository;
 import com.eyram.dev.church_project_spring.repositories.ParoisseRepository;
 import com.eyram.dev.church_project_spring.security.TenantAccessService;
@@ -36,32 +36,32 @@ class ParoisseServiceImplTest {
 
     @Mock private ParoisseRepository paroisseRepository;
     @Mock private ParoisseAccessRepository paroisseAccessRepository;
-    @Mock private LocaliteRepository localiteRepository;
+    @Mock private DoyenneRepository doyenneRepository;
     @Mock private ParoisseMapper paroisseMapper;
     @Mock private TenantAccessService tenantAccessService;
     @InjectMocks private ParoisseServiceImpl service;
 
     @Test
-    void createsNormalizedParishInAnActiveLocality() {
-        UUID localiteId = UUID.randomUUID();
-        Localite localite = localite(localiteId);
+    void createsNormalizedParishInAnActiveDeanery() {
+        UUID doyenneId = UUID.randomUUID();
+        Doyenne doyenne = doyenne(doyenneId);
         Paroisse entity = new Paroisse();
         ParoisseRequest normalized = new ParoisseRequest(
-                "Saint Jean", "12 rue de la Paix", "contact@example.com", null, localiteId
+                "Saint Jean", "12 rue de la Paix", "contact@example.com", null, doyenneId
         );
-        ParoisseResponse expected = response(UUID.randomUUID(), localiteId);
+        ParoisseResponse expected = response(UUID.randomUUID(), doyenneId);
         when(tenantAccessService.isGlobalUser()).thenReturn(true);
-        when(localiteRepository.findByPublicIdAndStatusDelFalse(localiteId)).thenReturn(Optional.of(localite));
+        when(doyenneRepository.findByPublicIdAndStatusDelFalse(doyenneId)).thenReturn(Optional.of(doyenne));
         when(paroisseMapper.dtoToModel(normalized)).thenReturn(entity);
         when(paroisseRepository.save(entity)).thenReturn(entity);
         when(paroisseMapper.modelToDto(entity)).thenReturn(expected);
 
         ParoisseResponse result = service.create(new ParoisseRequest(
-                " Saint   Jean ", " 12 rue de la Paix ", " CONTACT@Example.COM ", " ", localiteId
+                " Saint   Jean ", " 12 rue de la Paix ", " CONTACT@Example.COM ", " ", doyenneId
         ));
 
         assertEquals(expected, result);
-        assertEquals(localite, entity.getLocalite());
+        assertEquals(doyenne, entity.getDoyenne());
         assertTrue(entity.getIsActive());
         assertFalse(entity.getStatusDel());
     }
@@ -69,18 +69,18 @@ class ParoisseServiceImplTest {
     @Test
     void rejectsDuplicateParishOnUpdate() {
         UUID publicId = UUID.randomUUID();
-        UUID localiteId = UUID.randomUUID();
-        Paroisse paroisse = paroisse(publicId, localite(localiteId));
+        UUID doyenneId = UUID.randomUUID();
+        Paroisse paroisse = paroisse(publicId, doyenne(doyenneId));
         when(paroisseRepository.findByPublicIdAndStatusDelFalse(publicId)).thenReturn(Optional.of(paroisse));
-        when(localiteRepository.findByPublicIdAndStatusDelFalse(localiteId))
-                .thenReturn(Optional.of(paroisse.getLocalite()));
-        when(paroisseRepository.existsByNomIgnoreCaseAndLocalite_PublicIdAndStatusDelFalseAndPublicIdNot(
-                "Saint Jean", localiteId, publicId
+        when(doyenneRepository.findByPublicIdAndStatusDelFalse(doyenneId))
+                .thenReturn(Optional.of(paroisse.getDoyenne()));
+        when(paroisseRepository.existsByNomIgnoreCaseAndDoyenne_PublicIdAndStatusDelFalseAndPublicIdNot(
+                "Saint Jean", doyenneId, publicId
         )).thenReturn(true);
 
         assertThrows(AlreadyExistException.class, () -> service.update(
                 publicId,
-                new ParoisseRequest("Saint Jean", "Adresse valide", null, null, localiteId)
+                new ParoisseRequest("Saint Jean", "Adresse valide", null, null, doyenneId)
         ));
 
         verify(paroisseMapper, never()).updateEntityFromDto(any(), any());
@@ -89,7 +89,7 @@ class ParoisseServiceImplTest {
     @Test
     void deletionAlsoRevokesParishAccesses() {
         UUID publicId = UUID.randomUUID();
-        Paroisse paroisse = paroisse(publicId, localite(UUID.randomUUID()));
+        Paroisse paroisse = paroisse(publicId, doyenne(UUID.randomUUID()));
         ParoisseAccess access = new ParoisseAccess();
         access.setActive(true);
         access.setStatusDel(false);
@@ -113,28 +113,28 @@ class ParoisseServiceImplTest {
         verify(tenantAccessService, never()).isGlobalUser();
     }
 
-    private Localite localite(UUID publicId) {
-        Localite localite = new Localite();
-        localite.setPublicId(publicId);
-        localite.setStatusDel(false);
-        return localite;
+    private Doyenne doyenne(UUID publicId) {
+        Doyenne doyenne = new Doyenne();
+        doyenne.setPublicId(publicId);
+        doyenne.setStatusDel(false);
+        return doyenne;
     }
 
-    private Paroisse paroisse(UUID publicId, Localite localite) {
+    private Paroisse paroisse(UUID publicId, Doyenne doyenne) {
         Paroisse paroisse = new Paroisse();
         paroisse.setPublicId(publicId);
         paroisse.setNom("Saint Jean");
         paroisse.setAdresse("Adresse valide");
         paroisse.setIsActive(true);
         paroisse.setStatusDel(false);
-        paroisse.setLocalite(localite);
+        paroisse.setDoyenne(doyenne);
         return paroisse;
     }
 
-    private ParoisseResponse response(UUID publicId, UUID localiteId) {
+    private ParoisseResponse response(UUID publicId, UUID doyenneId) {
         return new ParoisseResponse(
                 publicId, "Saint Jean", "12 rue de la Paix", "contact@example.com", null,
-                true, localiteId, "Lomé", "Tokoin", null, null
+                true, doyenneId, "Doyenné de Lomé-Centre", null, null
         );
     }
 }

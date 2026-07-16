@@ -3,7 +3,7 @@ export function mapParoisseToTenant(p) {
   return {
     id: p.publicId || p.id,
     name: p.nom,
-    city: p.localiteVille || '',
+    city: p.doyenneNom || '',
     email: p.email || '',
     phone: p.telephone || '',
     raw: p,
@@ -15,8 +15,8 @@ export function mapParoisseToTableRow(p) {
     id: p.publicId,
     name: p.nom,
     address: p.adresse || '',
-    city: p.localiteVille || '—',
-    localityId: p.localitePublicId,
+    city: p.doyenneNom || '—',
+    deaneryId: p.doyennePublicId,
     email: p.email || '—',
     phone: p.telephone || '—',
     active: p.isActive ? 'ACTIVE' : 'INACTIVE',
@@ -89,12 +89,12 @@ export function mapParoisseAccessToRow(a) {
   };
 }
 
-export function mapLocaliteToRow(l) {
+export function mapDoyenneToRow(l) {
   return {
     id: l.publicId,
-    label: [l.ville, l.quartier].filter(Boolean).join(' — ') || '—',
-    city: l.ville || '—',
-    district: l.quartier || '—',
+    label: l.nom || '—',
+    name: l.nom || '—',
+    description: l.description || '—',
   };
 }
 
@@ -111,6 +111,7 @@ export function mapTypeDemandeToRow(t) {
     id: t.publicId,
     label: t.libelle,
     category: t.typeDemandeEnum,
+    leadTime: `${t.delaiMinimumHeures ?? 24} h`,
     active: t.isActive ? 'ACTIVE' : 'INACTIVE',
   };
 }

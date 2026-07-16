@@ -107,11 +107,11 @@ public class SecurityConfig {
                         .access(globalSuperAdminAccess())
 
                         // Gestion du référentiel global
-                        .requestMatchers(HttpMethod.POST, "/paroisses", "/localites", "/type-paiement")
+                        .requestMatchers(HttpMethod.POST, "/paroisses", "/doyennes", "/type-paiement")
                         .access(globalSuperAdminAccess())
-                        .requestMatchers(HttpMethod.PUT, "/paroisses/**", "/localites/**", "/type-paiement/**")
+                        .requestMatchers(HttpMethod.PUT, "/paroisses/**", "/doyennes/**", "/type-paiement/**")
                         .access(globalSuperAdminAccess())
-                        .requestMatchers(HttpMethod.DELETE, "/paroisses/**", "/localites/**", "/type-paiement/**")
+                        .requestMatchers(HttpMethod.DELETE, "/paroisses/**", "/doyennes/**", "/type-paiement/**")
                         .access(globalSuperAdminAccess())
 
                         // Paramétrage propre à une paroisse

@@ -387,7 +387,7 @@ export default function UsersPage() {
                   <option value="">-- Sélectionner une paroisse --</option>
                   {parishes.map((parish) => (
                     <option key={parish.publicId} value={parish.publicId}>
-                      {parish.nom} ({parish.localiteVille})
+                      {parish.nom} ({parish.doyenneNom})
                     </option>
                   ))}
                 </select>

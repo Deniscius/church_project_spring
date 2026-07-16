@@ -22,7 +22,7 @@ const superMenu = [
   { to: '/admin/paroisses', label: 'Paroisses', permission: PERMISSIONS.PARISH_MANAGE },
   { to: '/admin/utilisateurs', label: 'Utilisateurs', permission: PERMISSIONS.USER_MANAGE },
   { to: '/admin/acces-paroisses', label: 'Accès paroisses', permission: PERMISSIONS.PARISH_ACCESS_MANAGE },
-  { to: '/admin/localites', label: 'Localités', permission: PERMISSIONS.LOCALITY_MANAGE },
+  { to: '/admin/doyennes', label: 'Doyennés', permission: PERMISSIONS.DEANERY_MANAGE },
   { to: '/admin/types-paiement', label: 'Types de paiement', permission: PERMISSIONS.PAYMENT_TYPE_MANAGE },
 ];
 

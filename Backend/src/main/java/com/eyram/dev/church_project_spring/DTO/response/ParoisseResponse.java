@@ -10,9 +10,8 @@ public record ParoisseResponse(
         String email,
         String telephone,
         Boolean isActive,
-        UUID localitePublicId,
-        String localiteVille,
-        String localiteQuartier,
+        UUID doyennePublicId,
+        String doyenneNom,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {

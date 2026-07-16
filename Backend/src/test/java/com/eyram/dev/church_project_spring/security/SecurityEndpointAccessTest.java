@@ -106,9 +106,9 @@ class SecurityEndpointAccessTest extends AbstractIntegrationTest {
     }
 
     @Test
-    @DisplayName("Locality creation requires authentication")
-    void localityCreationRequiresAuthentication() throws Exception {
-        mockMvc.perform(post("/localites")
+    @DisplayName("Deanery creation requires authentication")
+    void deaneryCreationRequiresAuthentication() throws Exception {
+        mockMvc.perform(post("/doyennes")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isUnauthorized());
@@ -116,18 +116,18 @@ class SecurityEndpointAccessTest extends AbstractIntegrationTest {
 
     @Test
     @WithMockUser(roles = "ADMIN")
-    @DisplayName("Local admin cannot create a global locality")
-    void localAdminCannotCreateLocality() throws Exception {
-        mockMvc.perform(post("/localites")
+    @DisplayName("Local admin cannot create a global deanery")
+    void localAdminCannotCreateDeanery() throws Exception {
+        mockMvc.perform(post("/doyennes")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    @DisplayName("Super admin reaches locality request validation")
-    void superAdminCanReachLocalityValidation() throws Exception {
-        mockMvc.perform(post("/localites").with(user(globalSuperAdmin()))
+    @DisplayName("Super admin reaches deanery request validation")
+    void superAdminCanReachDeaneryValidation() throws Exception {
+        mockMvc.perform(post("/doyennes").with(user(globalSuperAdmin()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isBadRequest());
@@ -201,7 +201,7 @@ class SecurityEndpointAccessTest extends AbstractIntegrationTest {
 
     @Test
     @DisplayName("A non-global super admin cannot mutate global references")
-    void nonGlobalSuperAdminCannotCreateLocality() throws Exception {
+    void nonGlobalSuperAdminCannotCreateDeanery() throws Exception {
         UserDetailsImpl nonGlobalSuperAdmin = new UserDetailsImpl(
                 UUID.randomUUID(),
                 "Invalid local super admin",
@@ -213,7 +213,7 @@ class SecurityEndpointAccessTest extends AbstractIntegrationTest {
                 true
         );
 
-        mockMvc.perform(post("/localites").with(user(nonGlobalSuperAdmin))
+        mockMvc.perform(post("/doyennes").with(user(nonGlobalSuperAdmin))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isForbidden());

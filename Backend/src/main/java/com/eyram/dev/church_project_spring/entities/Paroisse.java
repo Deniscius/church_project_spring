@@ -40,11 +40,11 @@ public class Paroisse extends BaseEntity {
     private Boolean isActive = true;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "localite_id", nullable = false)
-    private Localite localite;
+    @JoinColumn(name = "doyenne_id", nullable = false)
+    private Doyenne doyenne;
 
     public Paroisse(Long id, UUID publicId, String nom, String adresse, String email,
-                    String telephone, Boolean isActive, Localite localite) {
+                    String telephone, Boolean isActive, Doyenne doyenne) {
         this.id = id;
         this.publicId = publicId;
         this.nom = nom;
@@ -52,6 +52,6 @@ public class Paroisse extends BaseEntity {
         this.email = email;
         this.telephone = telephone;
         this.isActive = isActive;
-        this.localite = localite;
+        this.doyenne = doyenne;
     }
 }

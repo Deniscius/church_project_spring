@@ -16,7 +16,7 @@ public interface ParoisseMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "isActive", ignore = true)
-    @Mapping(target = "localite", ignore = true)
+    @Mapping(target = "doyenne", ignore = true)
     Paroisse dtoToModel(ParoisseRequest request);
 
     @Mapping(target = "id", ignore = true)
@@ -25,11 +25,10 @@ public interface ParoisseMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "isActive", ignore = true)
-    @Mapping(target = "localite", ignore = true)
+    @Mapping(target = "doyenne", ignore = true)
     void updateEntityFromDto(ParoisseRequest request, @MappingTarget Paroisse entity);
 
-    @Mapping(target = "localitePublicId", source = "localite.publicId")
-    @Mapping(target = "localiteVille", source = "localite.ville")
-    @Mapping(target = "localiteQuartier", source = "localite.quartier")
+    @Mapping(target = "doyennePublicId", source = "doyenne.publicId")
+    @Mapping(target = "doyenneNom", source = "doyenne.nom")
     ParoisseResponse modelToDto(Paroisse entity);
 }

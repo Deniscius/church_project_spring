@@ -2,358 +2,192 @@ import React, { useEffect, useState } from 'react';
 import PageHeader from '../../../components/ui/PageHeader';
 import AppTable from '../../../components/ui/AppTable';
 import AppBadge from '../../../components/ui/AppBadge';
+import AppCard from '../../../components/ui/AppCard';
+import AppInput from '../../../components/ui/AppInput';
+import AppButton from '../../../components/ui/AppButton';
 import { parishService } from '../../../services/parish.service';
-import { localityService } from '../../../services/locality.service';
+import { deaneryService } from '../../../services/deanery.service';
 import { mapParoisseToTableRow } from '../../../utils/apiMappers';
 
 const columns = [
   { key: 'name', label: 'Paroisse' },
-  { key: 'city', label: 'Localité' },
+  { key: 'city', label: 'Doyenné' },
   { key: 'email', label: 'Email' },
   { key: 'phone', label: 'Téléphone' },
   { key: 'active', label: 'État' },
+  { key: 'actions', label: 'Actions' },
 ];
+
+const EMPTY_FORM = {
+  nom: '', adresse: '', email: '', telephone: '', doyennePublicId: '',
+};
 
 export default function ParishesPage() {
   const [rows, setRows] = useState([]);
+  const [doyennes, setDoyennes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
   const [error, setError] = useState(null);
-  const [localities, setLocalities] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [formData, setFormData] = useState({
-    nom: '',
-    adresse: '',
-    email: '',
-    telephone: '',
-    localitePublicId: '',
-  });
+  const [form, setForm] = useState(EMPTY_FORM);
 
-  useEffect(() => {
-    loadParishes();
-  }, []);
-
-  const loadParishes = async () => {
+  const load = async () => {
     try {
       setLoading(true);
       setError(null);
-      const [parishesData, localitiesData] = await Promise.all([
-        parishService.getAll(),
-        localityService.getAll(),
+      const [parishes, deaneries] = await Promise.all([
+        parishService.getAll(), deaneryService.getAll(),
       ]);
-      setRows((parishesData || []).map(mapParoisseToTableRow));
-      setLocalities(localitiesData || []);
+      setRows((parishes || []).map(mapParoisseToTableRow));
+      setDoyennes(deaneries || []);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur');
+      setError(e instanceof Error ? e.message : 'Chargement impossible');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value,
-    }));
-  };
+  useEffect(() => { load(); }, []);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      setLoading(true);
-      if (editingId) {
-        await parishService.update(editingId, formData);
-      } else {
-        await parishService.create(formData);
-      }
-      await loadParishes();
-      handleCancel();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleEdit = async (parishId) => {
-    try {
-      const parish = rows.find(row => row.id === parishId);
-      if (parish) {
-        setFormData({
-          nom: parish.name || '',
-          adresse: parish.address || '',
-          email: parish.email || '',
-          telephone: parish.phone || '',
-          localitePublicId: parish.localityId || '',
-        });
-        setEditingId(parishId);
-        setShowForm(true);
-      }
-    } catch {
-      setError('Erreur lors de la récupération');
-    }
-  };
-
-  const handleDelete = async (parishId) => {
-    if (!window.confirm('Êtes-vous sûr de vouloir désactiver cette paroisse ?')) return;
-    try {
-      setLoading(true);
-      await parishService.delete(parishId);
-      await loadParishes();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCancel = () => {
+  const closeForm = () => {
     setShowForm(false);
     setEditingId(null);
-    setFormData({
-      nom: '',
-      adresse: '',
-      email: '',
-      telephone: '',
-      localitePublicId: '',
+    setForm(EMPTY_FORM);
+  };
+
+  const openCreate = () => {
+    setEditingId(null);
+    setForm(EMPTY_FORM);
+    setError(null);
+    setShowForm(true);
+  };
+
+  const openEdit = (row) => {
+    setEditingId(row.id);
+    setForm({
+      nom: row.name || '',
+      adresse: row.address || '',
+      email: row.email === '—' ? '' : row.email,
+      telephone: row.phone === '—' ? '' : row.phone,
+      doyennePublicId: row.deaneryId || '',
     });
+    setError(null);
+    setShowForm(true);
+  };
+
+  const submit = async (event) => {
+    event.preventDefault();
+    try {
+      setSaving(true);
+      setError(null);
+      const payload = {
+        ...form,
+        email: form.email.trim() || null,
+        telephone: form.telephone.trim() || null,
+      };
+      if (editingId) await parishService.update(editingId, payload);
+      else await parishService.create(payload);
+      closeForm();
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Enregistrement impossible');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const remove = async (row) => {
+    if (!window.confirm(`Désactiver la paroisse « ${row.name} » ?`)) return;
+    try {
+      setDeletingId(row.id);
+      setError(null);
+      await parishService.delete(row.id);
+      setRows((current) => current.filter((item) => item.id !== row.id));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Désactivation impossible');
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   return (
     <div className="stack">
-      <div className="flex items-center justify-between mb-4">
-        <PageHeader title="Paroisses" subtitle="Gestion complète" />
-        <button
-          onClick={() => setShowForm(!showForm)}
-          disabled={loading}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: '#006bb3',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '14px',
-            fontWeight: 'bold'
-          }}
-        >
-          {showForm ? 'Annuler' : '+ Nouvelle Paroisse'}
-        </button>
-      </div>
-
-      {error && (
-        <div style={{
-          padding: '12px',
-          backgroundColor: '#fee',
-          color: '#c33',
-          borderRadius: '4px',
-          marginBottom: '16px'
-        }}>
-          {error}
-        </div>
-      )}
-
-      {showForm && (
-        <form onSubmit={handleSubmit} style={{
-          backgroundColor: '#f5f5f5',
-          padding: '20px',
-          borderRadius: '8px',
-          marginBottom: '24px'
-        }}>
-          <h3 style={{ margin: '0 0 16px 0' }}>
-            {editingId ? 'Modifier' : 'Créer'} une Paroisse
-          </h3>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-            <div>
-              <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold' }}>
-                Nom *
-              </label>
-              <input
-                type="text"
-                name="nom"
-                value={formData.nom}
-                onChange={handleInputChange}
-                required
-                style={{
-                  width: '100%',
-                  padding: '8px',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  fontSize: '14px'
-                }}
-              />
-            </div>
-
-            <div>
-              <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold' }}>
-                Adresse *
-              </label>
-              <input
-                type="text"
-                name="adresse"
-                value={formData.adresse}
-                onChange={handleInputChange}
-                required
-                style={{
-                  width: '100%',
-                  padding: '8px',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  fontSize: '14px'
-                }}
-              />
-            </div>
-
-            <div>
-              <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold' }}>
-                Localité *
-              </label>
-              <select
-                name="localitePublicId"
-                value={formData.localitePublicId}
-                onChange={handleInputChange}
-                required
-                style={{
-                  width: '100%',
-                  padding: '8px',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  fontSize: '14px'
-                }}
-              >
-                <option value="">Sélectionner une localité</option>
-                {localities.map(locality => (
-                  <option key={locality.publicId} value={locality.publicId}>
-                    {locality.ville} — {locality.quartier}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold' }}>
-                Email
-              </label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                style={{
-                  width: '100%',
-                  padding: '8px',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  fontSize: '14px'
-                }}
-              />
-            </div>
-
-            <div>
-              <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold' }}>
-                Téléphone
-              </label>
-              <input
-                type="tel"
-                name="telephone"
-                value={formData.telephone}
-                onChange={handleInputChange}
-                style={{
-                  width: '100%',
-                  padding: '8px',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  fontSize: '14px'
-                }}
-              />
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button
-              type="submit"
-              disabled={loading}
-              style={{
-                padding: '8px 16px',
-                backgroundColor: '#006bb3',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontWeight: 'bold'
-              }}
-            >
-              {loading ? 'Traitement...' : editingId ? 'Modifier' : 'Créer'}
-            </button>
-            <button
-              type="button"
-              onClick={handleCancel}
-              style={{
-                padding: '8px 16px',
-                backgroundColor: '#ddd',
-                color: '#333',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontWeight: 'bold'
-              }}
-            >
-              Annuler
-            </button>
-          </div>
-        </form>
-      )}
-
-      {loading && !error && <p style={{ color: '#666' }}>Chargement…</p>}
-      
-      <AppTable
-        columns={[
-          ...columns,
-          { key: 'actions', label: 'Actions' }
-        ]}
-        rows={rows.map(row => ({
-          ...row,
-          actions: (
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button
-                onClick={() => handleEdit(row.id)}
-                style={{
-                  padding: '4px 12px',
-                  backgroundColor: '#f9a825',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '12px'
-                }}
-              >
-                Modifier
-              </button>
-              <button
-                onClick={() => handleDelete(row.id)}
-                style={{
-                  padding: '4px 12px',
-                  backgroundColor: '#d9534f',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '12px'
-                }}
-              >
-                Désactiver
-              </button>
-            </div>
-          )
-        }))}
-        renderCell={(row, column) => {
-          if (column.key === 'active') return <AppBadge value={row.active} />;
-          if (column.key === 'actions') return row.actions;
-          return row[column.key];
-        }}
+      <PageHeader
+        title="Paroisses"
+        subtitle="Créez les paroisses et rattachez chacune à son doyenné."
+        actions={<AppButton onClick={openCreate} disabled={loading}>Nouvelle paroisse</AppButton>}
       />
+
+      {error ? <div className="alert-danger" role="alert">{error}</div> : null}
+
+      {showForm ? (
+        <AppCard title={editingId ? 'Modifier la paroisse' : 'Créer une paroisse'}>
+          <form onSubmit={submit}>
+            <div className="form-grid">
+              <div className="form-field">
+                <label htmlFor="parish-name">Nom *</label>
+                <AppInput id="parish-name" required minLength={2} maxLength={100}
+                  autoFocus value={form.nom}
+                  onChange={(e) => setForm({ ...form, nom: e.target.value })} />
+              </div>
+              <div className="form-field">
+                <label htmlFor="parish-deanery">Doyenné *</label>
+                <select id="parish-deanery" className="select" required
+                  value={form.doyennePublicId}
+                  onChange={(e) => setForm({ ...form, doyennePublicId: e.target.value })}>
+                  <option value="">— Sélectionner un doyenné —</option>
+                  {doyennes.map((deanery) => (
+                    <option key={deanery.publicId} value={deanery.publicId}>{deanery.nom}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-field full">
+                <label htmlFor="parish-address">Adresse *</label>
+                <AppInput id="parish-address" required minLength={3} maxLength={200}
+                  value={form.adresse}
+                  onChange={(e) => setForm({ ...form, adresse: e.target.value })} />
+              </div>
+              <div className="form-field">
+                <label htmlFor="parish-email">Email</label>
+                <AppInput id="parish-email" type="email" maxLength={150} value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })} />
+              </div>
+              <div className="form-field">
+                <label htmlFor="parish-phone">Téléphone</label>
+                <AppInput id="parish-phone" type="tel" maxLength={50} value={form.telephone}
+                  onChange={(e) => setForm({ ...form, telephone: e.target.value })} />
+              </div>
+            </div>
+            <div className="button-row" style={{ marginTop: 18 }}>
+              <AppButton type="submit" disabled={saving}>
+                {saving ? 'Enregistrement…' : editingId ? 'Enregistrer les modifications' : 'Créer la paroisse'}
+              </AppButton>
+              <AppButton variant="secondary" onClick={closeForm} disabled={saving}>Annuler</AppButton>
+            </div>
+          </form>
+        </AppCard>
+      ) : null}
+
+      {loading ? <p className="muted">Chargement…</p> : null}
+      {!loading && rows.length === 0 ? (
+        <div className="card empty-state">Aucune paroisse active.</div>
+      ) : (
+        <AppTable columns={columns} rows={rows} renderCell={(row, column) => {
+          if (column.key === 'active') return <AppBadge value={row.active} />;
+          if (column.key === 'actions') return (
+            <div className="button-row">
+              <button className="btn btn-secondary" onClick={() => openEdit(row)}>Modifier</button>
+              <button className="btn btn-danger" disabled={deletingId === row.id}
+                onClick={() => remove(row)}>
+                {deletingId === row.id ? 'Désactivation…' : 'Désactiver'}
+              </button>
+            </div>
+          );
+          return row[column.key];
+        }} />
+      )}
     </div>
   );
 }

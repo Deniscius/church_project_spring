@@ -11,6 +11,7 @@ import com.eyram.dev.church_project_spring.repositories.TypeDemandeRepository;
 import com.eyram.dev.church_project_spring.security.TenantAccessService;
 import com.eyram.dev.church_project_spring.service.TypeDemandeService;
 import com.eyram.dev.church_project_spring.utils.exception.AlreadyExistException;
+import com.eyram.dev.church_project_spring.utils.exception.BusinessRuleException;
 import com.eyram.dev.church_project_spring.utils.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -31,6 +32,7 @@ public class TypeDemandeServiceImpl implements TypeDemandeService {
 
     @Override
     public TypeDemandeResponse create(TypeDemandeRequest request) {
+        validateLeadTime(request);
 
         Paroisse paroisse = paroisseRepository.findByPublicIdAndStatusDelFalse(request.paroissePublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Paroisse introuvable"));
@@ -55,6 +57,7 @@ public class TypeDemandeServiceImpl implements TypeDemandeService {
 
     @Override
     public TypeDemandeResponse update(UUID publicId, TypeDemandeRequest request) {
+        validateLeadTime(request);
 
         TypeDemande existingTypeDemande = typeDemandeRepository.findByPublicIdAndStatusDelFalse(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Type de demande introuvable"));
@@ -143,5 +146,14 @@ public class TypeDemandeServiceImpl implements TypeDemandeService {
 
         typeDemande.setStatusDel(true);
         typeDemandeRepository.save(typeDemande);
+    }
+
+    private void validateLeadTime(TypeDemandeRequest request) {
+        if (request == null || request.delaiMinimumHeures() == null) {
+            throw new BusinessRuleException("Le délai minimum est obligatoire");
+        }
+        if (request.delaiMinimumHeures() < 0 || request.delaiMinimumHeures() > 8760) {
+            throw new BusinessRuleException("Le délai minimum doit être compris entre 0 et 8760 heures");
+        }
     }
 }

@@ -32,7 +32,7 @@ export default function ParishSelector() {
           {paroisses.map((p) => (
             <option key={p.publicId} value={p.publicId}>
               {p.nom}
-              {p.localiteVille ? ` (${p.localiteVille})` : ''}
+              {p.doyenneNom ? ` (${p.doyenneNom})` : ''}
             </option>
           ))}
         </select>

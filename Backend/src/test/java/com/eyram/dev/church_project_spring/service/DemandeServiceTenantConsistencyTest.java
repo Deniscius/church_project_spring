@@ -22,6 +22,7 @@ import com.eyram.dev.church_project_spring.repositories.TypePaiementRepository;
 import com.eyram.dev.church_project_spring.repositories.UserRepository;
 import com.eyram.dev.church_project_spring.security.TenantAccessService;
 import com.eyram.dev.church_project_spring.service.impl.DemandeServiceImpl;
+import com.eyram.dev.church_project_spring.service.DemandeSchedulingPolicy;
 import com.eyram.dev.church_project_spring.utils.exception.BusinessRuleException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -69,6 +70,8 @@ class DemandeServiceTenantConsistencyTest {
     private DemandeDateRepository demandeDateRepository;
     @Mock
     private TenantAccessService tenantAccessService;
+    @Mock
+    private DemandeSchedulingPolicy demandeSchedulingPolicy;
 
     @InjectMocks
     private DemandeServiceImpl demandeService;

@@ -21,6 +21,7 @@ const initialDraft = {
   paroisseNom: '',
   typeDemandePublicId: '',
   typeDemandeLibelle: '',
+  typeDemandeDelaiMinimumHeures: 24,
   forfaitTarifPublicId: '',
   forfaitLabel: '',
   forfaitHeurePersonnalise: false,
@@ -28,6 +29,7 @@ const initialDraft = {
   forfaitMontant: null,
   horairePublicId: '',
   horaireLibelle: '',
+  horaireHeureCelebration: '',
   heurePersonnalisee: '',
   dateDebut: '',
   typePaiementPublicId: '',
@@ -58,6 +60,7 @@ function draftReducer(state, action) {
         paroisseNom: nom || '',
         typeDemandePublicId: '',
         typeDemandeLibelle: '',
+        typeDemandeDelaiMinimumHeures: 24,
         forfaitTarifPublicId: '',
         forfaitLabel: '',
         forfaitHeurePersonnalise: false,
@@ -65,15 +68,17 @@ function draftReducer(state, action) {
         forfaitMontant: null,
         horairePublicId: '',
         horaireLibelle: '',
+        horaireHeureCelebration: '',
         heurePersonnalisee: '',
       };
     }
     case 'SELECT_TYPE_DEMANDE': {
-      const { publicId, libelle } = action.payload;
+      const { publicId, libelle, delaiMinimumHeures } = action.payload;
       return {
         ...state,
         typeDemandePublicId: publicId,
         typeDemandeLibelle: libelle || '',
+        typeDemandeDelaiMinimumHeures: delaiMinimumHeures ?? 24,
         forfaitTarifPublicId: '',
         forfaitLabel: '',
         forfaitHeurePersonnalise: false,
@@ -81,6 +86,7 @@ function draftReducer(state, action) {
         forfaitMontant: null,
         horairePublicId: '',
         horaireLibelle: '',
+        horaireHeureCelebration: '',
         heurePersonnalisee: '',
       };
     }
@@ -102,15 +108,17 @@ function draftReducer(state, action) {
         forfaitMontant: montantForfait != null ? Number(montantForfait) : null,
         horairePublicId: '',
         horaireLibelle: '',
+        horaireHeureCelebration: '',
         heurePersonnalisee: '',
       };
     }
     case 'SELECT_HORAIRE': {
-      const { publicId, libelle } = action.payload;
+      const { publicId, libelle, heureCelebration } = action.payload;
       return {
         ...state,
         horairePublicId: publicId,
         horaireLibelle: libelle || '',
+        horaireHeureCelebration: heureCelebration || '',
       };
     }
     case 'SELECT_PAIEMENT': {

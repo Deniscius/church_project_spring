@@ -30,7 +30,11 @@ export default function RequestTypeSelector() {
             const t = types.find((x) => x.publicId === id);
             dispatch({
               type: 'SELECT_TYPE_DEMANDE',
-              payload: { publicId: id, libelle: t?.libelle || '' },
+              payload: {
+                publicId: id,
+                libelle: t?.libelle || '',
+                delaiMinimumHeures: t?.delaiMinimumHeures ?? 24,
+              },
             });
           }}
         >
@@ -41,6 +45,11 @@ export default function RequestTypeSelector() {
             </option>
           ))}
         </select>
+        {draft.typeDemandePublicId ? (
+          <small className="muted">
+            À déposer au moins {draft.typeDemandeDelaiMinimumHeures} heure(s) avant la célébration.
+          </small>
+        ) : null}
       </div>
     </AppCard>
   );

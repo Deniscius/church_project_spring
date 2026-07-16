@@ -8,7 +8,10 @@ import { useTenant } from '../../../hooks/useTenant';
 import { requestTypeService } from '../../../services/requestType.service';
 
 const CATEGORIES = ['EUCHARISTIE', 'SACRAMENT', 'SACRAMENTAUX'];
-const INITIAL_VALUE = { libelle: '', description: '', typeDemandeEnum: 'EUCHARISTIE', isActive: true };
+const INITIAL_VALUE = {
+  libelle: '', description: '', typeDemandeEnum: 'EUCHARISTIE', isActive: true,
+  delaiMinimumHeures: 24,
+};
 
 export default function RequestTypeForm({ requestTypeId = null }) {
   const navigate = useNavigate();
@@ -28,6 +31,7 @@ export default function RequestTypeForm({ requestTypeId = null }) {
           description: data.description || '',
           typeDemandeEnum: data.typeDemandeEnum || 'EUCHARISTIE',
           isActive: data.isActive !== false,
+          delaiMinimumHeures: data.delaiMinimumHeures ?? 24,
         });
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Type de demande introuvable');
@@ -76,6 +80,13 @@ export default function RequestTypeForm({ requestTypeId = null }) {
             <label htmlFor="type-description">Description</label>
             <AppTextarea id="type-description" value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          </div>
+          <div className="form-field">
+            <label htmlFor="type-lead-time">Délai minimum avant célébration (heures) *</label>
+            <AppInput id="type-lead-time" type="number" required min="0" max="8760"
+              value={form.delaiMinimumHeures}
+              onChange={(e) => setForm({ ...form, delaiMinimumHeures: Number(e.target.value) })} />
+            <small className="muted">Exemple : 24 impose un dépôt au moins un jour avant.</small>
           </div>
           <div className="form-field">
             <label htmlFor="type-active">État *</label>

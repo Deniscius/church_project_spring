@@ -16,9 +16,9 @@ import java.util.UUID;
 @Getter
 @Setter
 @Entity
-@Table(name = "localite")
+@Table(name = "doyenne")
 @NoArgsConstructor
-public class Localite extends BaseEntity implements Serializable {
+public class Doyenne extends BaseEntity implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -28,21 +28,21 @@ public class Localite extends BaseEntity implements Serializable {
     @Column(name = "public_id", unique = true, nullable = false, updatable = false)
     private UUID publicId;
 
-    @Column(name = "quartier", nullable = false, length = 200)
-    private String quartier;
+    @Column(name = "nom", nullable = false, length = 400)
+    private String nom;
 
-    @Column(name = "ville", nullable = false, length = 150)
-    private String ville;
+    @Column(name = "description", length = 500)
+    private String description;
 
     @JsonIgnore
-    @OneToMany(mappedBy = "localite", fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "doyenne", fetch = FetchType.LAZY)
     private List<Paroisse> paroisses = new ArrayList<>();
 
-    public Localite(Long id, UUID publicId, String quartier, String ville, List<Paroisse> paroisses) {
+    public Doyenne(Long id, UUID publicId, String nom, String description, List<Paroisse> paroisses) {
         this.id = id;
         this.publicId = publicId;
-        this.quartier = quartier;
-        this.ville = ville;
+        this.nom = nom;
+        this.description = description;
         this.paroisses = paroisses;
     }
 }

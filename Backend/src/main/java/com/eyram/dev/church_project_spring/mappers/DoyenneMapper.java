@@ -1,14 +1,14 @@
 package com.eyram.dev.church_project_spring.mappers;
 
-import com.eyram.dev.church_project_spring.DTO.request.LocaliteRequest;
-import com.eyram.dev.church_project_spring.DTO.response.LocaliteResponse;
-import com.eyram.dev.church_project_spring.entities.Localite;
+import com.eyram.dev.church_project_spring.DTO.request.DoyenneRequest;
+import com.eyram.dev.church_project_spring.DTO.response.DoyenneResponse;
+import com.eyram.dev.church_project_spring.entities.Doyenne;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 
 @Mapper(componentModel = "spring")
-public interface LocaliteMapper {
+public interface DoyenneMapper {
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "publicId", ignore = true)
@@ -16,7 +16,7 @@ public interface LocaliteMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "paroisses", ignore = true)
-    Localite dtoToModel(LocaliteRequest request);
+    Doyenne dtoToModel(DoyenneRequest request);
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "publicId", ignore = true)
@@ -24,7 +24,7 @@ public interface LocaliteMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "paroisses", ignore = true)
-    void updateEntityFromDto(LocaliteRequest request, @MappingTarget Localite entity);
+    void updateEntityFromDto(DoyenneRequest request, @MappingTarget Doyenne entity);
 
-    LocaliteResponse modelToDto(Localite entity);
+    DoyenneResponse modelToDto(Doyenne entity);
 }

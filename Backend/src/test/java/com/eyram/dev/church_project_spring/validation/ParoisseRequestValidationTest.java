@@ -37,6 +37,6 @@ class ParoisseRequestValidationTest {
         assertTrue(violations.stream().anyMatch(v -> v.getPropertyPath().toString().equals("nom")));
         assertTrue(violations.stream().anyMatch(v -> v.getPropertyPath().toString().equals("adresse")));
         assertTrue(violations.stream().anyMatch(v -> v.getPropertyPath().toString().equals("email")));
-        assertTrue(violations.stream().anyMatch(v -> v.getPropertyPath().toString().equals("localitePublicId")));
+        assertTrue(violations.stream().anyMatch(v -> v.getPropertyPath().toString().equals("doyennePublicId")));
     }
 }

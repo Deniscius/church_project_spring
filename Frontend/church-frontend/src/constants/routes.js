@@ -34,6 +34,6 @@ export const ROUTES = {
   USER_CREATE: '/admin/utilisateurs/nouveau',
   USER_EDIT: '/admin/utilisateurs/:id/modifier',
   PARISH_ACCESS: '/admin/acces-paroisses',
-  LOCALITIES: '/admin/localites',
+  DEANERIES: '/admin/doyennes',
   PAYMENT_TYPES: '/admin/types-paiement',
 };

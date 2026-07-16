@@ -24,8 +24,8 @@ public record ParoisseRequest(
         @Size(max = 50, message = "Le téléphone ne doit pas dépasser 50 caractères")
         String telephone,
 
-        @NotNull(message = "La localité est obligatoire")
-        UUID localitePublicId
+        @NotNull(message = "Le doyenné est obligatoire")
+        UUID doyennePublicId
 
 ) {
 }

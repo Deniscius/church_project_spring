@@ -10,7 +10,7 @@ import UsersPage from '../../pages/superadmin/users/UsersPage';
 import CreateUserPage from '../../pages/superadmin/users/CreateUserPage';
 import EditUserPage from '../../pages/superadmin/users/EditUserPage';
 import ParishAccessPage from '../../pages/superadmin/parish-access/ParishAccessPage';
-import LocalitiesPage from '../../pages/superadmin/localities/LocalitiesPage';
+import DeaneriesPage from '../../pages/superadmin/deaneries/DeaneriesPage';
 import PaymentTypesPage from '../../pages/superadmin/payment-types/PaymentTypesPage';
 
 export function SuperAdminRoutes() {
@@ -22,7 +22,7 @@ export function SuperAdminRoutes() {
           <Route path="/admin/paroisses/nouvelle" element={<CreateParishPage />} />
           <Route path="/admin/paroisses/:id/modifier" element={<EditParishPage />} />
           <Route path="/admin/acces-paroisses" element={<ParishAccessPage />} />
-          <Route path="/admin/localites" element={<LocalitiesPage />} />
+          <Route path="/admin/doyennes" element={<DeaneriesPage />} />
           <Route path="/admin/types-paiement" element={<PaymentTypesPage />} />
         </Route>
       </Route>

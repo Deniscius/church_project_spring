@@ -11,6 +11,7 @@ import com.eyram.dev.church_project_spring.mappers.DemandeMapper;
 import com.eyram.dev.church_project_spring.repositories.*;
 import com.eyram.dev.church_project_spring.security.TenantAccessService;
 import com.eyram.dev.church_project_spring.service.DemandeService;
+import com.eyram.dev.church_project_spring.service.DemandeSchedulingPolicy;
 import com.eyram.dev.church_project_spring.utils.exception.BusinessRuleException;
 import com.eyram.dev.church_project_spring.utils.exception.ResourceNotFoundException;
 import com.eyram.dev.church_project_spring.utils.exception.TrackingIdNotFoundException;
@@ -42,6 +43,7 @@ public class DemandeServiceImpl implements DemandeService {
     private final DetailsPaiementRepository detailsPaiementRepository;
     private final DemandeDateRepository demandeDateRepository;
     private final TenantAccessService tenantAccessService;
+    private final DemandeSchedulingPolicy demandeSchedulingPolicy;
 
     @Override
     public DemandeResponse create(DemandeRequest request) {
@@ -83,6 +85,7 @@ public class DemandeServiceImpl implements DemandeService {
                 .orElseThrow(() -> new ResourceNotFoundException("Type de paiement introuvable"));
 
         validateDates(request, forfaitTarif);
+        validateCelebrationDeadline(request, horaire, typeDemande);
 
         Demande demande = demandeMapper.dtoToModel(request);
         demande.setParoisse(paroisse);
@@ -155,6 +158,7 @@ public class DemandeServiceImpl implements DemandeService {
 
         validateHoraire(request.heurePersonnalisee(), horaire, forfaitTarif);
         validateDates(request, forfaitTarif);
+        validateCelebrationDeadline(request, horaire, typeDemande);
 
         TypePaiement typePaiement = typePaiementRepository.findByPublicIdAndStatusDelFalse(request.typePaiementPublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Type de paiement introuvable"));
@@ -338,6 +342,22 @@ public class DemandeServiceImpl implements DemandeService {
         if (request.dateDebut() == null) {
             throw new IllegalArgumentException("La date de début est obligatoire");
         }
+    }
+
+    private void validateCelebrationDeadline(
+            DemandeRequest request,
+            Horaire horaire,
+            TypeDemande typeDemande
+    ) {
+        LocalTime celebrationTime = request.heurePersonnalisee() != null
+                ? request.heurePersonnalisee()
+                : horaire != null ? horaire.getHeureCelebration() : null;
+
+        demandeSchedulingPolicy.validate(
+                request.dateDebut(),
+                celebrationTime,
+                typeDemande.getDelaiMinimumHeures()
+        );
     }
 
     private void generateDemandeDates(Demande demande, DemandeRequest request) {

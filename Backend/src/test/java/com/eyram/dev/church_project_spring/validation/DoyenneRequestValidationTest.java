@@ -1,6 +1,6 @@
 package com.eyram.dev.church_project_spring.validation;
 
-import com.eyram.dev.church_project_spring.DTO.request.LocaliteRequest;
+import com.eyram.dev.church_project_spring.DTO.request.DoyenneRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
@@ -14,7 +14,7 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
-class LocaliteRequestValidationTest {
+class DoyenneRequestValidationTest {
 
     private static ValidatorFactory validatorFactory;
     private static Validator validator;
@@ -31,26 +31,26 @@ class LocaliteRequestValidationTest {
     }
 
     @Test
-    void acceptsValidLocality() {
-        Set<ConstraintViolation<LocaliteRequest>> violations =
-                validator.validate(new LocaliteRequest("Lomé", "Tokoin"));
+    void acceptsValidDeanery() {
+        Set<ConstraintViolation<DoyenneRequest>> violations =
+                validator.validate(new DoyenneRequest("Doyenné de Lomé-Centre", "Zone pastorale"));
 
         assertEquals(0, violations.size());
     }
 
     @Test
-    void rejectsBlankFields() {
-        Set<ConstraintViolation<LocaliteRequest>> violations =
-                validator.validate(new LocaliteRequest(" ", ""));
+    void rejectsBlankName() {
+        Set<ConstraintViolation<DoyenneRequest>> violations =
+                validator.validate(new DoyenneRequest(" ", ""));
 
         assertFalse(violations.isEmpty());
     }
 
     @Test
-    void rejectsFieldsShorterThanTwoCharacters() {
-        Set<ConstraintViolation<LocaliteRequest>> violations =
-                validator.validate(new LocaliteRequest("L", "T"));
+    void rejectsNameShorterThanTwoCharacters() {
+        Set<ConstraintViolation<DoyenneRequest>> violations =
+                validator.validate(new DoyenneRequest("L", "T"));
 
-        assertEquals(2, violations.size());
+        assertEquals(1, violations.size());
     }
 }

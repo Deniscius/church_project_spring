@@ -104,6 +104,55 @@ class SecurityEndpointAccessTest extends AbstractIntegrationTest {
     }
 
     @Test
+    @DisplayName("Locality creation requires authentication")
+    void localityCreationRequiresAuthentication() throws Exception {
+        mockMvc.perform(post("/localites")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("Local admin cannot create a global locality")
+    void localAdminCannotCreateLocality() throws Exception {
+        mockMvc.perform(post("/localites")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "SUPER_ADMIN")
+    @DisplayName("Super admin reaches locality request validation")
+    void superAdminCanReachLocalityValidation() throws Exception {
+        mockMvc.perform(post("/localites")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("Local admin cannot mutate raw parish access assignments")
+    void localAdminCannotCreateRawParishAccess() throws Exception {
+        mockMvc.perform(post("/paroisse-access")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "SUPER_ADMIN")
+    @DisplayName("Super admin reaches parish access request validation")
+    void superAdminCanReachParishAccessValidation() throws Exception {
+        mockMvc.perform(post("/paroisse-access")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     @WithMockUser(roles = "SECRETAIRE")
     @DisplayName("Secretary cannot configure parish schedules")
     void secretaryCannotCreateSchedule() throws Exception {

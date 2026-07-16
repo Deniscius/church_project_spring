@@ -12,12 +12,14 @@ import com.eyram.dev.church_project_spring.utils.exception.AlreadyExistException
 import com.eyram.dev.church_project_spring.utils.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class DemandeDateServiceImpl implements DemandeDateService {
 
     private final DemandeDateRepository demandeDateRepository;

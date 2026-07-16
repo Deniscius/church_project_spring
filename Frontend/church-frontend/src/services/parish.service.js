@@ -24,44 +24,44 @@ export const parishService = {
 
   /**
    * Crée une nouvelle paroisse (SUPER_ADMIN)
-   * POST /admin/paroisses
+   * POST /paroisses
    */
   create: (payload) =>
-    apiClient(ADMIN_API_BASE, 
+    apiClient(PUBLIC_API_BASE,
       { method: 'POST', body: JSON.stringify(payload) }, 
       { auth: true }
     ),
 
   /**
    * Récupère toutes les paroisses (avec auth)
-   * GET /admin/paroisses
+   * GET /paroisses
    */
   getAll: () => 
-    apiClient(ADMIN_API_BASE, {}, { auth: true }),
+    apiClient(PUBLIC_API_BASE, {}, { auth: true }),
 
   /**
    * Récupère une paroisse spécifique
-   * GET /admin/paroisses/{id}
+   * GET /paroisses/{id}
    */
   getById: (paroisseId) => 
-    apiClient(`${ADMIN_API_BASE}/${paroisseId}`, {}, { auth: true }),
+    apiClient(`${PUBLIC_API_BASE}/${paroisseId}`, {}, { auth: true }),
 
   /**
    * Met à jour une paroisse (SUPER_ADMIN)
-   * PUT /admin/paroisses/{id}
+   * PUT /paroisses/{id}
    */
   update: (paroisseId, payload) =>
-    apiClient(`${ADMIN_API_BASE}/${paroisseId}`, 
+    apiClient(`${PUBLIC_API_BASE}/${paroisseId}`,
       { method: 'PUT', body: JSON.stringify(payload) }, 
       { auth: true }
     ),
 
   /**
    * Désactive une paroisse (SUPER_ADMIN)
-   * DELETE /admin/paroisses/{id}
+   * DELETE /paroisses/{id}
    */
   delete: (paroisseId) =>
-    apiClient(`${ADMIN_API_BASE}/${paroisseId}`, 
+    apiClient(`${PUBLIC_API_BASE}/${paroisseId}`,
       { method: 'DELETE' }, 
       { auth: true }
     ),

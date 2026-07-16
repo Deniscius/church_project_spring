@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useMemo, useState } from 'react';
 import { setActiveParishId } from '../constants/authStorage';
 import { authService } from '../services/auth.service';

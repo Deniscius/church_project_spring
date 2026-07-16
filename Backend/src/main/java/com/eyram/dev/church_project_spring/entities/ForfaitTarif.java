@@ -6,6 +6,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.UuidGenerator;
+import org.hibernate.annotations.Filter;
+import org.hibernate.annotations.SqlFragmentAlias;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
@@ -22,6 +24,12 @@ import java.util.UUID;
 @Getter
 @Setter
 @NoArgsConstructor
+@Filter(
+        name = "tenantFilter",
+        condition = "exists (select 1 from type_demande td where td.id = {forfaitTarif}.type_demande_id and td.paroisse_id = :tenantId)",
+        deduceAliasInjectionPoints = false,
+        aliases = @SqlFragmentAlias(alias = "forfaitTarif", table = "forfait_tarif")
+)
 public class ForfaitTarif extends BaseEntity implements Serializable {
 
     @Id

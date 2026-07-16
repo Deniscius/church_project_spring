@@ -14,7 +14,9 @@ export function mapParoisseToTableRow(p) {
   return {
     id: p.publicId,
     name: p.nom,
+    address: p.adresse || '',
     city: p.localiteVille || '—',
+    localityId: p.localitePublicId,
     email: p.email || '—',
     phone: p.telephone || '—',
     active: p.isActive ? 'ACTIVE' : 'INACTIVE',

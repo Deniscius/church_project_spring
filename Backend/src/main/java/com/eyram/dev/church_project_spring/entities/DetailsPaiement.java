@@ -6,6 +6,8 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.UuidGenerator;
+import org.hibernate.annotations.Filter;
+import org.hibernate.annotations.SqlFragmentAlias;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
@@ -15,6 +17,12 @@ import java.util.UUID;
 @Table(name = "details_paiement")
 @Getter
 @Setter
+@Filter(
+        name = "tenantFilter",
+        condition = "exists (select 1 from facture f join demande d on d.id = f.demande_id where f.id = {detailsPaiement}.facture_id and d.paroisse_id = :tenantId)",
+        deduceAliasInjectionPoints = false,
+        aliases = @SqlFragmentAlias(alias = "detailsPaiement", table = "details_paiement")
+)
 public class DetailsPaiement extends BaseEntity implements Serializable {
 
     @Id

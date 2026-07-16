@@ -3,6 +3,7 @@ import PageHeader from '../../../components/ui/PageHeader';
 import AppTable from '../../../components/ui/AppTable';
 import AppBadge from '../../../components/ui/AppBadge';
 import { parishService } from '../../../services/parish.service';
+import { localityService } from '../../../services/locality.service';
 import { mapParoisseToTableRow } from '../../../utils/apiMappers';
 
 const columns = [
@@ -17,6 +18,7 @@ export default function ParishesPage() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [localities, setLocalities] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
@@ -24,7 +26,7 @@ export default function ParishesPage() {
     adresse: '',
     email: '',
     telephone: '',
-    isActive: true,
+    localitePublicId: '',
   });
 
   useEffect(() => {
@@ -35,8 +37,12 @@ export default function ParishesPage() {
     try {
       setLoading(true);
       setError(null);
-      const data = await parishService.getAll();
-      setRows((data || []).map(mapParoisseToTableRow));
+      const [parishesData, localitiesData] = await Promise.all([
+        parishService.getAll(),
+        localityService.getAll(),
+      ]);
+      setRows((parishesData || []).map(mapParoisseToTableRow));
+      setLocalities(localitiesData || []);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur');
     } finally {
@@ -79,12 +85,12 @@ export default function ParishesPage() {
           adresse: parish.address || '',
           email: parish.email || '',
           telephone: parish.phone || '',
-          isActive: parish.active !== false,
+          localitePublicId: parish.localityId || '',
         });
         setEditingId(parishId);
         setShowForm(true);
       }
-    } catch (e) {
+    } catch {
       setError('Erreur lors de la récupération');
     }
   };
@@ -110,7 +116,7 @@ export default function ParishesPage() {
       adresse: '',
       email: '',
       telephone: '',
-      isActive: true,
+      localitePublicId: '',
     });
   };
 
@@ -202,6 +208,32 @@ export default function ParishesPage() {
 
             <div>
               <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold' }}>
+                Localité *
+              </label>
+              <select
+                name="localitePublicId"
+                value={formData.localitePublicId}
+                onChange={handleInputChange}
+                required
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  fontSize: '14px'
+                }}
+              >
+                <option value="">Sélectionner une localité</option>
+                {localities.map(locality => (
+                  <option key={locality.publicId} value={locality.publicId}>
+                    {locality.ville} — {locality.quartier}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold' }}>
                 Email
               </label>
               <input
@@ -237,18 +269,6 @@ export default function ParishesPage() {
                 }}
               />
             </div>
-          </div>
-
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                name="isActive"
-                checked={formData.isActive}
-                onChange={handleInputChange}
-              />
-              <span style={{ fontWeight: 'bold' }}>Actif</span>
-            </label>
           </div>
 
           <div style={{ display: 'flex', gap: '8px' }}>

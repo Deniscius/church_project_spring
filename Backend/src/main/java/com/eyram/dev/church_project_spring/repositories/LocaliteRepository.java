@@ -11,7 +11,13 @@ public interface LocaliteRepository extends JpaRepository<Localite, Long> {
 
     Optional<Localite> findByPublicIdAndStatusDelFalse(UUID publicId);
 
-    List<Localite> findAllByStatusDelFalse();
+    List<Localite> findAllByStatusDelFalseOrderByVilleAscQuartierAsc();
 
     boolean existsByVilleIgnoreCaseAndQuartierIgnoreCaseAndStatusDelFalse(String ville, String quartier);
+
+    boolean existsByVilleIgnoreCaseAndQuartierIgnoreCaseAndStatusDelFalseAndPublicIdNot(
+            String ville,
+            String quartier,
+            UUID publicId
+    );
 }

@@ -1,6 +1,5 @@
 package com.eyram.dev.church_project_spring.security.jwt;
 
-import com.eyram.dev.church_project_spring.context.HibernateTenantFilterActivator;
 import com.eyram.dev.church_project_spring.context.TenantContext;
 import com.eyram.dev.church_project_spring.security.UserDetailsImpl;
 import jakarta.servlet.FilterChain;
@@ -24,8 +23,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -38,16 +35,13 @@ class AuthTokenFilterTest {
     @Mock
     private UserDetailsService userDetailsService;
 
-    @Mock
-    private HibernateTenantFilterActivator tenantFilterActivator;
-
     private AuthTokenFilter filter;
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
 
     @BeforeEach
     void setUp() {
-        filter = new AuthTokenFilter(jwtUtils, userDetailsService, tenantFilterActivator);
+        filter = new AuthTokenFilter(jwtUtils, userDetailsService);
         request = new MockHttpServletRequest();
         response = new MockHttpServletResponse();
         request.addHeader("Authorization", "Bearer valid-token");
@@ -80,7 +74,6 @@ class AuthTokenFilterTest {
 
         assertEquals(42L, tenantSeenByChain.get());
         assertSame(currentUser, principalSeenByChain.get());
-        verify(tenantFilterActivator).activateFilter();
         assertNull(TenantContext.getCurrentTenant());
     }
 
@@ -99,7 +92,6 @@ class AuthTokenFilterTest {
         filter.doFilterInternal(request, response, chain);
 
         assertNull(tenantSeenByChain.get());
-        verify(tenantFilterActivator, never()).activateFilter();
     }
 
     @Test
@@ -117,7 +109,6 @@ class AuthTokenFilterTest {
         filter.doFilterInternal(request, response, chain);
 
         assertNull(authenticationSeenByChain.get());
-        verify(tenantFilterActivator, never()).activateFilter();
     }
 
     private UserDetailsImpl userDetails(Long tenantId, boolean global, boolean enabled) {

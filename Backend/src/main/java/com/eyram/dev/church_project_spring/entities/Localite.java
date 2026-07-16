@@ -4,10 +4,12 @@ import com.eyram.dev.church_project_spring.utils.BaseEntity;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.UuidGenerator;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -15,6 +17,7 @@ import java.util.UUID;
 @Setter
 @Entity
 @Table(name = "localite")
+@NoArgsConstructor
 public class Localite extends BaseEntity implements Serializable {
 
     @Id
@@ -25,15 +28,15 @@ public class Localite extends BaseEntity implements Serializable {
     @Column(name = "public_id", unique = true, nullable = false, updatable = false)
     private UUID publicId;
 
-    @Column(name = "quartier", length = 200)
+    @Column(name = "quartier", nullable = false, length = 200)
     private String quartier;
 
-    @Column(name = "ville")
+    @Column(name = "ville", nullable = false, length = 150)
     private String ville;
 
     @JsonIgnore
-    @OneToMany(mappedBy = "localite")
-    private List<Paroisse> paroisses;
+    @OneToMany(mappedBy = "localite", fetch = FetchType.LAZY)
+    private List<Paroisse> paroisses = new ArrayList<>();
 
     public Localite(Long id, UUID publicId, String quartier, String ville, List<Paroisse> paroisses) {
         this.id = id;
@@ -41,8 +44,5 @@ public class Localite extends BaseEntity implements Serializable {
         this.quartier = quartier;
         this.ville = ville;
         this.paroisses = paroisses;
-    }
-
-    public Localite() {
     }
 }

@@ -1,6 +1,5 @@
 package com.eyram.dev.church_project_spring.security;
 
-import com.eyram.dev.church_project_spring.context.HibernateTenantFilterActivator;
 import com.eyram.dev.church_project_spring.security.jwt.AuthEntryPointJwt;
 import com.eyram.dev.church_project_spring.security.jwt.AuthTokenFilter;
 import com.eyram.dev.church_project_spring.security.jwt.JwtUtils;
@@ -55,16 +54,10 @@ public class SecurityConfig {
     }
 
     @Bean
-    public HibernateTenantFilterActivator hibernateTenantFilterActivator() {
-        return new HibernateTenantFilterActivator();
-    }
-
-    @Bean
     public AuthTokenFilter authTokenFilter(
             JwtUtils jwtUtils,
-            UserDetailsService userDetailsService,
-            HibernateTenantFilterActivator hibernateTenantFilterActivator) {
-        return new AuthTokenFilter(jwtUtils, userDetailsService, hibernateTenantFilterActivator);
+            UserDetailsService userDetailsService) {
+        return new AuthTokenFilter(jwtUtils, userDetailsService);
     }
 
     @Bean
@@ -105,6 +98,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/users/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/users/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
                         .requestMatchers(HttpMethod.GET, "/users").hasAnyRole("ADMIN", "SUPER_ADMIN")
+
+                        // Le référentiel brut des affectations permet de modifier les tenants.
+                        .requestMatchers("/paroisse-access", "/paroisse-access/**")
+                        .hasRole("SUPER_ADMIN")
 
                         // Gestion du référentiel global
                         .requestMatchers(HttpMethod.POST, "/paroisses", "/localites")

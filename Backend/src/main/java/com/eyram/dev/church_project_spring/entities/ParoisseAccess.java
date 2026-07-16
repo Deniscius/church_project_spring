@@ -3,6 +3,8 @@ package com.eyram.dev.church_project_spring.entities;
 import java.util.UUID;
 
 import org.hibernate.annotations.UuidGenerator;
+import org.hibernate.annotations.Filter;
+import org.hibernate.annotations.SqlFragmentAlias;
 
 import com.eyram.dev.church_project_spring.enums.RoleParoisse;
 import com.eyram.dev.church_project_spring.utils.BaseEntity;
@@ -18,19 +20,19 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.Setter;
 
 @Entity
-@Table(
-        name = "paroisse_access",
-        uniqueConstraints = {
-                @UniqueConstraint(columnNames = {"user_id", "paroisse_id"})
-        }
-)
+@Table(name = "paroisse_access")
 @Getter
 @Setter
+@Filter(
+        name = "tenantFilter",
+        condition = "{paroisseAccess}.paroisse_id = :tenantId",
+        deduceAliasInjectionPoints = false,
+        aliases = @SqlFragmentAlias(alias = "paroisseAccess", table = "paroisse_access")
+)
 public class ParoisseAccess extends BaseEntity {
 
     @Id

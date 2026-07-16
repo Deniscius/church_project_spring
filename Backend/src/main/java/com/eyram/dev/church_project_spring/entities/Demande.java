@@ -9,8 +9,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.Filter;
-import org.hibernate.annotations.FilterDef;
-import org.hibernate.annotations.ParamDef;
+import org.hibernate.annotations.SqlFragmentAlias;
 import org.hibernate.annotations.UuidGenerator;
 
 import java.io.Serializable;
@@ -23,7 +22,12 @@ import java.util.UUID;
 @Getter
 @Setter
 @NoArgsConstructor
-@Filter(name="tenantFilter", condition="paroisse_id = :tenantId")
+@Filter(
+        name = "tenantFilter",
+        condition = "{demande}.paroisse_id = :tenantId",
+        deduceAliasInjectionPoints = false,
+        aliases = @SqlFragmentAlias(alias = "demande", table = "demande")
+)
 public class Demande extends BaseEntity implements Serializable {
 
     @Id

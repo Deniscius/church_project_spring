@@ -128,7 +128,7 @@ export default function UsersPage() {
         setEditingId(userId);
         setShowForm(true);
       }
-    } catch (e) {
+    } catch {
       setError('Erreur lors de la récupération');
     }
   };

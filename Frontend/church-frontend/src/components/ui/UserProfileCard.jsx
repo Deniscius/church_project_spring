@@ -65,7 +65,7 @@ export function UserProfileCard() {
  * Composant pour afficher les permissions de l'utilisateur courant.
  */
 export function UserPermissionsInfo() {
-  const { can, allPermissions } = usePermissions();
+  const { can } = usePermissions();
 
   return (
     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">

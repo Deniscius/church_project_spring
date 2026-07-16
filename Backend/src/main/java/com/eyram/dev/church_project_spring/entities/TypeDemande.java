@@ -7,8 +7,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.Filter;
-import org.hibernate.annotations.FilterDef;
-import org.hibernate.annotations.ParamDef;
+import org.hibernate.annotations.SqlFragmentAlias;
 import org.hibernate.annotations.UuidGenerator;
 
 import java.io.Serializable;
@@ -21,7 +20,12 @@ import java.util.UUID;
                 @UniqueConstraint(columnNames = {"libelle", "paroisse_id", "type_principal"})
         }
 )
-@Filter(name = "tenantFilter", condition = "paroisse_id = :tenantId")
+@Filter(
+        name = "tenantFilter",
+        condition = "{typeDemande}.paroisse_id = :tenantId",
+        deduceAliasInjectionPoints = false,
+        aliases = @SqlFragmentAlias(alias = "typeDemande", table = "type_demande")
+)
 @Getter
 @Setter
 @NoArgsConstructor

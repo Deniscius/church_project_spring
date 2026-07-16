@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react';
 import { parishService } from '../../../services/parish.service';
-import { useAuthStore } from '../../../store/auth.context';
 
 /**
  * Page de gestion des paroisses (Super Admin)
  * CRUD complet : Create, Read, Update, Delete
  */
 export function ParishesPage() {
-  const { user } = useAuthStore();
   const [parishes, setParishes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);

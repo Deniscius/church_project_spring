@@ -1,6 +1,5 @@
 package com.eyram.dev.church_project_spring.security.jwt;
 
-import com.eyram.dev.church_project_spring.context.HibernateTenantFilterActivator;
 import com.eyram.dev.church_project_spring.context.TenantContext;
 import com.eyram.dev.church_project_spring.security.UserDetailsImpl;
 import jakarta.servlet.FilterChain;
@@ -33,7 +32,6 @@ public class AuthTokenFilter extends OncePerRequestFilter {
 
     private final JwtUtils jwtUtils;
     private final UserDetailsService userDetailsService;
-    private final HibernateTenantFilterActivator tenantFilterActivator;
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
@@ -60,7 +58,6 @@ public class AuthTokenFilter extends OncePerRequestFilter {
                 Long tenantId = userDetails.getTenantId();
                 if (tenantId != null && !userDetails.isGlobal()) {
                     TenantContext.setCurrentTenant(tenantId);
-                    tenantFilterActivator.activateFilter();
                 }
 
                 UsernamePasswordAuthenticationToken authentication =

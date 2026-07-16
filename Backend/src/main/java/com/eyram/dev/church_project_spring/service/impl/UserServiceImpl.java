@@ -7,6 +7,7 @@ import com.eyram.dev.church_project_spring.service.UserService;
 import com.eyram.dev.church_project_spring.utils.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
@@ -21,6 +22,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Deprecated(forRemoval = false)
+@Transactional
 public class UserServiceImpl implements UserService {
 
     private final EnhancedUserService enhancedUserService;

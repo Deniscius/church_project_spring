@@ -73,6 +73,27 @@ class EnhancedUserServiceReadScopeTest {
     }
 
     @Test
+    @DisplayName("Global administrator can list parish users using the public parish ID")
+    void globalAdministratorCanListParishByPublicId() {
+        User requester = user(requesterId, true, "global.admin");
+        User target = user(targetId, false, "local.user");
+        Paroisse paroisse = paroisse(10L);
+        ParoisseAccess targetAccess = activeAccess(target, paroisse);
+
+        when(userRepository.findByPublicIdAndStatusDelFalse(requesterId))
+                .thenReturn(Optional.of(requester));
+        when(paroisseRepository.findByPublicIdAndStatusDelFalse(paroisse.getPublicId()))
+                .thenReturn(Optional.of(paroisse));
+        when(paroisseAccessRepository.findByParoisseAndStatusDelFalse(paroisse))
+                .thenReturn(List.of(targetAccess));
+
+        var result = userService.getUsersByParoisse(paroisse.getPublicId(), requesterId);
+
+        assertEquals(1, result.size());
+        assertEquals(targetId, result.get(0).publicId());
+    }
+
+    @Test
     @DisplayName("Local administrator only lists users from the assigned parish")
     void localAdministratorListsOnlyOwnParishUsers() {
         User requester = user(requesterId, false, "local.admin");
@@ -120,10 +141,11 @@ class EnhancedUserServiceReadScopeTest {
     }
 
     @Test
-    @DisplayName("Local administrator cannot list another parish")
+    @DisplayName("Local administrator cannot list another parish by public ID")
     void localAdministratorCannotListAnotherParish() {
         User requester = user(requesterId, false, "local.admin");
         Paroisse requesterParoisse = paroisse(10L);
+        UUID otherParoissePublicId = UUID.randomUUID();
 
         when(userRepository.findByPublicIdAndStatusDelFalse(requesterId))
                 .thenReturn(Optional.of(requester));
@@ -132,10 +154,11 @@ class EnhancedUserServiceReadScopeTest {
 
         assertThrows(
                 AccessDeniedException.class,
-                () -> userService.getUsersByParoisse(20L, requesterId)
+                () -> userService.getUsersByParoisse(otherParoissePublicId, requesterId)
         );
 
-        verify(paroisseRepository, never()).findById(20L);
+        verify(paroisseRepository, never())
+                .findByPublicIdAndStatusDelFalse(otherParoissePublicId);
     }
 
     private User user(UUID publicId, boolean global, String username) {

@@ -80,6 +80,7 @@ public class EnhancedUserService {
         User requester = findActiveUser(updatedBy);
         User user = findActiveUser(publicId);
         assertCanAccessUser(requester, user);
+        assertTenantScopeUnchanged(user, request);
         assertCanApplyRequestedScope(requester, request);
 
         validateCommonUserRequest(request);
@@ -291,6 +292,17 @@ public class EnhancedUserService {
 
         if (!requesterParoisseId.equals(targetParoisseId)) {
             throw new AccessDeniedException("Accès interdit à cet utilisateur");
+        }
+    }
+
+    private void assertTenantScopeUnchanged(User user, UserRequest request) {
+        boolean currentGlobal = Boolean.TRUE.equals(user.getIsGlobal());
+        boolean requestedGlobal = Boolean.TRUE.equals(request.isGlobal());
+
+        if (currentGlobal != requestedGlobal) {
+            throw new BusinessRuleException(
+                    "Le périmètre global/local d'un utilisateur ne peut pas être modifié depuis cette opération"
+            );
         }
     }
 

@@ -59,7 +59,9 @@ class UserServiceImplCompatibilityTest {
                 "Dupont",
                 "Jean",
                 "jean.dupont",
-                "ADMIN"
+                "ADMIN",
+                true,
+                true
         );
 
         UserDetailsImpl principal = new UserDetailsImpl(

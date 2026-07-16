@@ -133,7 +133,7 @@ public class EnhancedUserService {
 
     @Transactional
     public void revokeParoisseAccess(UUID userPublicId, Long paroisseId, UUID revokedBy) {
-        log.info("Revoking paroisse access for user {} -> paroisse {}", userPublicId, paroisseId);
+        log.info("Revoking paroisse access for user {} -> internal parish ID {}", userPublicId, paroisseId);
 
         User requester = findActiveUser(revokedBy);
         User user = findActiveUser(userPublicId);
@@ -141,17 +141,26 @@ public class EnhancedUserService {
         assertCanAccessParoisse(requester, paroisseId);
 
         Paroisse paroisse = paroisseRepository.findById(paroisseId)
+                .filter(value -> !Boolean.TRUE.equals(value.getStatusDel()))
                 .orElseThrow(() -> new EntityNotFoundException("Paroisse non trouvée"));
 
-        ParoisseAccess access = paroisseAccessRepository
-                .findByUserAndParoisseAndStatusDelFalse(user, paroisse)
-                .orElseThrow(() -> new EntityNotFoundException("Accès à la paroisse non trouvé"));
+        revokeAccess(user, paroisse);
+    }
 
-        access.setActive(false);
-        access.setStatusDel(true);
-        paroisseAccessRepository.save(access);
+    @Transactional
+    public void revokeParoisseAccess(UUID userPublicId, UUID paroissePublicId, UUID revokedBy) {
+        log.info("Revoking paroisse access for user {} -> parish {}", userPublicId, paroissePublicId);
 
-        log.info("Paroisse access revoked successfully");
+        User requester = findActiveUser(revokedBy);
+        User user = findActiveUser(userPublicId);
+        assertCanAccessUser(requester, user);
+        assertCanAccessParoisse(requester, paroissePublicId);
+
+        Paroisse paroisse = paroisseRepository
+                .findByPublicIdAndStatusDelFalse(paroissePublicId)
+                .orElseThrow(() -> new EntityNotFoundException("Paroisse non trouvée"));
+
+        revokeAccess(user, paroisse);
     }
 
     /**
@@ -160,9 +169,10 @@ public class EnhancedUserService {
      */
     @Transactional(readOnly = true)
     public List<UserResponse> getUsersByParoisse(Long paroisseId) {
-        log.debug("Fetching users for paroisse: {}", paroisseId);
+        log.debug("Fetching users for internal paroisse ID: {}", paroisseId);
 
         Paroisse paroisse = paroisseRepository.findById(paroisseId)
+                .filter(value -> !Boolean.TRUE.equals(value.getStatusDel()))
                 .orElseThrow(() -> new EntityNotFoundException("Paroisse non trouvée"));
 
         return getActiveUsersForParoisse(paroisse);
@@ -173,6 +183,24 @@ public class EnhancedUserService {
         User requester = findActiveUser(requestedBy);
         assertCanAccessParoisse(requester, paroisseId);
         return getUsersByParoisse(paroisseId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserResponse> getUsersByParoisse(UUID paroissePublicId) {
+        log.debug("Fetching users for parish: {}", paroissePublicId);
+
+        Paroisse paroisse = paroisseRepository
+                .findByPublicIdAndStatusDelFalse(paroissePublicId)
+                .orElseThrow(() -> new EntityNotFoundException("Paroisse non trouvée"));
+
+        return getActiveUsersForParoisse(paroisse);
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserResponse> getUsersByParoisse(UUID paroissePublicId, UUID requestedBy) {
+        User requester = findActiveUser(requestedBy);
+        assertCanAccessParoisse(requester, paroissePublicId);
+        return getUsersByParoisse(paroissePublicId);
     }
 
     /**
@@ -257,6 +285,18 @@ public class EnhancedUserService {
                 .orElseThrow(() -> new EntityNotFoundException("Utilisateur non trouvé"));
     }
 
+    private void revokeAccess(User user, Paroisse paroisse) {
+        ParoisseAccess access = paroisseAccessRepository
+                .findByUserAndParoisseAndStatusDelFalse(user, paroisse)
+                .orElseThrow(() -> new EntityNotFoundException("Accès à la paroisse non trouvé"));
+
+        access.setActive(false);
+        access.setStatusDel(true);
+        paroisseAccessRepository.save(access);
+
+        log.info("Paroisse access revoked successfully");
+    }
+
     private List<UserResponse> getActiveUsersForParoisse(Paroisse paroisse) {
         return paroisseAccessRepository.findByParoisseAndStatusDelFalse(paroisse)
                 .stream()
@@ -274,6 +314,17 @@ public class EnhancedUserService {
 
         Long requesterParoisseId = resolveSingleActiveParoisseId(requester);
         if (!requesterParoisseId.equals(paroisseId)) {
+            throw new AccessDeniedException("Accès interdit aux utilisateurs de cette paroisse");
+        }
+    }
+
+    private void assertCanAccessParoisse(User requester, UUID paroissePublicId) {
+        if (Boolean.TRUE.equals(requester.getIsGlobal())) {
+            return;
+        }
+
+        UUID requesterParoissePublicId = resolveSingleActiveParoisse(requester).getPublicId();
+        if (requesterParoissePublicId == null || !requesterParoissePublicId.equals(paroissePublicId)) {
             throw new AccessDeniedException("Accès interdit aux utilisateurs de cette paroisse");
         }
     }

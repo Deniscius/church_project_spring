@@ -1,6 +1,7 @@
 package com.eyram.dev.church_project_spring.service.impl;
 
 import com.eyram.dev.church_project_spring.DTO.request.DemandeRequest;
+import com.eyram.dev.church_project_spring.DTO.request.DemandeValidationRequest;
 import com.eyram.dev.church_project_spring.DTO.response.DemandeResponse;
 import com.eyram.dev.church_project_spring.entities.*;
 import com.eyram.dev.church_project_spring.enums.StatutDemandeEnum;
@@ -183,6 +184,33 @@ public class DemandeServiceImpl implements DemandeService {
         }
 
         return buildDemandeResponse(updatedDemande);
+    }
+
+    @Override
+    public DemandeResponse updateValidation(UUID publicId, DemandeValidationRequest request) {
+        if (request == null || request.statut() == null) {
+            throw new BusinessRuleException("Le statut de validation est obligatoire");
+        }
+        if (request.statut() == StatutValidationEnum.EN_ATTENTE) {
+            throw new BusinessRuleException(
+                    "Une validation doit être acceptée ou rejetée"
+            );
+        }
+
+        Demande demande = demandeRepository.findByPublicIdAndStatusDelFalse(publicId)
+                .orElseThrow(() -> new ResourceNotFoundException("Demande introuvable"));
+        tenantAccessService.checkParoisseAccess(demande.getParoisse());
+
+        User validator = tenantAccessService.getCurrentUser();
+        demande.setStatutValidation(request.statut());
+        demande.setStatutDemande(
+                request.statut() == StatutValidationEnum.VALIDEE
+                        ? StatutDemandeEnum.VALIDEE
+                        : StatutDemandeEnum.REJETEE
+        );
+        demande.setValidateBy(validator.getFullName());
+
+        return buildDemandeResponse(demandeRepository.save(demande));
     }
 
     @Override

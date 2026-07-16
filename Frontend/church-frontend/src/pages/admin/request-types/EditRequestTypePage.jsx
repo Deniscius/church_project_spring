@@ -1,20 +1,14 @@
 import React from 'react';
+import { useParams } from 'react-router-dom';
 import PageHeader from '../../../components/ui/PageHeader';
-import AppCard from '../../../components/ui/AppCard';
-import AppInput from '../../../components/ui/AppInput';
-import AppButton from '../../../components/ui/AppButton';
+import RequestTypeForm from './RequestTypeForm';
 
 export default function EditRequestTypePage() {
+  const { id } = useParams();
   return (
     <div className="stack">
       <PageHeader title="Modifier un type de demande" subtitle="Version d'édition du référentiel type de demande." />
-      <AppCard title="Type de demande">
-        <div className="form-grid">
-          <div className="form-field"><label>Libellé</label><AppInput defaultValue="Messe d’action de grâce" /></div>
-          <div className="form-field"><label>Actif</label><select className="select"><option>ACTIVE</option></select></div>
-        </div>
-        <div className="button-row" style={{ marginTop: 18 }}><AppButton>Enregistrer</AppButton></div>
-      </AppCard>
+      <RequestTypeForm requestTypeId={id} />
     </div>
   );
 }

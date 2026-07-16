@@ -1,6 +1,7 @@
 package com.eyram.dev.church_project_spring.controller;
 
 import com.eyram.dev.church_project_spring.DTO.request.DemandeRequest;
+import com.eyram.dev.church_project_spring.DTO.request.DemandeValidationRequest;
 import com.eyram.dev.church_project_spring.DTO.response.DemandeResponse;
 import com.eyram.dev.church_project_spring.enums.StatutDemandeEnum;
 import com.eyram.dev.church_project_spring.service.DemandeService;
@@ -29,6 +30,14 @@ public class DemandeController {
     public ResponseEntity<DemandeResponse> update(@PathVariable UUID publicId,
                                                   @Valid @RequestBody DemandeRequest request) {
         return ResponseEntity.ok(demandeService.update(publicId, request));
+    }
+
+    @PatchMapping("/{publicId}/validation")
+    public ResponseEntity<DemandeResponse> updateValidation(
+            @PathVariable UUID publicId,
+            @Valid @RequestBody DemandeValidationRequest request
+    ) {
+        return ResponseEntity.ok(demandeService.updateValidation(publicId, request));
     }
 
     @GetMapping("/{publicId}")

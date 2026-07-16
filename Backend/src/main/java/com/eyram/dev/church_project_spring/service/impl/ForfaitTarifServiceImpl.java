@@ -7,6 +7,7 @@ import com.eyram.dev.church_project_spring.entities.TypeDemande;
 import com.eyram.dev.church_project_spring.mappers.ForfaitTarifMapper;
 import com.eyram.dev.church_project_spring.repositories.ForfaitTarifRepository;
 import com.eyram.dev.church_project_spring.repositories.TypeDemandeRepository;
+import com.eyram.dev.church_project_spring.security.TenantAccessService;
 import com.eyram.dev.church_project_spring.service.ForfaitTarifService;
 import com.eyram.dev.church_project_spring.utils.exception.AlreadyExistException;
 import com.eyram.dev.church_project_spring.utils.exception.ResourceNotFoundException;
@@ -25,12 +26,14 @@ public class ForfaitTarifServiceImpl implements ForfaitTarifService {
     private final ForfaitTarifRepository forfaitTarifRepository;
     private final TypeDemandeRepository typeDemandeRepository;
     private final ForfaitTarifMapper forfaitTarifMapper;
+    private final TenantAccessService tenantAccessService;
 
     @Override
     public ForfaitTarifResponse create(ForfaitTarifRequest request) {
 
         TypeDemande typeDemande = typeDemandeRepository.findByPublicIdAndStatusDelFalse(request.typeDemandePublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Type de demande introuvable"));
+        tenantAccessService.checkParoisseAccess(typeDemande.getParoisse());
 
         if (forfaitTarifRepository.existsByCodeForfaitAndStatusDelFalse(request.codeForfait())) {
             throw new AlreadyExistException("Un forfait avec ce code existe déjà");
@@ -53,9 +56,11 @@ public class ForfaitTarifServiceImpl implements ForfaitTarifService {
 
         ForfaitTarif existingForfaitTarif = forfaitTarifRepository.findByPublicIdAndStatusDelFalse(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Forfait tarif introuvable"));
+        tenantAccessService.checkParoisseAccess(existingForfaitTarif.getTypeDemande().getParoisse());
 
         TypeDemande typeDemande = typeDemandeRepository.findByPublicIdAndStatusDelFalse(request.typeDemandePublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Type de demande introuvable"));
+        tenantAccessService.checkParoisseAccess(typeDemande.getParoisse());
 
         if (!existingForfaitTarif.getCodeForfait().equals(request.codeForfait())
                 && forfaitTarifRepository.existsByCodeForfaitAndStatusDelFalse(request.codeForfait())) {
@@ -82,6 +87,7 @@ public class ForfaitTarifServiceImpl implements ForfaitTarifService {
     public ForfaitTarifResponse getByPublicId(UUID publicId) {
         ForfaitTarif forfaitTarif = forfaitTarifRepository.findByPublicIdAndStatusDelFalse(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Forfait tarif introuvable"));
+        tenantAccessService.checkParoisseAccess(forfaitTarif.getTypeDemande().getParoisse());
 
         return forfaitTarifMapper.modelToDto(forfaitTarif);
     }
@@ -120,6 +126,7 @@ public class ForfaitTarifServiceImpl implements ForfaitTarifService {
     public void deleteByPublicId(UUID publicId) {
         ForfaitTarif forfaitTarif = forfaitTarifRepository.findByPublicIdAndStatusDelFalse(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Forfait tarif introuvable"));
+        tenantAccessService.checkParoisseAccess(forfaitTarif.getTypeDemande().getParoisse());
 
         forfaitTarif.setStatusDel(true);
         forfaitTarifRepository.save(forfaitTarif);

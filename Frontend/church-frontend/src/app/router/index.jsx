@@ -4,6 +4,7 @@ import { PublicRoutes } from './public.routes';
 import { AuthRoutes } from './auth.routes';
 import { AdminRoutes } from './admin.routes';
 import { SuperAdminRoutes } from './superadmin.routes';
+import UnauthorizedPage from '../../pages/UnauthorizedPage';
 
 function NotFound() {
   return <Navigate to="/" replace />;
@@ -16,6 +17,7 @@ export default function AppRouter() {
       {AuthRoutes()}
       {AdminRoutes()}
       {SuperAdminRoutes()}
+      <Route path="/unauthorized" element={<UnauthorizedPage />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

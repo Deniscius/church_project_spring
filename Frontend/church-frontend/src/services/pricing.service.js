@@ -19,4 +19,6 @@ export const pricingService = {
 
   update: (publicId, payload) =>
     apiClient(`/forfait-tarifs/${publicId}`, { method: 'PUT', body: JSON.stringify(payload) }, { auth: true }),
+
+  remove: (publicId) => apiClient(`/forfait-tarifs/${publicId}`, { method: 'DELETE' }, { auth: true }),
 };

@@ -8,6 +8,7 @@ import com.eyram.dev.church_project_spring.enums.TypeDemandeEnum;
 import com.eyram.dev.church_project_spring.mappers.TypeDemandeMapper;
 import com.eyram.dev.church_project_spring.repositories.ParoisseRepository;
 import com.eyram.dev.church_project_spring.repositories.TypeDemandeRepository;
+import com.eyram.dev.church_project_spring.security.TenantAccessService;
 import com.eyram.dev.church_project_spring.service.TypeDemandeService;
 import com.eyram.dev.church_project_spring.utils.exception.AlreadyExistException;
 import com.eyram.dev.church_project_spring.utils.exception.ResourceNotFoundException;
@@ -26,12 +27,14 @@ public class TypeDemandeServiceImpl implements TypeDemandeService {
     private final TypeDemandeRepository typeDemandeRepository;
     private final ParoisseRepository paroisseRepository;
     private final TypeDemandeMapper typeDemandeMapper;
+    private final TenantAccessService tenantAccessService;
 
     @Override
     public TypeDemandeResponse create(TypeDemandeRequest request) {
 
         Paroisse paroisse = paroisseRepository.findByPublicIdAndStatusDelFalse(request.paroissePublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Paroisse introuvable"));
+        tenantAccessService.checkParoisseAccess(paroisse);
 
         boolean exists = typeDemandeRepository.existsByLibelleIgnoreCaseAndParoisseAndTypeDemandeEnumAndStatusDelFalse(
                 request.libelle(),
@@ -55,9 +58,11 @@ public class TypeDemandeServiceImpl implements TypeDemandeService {
 
         TypeDemande existingTypeDemande = typeDemandeRepository.findByPublicIdAndStatusDelFalse(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Type de demande introuvable"));
+        tenantAccessService.checkParoisseAccess(existingTypeDemande.getParoisse());
 
         Paroisse paroisse = paroisseRepository.findByPublicIdAndStatusDelFalse(request.paroissePublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Paroisse introuvable"));
+        tenantAccessService.checkParoisseAccess(paroisse);
 
         boolean dataChanged =
                 !existingTypeDemande.getLibelle().equalsIgnoreCase(request.libelle()) ||
@@ -87,6 +92,7 @@ public class TypeDemandeServiceImpl implements TypeDemandeService {
     public TypeDemandeResponse getByPublicId(UUID publicId) {
         TypeDemande typeDemande = typeDemandeRepository.findByPublicIdAndStatusDelFalse(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Type de demande introuvable"));
+        tenantAccessService.checkParoisseAccess(typeDemande.getParoisse());
 
         return typeDemandeMapper.modelToDto(typeDemande);
     }
@@ -133,6 +139,7 @@ public class TypeDemandeServiceImpl implements TypeDemandeService {
     public void deleteByPublicId(UUID publicId) {
         TypeDemande typeDemande = typeDemandeRepository.findByPublicIdAndStatusDelFalse(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Type de demande introuvable"));
+        tenantAccessService.checkParoisseAccess(typeDemande.getParoisse());
 
         typeDemande.setStatusDel(true);
         typeDemandeRepository.save(typeDemande);

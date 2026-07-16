@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { userService } from '../../../services/user.service';
-import { useAuthStore } from '../../../store/auth.context';
+import { useTenant } from '../../../hooks/useTenant';
 
 const createInitialFormData = () => ({
   nom: '',
@@ -18,7 +18,7 @@ const createInitialFormData = () => ({
  * CRUD complet : Create, Read, Update, Delete
  */
 export function UsersPage() {
-  const { selectedParoisse } = useAuthStore();
+  const { activeParish } = useTenant();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -72,7 +72,7 @@ export function UsersPage() {
       if (editingId) {
         await userService.update(editingId, payload);
       } else {
-        if (!selectedParoisse?.paroisseId) {
+        if (!activeParish?.id) {
           throw new Error(
             'Aucune paroisse active n’est disponible dans votre session. Reconnectez-vous avant de créer un utilisateur.'
           );
@@ -82,7 +82,7 @@ export function UsersPage() {
           ...payload,
           paroisses: [
             {
-              paroisseId: selectedParoisse.paroisseId,
+              paroisseId: activeParish.id,
               roleParoisse: formData.roleParoisse,
             },
           ],
@@ -266,7 +266,7 @@ export function UsersPage() {
                   <label>Paroisse</label>
                   <input
                     type="text"
-                    value={selectedParoisse?.paroisseNom || 'Aucune paroisse active'}
+                    value={activeParish?.name || 'Aucune paroisse active'}
                     disabled
                   />
                 </div>
@@ -344,7 +344,7 @@ export function UsersPage() {
                       {u.isActive ? 'Actif' : 'Inactif'}
                     </span>
                   </td>
-                  <td>{selectedParoisse?.paroisseNom || '—'}</td>
+                  <td>{activeParish?.name || '—'}</td>
                   <td className="actions">
                     <button
                       className="btn btn-sm btn-info"

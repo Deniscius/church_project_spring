@@ -2,7 +2,7 @@ import React from 'react';
 
 export default function AppTable({ columns = [], rows = [], renderCell }) {
   return (
-    <div className="card">
+    <div className="card table-card">
       <table className="app-table">
         <thead>
           <tr>

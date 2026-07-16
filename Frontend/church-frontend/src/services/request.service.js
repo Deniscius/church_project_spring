@@ -17,5 +17,12 @@ export const requestService = {
   update: (publicId, payload) =>
     apiClient(`/demandes/${publicId}`, { method: 'PUT', body: JSON.stringify(payload) }, { auth: true }),
 
+  updateValidation: (publicId, statut) =>
+    apiClient(
+      `/demandes/${publicId}/validation`,
+      { method: 'PATCH', body: JSON.stringify({ statut }) },
+      { auth: true }
+    ),
+
   remove: (publicId) => apiClient(`/demandes/${publicId}`, { method: 'DELETE' }, { auth: true }),
 };

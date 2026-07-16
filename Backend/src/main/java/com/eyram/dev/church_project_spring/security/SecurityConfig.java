@@ -112,22 +112,47 @@ public class SecurityConfig {
                         .hasRole("SUPER_ADMIN")
 
                         // Paramétrage propre à une paroisse
-                        .requestMatchers(HttpMethod.POST, "/horaires", "/type-demandes")
+                        .requestMatchers(HttpMethod.POST, "/horaires", "/type-demandes", "/forfait-tarifs")
                         .hasAnyRole("ADMIN", "SUPER_ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/horaires/**", "/type-demandes/**")
+                        .requestMatchers(HttpMethod.PUT, "/horaires/**", "/type-demandes/**", "/forfait-tarifs/**")
                         .hasAnyRole("ADMIN", "SUPER_ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/horaires/**", "/type-demandes/**")
+                        .requestMatchers(HttpMethod.DELETE, "/horaires/**", "/type-demandes/**", "/forfait-tarifs/**")
                         .hasAnyRole("ADMIN", "SUPER_ADMIN")
 
                         // Gestion des demandes après leur dépôt public
                         .requestMatchers(HttpMethod.PUT, "/demandes/**")
                         .hasAnyRole("SECRETAIRE", "ADMIN", "SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.PATCH, "/demandes/*/validation")
+                        .hasAnyRole("CURE", "ADMIN", "SUPER_ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/demandes/**")
+                        .hasAnyRole("ADMIN", "SUPER_ADMIN")
+
+                        // Paiements : saisie par le secrétariat, suppression par un administrateur.
+                        .requestMatchers(HttpMethod.POST, "/details-paiement")
+                        .hasAnyRole("SECRETAIRE", "ADMIN", "SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/details-paiement/**")
+                        .hasAnyRole("SECRETAIRE", "ADMIN", "SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/details-paiement/**")
+                        .hasAnyRole("ADMIN", "SUPER_ADMIN")
+
+                        // Les factures sont générées automatiquement ; leur maintenance est administrative.
+                        .requestMatchers(HttpMethod.POST, "/facture")
+                        .hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/facture/**")
+                        .hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/facture/**")
+                        .hasAnyRole("ADMIN", "SUPER_ADMIN")
+
+                        // Les dates sont créées avec la demande ; seules les corrections administratives sont permises.
+                        .requestMatchers(HttpMethod.POST, "/demande-dates")
+                        .hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/demande-dates/**")
+                        .hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/demande-dates/**")
                         .hasAnyRole("ADMIN", "SUPER_ADMIN")
 
                         // Paramétrage système réservé au SUPER_ADMIN
                         .requestMatchers("/type-paiement", "/type-paiement/**").hasRole("SUPER_ADMIN")
-                        .requestMatchers("/forfait-tarifs", "/forfait-tarifs/**").hasRole("SUPER_ADMIN")
 
                         .anyRequest().authenticated()
                 )

@@ -1,33 +1,37 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { usePermissions } from '../../hooks/usePermissions';
 import { useTenant } from '../../hooks/useTenant';
+import { PERMISSIONS } from '../../constants/roles';
 import { formatRole } from '../../utils/roleMapper';
 
 const parishMenu = [
-  { to: '/admin/dashboard', label: 'Dashboard' },
-  { to: '/admin/demandes', label: 'Demandes' },
-  { to: '/admin/paiements', label: 'Paiements' },
-  { to: '/admin/factures', label: 'Factures' },
-  { to: '/admin/horaires', label: 'Horaires' },
-  { to: '/admin/types-demandes', label: 'Types de demande' },
-  { to: '/admin/forfaits', label: 'Forfaits' },
-  { to: '/admin/profil', label: 'Profil' },
+  { to: '/admin/dashboard', label: 'Dashboard', permission: PERMISSIONS.DASHBOARD_VIEW },
+  { to: '/admin/demandes', label: 'Demandes', permission: PERMISSIONS.DEMAND_READ },
+  { to: '/admin/paiements', label: 'Paiements', permission: PERMISSIONS.PAYMENT_READ },
+  { to: '/admin/factures', label: 'Factures', permission: PERMISSIONS.INVOICE_READ },
+  { to: '/admin/horaires', label: 'Horaires', permission: PERMISSIONS.SCHEDULE_READ },
+  { to: '/admin/types-demandes', label: 'Types de demande', permission: PERMISSIONS.REQUEST_TYPE_READ },
+  { to: '/admin/forfaits', label: 'Forfaits', permission: PERMISSIONS.PRICING_READ },
+  { to: '/admin/equipe', label: 'Équipe', permission: PERMISSIONS.USER_MANAGE },
+  { to: '/admin/profil', label: 'Profil', permission: PERMISSIONS.PROFILE_READ },
 ];
 
 const superMenu = [
-  { to: '/admin/paroisses', label: 'Paroisses' },
-  { to: '/admin/utilisateurs', label: 'Utilisateurs' },
-  { to: '/admin/acces-paroisses', label: 'Accès paroisses' },
-  { to: '/admin/localites', label: 'Localités' },
-  { to: '/admin/types-paiement', label: 'Types de paiement' },
+  { to: '/admin/paroisses', label: 'Paroisses', permission: PERMISSIONS.PARISH_MANAGE },
+  { to: '/admin/utilisateurs', label: 'Utilisateurs', permission: PERMISSIONS.USER_MANAGE },
+  { to: '/admin/acces-paroisses', label: 'Accès paroisses', permission: PERMISSIONS.PARISH_ACCESS_MANAGE },
+  { to: '/admin/localites', label: 'Localités', permission: PERMISSIONS.LOCALITY_MANAGE },
+  { to: '/admin/types-paiement', label: 'Types de paiement', permission: PERMISSIONS.PAYMENT_TYPE_MANAGE },
 ];
 
 export default function Sidebar() {
   const { user } = useAuth();
+  const { has } = usePermissions();
   const { activeParish } = useTenant();
   const showSuper = user?.role === 'SUPER_ADMIN' && user?.isGlobal === true;
-  const menu = showSuper ? [...parishMenu, ...superMenu] : parishMenu;
+  const menu = (showSuper ? superMenu : parishMenu).filter((item) => has(item.permission));
 
   return (
     <aside className="sidebar">

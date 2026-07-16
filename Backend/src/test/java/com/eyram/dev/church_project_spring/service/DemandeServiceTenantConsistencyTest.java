@@ -1,9 +1,14 @@
 package com.eyram.dev.church_project_spring.service;
 
 import com.eyram.dev.church_project_spring.DTO.request.DemandeRequest;
+import com.eyram.dev.church_project_spring.DTO.request.DemandeValidationRequest;
+import com.eyram.dev.church_project_spring.DTO.response.DemandeResponse;
 import com.eyram.dev.church_project_spring.entities.Demande;
 import com.eyram.dev.church_project_spring.entities.Paroisse;
 import com.eyram.dev.church_project_spring.entities.TypeDemande;
+import com.eyram.dev.church_project_spring.entities.User;
+import com.eyram.dev.church_project_spring.enums.StatutDemandeEnum;
+import com.eyram.dev.church_project_spring.enums.StatutValidationEnum;
 import com.eyram.dev.church_project_spring.mappers.DemandeMapper;
 import com.eyram.dev.church_project_spring.repositories.DemandeDateRepository;
 import com.eyram.dev.church_project_spring.repositories.DemandeRepository;
@@ -135,6 +140,61 @@ class DemandeServiceTenantConsistencyTest {
         verify(forfaitTarifRepository, never()).findByPublicIdAndStatusDelFalse(any());
     }
 
+    @Test
+    @DisplayName("Validation accepts a final status and records the validator")
+    void validationRecordsValidator() {
+        UUID demandeId = UUID.randomUUID();
+        Paroisse paroisse = parish(UUID.randomUUID());
+        Demande demande = new Demande();
+        demande.setPublicId(demandeId);
+        demande.setParoisse(paroisse);
+
+        User validator = new User();
+        validator.setNom("KOFFI");
+        validator.setPrenom("Paul");
+
+        DemandeResponse mappedResponse = response(
+                demandeId,
+                StatutValidationEnum.VALIDEE,
+                StatutDemandeEnum.VALIDEE,
+                validator.getFullName()
+        );
+
+        when(demandeRepository.findByPublicIdAndStatusDelFalse(demandeId))
+                .thenReturn(Optional.of(demande));
+        when(tenantAccessService.getCurrentUser()).thenReturn(validator);
+        when(demandeRepository.save(demande)).thenReturn(demande);
+        when(demandeMapper.modelToDto(demande)).thenReturn(mappedResponse);
+        when(factureRepository.findByDemandePublicIdAndStatusDelFalse(demandeId))
+                .thenReturn(Optional.empty());
+
+        DemandeResponse result = demandeService.updateValidation(
+                demandeId,
+                new DemandeValidationRequest(StatutValidationEnum.VALIDEE)
+        );
+
+        assertEquals(StatutValidationEnum.VALIDEE, demande.getStatutValidation());
+        assertEquals(StatutDemandeEnum.VALIDEE, demande.getStatutDemande());
+        assertEquals(validator.getFullName(), demande.getValidateBy());
+        assertEquals(StatutValidationEnum.VALIDEE, result.statutValidation());
+        verify(tenantAccessService).checkParoisseAccess(paroisse);
+    }
+
+    @Test
+    @DisplayName("Validation rejects the non-final pending status")
+    void validationRejectsPendingStatus() {
+        BusinessRuleException exception = assertThrows(
+                BusinessRuleException.class,
+                () -> demandeService.updateValidation(
+                        UUID.randomUUID(),
+                        new DemandeValidationRequest(StatutValidationEnum.EN_ATTENTE)
+                )
+        );
+
+        assertEquals("Une validation doit être acceptée ou rejetée", exception.getMessage());
+        verify(demandeRepository, never()).findByPublicIdAndStatusDelFalse(any());
+    }
+
     private Paroisse parish(UUID publicId) {
         Paroisse paroisse = new Paroisse();
         paroisse.setPublicId(publicId);
@@ -168,6 +228,20 @@ class DemandeServiceTenantConsistencyTest {
                 null,
                 null,
                 UUID.randomUUID()
+        );
+    }
+
+    private DemandeResponse response(
+            UUID publicId,
+            StatutValidationEnum validation,
+            StatutDemandeEnum statut,
+            String validateBy
+    ) {
+        return new DemandeResponse(
+                publicId, null, null, null, null, null, null, null, null,
+                null, validation, validateBy, null, statut,
+                null, null, null, null, null, null, null, null, null, null,
+                null, null, null, false, null, null, null, null, null, null, null
         );
     }
 }

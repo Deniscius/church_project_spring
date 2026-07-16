@@ -26,7 +26,7 @@ export function SuperAdminRoutes() {
           <Route path="/admin/types-paiement" element={<PaymentTypesPage />} />
         </Route>
       </Route>
-      <Route element={<RoleGuard allowedRoles={['ADMIN', 'SUPER_ADMIN']} />}>
+      <Route element={<RoleGuard allowedRoles={['SUPER_ADMIN']} />}>
         <Route element={<AdminLayout />}>
           <Route path="/admin/utilisateurs" element={<UsersPage />} />
           <Route path="/admin/utilisateurs/nouveau" element={<CreateUserPage />} />

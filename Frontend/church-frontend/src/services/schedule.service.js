@@ -16,4 +16,6 @@ export const scheduleService = {
 
   update: (publicId, payload) =>
     apiClient(`/horaires/${publicId}`, { method: 'PUT', body: JSON.stringify(payload) }, { auth: true }),
+
+  remove: (publicId) => apiClient(`/horaires/${publicId}`, { method: 'DELETE' }, { auth: true }),
 };

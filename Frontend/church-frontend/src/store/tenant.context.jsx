@@ -2,24 +2,23 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { getActiveParishId, setActiveParishId } from '../constants/authStorage';
 import { useAuth } from '../hooks/useAuth';
-import { parishAccessService } from '../services/parishAccess.service';
-import { parishService } from '../services/parish.service';
 import { mapParoisseToTenant } from '../utils/apiMappers';
 
 const TenantContext = createContext(null);
 
 export function TenantProvider({ children }) {
-  const { user, token, isAuthenticated } = useAuth();
+  const {
+    user,
+    token,
+    isAuthenticated,
+    paroisses,
+    selectedParoisse,
+    setSelectedParoisse,
+  } = useAuth();
   const [activeParish, setActiveParishState] = useState(null);
   const [parishOptions, setParishOptions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-
-  const setActiveParish = (tenant) => {
-    setActiveParishState(tenant);
-    if (tenant?.id) setActiveParishId(tenant.id);
-    else setActiveParishId(null);
-  };
 
   useEffect(() => {
     let cancelled = false;
@@ -36,37 +35,25 @@ export function TenantProvider({ children }) {
       setError(null);
 
       try {
-        if (user.role === 'ADMIN') {
-          const list = await parishService.getAll();
-          if (cancelled) return;
-          const mapped = list
-            .filter((p) => p.isActive !== false)
-            .map(mapParoisseToTenant);
-          setParishOptions(mapped);
-          const saved = getActiveParishId();
-          const pick = mapped.find((p) => p.id === saved) || mapped[0] || null;
-          setActiveParishState(pick);
-          if (pick && !saved) setActiveParishId(pick.id);
-        } else {
-          const accesses = await parishAccessService.getByUser(user.id);
-          if (cancelled) return;
-          const actives = (accesses || []).filter((a) => a.active);
-          const mapped = actives.map((a) =>
-            mapParoisseToTenant({
-              publicId: a.paroissePublicId,
-              nom: a.paroisseNom,
-              localiteVille: '',
-              email: '',
-              telephone: '',
-              isActive: true,
-            })
-          );
-          setParishOptions(mapped);
-          const saved = getActiveParishId();
-          const pick = mapped.find((p) => p.id === saved) || mapped[0] || null;
-          setActiveParishState(pick);
-          if (pick && !saved) setActiveParishId(pick.id);
-        }
+        // La réponse de connexion est la source de vérité : elle ne contient
+        // que les paroisses auxquelles cet utilisateur a réellement accès.
+        const mapped = (paroisses || [])
+          .filter((p) => p.active !== false && p.isActive !== false)
+          .map(mapParoisseToTenant)
+          .filter((p) => Boolean(p?.id));
+
+        if (cancelled) return;
+
+        const selectedId = selectedParoisse?.id || selectedParoisse?.publicId;
+        const savedId = getActiveParishId();
+        const pick = mapped.find((p) => p.id === selectedId)
+          || mapped.find((p) => p.id === savedId)
+          || mapped[0]
+          || null;
+
+        setParishOptions(mapped);
+        setActiveParishState(pick);
+        setActiveParishId(pick?.id || null);
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Paroisse indisponible');
       } finally {
@@ -78,17 +65,21 @@ export function TenantProvider({ children }) {
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated, token, user?.id, user?.role]);
+  }, [isAuthenticated, token, user?.id, paroisses, selectedParoisse]);
 
   const value = useMemo(
     () => ({
       activeParish,
       parishOptions,
-      setActiveParish,
+      setActiveParish: (tenant) => {
+        setActiveParishState(tenant);
+        setActiveParishId(tenant?.id || null);
+        setSelectedParoisse(tenant?.raw || null);
+      },
       loading,
       error,
     }),
-    [activeParish, parishOptions, loading, error]
+    [activeParish, parishOptions, loading, error, setSelectedParoisse]
   );
 
   return <TenantContext.Provider value={value}>{children}</TenantContext.Provider>;

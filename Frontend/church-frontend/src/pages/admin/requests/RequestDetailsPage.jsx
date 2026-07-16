@@ -6,12 +6,31 @@ import AppBadge from '../../../components/ui/AppBadge';
 import { requestService } from '../../../services/request.service';
 import { formatCurrency } from '../../../utils/formatCurrency';
 import { formatDate } from '../../../utils/formatDate';
+import { usePermissions } from '../../../hooks/usePermissions';
+import { PERMISSIONS } from '../../../constants/roles';
+import AppButton from '../../../components/ui/AppButton';
 
 export default function RequestDetailsPage() {
   const { id } = useParams();
+  const { has } = usePermissions();
   const [request, setRequest] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [validating, setValidating] = useState(false);
+
+  const updateValidation = async (statut) => {
+    if (!id) return;
+    try {
+      setValidating(true);
+      setError(null);
+      const updated = await requestService.updateValidation(id, statut);
+      setRequest(updated);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'La validation a échoué');
+    } finally {
+      setValidating(false);
+    }
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -91,6 +110,12 @@ export default function RequestDetailsPage() {
                 <span>Validation</span>
                 <AppBadge value={request.statutValidation} />
               </div>
+              {request.validateBy ? (
+                <div className="info-row">
+                  <span>Traitée par</span>
+                  <span>{request.validateBy}</span>
+                </div>
+              ) : null}
               <div className="info-row">
                 <span>Paiement</span>
                 <AppBadge value={request.statutPaiement} />
@@ -104,6 +129,23 @@ export default function RequestDetailsPage() {
                 <span>{request.idTransaction || '—'}</span>
               </div>
             </div>
+            {has(PERMISSIONS.DEMAND_VALIDATE) ? (
+              <div className="button-row" style={{ marginTop: 18 }}>
+                <AppButton
+                  disabled={validating || request.statutValidation === 'VALIDEE'}
+                  onClick={() => updateValidation('VALIDEE')}
+                >
+                  {validating ? 'Traitement…' : 'Valider'}
+                </AppButton>
+                <AppButton
+                  variant="secondary"
+                  disabled={validating || request.statutValidation === 'REJETEE'}
+                  onClick={() => updateValidation('REJETEE')}
+                >
+                  Rejeter
+                </AppButton>
+              </div>
+            ) : null}
           </AppCard>
         </div>
       ) : null}

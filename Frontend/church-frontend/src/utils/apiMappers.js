@@ -1,7 +1,7 @@
 export function mapParoisseToTenant(p) {
   if (!p) return null;
   return {
-    id: p.publicId,
+    id: p.publicId || p.id,
     name: p.nom,
     city: p.localiteVille || '',
     email: p.email || '',

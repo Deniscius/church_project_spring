@@ -7,6 +7,7 @@ import com.eyram.dev.church_project_spring.entities.Facture;
 import com.eyram.dev.church_project_spring.mappers.FactureMapper;
 import com.eyram.dev.church_project_spring.repositories.DemandeRepository;
 import com.eyram.dev.church_project_spring.repositories.FactureRepository;
+import com.eyram.dev.church_project_spring.security.TenantAccessService;
 import com.eyram.dev.church_project_spring.service.FactureService;
 import com.eyram.dev.church_project_spring.utils.exception.AlreadyExistException;
 import com.eyram.dev.church_project_spring.utils.exception.ResourceNotFoundException;
@@ -26,12 +27,14 @@ public class FactureServiceImpl implements FactureService {
     private final FactureRepository factureRepository;
     private final DemandeRepository demandeRepository;
     private final FactureMapper factureMapper;
+    private final TenantAccessService tenantAccessService;
 
     @Override
     public FactureResponse create(FactureRequest request) {
 
         Demande demande = demandeRepository.findByPublicIdAndStatusDelFalse(request.demandePublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Demande introuvable"));
+        tenantAccessService.checkParoisseAccess(demande.getParoisse());
 
         factureRepository.findByDemandePublicIdAndStatusDelFalse(request.demandePublicId())
                 .ifPresent(existing -> {
@@ -62,6 +65,7 @@ public class FactureServiceImpl implements FactureService {
 
         Facture facture = factureRepository.findByPublicIdAndStatusDelFalse(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Facture introuvable"));
+        checkFactureAccess(facture);
 
         return factureMapper.modelToDto(facture);
     }
@@ -70,6 +74,8 @@ public class FactureServiceImpl implements FactureService {
     public List<FactureResponse> getAll() {
         return factureRepository.findAllByStatusDelFalse()
                 .stream()
+                .filter(facture -> tenantAccessService.isGlobalUser()
+                        || tenantAccessService.canAccessParoisse(facture.getDemande().getParoisse()))
                 .map(factureMapper::modelToDto)
                 .toList();
     }
@@ -81,9 +87,11 @@ public class FactureServiceImpl implements FactureService {
 
         Facture facture = factureRepository.findByPublicIdAndStatusDelFalse(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Facture introuvable"));
+        checkFactureAccess(facture);
 
         Demande demande = demandeRepository.findByPublicIdAndStatusDelFalse(request.demandePublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Demande introuvable"));
+        tenantAccessService.checkParoisseAccess(demande.getParoisse());
 
         factureRepository.findByDemandePublicIdAndStatusDelFalse(request.demandePublicId())
                 .ifPresent(existing -> {
@@ -123,6 +131,7 @@ public class FactureServiceImpl implements FactureService {
 
         Facture facture = factureRepository.findByPublicIdAndStatusDelFalse(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Facture introuvable"));
+        checkFactureAccess(facture);
 
         facture.setStatusDel(true);
         factureRepository.save(facture);
@@ -139,6 +148,13 @@ public class FactureServiceImpl implements FactureService {
                 .orElseThrow(() -> new ResourceNotFoundException("Facture introuvable pour ce code de suivi"));
 
         return factureMapper.modelToDto(facture);
+    }
+
+    private void checkFactureAccess(Facture facture) {
+        if (facture.getDemande() == null || facture.getDemande().getParoisse() == null) {
+            throw new ResourceNotFoundException("Paroisse de la facture introuvable");
+        }
+        tenantAccessService.checkParoisseAccess(facture.getDemande().getParoisse());
     }
 
 

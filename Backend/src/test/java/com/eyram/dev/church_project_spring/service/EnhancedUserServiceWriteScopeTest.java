@@ -8,6 +8,7 @@ import com.eyram.dev.church_project_spring.enums.UserRole;
 import com.eyram.dev.church_project_spring.repositories.ParoisseAccessRepository;
 import com.eyram.dev.church_project_spring.repositories.ParoisseRepository;
 import com.eyram.dev.church_project_spring.repositories.UserRepository;
+import com.eyram.dev.church_project_spring.utils.exception.BusinessRuleException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -78,6 +79,50 @@ class EnhancedUserServiceWriteScopeTest {
     }
 
     @Test
+    @DisplayName("Global administrator cannot convert a local user into a global user")
+    void globalAdministratorCannotPromoteLocalUserToGlobalScope() {
+        User requester = user(requesterId, true, UserRole.SUPER_ADMIN, "global.admin");
+        User target = user(targetId, false, UserRole.ADMIN, "local.admin");
+
+        mockUserLookup(requester, target);
+
+        BusinessRuleException exception = assertThrows(
+                BusinessRuleException.class,
+                () -> userService.updateUser(
+                        targetId,
+                        updateRequest(true, UserRole.SUPER_ADMIN),
+                        requesterId
+                )
+        );
+
+        assertEquals(
+                "Le périmètre global/local d'un utilisateur ne peut pas être modifié depuis cette opération",
+                exception.getMessage()
+        );
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    @DisplayName("Global administrator cannot convert a global user into a local user")
+    void globalAdministratorCannotDemoteGlobalUserToLocalScope() {
+        User requester = user(requesterId, true, UserRole.SUPER_ADMIN, "global.admin");
+        User target = user(targetId, true, UserRole.SUPER_ADMIN, "other.global.admin");
+
+        mockUserLookup(requester, target);
+
+        assertThrows(
+                BusinessRuleException.class,
+                () -> userService.updateUser(
+                        targetId,
+                        updateRequest(false, UserRole.ADMIN),
+                        requesterId
+                )
+        );
+
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
     @DisplayName("Local administrator can update a user from the same parish")
     void localAdministratorCanUpdateSameParishUser() {
         User requester = user(requesterId, false, UserRole.ADMIN, "local.admin");
@@ -132,7 +177,7 @@ class EnhancedUserServiceWriteScopeTest {
                 .thenReturn(List.of(activeAccess(target, paroisse)));
 
         assertThrows(
-                AccessDeniedException.class,
+                BusinessRuleException.class,
                 () -> userService.updateUser(
                         targetId,
                         updateRequest(true, UserRole.SUPER_ADMIN),

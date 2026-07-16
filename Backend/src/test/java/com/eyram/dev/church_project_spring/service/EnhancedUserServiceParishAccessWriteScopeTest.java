@@ -110,11 +110,12 @@ class EnhancedUserServiceParishAccessWriteScopeTest {
     }
 
     @Test
-    @DisplayName("Local administrator cannot revoke access to another parish")
+    @DisplayName("Local administrator cannot revoke access to another parish by public ID")
     void localAdministratorCannotRevokeAnotherParish() {
         User requester = user(requesterId, false, UserRole.ADMIN, "local.admin");
         User target = user(targetId, false, UserRole.SECRETAIRE, "local.user");
         Paroisse ownParoisse = paroisse(10L);
+        UUID otherParoissePublicId = UUID.randomUUID();
 
         mockUserLookup(requester, target);
         when(paroisseAccessRepository.findByUserAndActiveTrueAndStatusDelFalse(requester))
@@ -124,10 +125,15 @@ class EnhancedUserServiceParishAccessWriteScopeTest {
 
         assertThrows(
                 AccessDeniedException.class,
-                () -> userService.revokeParoisseAccess(targetId, 20L, requesterId)
+                () -> userService.revokeParoisseAccess(
+                        targetId,
+                        otherParoissePublicId,
+                        requesterId
+                )
         );
 
-        verify(paroisseRepository, never()).findById(20L);
+        verify(paroisseRepository, never())
+                .findByPublicIdAndStatusDelFalse(otherParoissePublicId);
         verify(paroisseAccessRepository, never()).save(any(ParoisseAccess.class));
     }
 
@@ -153,7 +159,7 @@ class EnhancedUserServiceParishAccessWriteScopeTest {
     }
 
     @Test
-    @DisplayName("Global administrator can revoke access to any parish")
+    @DisplayName("Global administrator can revoke access using a public parish ID")
     void globalAdministratorCanRevokeAnyParish() {
         User requester = user(requesterId, true, UserRole.SUPER_ADMIN, "global.admin");
         User target = user(targetId, false, UserRole.SECRETAIRE, "local.user");
@@ -161,11 +167,12 @@ class EnhancedUserServiceParishAccessWriteScopeTest {
         ParoisseAccess access = activeAccess(target, paroisse);
 
         mockUserLookup(requester, target);
-        when(paroisseRepository.findById(20L)).thenReturn(Optional.of(paroisse));
+        when(paroisseRepository.findByPublicIdAndStatusDelFalse(paroisse.getPublicId()))
+                .thenReturn(Optional.of(paroisse));
         when(paroisseAccessRepository.findByUserAndParoisseAndStatusDelFalse(target, paroisse))
                 .thenReturn(Optional.of(access));
 
-        userService.revokeParoisseAccess(targetId, 20L, requesterId);
+        userService.revokeParoisseAccess(targetId, paroisse.getPublicId(), requesterId);
 
         verify(paroisseAccessRepository).save(access);
     }

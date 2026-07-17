@@ -1,7 +1,8 @@
 package com.eyram.dev.church_project_spring.utils.exception;
 
-import jakarta.validation.ConstraintViolationException;
-import lombok.extern.slf4j.Slf4j;
+import java.util.Date;
+import java.util.stream.Collectors;
+
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,8 +16,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
-import java.util.Date;
-import java.util.stream.Collectors;
+import jakarta.validation.ConstraintViolationException;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RestControllerAdvice
@@ -88,9 +89,21 @@ public class GlobalExceptionHandler {
                 .stream()
                 .map(error -> {
                     if (error instanceof FieldError fieldError) {
-                        return fieldError.getField() + ": " + fieldError.getDefaultMessage();
+                        Object rejectedValue = fieldError.getRejectedValue();
+                        String fieldName = fieldError.getField();
+                        String message = fieldError.getDefaultMessage();
+                        if (fieldName == null || fieldName.isBlank()) {
+                            fieldName = "champ";
+                        }
+                        if (message == null || message.isBlank()) {
+                            message = rejectedValue != null ? "Valeur invalide: " + rejectedValue : "Valeur invalide";
+                        }
+                        return fieldName + ": " + message;
                     }
-                    return error.getDefaultMessage();
+                    String defaultMessage = error.getDefaultMessage();
+                    return defaultMessage != null && !defaultMessage.isBlank()
+                            ? defaultMessage
+                            : "Valeur invalide";
                 })
                 .collect(Collectors.joining(" ; "));
 
@@ -167,11 +180,16 @@ public class GlobalExceptionHandler {
             String message,
             WebRequest request
     ) {
+        String path = request.getDescription(false);
+        if (path != null && path.startsWith("uri=")) {
+            path = path.substring(4);
+        }
+
         ErrorMessage response = new ErrorMessage(
                 status.value(),
                 new Date(),
                 message,
-                request.getDescription(false)
+                path
         );
         return ResponseEntity.status(status).body(response);
     }

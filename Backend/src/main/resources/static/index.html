@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Church Project API</title>
+  <style>
+    :root { color-scheme: dark; --bg:#07111f; --panel:#102132; --accent:#4f8cff; --accent-2:#29b6f6; --text:#e6f3ff; --muted:#93a8c5; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: Inter,Segoe UI,Roboto,Arial,sans-serif; background:linear-gradient(135deg,var(--bg),#15263d); color:var(--text); min-height:100vh; display:grid; place-items:center; padding:24px; }
+    .card { width:min(860px,100%); background:rgba(16,33,50,0.92); border:1px solid rgba(255,255,255,0.1); border-radius:24px; padding:32px; box-shadow:0 25px 70px rgba(0,0,0,0.36); }
+    h1 { margin:0 0 10px; font-size:clamp(1.7rem,2.3vw,2.4rem); }
+    p { color:var(--muted); line-height:1.65; }
+    .actions { display:flex; flex-wrap:wrap; gap:12px; margin-top:20px; }
+    a { display:inline-flex; align-items:center; justify-content:center; text-decoration:none; padding:12px 16px; border-radius:999px; color:white; font-weight:600; background:linear-gradient(90deg,var(--accent),var(--accent-2)); }
+    a.secondary { background:transparent; color:var(--text); border:1px solid rgba(255,255,255,0.16); }
+    .chips { display:flex; flex-wrap:wrap; gap:10px; margin-top:18px; }
+    .chip { padding:8px 12px; border-radius:999px; font-size:0.92rem; background:rgba(255,255,255,0.08); color:#dce7f5; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>Church Project API</h1>
+    <p>Ce backend fournit les services d’authentification, de gestion des demandes, des paroisses et des paiements. L’interface est maintenant accompagnée d’une landing page plus claire pour faciliter la navigation vers la documentation et les points d’entrée techniques.</p>
+    <div class="actions">
+      <a href="/swagger-ui.html" target="_blank" rel="noreferrer">Voir la documentation API</a>
+      <a class="secondary" href="/actuator/health" target="_blank" rel="noreferrer">Vérifier la santé</a>
+    </div>
+    <div class="chips">
+      <span class="chip">Spring Boot 3.5</span>
+      <span class="chip">JWT + Security</span>
+      <span class="chip">OpenAPI</span>
+      <span class="chip">Actuator</span>
+    </div>
+  </main>
+</body>
+</html>

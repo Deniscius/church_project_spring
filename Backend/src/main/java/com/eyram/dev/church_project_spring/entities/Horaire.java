@@ -6,8 +6,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.Filter;
-import org.hibernate.annotations.FilterDef;
-import org.hibernate.annotations.ParamDef;
+import org.hibernate.annotations.SqlFragmentAlias;
 import org.hibernate.annotations.UuidGenerator;
 
 import java.io.Serializable;
@@ -16,7 +15,12 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "horaire")
-@Filter(name = "tenantFilter", condition = "paroisse_id = :tenantId")
+@Filter(
+        name = "tenantFilter",
+        condition = "{horaire}.paroisse_id = :tenantId",
+        deduceAliasInjectionPoints = false,
+        aliases = @SqlFragmentAlias(alias = "horaire", table = "horaire")
+)
 @Getter
 @Setter
 public class Horaire extends BaseEntity implements Serializable {

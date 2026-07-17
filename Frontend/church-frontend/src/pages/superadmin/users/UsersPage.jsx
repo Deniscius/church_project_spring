@@ -20,6 +20,7 @@ export default function UsersPage() {
   const [error, setError] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [editingIsGlobal, setEditingIsGlobal] = useState(null);
   const [parishes, setParishes] = useState([]);
   const [formData, setFormData] = useState({
     nom: '',
@@ -62,6 +63,14 @@ export default function UsersPage() {
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
+    if (name === 'role') {
+      setFormData(prev => ({
+        ...prev,
+        role: value,
+        isGlobal: value === 'SUPER_ADMIN',
+      }));
+      return;
+    }
     setFormData(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
@@ -70,8 +79,11 @@ export default function UsersPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     try {
       setLoading(true);
+      setError(null);
+
       const payload = {
         nom: formData.nom,
         prenom: formData.prenom,
@@ -81,22 +93,21 @@ export default function UsersPage() {
         isActive: formData.isActive,
         isGlobal: formData.isGlobal,
       };
-      
-      let userId;
+
       if (editingId) {
         await userService.update(editingId, payload);
-        userId = editingId;
       } else {
-        const result = await userService.create(payload);
-        userId = result?.publicId || result?.id;
-      }
+        const createPayload = {
+          ...payload,
+          paroisses: formData.isGlobal
+            ? []
+            : [{
+                paroisseId: formData.paroisseId,
+                roleParoisse: formData.roleParoisse,
+              }],
+        };
 
-      // Assigner à une paroisse si sélectionnée et pas global
-      if (userId && formData.paroisseId && !formData.isGlobal) {
-        await userService.assignParoisse(userId, {
-          paroisseId: formData.paroisseId,
-          roleParoisse: formData.roleParoisse,
-        });
+        await userService.create(createPayload);
       }
 
       await loadUsers();
@@ -118,13 +129,16 @@ export default function UsersPage() {
           username: user.username || '',
           password: '',
           role: user.role || 'SECRETAIRE',
-          isActive: user.active !== false,
-          isGlobal: user.isGlobal || false,
+          isActive: user.isActive,
+          isGlobal: user.isGlobal,
+          paroisseId: null,
+          roleParoisse: 'SECRETAIRE',
         });
         setEditingId(userId);
+        setEditingIsGlobal(Boolean(user.isGlobal));
         setShowForm(true);
       }
-    } catch (e) {
+    } catch {
       setError('Erreur lors de la récupération');
     }
   };
@@ -145,6 +159,7 @@ export default function UsersPage() {
   const handleCancel = () => {
     setShowForm(false);
     setEditingId(null);
+    setEditingIsGlobal(null);
     setFormData({
       nom: '',
       prenom: '',
@@ -214,6 +229,8 @@ export default function UsersPage() {
                 value={formData.nom}
                 onChange={handleInputChange}
                 required
+                minLength={2}
+                maxLength={100}
                 style={{
                   width: '100%',
                   padding: '8px',
@@ -234,6 +251,8 @@ export default function UsersPage() {
                 value={formData.prenom}
                 onChange={handleInputChange}
                 required
+                minLength={2}
+                maxLength={150}
                 style={{
                   width: '100%',
                   padding: '8px',
@@ -254,6 +273,10 @@ export default function UsersPage() {
                 value={formData.username}
                 onChange={handleInputChange}
                 required
+                minLength={3}
+                maxLength={100}
+                pattern="[A-Za-z0-9._-]+"
+                title="Lettres, chiffres, point, tiret et underscore uniquement"
                 style={{
                   width: '100%',
                   padding: '8px',
@@ -274,6 +297,8 @@ export default function UsersPage() {
                 value={formData.password}
                 onChange={handleInputChange}
                 required={!editingId}
+                minLength={editingId && !formData.password ? undefined : 8}
+                maxLength={200}
                 style={{
                   width: '100%',
                   padding: '8px',
@@ -292,6 +317,7 @@ export default function UsersPage() {
                 name="role"
                 value={formData.role}
                 onChange={handleInputChange}
+                disabled={Boolean(editingId) && editingIsGlobal}
                 style={{
                   width: '100%',
                   padding: '8px',
@@ -303,7 +329,12 @@ export default function UsersPage() {
                 <option value="SECRETAIRE">Secrétaire</option>
                 <option value="CURE">Curé</option>
                 <option value="ADMIN">Admin Local</option>
-                <option value="SUPER_ADMIN">Super Admin</option>
+                <option
+                  value="SUPER_ADMIN"
+                  disabled={Boolean(editingId) && editingIsGlobal === false}
+                >
+                  Super Admin
+                </option>
               </select>
             </div>
           </div>
@@ -321,28 +352,30 @@ export default function UsersPage() {
           </div>
 
           <div style={{ marginBottom: '16px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <input
                 type="checkbox"
                 name="isGlobal"
                 checked={formData.isGlobal}
-                onChange={handleInputChange}
+                disabled
               />
-              <span style={{ fontWeight: 'bold' }}>Administrateur Global (accès à toutes les paroisses)</span>
+              <span style={{ fontWeight: 'bold' }}>
+                Accès global (déduit automatiquement du rôle Super Admin)
+              </span>
             </label>
           </div>
 
-          {!formData.isGlobal && (
+          {!formData.isGlobal && !editingId && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px', backgroundColor: '#e8f4f8', padding: '12px', borderRadius: '4px' }}>
               <div>
                 <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold' }}>
-                  Paroisse ({formData.isGlobal ? 'N/A pour Admin Global' : '*'})
+                  Paroisse *
                 </label>
                 <select
                   name="paroisseId"
                   value={formData.paroisseId || ''}
                   onChange={handleInputChange}
-                  required={!formData.isGlobal}
+                  required
                   style={{
                     width: '100%',
                     padding: '8px',
@@ -354,7 +387,7 @@ export default function UsersPage() {
                   <option value="">-- Sélectionner une paroisse --</option>
                   {parishes.map((parish) => (
                     <option key={parish.publicId} value={parish.publicId}>
-                      {parish.nom} ({parish.localiteVille})
+                      {parish.nom} ({parish.doyenneNom})
                     </option>
                   ))}
                 </select>
@@ -368,7 +401,6 @@ export default function UsersPage() {
                   name="roleParoisse"
                   value={formData.roleParoisse}
                   onChange={handleInputChange}
-                  disabled={formData.isGlobal}
                   style={{
                     width: '100%',
                     padding: '8px',
@@ -378,11 +410,18 @@ export default function UsersPage() {
                   }}
                 >
                   <option value="ADMIN">Admin Paroisse</option>
+                  <option value="GESTIONNAIRE">Gestionnaire</option>
                   <option value="SECRETAIRE">Secrétaire</option>
-                  <option value="CURE">Curé</option>
+                  <option value="CONSULTATION">Consultation</option>
                 </select>
               </div>
             </div>
+          )}
+
+          {editingId && !formData.isGlobal && (
+            <p style={{ marginBottom: '16px', color: '#666', fontSize: '13px' }}>
+              L’affectation à la paroisse reste inchangée pendant cette modification.
+            </p>
           )}
 
           <div style={{ display: 'flex', gap: '8px' }}>

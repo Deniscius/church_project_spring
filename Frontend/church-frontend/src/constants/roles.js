@@ -35,11 +35,65 @@ export const ROLE_DESCRIPTIONS = {
  * Permissions par rôle.
  * Défini le niveau d'accès granulaire pour chaque rôle.
  */
+export const PERMISSIONS = {
+  DASHBOARD_VIEW: 'dashboard:view',
+  DEMAND_READ: 'demand:read',
+  DEMAND_EDIT: 'demand:edit',
+  DEMAND_DELETE: 'demand:delete',
+  DEMAND_VALIDATE: 'demand:validate',
+  PAYMENT_READ: 'payment:read',
+  PAYMENT_MANAGE: 'payment:manage',
+  INVOICE_READ: 'invoice:read',
+  SCHEDULE_READ: 'schedule:read',
+  SCHEDULE_MANAGE: 'schedule:manage',
+  REQUEST_TYPE_READ: 'request-type:read',
+  REQUEST_TYPE_MANAGE: 'request-type:manage',
+  PRICING_READ: 'pricing:read',
+  PRICING_MANAGE: 'pricing:manage',
+  USER_MANAGE: 'user:manage',
+  PARISH_MANAGE: 'parish:manage',
+  PARISH_ACCESS_MANAGE: 'parish-access:manage',
+  DEANERY_MANAGE: 'deanery:manage',
+  PAYMENT_TYPE_MANAGE: 'payment-type:manage',
+  PROFILE_READ: 'profile:read',
+};
+
+const PARISH_READ_PERMISSIONS = [
+  PERMISSIONS.DASHBOARD_VIEW,
+  PERMISSIONS.DEMAND_READ,
+  PERMISSIONS.PAYMENT_READ,
+  PERMISSIONS.INVOICE_READ,
+  PERMISSIONS.SCHEDULE_READ,
+  PERMISSIONS.REQUEST_TYPE_READ,
+  PERMISSIONS.PRICING_READ,
+  PERMISSIONS.PROFILE_READ,
+];
+
 export const ROLE_PERMISSIONS = {
-  SUPER_ADMIN: ['read', 'create', 'edit', 'delete', 'validate', 'admin', 'manage_users', 'manage_system'],
-  ADMIN: ['read', 'create', 'edit', 'delete', 'validate', 'manage_users'],
-  SECRETAIRE: ['read', 'create', 'edit', 'validate'],
-  CURE: ['read', 'validate'],
+  SUPER_ADMIN: [
+    PERMISSIONS.USER_MANAGE,
+    PERMISSIONS.PARISH_MANAGE,
+    PERMISSIONS.PARISH_ACCESS_MANAGE,
+    PERMISSIONS.DEANERY_MANAGE,
+    PERMISSIONS.PAYMENT_TYPE_MANAGE,
+  ],
+  ADMIN: [
+    ...PARISH_READ_PERMISSIONS,
+    PERMISSIONS.DEMAND_EDIT,
+    PERMISSIONS.DEMAND_DELETE,
+    PERMISSIONS.DEMAND_VALIDATE,
+    PERMISSIONS.PAYMENT_MANAGE,
+    PERMISSIONS.SCHEDULE_MANAGE,
+    PERMISSIONS.REQUEST_TYPE_MANAGE,
+    PERMISSIONS.PRICING_MANAGE,
+    PERMISSIONS.USER_MANAGE,
+  ],
+  SECRETAIRE: [
+    ...PARISH_READ_PERMISSIONS,
+    PERMISSIONS.DEMAND_EDIT,
+    PERMISSIONS.PAYMENT_MANAGE,
+  ],
+  CURE: [...PARISH_READ_PERMISSIONS, PERMISSIONS.DEMAND_VALIDATE],
 };
 
 /**
@@ -77,35 +131,35 @@ export function hasPermission(role, permission) {
  * Vérifie si un rôle can read (lecture).
  */
 export function canRead(role) {
-  return hasPermission(role, 'read');
+  return role in ROLE_PERMISSIONS;
 }
 
 /**
  * Vérifie si un rôle can create (créer).
  */
 export function canCreate(role) {
-  return hasPermission(role, 'create');
+  return role === ROLES.ADMIN || role === ROLES.SUPER_ADMIN || role === ROLES.SECRETAIRE;
 }
 
 /**
  * Vérifie si un rôle can edit (éditer).
  */
 export function canEdit(role) {
-  return hasPermission(role, 'edit');
+  return role === ROLES.ADMIN || role === ROLES.SUPER_ADMIN || role === ROLES.SECRETAIRE;
 }
 
 /**
  * Vérifie si un rôle can delete (supprimer).
  */
 export function canDelete(role) {
-  return hasPermission(role, 'delete');
+  return role === ROLES.ADMIN || role === ROLES.SUPER_ADMIN;
 }
 
 /**
  * Vérifie si un rôle can validate (valider).
  */
 export function canValidate(role) {
-  return hasPermission(role, 'validate');
+  return hasPermission(role, PERMISSIONS.DEMAND_VALIDATE);
 }
 
 /**

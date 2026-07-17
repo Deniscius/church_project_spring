@@ -1,12 +1,16 @@
 package com.eyram.dev.church_project_spring.controller;
 
 import com.eyram.dev.church_project_spring.DTO.request.DemandeRequest;
+import com.eyram.dev.church_project_spring.DTO.request.DemandeValidationRequest;
 import com.eyram.dev.church_project_spring.DTO.response.DemandeResponse;
 import com.eyram.dev.church_project_spring.enums.StatutDemandeEnum;
 import com.eyram.dev.church_project_spring.service.DemandeService;
+import com.eyram.dev.church_project_spring.service.DemandeReceiptService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,6 +23,7 @@ import java.util.UUID;
 public class DemandeController {
 
     private final DemandeService demandeService;
+    private final DemandeReceiptService demandeReceiptService;
 
     @PostMapping
     public ResponseEntity<DemandeResponse> create(@Valid @RequestBody DemandeRequest request) {
@@ -31,6 +36,14 @@ public class DemandeController {
         return ResponseEntity.ok(demandeService.update(publicId, request));
     }
 
+    @PatchMapping("/{publicId}/validation")
+    public ResponseEntity<DemandeResponse> updateValidation(
+            @PathVariable UUID publicId,
+            @Valid @RequestBody DemandeValidationRequest request
+    ) {
+        return ResponseEntity.ok(demandeService.updateValidation(publicId, request));
+    }
+
     @GetMapping("/{publicId}")
     public ResponseEntity<DemandeResponse> getByPublicId(@PathVariable UUID publicId) {
         return ResponseEntity.ok(demandeService.getByPublicId(publicId));
@@ -39,6 +52,17 @@ public class DemandeController {
     @GetMapping("/code/{codeSuivie}")
     public ResponseEntity<DemandeResponse> getByCodeSuivie(@PathVariable String codeSuivie) {
         return ResponseEntity.ok(demandeService.getByCodeSuivie(codeSuivie));
+    }
+
+    @GetMapping(value = "/code/{codeSuivie}/recu.pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<byte[]> downloadReceipt(@PathVariable String codeSuivie) {
+        byte[] pdf = demandeReceiptService.generate(codeSuivie);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"recu-" + codeSuivie + ".pdf\"")
+                .contentType(MediaType.APPLICATION_PDF)
+                .contentLength(pdf.length)
+                .body(pdf);
     }
 
     @GetMapping

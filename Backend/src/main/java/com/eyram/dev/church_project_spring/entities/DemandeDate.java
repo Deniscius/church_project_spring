@@ -6,6 +6,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.UuidGenerator;
+import org.hibernate.annotations.Filter;
+import org.hibernate.annotations.SqlFragmentAlias;
 
 import java.io.Serializable;
 import java.time.LocalDate;
@@ -22,6 +24,12 @@ import java.util.UUID;
 @Getter
 @Setter
 @NoArgsConstructor
+@Filter(
+        name = "tenantFilter",
+        condition = "exists (select 1 from demande d where d.id = {demandeDate}.demande_id and d.paroisse_id = :tenantId)",
+        deduceAliasInjectionPoints = false,
+        aliases = @SqlFragmentAlias(alias = "demandeDate", table = "demande_date")
+)
 public class DemandeDate extends BaseEntity implements Serializable {
 
     @Id

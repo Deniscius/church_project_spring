@@ -11,7 +11,7 @@ export default function CreateParishPage() {
       <AppCard title="Nouvelle paroisse">
         <div className="form-grid">
           <div className="form-field"><label>Nom</label><AppInput placeholder="Paroisse Sainte Rita" /></div>
-          <div className="form-field"><label>Localité</label><AppInput placeholder="Agoè" /></div>
+          <div className="form-field"><label>Doyenné</label><AppInput placeholder="Agoè" /></div>
           <div className="form-field"><label>Email</label><AppInput placeholder="paroisse@example.com" /></div>
           <div className="form-field"><label>Téléphone</label><AppInput placeholder="+228 90 00 00 00" /></div>
         </div>

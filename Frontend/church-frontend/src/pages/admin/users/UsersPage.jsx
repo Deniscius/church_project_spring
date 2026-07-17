@@ -1,30 +1,31 @@
 import { useState, useEffect } from 'react';
 import { userService } from '../../../services/user.service';
-import { useAuthStore } from '../../../store/auth.context';
+import { useTenant } from '../../../hooks/useTenant';
+
+const createInitialFormData = () => ({
+  nom: '',
+  prenom: '',
+  username: '',
+  password: '',
+  role: 'SECRETAIRE',
+  isActive: true,
+  isGlobal: false,
+  roleParoisse: 'SECRETAIRE',
+});
 
 /**
  * Page de gestion des utilisateurs (Admin)
  * CRUD complet : Create, Read, Update, Delete
  */
 export function UsersPage() {
-  const { user, token } = useAuthStore();
+  const { activeParish } = useTenant();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({
-    nom: '',
-    prenom: '',
-    username: '',
-    password: '',
-    role: 'SECRETAIRE',
-    isActive: true,
-    isGlobal: false,
-    paroisses: [],
-  });
+  const [formData, setFormData] = useState(createInitialFormData);
   const [editingId, setEditingId] = useState(null);
 
-  // Charger la liste des utilisateurs
   useEffect(() => {
     fetchUsers();
   }, []);
@@ -36,7 +37,7 @@ export function UsersPage() {
       const data = await userService.getAll();
       setUsers(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError('Erreur lors du chargement des utilisateurs');
+      setError(err instanceof Error ? err.message : 'Erreur lors du chargement des utilisateurs');
       console.error(err);
     } finally {
       setLoading(false);
@@ -53,33 +54,53 @@ export function UsersPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     try {
       setLoading(true);
       setError(null);
 
+      const payload = {
+        nom: formData.nom,
+        prenom: formData.prenom,
+        username: formData.username,
+        password: formData.password,
+        role: formData.role,
+        isActive: formData.isActive,
+        isGlobal: false,
+      };
+
       if (editingId) {
-        // Mise à jour
-        await userService.update(editingId, formData);
+        await userService.update(editingId, payload);
       } else {
-        // Création
-        await userService.create(formData);
+        if (!activeParish?.id) {
+          throw new Error(
+            'Aucune paroisse active n’est disponible dans votre session. Reconnectez-vous avant de créer un utilisateur.'
+          );
+        }
+
+        await userService.create({
+          ...payload,
+          paroisses: [
+            {
+              paroisseId: activeParish.id,
+              roleParoisse: formData.roleParoisse,
+            },
+          ],
+        });
       }
 
       setShowForm(false);
-      setFormData({
-        nom: '',
-        prenom: '',
-        username: '',
-        password: '',
-        role: 'SECRETAIRE',
-        isActive: true,
-        isGlobal: false,
-        paroisses: [],
-      });
+      setFormData(createInitialFormData());
       setEditingId(null);
       await fetchUsers();
     } catch (err) {
-      setError(editingId ? 'Erreur lors de la mise à jour' : 'Erreur lors de la création');
+      setError(
+        err instanceof Error
+          ? err.message
+          : editingId
+            ? 'Erreur lors de la mise à jour'
+            : 'Erreur lors de la création'
+      );
       console.error(err);
     } finally {
       setLoading(false);
@@ -88,12 +109,27 @@ export function UsersPage() {
 
   const handleEdit = async (userId) => {
     try {
+      setError(null);
       const userToEdit = await userService.getById(userId);
-      setFormData(userToEdit);
+
+      setFormData({
+        nom: userToEdit.nom || '',
+        prenom: userToEdit.prenom || '',
+        username: userToEdit.username || '',
+        password: '',
+        role: userToEdit.role || 'SECRETAIRE',
+        isActive: Boolean(userToEdit.isActive),
+        isGlobal: false,
+        roleParoisse: 'SECRETAIRE',
+      });
       setEditingId(userId);
       setShowForm(true);
     } catch (err) {
-      setError('Erreur lors de la récupération de l\'utilisateur');
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Erreur lors de la récupération de l’utilisateur'
+      );
       console.error(err);
     }
   };
@@ -105,10 +141,11 @@ export function UsersPage() {
 
     try {
       setLoading(true);
+      setError(null);
       await userService.delete(userId);
       await fetchUsers();
     } catch (err) {
-      setError('Erreur lors de la suppression');
+      setError(err instanceof Error ? err.message : 'Erreur lors de la suppression');
       console.error(err);
     } finally {
       setLoading(false);
@@ -117,16 +154,7 @@ export function UsersPage() {
 
   const handleCancel = () => {
     setShowForm(false);
-    setFormData({
-      nom: '',
-      prenom: '',
-      username: '',
-      password: '',
-      role: 'SECRETAIRE',
-      isActive: true,
-      isGlobal: false,
-      paroisses: [],
-    });
+    setFormData(createInitialFormData());
     setEditingId(null);
   };
 
@@ -134,7 +162,7 @@ export function UsersPage() {
     <div className="users-page">
       <div className="page-header">
         <h1>Gestion des Utilisateurs</h1>
-        <button 
+        <button
           className="btn btn-primary"
           onClick={() => setShowForm(!showForm)}
           disabled={loading}
@@ -191,7 +219,7 @@ export function UsersPage() {
                 />
               </div>
               <div className="form-group">
-                <label>Mot de passe *</label>
+                <label>Mot de passe {editingId ? '' : '*'}</label>
                 <input
                   type="password"
                   name="password"
@@ -232,16 +260,49 @@ export function UsersPage() {
               </div>
             </div>
 
+            {!editingId && (
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Paroisse</label>
+                  <input
+                    type="text"
+                    value={activeParish?.name || 'Aucune paroisse active'}
+                    disabled
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Rôle dans la paroisse *</label>
+                  <select
+                    name="roleParoisse"
+                    value={formData.roleParoisse}
+                    onChange={handleInputChange}
+                    disabled={loading}
+                  >
+                    <option value="ADMIN">Administrateur paroissial</option>
+                    <option value="GESTIONNAIRE">Gestionnaire</option>
+                    <option value="SECRETAIRE">Secrétaire</option>
+                    <option value="CONSULTATION">Consultation</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {editingId && (
+              <p>
+                L’affectation paroissiale reste inchangée pendant cette modification.
+              </p>
+            )}
+
             <div className="form-actions">
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 className="btn btn-success"
                 disabled={loading}
               >
                 {loading ? 'Enregistrement...' : (editingId ? 'Modifier' : 'Créer')}
               </button>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 className="btn btn-secondary"
                 onClick={handleCancel}
                 disabled={loading}
@@ -268,7 +329,7 @@ export function UsersPage() {
                 <th>Username</th>
                 <th>Rôle</th>
                 <th>Statut</th>
-                <th>Paroisses</th>
+                <th>Paroisse</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -283,17 +344,7 @@ export function UsersPage() {
                       {u.isActive ? 'Actif' : 'Inactif'}
                     </span>
                   </td>
-                  <td>
-                    {u.paroisses && u.paroisses.length > 0 ? (
-                      <ul className="list-unstyled">
-                        {u.paroisses.map((p) => (
-                          <li key={p.id}>{p.paroisseNom} ({p.roleParoisse})</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <em>Aucune</em>
-                    )}
-                  </td>
+                  <td>{activeParish?.name || '—'}</td>
                   <td className="actions">
                     <button
                       className="btn btn-sm btn-info"

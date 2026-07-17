@@ -1,5 +1,6 @@
 package com.eyram.dev.church_project_spring.DTO.response;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 public record ParoisseResponse(
@@ -9,9 +10,9 @@ public record ParoisseResponse(
         String email,
         String telephone,
         Boolean isActive,
-        Boolean statusDel,
-        UUID localitePublicId,
-        String localiteVille,
-        String localiteQuartier
+        UUID doyennePublicId,
+        String doyenneNom,
+        LocalDateTime createdAt,
+        LocalDateTime updatedAt
 ) {
 }

@@ -1,13 +1,9 @@
 package com.eyram.dev.church_project_spring.DTO.response;
 
-import java.util.List;
 import java.util.UUID;
 
-import com.eyram.dev.church_project_spring.entities.ParoisseAccess;
-
 /**
- * DTO pour la réponse utilisateur.
- * Utilisé pour retourner les informations d'un utilisateur avec ses accès paroissiaux.
+ * DTO de réponse utilisateur exposé aux interfaces d'administration.
  */
 public record UserResponse(
         UUID publicId,
@@ -15,6 +11,7 @@ public record UserResponse(
         String prenom,
         String username,
         String role,
-        List<ParoisseAccess> paroisses
+        Boolean isActive,
+        Boolean isGlobal
 ) {
 }

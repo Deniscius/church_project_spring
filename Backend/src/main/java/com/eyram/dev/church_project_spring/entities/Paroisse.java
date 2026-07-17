@@ -1,27 +1,19 @@
 package com.eyram.dev.church_project_spring.entities;
 
-import java.util.UUID;
-
+import com.eyram.dev.church_project_spring.utils.BaseEntity;
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.hibernate.annotations.UuidGenerator;
 
-import com.eyram.dev.church_project_spring.utils.BaseEntity;
-
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
-import lombok.Getter;
-import lombok.Setter;
+import java.util.UUID;
 
 @Entity
 @Table(name = "paroisse")
 @Getter
 @Setter
+@NoArgsConstructor
 public class Paroisse extends BaseEntity {
 
     @Id
@@ -48,14 +40,11 @@ public class Paroisse extends BaseEntity {
     private Boolean isActive = true;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "localite_id", nullable = false)
-    private Localite localite;
-
-    public Paroisse() {
-    }
+    @JoinColumn(name = "doyenne_id", nullable = false)
+    private Doyenne doyenne;
 
     public Paroisse(Long id, UUID publicId, String nom, String adresse, String email,
-                    String telephone, Boolean isActive, Localite localite) {
+                    String telephone, Boolean isActive, Doyenne doyenne) {
         this.id = id;
         this.publicId = publicId;
         this.nom = nom;
@@ -63,6 +52,6 @@ public class Paroisse extends BaseEntity {
         this.email = email;
         this.telephone = telephone;
         this.isActive = isActive;
-        this.localite = localite;
+        this.doyenne = doyenne;
     }
 }

@@ -26,6 +26,7 @@ export const ROUTES = {
   PRICING_CREATE: '/admin/forfaits/nouveau',
   PRICING_EDIT: '/admin/forfaits/:id/modifier',
   PROFILE: '/admin/profil',
+  TEAM: '/admin/equipe',
   PARISHES: '/admin/paroisses',
   PARISH_CREATE: '/admin/paroisses/nouvelle',
   PARISH_EDIT: '/admin/paroisses/:id/modifier',
@@ -33,6 +34,6 @@ export const ROUTES = {
   USER_CREATE: '/admin/utilisateurs/nouveau',
   USER_EDIT: '/admin/utilisateurs/:id/modifier',
   PARISH_ACCESS: '/admin/acces-paroisses',
-  LOCALITIES: '/admin/localites',
+  DEANERIES: '/admin/doyennes',
   PAYMENT_TYPES: '/admin/types-paiement',
 };

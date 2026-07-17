@@ -1,146 +1,198 @@
 package com.eyram.dev.church_project_spring.service.impl;
 
-import com.eyram.dev.church_project_spring.DTO.request.ParoisseAccessRequest;
-import com.eyram.dev.church_project_spring.DTO.response.ParoisseAccessResponse;
+import com.eyram.dev.church_project_spring.DTO.request.ParoisseRequest;
+import com.eyram.dev.church_project_spring.DTO.response.ParoisseResponse;
+import com.eyram.dev.church_project_spring.entities.Doyenne;
 import com.eyram.dev.church_project_spring.entities.Paroisse;
-import com.eyram.dev.church_project_spring.entities.ParoisseAccess;
-import com.eyram.dev.church_project_spring.entities.User;
-import com.eyram.dev.church_project_spring.mappers.ParoisseAccessMapper;
+import com.eyram.dev.church_project_spring.mappers.ParoisseMapper;
+import com.eyram.dev.church_project_spring.repositories.DoyenneRepository;
 import com.eyram.dev.church_project_spring.repositories.ParoisseAccessRepository;
 import com.eyram.dev.church_project_spring.repositories.ParoisseRepository;
-import com.eyram.dev.church_project_spring.repositories.UserRepository;
-import com.eyram.dev.church_project_spring.service.ParoisseAccessService;
+import com.eyram.dev.church_project_spring.security.TenantAccessService;
+import com.eyram.dev.church_project_spring.service.ParoisseService;
 import com.eyram.dev.church_project_spring.utils.exception.AlreadyExistException;
 import com.eyram.dev.church_project_spring.utils.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 @Transactional
-public class ParoisseServiceImpl implements ParoisseAccessService {
+public class ParoisseServiceImpl implements ParoisseService {
 
-    private final ParoisseAccessRepository paroisseAccessRepository;
-    private final UserRepository userRepository;
     private final ParoisseRepository paroisseRepository;
-    private final ParoisseAccessMapper paroisseAccessMapper;
+    private final ParoisseAccessRepository paroisseAccessRepository;
+    private final DoyenneRepository doyenneRepository;
+    private final ParoisseMapper paroisseMapper;
+    private final TenantAccessService tenantAccessService;
 
     @Override
-    public ParoisseAccessResponse create(ParoisseAccessRequest request) {
+    public ParoisseResponse create(ParoisseRequest request) {
+        ParoisseRequest normalizedRequest = normalize(request);
 
-        User user = userRepository.findByPublicIdAndStatusDelFalse(request.userPublicId())
-                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur introuvable"));
-
-        Paroisse paroisse = paroisseRepository.findByPublicIdAndStatusDelFalse(request.paroissePublicId())
-                .orElseThrow(() -> new ResourceNotFoundException("Paroisse introuvable"));
-
-        if (paroisseAccessRepository.existsByUserAndParoisseAndStatusDelFalse(user, paroisse)) {
-            throw new AlreadyExistException("Cet accès existe déjà pour cet utilisateur et cette paroisse");
+        if (!tenantAccessService.isGlobalUser()) {
+            throw new AccessDeniedException("Seul un utilisateur global peut créer une paroisse");
         }
 
-        ParoisseAccess paroisseAccess = paroisseAccessMapper.dtoToModel(request);
-        paroisseAccess.setUser(user);
-        paroisseAccess.setParoisse(paroisse);
+        Doyenne doyenne = findActiveDoyenne(normalizedRequest.doyennePublicId());
 
-        ParoisseAccess savedParoisseAccess = paroisseAccessRepository.save(paroisseAccess);
-        return paroisseAccessMapper.modelToDto(savedParoisseAccess);
-    }
+        boolean exists = paroisseRepository.existsByNomIgnoreCaseAndDoyenne_PublicIdAndStatusDelFalse(
+                normalizedRequest.nom(),
+                normalizedRequest.doyennePublicId()
+        );
 
-    @Override
-    public ParoisseAccessResponse update(UUID publicId, ParoisseAccessRequest request) {
-
-        ParoisseAccess existingParoisseAccess = paroisseAccessRepository.findByPublicIdAndStatusDelFalse(publicId)
-                .orElseThrow(() -> new ResourceNotFoundException("Accès paroisse introuvable"));
-
-        User user = userRepository.findByPublicIdAndStatusDelFalse(request.userPublicId())
-                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur introuvable"));
-
-        Paroisse paroisse = paroisseRepository.findByPublicIdAndStatusDelFalse(request.paroissePublicId())
-                .orElseThrow(() -> new ResourceNotFoundException("Paroisse introuvable"));
-
-        boolean accessChanged =
-                !existingParoisseAccess.getUser().getPublicId().equals(request.userPublicId()) ||
-                !existingParoisseAccess.getParoisse().getPublicId().equals(request.paroissePublicId());
-
-        if (accessChanged && paroisseAccessRepository.existsByUserAndParoisseAndStatusDelFalse(user, paroisse)) {
-            throw new AlreadyExistException("Cet accès existe déjà pour cet utilisateur et cette paroisse");
+        if (exists) {
+            throw new AlreadyExistException("Cette paroisse existe déjà dans ce doyenné");
         }
 
-        paroisseAccessMapper.updateEntityFromDto(request, existingParoisseAccess);
-        existingParoisseAccess.setUser(user);
-        existingParoisseAccess.setParoisse(paroisse);
+        Paroisse paroisse = paroisseMapper.dtoToModel(normalizedRequest);
+        paroisse.setPublicId(UUID.randomUUID());
+        paroisse.setStatusDel(false);
+        paroisse.setIsActive(true);
+        paroisse.setDoyenne(doyenne);
 
-        ParoisseAccess updatedParoisseAccess = paroisseAccessRepository.save(existingParoisseAccess);
-        return paroisseAccessMapper.modelToDto(updatedParoisseAccess);
+        Paroisse savedParoisse = paroisseRepository.save(paroisse);
+        return paroisseMapper.modelToDto(savedParoisse);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public ParoisseAccessResponse getByPublicId(UUID publicId) {
-        ParoisseAccess paroisseAccess = paroisseAccessRepository.findByPublicIdAndStatusDelFalse(publicId)
-                .orElseThrow(() -> new ResourceNotFoundException("Accès paroisse introuvable"));
-
-        return paroisseAccessMapper.modelToDto(paroisseAccess);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<ParoisseAccessResponse> getAll() {
-        return paroisseAccessRepository.findByStatusDelFalse()
+    public List<ParoisseResponse> getAll() {
+        return paroisseRepository.findAllByStatusDelFalseAndIsActiveTrueOrderByNomAsc()
                 .stream()
-                .map(paroisseAccessMapper::modelToDto)
+                .map(paroisseMapper::modelToDto)
                 .toList();
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<ParoisseAccessResponse> getByUser(UUID userPublicId) {
-        User user = userRepository.findByPublicIdAndStatusDelFalse(userPublicId)
-                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur introuvable"));
+    public ParoisseResponse getByPublicId(UUID publicId) {
+        Paroisse paroisse = findActiveParoisse(publicId);
 
-        return paroisseAccessRepository.findByUserAndStatusDelFalse(user)
-                .stream()
-                .map(paroisseAccessMapper::modelToDto)
-                .toList();
+        return paroisseMapper.modelToDto(paroisse);
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public List<ParoisseAccessResponse> getByParoisse(UUID paroissePublicId) {
-        Paroisse paroisse = paroisseRepository.findByPublicIdAndStatusDelFalse(paroissePublicId)
-                .orElseThrow(() -> new ResourceNotFoundException("Paroisse introuvable"));
+    public ParoisseResponse update(UUID publicId, ParoisseRequest request) {
+        ParoisseRequest normalizedRequest = normalize(request);
+        Paroisse paroisse = findActiveParoisse(publicId);
 
-        return paroisseAccessRepository.findByParoisseAndStatusDelFalse(paroisse)
-                .stream()
-                .map(paroisseAccessMapper::modelToDto)
-                .toList();
+        tenantAccessService.checkParoisseAccess(paroisse);
+
+        Doyenne doyenne = findActiveDoyenne(normalizedRequest.doyennePublicId());
+
+        boolean exists = paroisseRepository
+                .existsByNomIgnoreCaseAndDoyenne_PublicIdAndStatusDelFalseAndPublicIdNot(
+                        normalizedRequest.nom(),
+                        normalizedRequest.doyennePublicId(),
+                        publicId
+        );
+
+        if (exists) {
+            throw new AlreadyExistException("Une autre paroisse avec ce nom existe déjà dans ce doyenné");
+        }
+
+        paroisseMapper.updateEntityFromDto(normalizedRequest, paroisse);
+        paroisse.setDoyenne(doyenne);
+
+        Paroisse updatedParoisse = paroisseRepository.save(paroisse);
+        return paroisseMapper.modelToDto(updatedParoisse);
     }
 
     @Override
     public void deleteByPublicId(UUID publicId) {
-        ParoisseAccess paroisseAccess = paroisseAccessRepository.findByPublicIdAndStatusDelFalse(publicId)
-                .orElseThrow(() -> new ResourceNotFoundException("Accès paroisse introuvable"));
+        Paroisse paroisse = findActiveParoisse(publicId);
 
-        paroisseAccess.setActive(false);
-        paroisseAccess.setStatusDel(true);
-        paroisseAccessRepository.save(paroisseAccess);
+        tenantAccessService.checkParoisseAccess(paroisse);
+
+        paroisseAccessRepository.findByParoisseAndStatusDelFalse(paroisse)
+                .forEach(access -> {
+                    access.setActive(false);
+                    access.setStatusDel(true);
+                });
+        paroisse.setIsActive(false);
+        paroisse.setStatusDel(true);
+        paroisseRepository.save(paroisse);
     }
 
-    @Override
-    @Transactional(readOnly = true)
-    public boolean hasAccessToParoisse(User user, Paroisse paroisse) {
-        if (user == null || paroisse == null) {
-            return false;
+    private Paroisse findActiveParoisse(UUID publicId) {
+        if (publicId == null) {
+            throw new IllegalArgumentException("L'identifiant de la paroisse est obligatoire");
+        }
+        return paroisseRepository.findByPublicIdAndStatusDelFalse(publicId)
+                .orElseThrow(() -> new ResourceNotFoundException("Paroisse non trouvée"));
+    }
+
+    private Doyenne findActiveDoyenne(UUID publicId) {
+        if (publicId == null) {
+            throw new IllegalArgumentException("Le doyenné est obligatoire");
+        }
+        return doyenneRepository.findByPublicIdAndStatusDelFalse(publicId)
+                .orElseThrow(() -> new ResourceNotFoundException("Doyenné non trouvé"));
+    }
+
+    private ParoisseRequest normalize(ParoisseRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("La requête paroisse est obligatoire");
         }
 
-        if (Boolean.TRUE.equals(user.getIsGlobal())) {
-            return true;
-        }
+        return new ParoisseRequest(
+                normalizeRequired(request.nom(), 2, 100,
+                        "Le nom est obligatoire",
+                        "Le nom doit contenir entre 2 et 100 caractères"),
+                normalizeRequired(request.adresse(), 3, 200,
+                        "L'adresse est obligatoire",
+                        "L'adresse doit contenir entre 3 et 200 caractères"),
+                normalizeEmail(request.email()),
+                normalizeOptional(request.telephone(), 3, 50,
+                        "Le téléphone doit contenir entre 3 et 50 caractères"),
+                request.doyennePublicId()
+        );
+    }
 
-        return paroisseAccessRepository.existsByUserAndParoisseAndActiveTrueAndStatusDelFalse(user, paroisse);
+    private String normalizeRequired(
+            String value,
+            int minLength,
+            int maxLength,
+            String requiredMessage,
+            String lengthMessage
+    ) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(requiredMessage);
+        }
+        String normalized = value.strip().replaceAll("\\s+", " ");
+        validateLength(normalized, minLength, maxLength, lengthMessage);
+        return normalized;
+    }
+
+    private String normalizeOptional(String value, int minLength, int maxLength, String lengthMessage) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String normalized = value.strip().replaceAll("\\s+", " ");
+        validateLength(normalized, minLength, maxLength, lengthMessage);
+        return normalized;
+    }
+
+    private String normalizeEmail(String email) {
+        String normalized = normalizeOptional(
+                email,
+                3,
+                150,
+                "L'email doit contenir entre 3 et 150 caractères"
+        );
+        return normalized == null ? null : normalized.toLowerCase(Locale.ROOT);
+    }
+
+    private void validateLength(String value, int minLength, int maxLength, String message) {
+        if (value.length() < minLength || value.length() > maxLength) {
+            throw new IllegalArgumentException(message);
+        }
     }
 }

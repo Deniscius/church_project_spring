@@ -35,6 +35,7 @@ export const authService = {
     sessionStorage.removeItem(AUTH_TOKEN_KEY);
     sessionStorage.removeItem(AUTH_USER_KEY);
     sessionStorage.removeItem('selectedParoisse');
+    sessionStorage.removeItem('paroisses');
     return true;
   },
 
@@ -86,6 +87,10 @@ export const authService = {
    * Définit la paroisse active (tenant)
    */
   setSelectedParoisse: (paroisse) => {
-    sessionStorage.setItem('selectedParoisse', JSON.stringify(paroisse));
+    if (paroisse) {
+      sessionStorage.setItem('selectedParoisse', JSON.stringify(paroisse));
+    } else {
+      sessionStorage.removeItem('selectedParoisse');
+    }
   },
 };

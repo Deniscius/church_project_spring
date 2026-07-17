@@ -1,6 +1,7 @@
 package com.eyram.dev.church_project_spring.service;
 
 import com.eyram.dev.church_project_spring.DTO.request.DemandeRequest;
+import com.eyram.dev.church_project_spring.DTO.request.DemandeValidationRequest;
 import com.eyram.dev.church_project_spring.DTO.response.DemandeResponse;
 import com.eyram.dev.church_project_spring.enums.StatutDemandeEnum;
 
@@ -12,6 +13,8 @@ public interface    DemandeService {
     DemandeResponse create(DemandeRequest request);
 
     DemandeResponse update(UUID publicId, DemandeRequest request);
+
+    DemandeResponse updateValidation(UUID publicId, DemandeValidationRequest request);
 
     DemandeResponse getByPublicId(UUID publicId);
 

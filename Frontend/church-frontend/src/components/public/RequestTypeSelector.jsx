@@ -2,6 +2,7 @@ import React from 'react';
 import AppCard from '../ui/AppCard';
 import { usePublicDemandeDraft } from '../../contexts/publicDemandeDraft.context';
 import { useTypeDemandesByParishQuery } from '../../hooks/queries/usePublicReferentiel';
+import { formatAllowedDays } from '../../utils/schedulingUtils';
 
 export default function RequestTypeSelector() {
   const { draft, dispatch } = usePublicDemandeDraft();
@@ -30,7 +31,12 @@ export default function RequestTypeSelector() {
             const t = types.find((x) => x.publicId === id);
             dispatch({
               type: 'SELECT_TYPE_DEMANDE',
-              payload: { publicId: id, libelle: t?.libelle || '' },
+              payload: {
+                publicId: id,
+                libelle: t?.libelle || '',
+                delaiMinimumHeures: t?.delaiMinimumHeures ?? 24,
+                joursCelebrationAutorises: t?.joursCelebrationAutorises || [],
+              },
             });
           }}
         >
@@ -41,6 +47,14 @@ export default function RequestTypeSelector() {
             </option>
           ))}
         </select>
+        {draft.typeDemandePublicId ? (
+          <small className="muted">
+            À déposer au moins {draft.typeDemandeDelaiMinimumHeures} heure(s) avant la célébration.
+            {draft.typeDemandeJoursCelebrationAutorises?.length ? (
+              <> Jours autorisés : {formatAllowedDays(draft.typeDemandeJoursCelebrationAutorises)}.</>
+            ) : null}
+          </small>
+        ) : null}
       </div>
     </AppCard>
   );

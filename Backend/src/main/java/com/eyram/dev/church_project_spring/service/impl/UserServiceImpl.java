@@ -2,94 +2,65 @@ package com.eyram.dev.church_project_spring.service.impl;
 
 import com.eyram.dev.church_project_spring.DTO.request.UserRequest;
 import com.eyram.dev.church_project_spring.DTO.response.UserResponse;
-import com.eyram.dev.church_project_spring.entities.User;
-import com.eyram.dev.church_project_spring.mappers.UserMapper;
-import com.eyram.dev.church_project_spring.repositories.UserRepository;
+import com.eyram.dev.church_project_spring.service.EnhancedUserService;
 import com.eyram.dev.church_project_spring.service.UserService;
-import com.eyram.dev.church_project_spring.utils.exception.AlreadyExistException;
-import com.eyram.dev.church_project_spring.utils.exception.ResourceNotFoundException;
+import com.eyram.dev.church_project_spring.utils.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Façade de compatibilité pour les anciens endpoints /users.
+ *
+ * La logique métier canonique se trouve désormais dans {@link EnhancedUserService}.
+ * Cette classe conserve le contrat historique sans dupliquer les règles de création,
+ * d'affectation de paroisse, de mise à jour et de suppression.
+ */
 @Service
 @RequiredArgsConstructor
+@Deprecated(forRemoval = false)
 @Transactional
 public class UserServiceImpl implements UserService {
 
-    private final UserRepository userRepository;
-    private final UserMapper userMapper;
-    private final PasswordEncoder passwordEncoder;
+    private final EnhancedUserService enhancedUserService;
 
     @Override
     public UserResponse create(UserRequest request) {
-
-        if (userRepository.existsByUsernameAndStatusDelFalse(request.username())) {
-            throw new AlreadyExistException("Un utilisateur avec ce nom d'utilisateur existe déjà");
-        }
-
-        User user = userMapper.toEntity(request);
-        user.setPassword(passwordEncoder.encode(request.password()));
-
-        User savedUser = userRepository.save(user);
-        return userMapper.toResponse(savedUser);
+        return enhancedUserService.createUser(
+                request,
+                SecurityUtils.getCurrentUserPublicId()
+        );
     }
 
     @Override
     public UserResponse update(UUID publicId, UserRequest request) {
-
-        User user = userRepository.findByPublicIdAndStatusDelFalse(publicId)
-                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur introuvable"));
-
-        if (!user.getUsername().equals(request.username())
-                && userRepository.existsByUsernameAndStatusDelFalse(request.username())) {
-            throw new AlreadyExistException("Un utilisateur avec ce nom d'utilisateur existe déjà");
-        }
-
-        userMapper.updateEntityFromRequest(request, user);
-
-        if (request.role() != null) {
-            user.setRole(request.role());
-        }
-
-        if (StringUtils.hasText(request.password())) {
-            user.setPassword(passwordEncoder.encode(request.password()));
-        }
-
-        User updatedUser = userRepository.save(user);
-        return userMapper.toResponse(updatedUser);
+        return enhancedUserService.updateUser(
+                publicId,
+                request,
+                SecurityUtils.getCurrentUserPublicId()
+        );
     }
 
     @Override
-    @Transactional(readOnly = true)
     public UserResponse getByPublicId(UUID publicId) {
-        User user = userRepository.findByPublicIdAndStatusDelFalse(publicId)
-                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur introuvable"));
-
-        return userMapper.toResponse(user);
+        UUID requestedBy = SecurityUtils.getCurrentUserPublicId();
+        return enhancedUserService.getUserByPublicId(publicId, requestedBy);
     }
 
     @Override
-    @Transactional(readOnly = true)
     public List<UserResponse> getAll() {
-        return userRepository.findByStatusDelFalse()
-                .stream()
-                .map(userMapper::toResponse)
-                .toList();
+        UUID requestedBy = SecurityUtils.getCurrentUserPublicId();
+        return enhancedUserService.getAllActiveUsers(requestedBy);
     }
 
     @Override
     public void delete(UUID publicId) {
-        User user = userRepository.findByPublicIdAndStatusDelFalse(publicId)
-                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur introuvable"));
-
-        user.setIsActive(false);
-        user.setStatusDel(true);
-        userRepository.save(user);
+        enhancedUserService.deleteUser(
+                publicId,
+                SecurityUtils.getCurrentUserPublicId()
+        );
     }
 }

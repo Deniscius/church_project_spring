@@ -24,7 +24,11 @@ export default function PaymentTypeSelector() {
               type: 'SELECT_PAIEMENT',
               payload: {
                 publicId: id,
-                libelle: t ? `${t.libelle}${t.mode ? ` (${t.mode})` : ''}` : '',
+                libelle: t
+                  ? t.mode === 'ESPECES'
+                    ? `Au comptant à ${draft.paroisseNom}`
+                    : `${t.libelle}${t.mode ? ` (${t.mode})` : ''}`
+                  : '',
               },
             });
           }}
@@ -32,11 +36,14 @@ export default function PaymentTypeSelector() {
           <option value="">— Choisir —</option>
           {types.map((t) => (
             <option key={t.publicId} value={t.publicId}>
-              {t.libelle}
-              {t.mode ? ` — ${t.mode}` : ''}
+              {t.mode === 'ESPECES' ? 'Au comptant (en paroisse)' : t.libelle}
+              {t.mode && t.mode !== 'ESPECES' ? ` — ${t.mode}` : ''}
             </option>
           ))}
         </select>
+        <small className="muted">
+          Le paiement au comptant sera effectué dans la paroisse sélectionnée, au sein de son doyenné.
+        </small>
       </div>
     </AppCard>
   );

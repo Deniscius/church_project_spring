@@ -10,23 +10,27 @@ import com.eyram.dev.church_project_spring.mappers.DetailsPaiementMapper;
 import com.eyram.dev.church_project_spring.repositories.DetailsPaiementRepository;
 import com.eyram.dev.church_project_spring.repositories.FactureRepository;
 import com.eyram.dev.church_project_spring.repositories.TypePaiementRepository;
+import com.eyram.dev.church_project_spring.security.TenantAccessService;
 import com.eyram.dev.church_project_spring.service.DetailsPaiementService;
 import com.eyram.dev.church_project_spring.utils.exception.AlreadyExistException;
 import com.eyram.dev.church_project_spring.utils.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class DetailsPaiementServiceImpl implements DetailsPaiementService {
 
     private final DetailsPaiementRepository detailsPaiementRepository;
     private final TypePaiementRepository typePaiementRepository;
     private final FactureRepository factureRepository;
     private final DetailsPaiementMapper detailsPaiementMapper;
+    private final TenantAccessService tenantAccessService;
 
     @Override
     public DetailsPaiementResponse create(DetailsPaiementRequest request) {
@@ -36,6 +40,7 @@ public class DetailsPaiementServiceImpl implements DetailsPaiementService {
 
         Facture facture = factureRepository.findByPublicIdAndStatusDelFalse(request.facturePublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Facture introuvable"));
+        checkFactureAccess(facture);
 
         if (facture.getDemande() == null
                 || facture.getDemande().getTypePaiement() == null
@@ -96,6 +101,7 @@ public class DetailsPaiementServiceImpl implements DetailsPaiementService {
     public DetailsPaiementResponse getByPublicId(UUID publicId) {
         DetailsPaiement detailsPaiement = detailsPaiementRepository.findByPublicIdAndStatusDelFalse(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Détail paiement introuvable"));
+        checkFactureAccess(detailsPaiement.getFacture());
 
         return detailsPaiementMapper.modelToDto(detailsPaiement);
     }
@@ -104,6 +110,8 @@ public class DetailsPaiementServiceImpl implements DetailsPaiementService {
     public List<DetailsPaiementResponse> getAll() {
         return detailsPaiementRepository.findAllByStatusDelFalse()
                 .stream()
+                .filter(details -> tenantAccessService.isGlobalUser()
+                        || canAccessFacture(details.getFacture()))
                 .map(detailsPaiementMapper::modelToDto)
                 .toList();
     }
@@ -113,12 +121,14 @@ public class DetailsPaiementServiceImpl implements DetailsPaiementService {
 
         DetailsPaiement detailsPaiement = detailsPaiementRepository.findByPublicIdAndStatusDelFalse(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Détail paiement introuvable"));
+        checkFactureAccess(detailsPaiement.getFacture());
 
         TypePaiement typePaiement = typePaiementRepository.findByPublicIdAndStatusDelFalse(request.typePaiementPublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Type paiement introuvable"));
 
         Facture facture = factureRepository.findByPublicIdAndStatusDelFalse(request.facturePublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Facture introuvable"));
+        checkFactureAccess(facture);
 
         if (facture.getDemande() == null
                 || facture.getDemande().getTypePaiement() == null
@@ -155,6 +165,7 @@ public class DetailsPaiementServiceImpl implements DetailsPaiementService {
 
         DetailsPaiement detailsPaiement = detailsPaiementRepository.findByPublicIdAndStatusDelFalse(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Détail paiement introuvable"));
+        checkFactureAccess(detailsPaiement.getFacture());
 
         detailsPaiement.setStatusDel(true);
         detailsPaiementRepository.save(detailsPaiement);
@@ -169,5 +180,20 @@ public class DetailsPaiementServiceImpl implements DetailsPaiementService {
 
     private String generateTransactionId() {
         return "TXN-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+    }
+
+    private boolean canAccessFacture(Facture facture) {
+        return facture != null
+                && facture.getDemande() != null
+                && facture.getDemande().getParoisse() != null
+                && tenantAccessService.canAccessParoisse(facture.getDemande().getParoisse());
+    }
+
+    private void checkFactureAccess(Facture facture) {
+        if (!canAccessFacture(facture)) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Accès refusé à cette facture"
+            );
+        }
     }
 }

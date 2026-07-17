@@ -13,6 +13,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
+import java.util.Locale;
+
 @Component
 @Order
 public class AdminUserSeeder implements ApplicationRunner {
@@ -44,19 +46,39 @@ public class AdminUserSeeder implements ApplicationRunner {
         }
 
         if (!StringUtils.hasText(seedProperties.getUsername())
-                || !StringUtils.hasText(seedProperties.getPassword())) {
-            log.warn("Seeder admin : username ou mot de passe vide. Aucun compte créé.");
+                || !StringUtils.hasText(seedProperties.getPassword())
+                || !StringUtils.hasText(seedProperties.getNom())
+                || !StringUtils.hasText(seedProperties.getPrenom())) {
+            log.warn("Seeder admin : configuration incomplète. Aucun compte créé.");
+            return;
+        }
+
+        String username = seedProperties.getUsername().strip().toLowerCase(Locale.ROOT);
+        if (username.length() < 3
+                || username.length() > 100
+                || !username.matches("^[a-z0-9._-]+$")) {
+            log.error("Seeder admin : nom d'utilisateur invalide. Aucun compte créé.");
+            return;
+        }
+        if (seedProperties.getPassword().length() < 8
+                || seedProperties.getPassword().length() > 200) {
+            log.error("Seeder admin : le mot de passe doit contenir entre 8 et 200 caractères.");
+            return;
+        }
+        if (seedProperties.getRole() != UserRole.SUPER_ADMIN) {
+            log.error("Seeder admin : seul le rôle SUPER_ADMIN est autorisé pour le compte initial.");
             return;
         }
 
         User admin = new User();
-        admin.setUsername(seedProperties.getUsername().trim());
+        admin.setUsername(username);
         admin.setPassword(passwordEncoder.encode(seedProperties.getPassword()));
-        admin.setNom(seedProperties.getNom());
-        admin.setPrenom(seedProperties.getPrenom());
+        admin.setNom(seedProperties.getNom().strip().replaceAll("\\s+", " "));
+        admin.setPrenom(seedProperties.getPrenom().strip().replaceAll("\\s+", " "));
         admin.setIsGlobal(true);
         admin.setIsActive(true);
-        admin.setRole(seedProperties.getRole() != null ? seedProperties.getRole() : UserRole.SUPER_ADMIN);
+        admin.setRole(UserRole.SUPER_ADMIN);
+        admin.setStatusDel(false);
 
         userRepository.save(admin);
 

@@ -17,4 +17,6 @@ export const requestTypeService = {
 
   update: (publicId, payload) =>
     apiClient(`/type-demandes/${publicId}`, { method: 'PUT', body: JSON.stringify(payload) }, { auth: true }),
+
+  remove: (publicId) => apiClient(`/type-demandes/${publicId}`, { method: 'DELETE' }, { auth: true }),
 };

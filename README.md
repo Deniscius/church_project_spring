@@ -1,6 +1,14 @@
 # 🌐 ARCHITECTURE COMPLÈTE - VUE D'ENSEMBLE SYSTÈME WEB
 ## Système de Gestion des Demandes de Messes
 
+## Règles métier actuellement implémentées
+
+- Un **doyenné** regroupe plusieurs paroisses ; chaque paroisse appartient à un doyenné.
+- Chaque type de demande définit un délai minimum, en heures, avant la première célébration (24 h par défaut).
+- Le backend contrôle ensemble la date, l'heure et le fuseau `Africa/Lome` : une célébration passée ou trop proche est refusée.
+- Le paiement **au comptant** correspond au mode `ESPECES` et s'effectue dans la paroisse sélectionnée.
+- Après le dépôt, le fidèle peut télécharger un reçu PDF via `GET /demandes/code/{codeSuivie}/recu.pdf`.
+
 ---
 
 ## 📊 1. ARCHITECTURE GLOBALE DU SYSTÈME
@@ -222,7 +230,7 @@ Note: SMS désactivé pour les fidèles (coût élevé)
 Fidèle (Navigateur)
     │
     ├─> GET /api/paroisses
-    │   (Liste des paroisses avec localités)
+    │   (Liste des paroisses avec leur doyenné)
     │
     └─> Sélection : Cathédrale Sacré-Cœur
 

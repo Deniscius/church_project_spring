@@ -1,6 +1,8 @@
 package com.eyram.dev.church_project_spring.repositories;
 
 import com.eyram.dev.church_project_spring.entities.User;
+import com.eyram.dev.church_project_spring.enums.UserRole;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -11,11 +13,17 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByPublicIdAndStatusDelFalse(UUID publicId);
 
-    Optional<User> findByUsernameAndStatusDelFalse(String username);
+    @EntityGraph(attributePaths = {
+            "paroisseAccesses",
+            "paroisseAccesses.paroisse"
+    })
+    Optional<User> findByUsernameIgnoreCaseAndStatusDelFalse(String username);
 
-    boolean existsByUsernameAndStatusDelFalse(String username);
+    boolean existsByUsernameIgnoreCaseAndStatusDelFalse(String username);
 
-    List<User> findByStatusDelFalse();
+    List<User> findByStatusDelFalseOrderByNomAscPrenomAsc();
 
     long countByStatusDelFalse();
+
+    long countByStatusDelFalseAndIsActiveTrueAndIsGlobalTrueAndRole(UserRole role);
 }

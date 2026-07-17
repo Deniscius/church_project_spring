@@ -7,24 +7,24 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class AdminSeedProperties {
 
     /**
-     * Désactiver en production une fois le compte créé, ou utiliser un import SQL contrôlé.
+     * Désactivé par défaut pour éviter toute création involontaire d'un compte
+     * administrateur en dehors du profil de développement.
      */
-    private boolean enabled = true;
+    private boolean enabled = false;
 
     private String username = "admin";
 
     /**
-     * À surcharger via variable d'environnement en tout environnement réel.
+     * Aucun mot de passe par défaut n'est conservé dans le code source.
+     * La valeur doit être fournie par APP_ADMIN_SEED_PASSWORD lorsque le seeder
+     * est explicitement activé.
      */
-    private String password = "ChangeMe123!";
+    private String password;
 
     private String nom = "Administrateur";
 
     private String prenom = "Système";
 
-    /**
-     * Rôle du compte seed (SUPER_ADMIN recommandé pour le bootstrap).
-     */
     private UserRole role = UserRole.SUPER_ADMIN;
 
     public boolean isEnabled() {

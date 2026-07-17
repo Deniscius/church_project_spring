@@ -1,9 +1,9 @@
 export function mapParoisseToTenant(p) {
   if (!p) return null;
   return {
-    id: p.publicId,
+    id: p.publicId || p.id,
     name: p.nom,
-    city: p.localiteVille || '',
+    city: p.doyenneNom || '',
     email: p.email || '',
     phone: p.telephone || '',
     raw: p,
@@ -14,7 +14,9 @@ export function mapParoisseToTableRow(p) {
   return {
     id: p.publicId,
     name: p.nom,
-    city: p.localiteVille || '—',
+    address: p.adresse || '',
+    city: p.doyenneNom || '—',
+    deaneryId: p.doyennePublicId,
     email: p.email || '—',
     phone: p.telephone || '—',
     active: p.isActive ? 'ACTIVE' : 'INACTIVE',
@@ -62,13 +64,17 @@ export function mapFactureToInvoiceRow(f) {
 }
 
 export function mapUserToRow(u) {
+  const isActive = Boolean(u.isActive);
+
   return {
     id: u.publicId,
     firstName: u.prenom,
     lastName: u.nom,
     username: u.username,
     role: u.role,
-    active: u.isActive ? 'ACTIVE' : 'INACTIVE',
+    active: isActive ? 'ACTIVE' : 'INACTIVE',
+    isActive,
+    isGlobal: Boolean(u.isGlobal),
   };
 }
 
@@ -83,10 +89,12 @@ export function mapParoisseAccessToRow(a) {
   };
 }
 
-export function mapLocaliteToRow(l) {
+export function mapDoyenneToRow(l) {
   return {
     id: l.publicId,
-    label: [l.ville, l.quartier].filter(Boolean).join(' — ') || '—',
+    label: l.nom || '—',
+    name: l.nom || '—',
+    description: l.description || '—',
   };
 }
 
@@ -98,11 +106,15 @@ export function mapTypePaiementToRow(t) {
   };
 }
 
+import { formatAllowedDays } from './schedulingUtils';
+
 export function mapTypeDemandeToRow(t) {
   return {
     id: t.publicId,
     label: t.libelle,
     category: t.typeDemandeEnum,
+    allowedDays: formatAllowedDays(t.joursCelebrationAutorises),
+    leadTime: `${t.delaiMinimumHeures ?? 24} h`,
     active: t.isActive ? 'ACTIVE' : 'INACTIVE',
   };
 }
@@ -123,6 +135,7 @@ export function mapForfaitToRow(f) {
     label: f.libelle || f.nomForfait || f.codeForfait,
     amount: f.montantForfait != null ? Number(f.montantForfait) : null,
     celebrations: f.nombreCelebration ?? '—',
+    allowedDays: formatAllowedDays(f.joursCelebrationAutorises),
     customHour: Boolean(f.heurePersonnalise),
     active: f.isActive ? 'ACTIVE' : 'INACTIVE',
   };

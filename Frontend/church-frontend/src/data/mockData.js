@@ -135,7 +135,7 @@ export const mockAccesses = [
   { id: 2, user: 'Mawuli Seddoh', parish: 'Sainte Rita', role: 'ADMIN', active: 'ACTIVE' },
 ];
 
-export const mockLocalities = [
+export const mockDeaneries = [
   { id: 1, label: 'Lomé Centre' },
   { id: 2, label: 'Agoè' },
   { id: 3, label: 'Adidogomé' },
@@ -144,5 +144,5 @@ export const mockLocalities = [
 export const mockPaymentTypes = [
   { id: 1, label: 'TMONEY' },
   { id: 2, label: 'FLOOZ' },
-  { id: 3, label: 'ESPECES' },
+  { id: 3, label: 'Au comptant (en paroisse)' },
 ];

@@ -13,6 +13,9 @@ export default function ConfirmationCard({ result }) {
     );
   }
 
+  const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081').replace(/\/$/, '');
+  const receiptUrl = `${apiBaseUrl}/demandes/code/${encodeURIComponent(result.codeSuivie)}/recu.pdf`;
+
   return (
     <AppCard
       title="Demande enregistrée"
@@ -34,6 +37,13 @@ export default function ConfirmationCard({ result }) {
         >
           Voir la facture
         </Link>
+        <a
+          href={receiptUrl}
+          className="btn btn-secondary"
+          style={{ textDecoration: 'none' }}
+        >
+          Télécharger le reçu PDF
+        </a>
       </div>
     </AppCard>
   );

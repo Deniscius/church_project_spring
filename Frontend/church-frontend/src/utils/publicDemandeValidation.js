@@ -2,6 +2,12 @@
  * Valide le brouillon avant envoi (règles alignées sur DemandeServiceImpl).
  * @returns {{ ok: boolean, errors: string[] }}
  */
+import {
+  formatAllowedDays,
+  getEffectiveAllowedDays,
+  isDateAllowedForDays,
+} from './schedulingUtils';
+
 export function validatePublicDemandeDraft(draft) {
   const errors = [];
 
@@ -34,6 +40,31 @@ export function validatePublicDemandeDraft(draft) {
   } else {
     req(hasHoraire, 'Un horaire fixe est obligatoire pour ce forfait.');
     req(!hasHeurePerso, 'L’heure personnalisée n’est pas autorisée pour ce forfait.');
+  }
+
+  const celebrationTime = hasHeurePerso
+    ? draft.heurePersonnalisee.trim()
+    : draft.horaireHeureCelebration?.slice(0, 5);
+  if (draft.dateDebut && celebrationTime) {
+    // Africa/Lomé est en UTC toute l'année : le suffixe Z rend la comparaison indépendante du navigateur.
+    const requestedAt = new Date(`${draft.dateDebut}T${celebrationTime}:00Z`);
+    const minimumAt = new Date(Date.now() + (draft.typeDemandeDelaiMinimumHeures ?? 24) * 3_600_000);
+    req(
+      !Number.isNaN(requestedAt.getTime()) && requestedAt >= minimumAt,
+      `Choisissez une célébration au moins ${draft.typeDemandeDelaiMinimumHeures ?? 24} heure(s) après maintenant.`
+    );
+  }
+
+  if (draft.dateDebut) {
+    const allowedDays = getEffectiveAllowedDays(
+      draft.typeDemandeJoursCelebrationAutorises,
+      draft.forfaitJoursCelebrationAutorises,
+      draft.horaireJourSemaine
+    );
+    req(
+      isDateAllowedForDays(draft.dateDebut, allowedDays),
+      `La date choisie n’est pas autorisée pour ce forfait (${formatAllowedDays(allowedDays)}).`
+    );
   }
 
   return { ok: errors.length === 0, errors };

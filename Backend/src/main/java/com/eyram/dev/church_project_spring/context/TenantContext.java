@@ -26,7 +26,7 @@ package com.eyram.dev.church_project_spring.context;
  *
  * ── Cycle de vie dans une requête ───────────────────────────────────────────
  *
- *   1. Le filtre JWT reçoit la requête et lit le tenantId dans le token
+ *   1. Le filtre JWT authentifie l'utilisateur puis recharge ses accès en base
  *   2. Il appelle setCurrentTenant(tenantId) → la valeur est stockée
  *   3. Tout le code métier (services, repositories) peut appeler getCurrentTenant()
  *   4. À la fin de la requête, clear() est obligatoirement appelé pour effacer
@@ -35,9 +35,9 @@ package com.eyram.dev.church_project_spring.context;
  *
  * ── Pourquoi c'est important ? ───────────────────────────────────────────────
  *
- * C'est le point de vérité central de toute l'architecture multi-tenant.
- * Toutes les autres couches (filtre Hibernate, services, logs...) viennent
- * lire ICI pour savoir à qui appartient la requête en cours de traitement.
+ * C'est le contexte technique de la requête, pas une source d'autorité.
+ * La source de vérité reste la base de données ; le filtre Hibernate et les
+ * services lisent ensuite cette valeur pour isoler les données du tenant.
  */
 public class TenantContext {
 

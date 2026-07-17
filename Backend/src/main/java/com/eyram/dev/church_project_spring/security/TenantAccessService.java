@@ -11,6 +11,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Arrays;
+import java.util.Objects;
+
 @Service
 @Transactional(readOnly = true)
 public class TenantAccessService {
@@ -36,18 +39,33 @@ public class TenantAccessService {
             throw new AccessDeniedException("Utilisateur non authentifié");
         }
 
-        return userRepository.findByPublicIdAndStatusDelFalse(userDetails.getPublicId())
-                .orElseThrow(() -> new AccessDeniedException("Utilisateur introuvable ou inactif"));
+        User currentUser = userRepository.findByPublicIdAndStatusDelFalse(userDetails.getPublicId())
+                .orElseThrow(() -> new AccessDeniedException("Utilisateur introuvable"));
+
+        if (!Boolean.TRUE.equals(currentUser.getIsActive())) {
+            throw new AccessDeniedException("Utilisateur inactif");
+        }
+
+        if (currentUser.getRole() == null) {
+            throw new AccessDeniedException("Utilisateur sans rôle valide");
+        }
+
+        return currentUser;
     }
 
     public boolean canAccessParoisse(Paroisse paroisse) {
+        if (!isExistingParoisse(paroisse)) {
+            return false;
+        }
+
         User currentUser = getCurrentUser();
 
         if (Boolean.TRUE.equals(currentUser.getIsGlobal())) {
             return true;
         }
 
-        return paroisseAccessRepository.existsByUserAndParoisseAndActiveTrueAndStatusDelFalse(currentUser, paroisse);
+        return paroisseAccessRepository
+                .existsByUserAndParoisseAndActiveTrueAndStatusDelFalse(currentUser, paroisse);
     }
 
     public void checkParoisseAccess(Paroisse paroisse) {
@@ -57,6 +75,10 @@ public class TenantAccessService {
     }
 
     public boolean hasParoisseRole(Paroisse paroisse, RoleParoisse... roles) {
+        if (!isExistingParoisse(paroisse) || roles == null || roles.length == 0) {
+            return false;
+        }
+
         User currentUser = getCurrentUser();
 
         if (Boolean.TRUE.equals(currentUser.getIsGlobal())) {
@@ -65,14 +87,11 @@ public class TenantAccessService {
 
         return paroisseAccessRepository.findByUserAndParoisseAndStatusDelFalse(currentUser, paroisse)
                 .filter(access -> Boolean.TRUE.equals(access.getActive()))
-                .map(access -> {
-                    for (RoleParoisse role : roles) {
-                        if (access.getRoleParoisse() == role) {
-                            return true;
-                        }
-                    }
-                    return false;
-                })
+                .map(access -> access.getRoleParoisse())
+                .filter(Objects::nonNull)
+                .map(accessRole -> Arrays.stream(roles)
+                        .filter(Objects::nonNull)
+                        .anyMatch(role -> role == accessRole))
                 .orElse(false);
     }
 
@@ -84,5 +103,9 @@ public class TenantAccessService {
 
     public boolean isGlobalUser() {
         return Boolean.TRUE.equals(getCurrentUser().getIsGlobal());
+    }
+
+    private boolean isExistingParoisse(Paroisse paroisse) {
+        return paroisse != null && !Boolean.TRUE.equals(paroisse.getStatusDel());
     }
 }

@@ -2,6 +2,7 @@ package com.eyram.dev.church_project_spring.repositories;
 
 import com.eyram.dev.church_project_spring.entities.Demande;
 import com.eyram.dev.church_project_spring.entities.Paroisse;
+import com.eyram.dev.church_project_spring.entities.TypePaiement;
 import com.eyram.dev.church_project_spring.enums.StatutDemandeEnum;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -22,4 +23,5 @@ public interface DemandeRepository extends JpaRepository<Demande, Long> {
     List<Demande> findByParoisseAndStatutDemandeAndStatusDelFalse(Paroisse paroisse, StatutDemandeEnum statutDemande);
 
     boolean existsByCodeSuivieAndStatusDelFalse(String codeSuivie);
+    boolean existsByTypePaiementAndStatusDelFalse(TypePaiement typePaiement);
 }

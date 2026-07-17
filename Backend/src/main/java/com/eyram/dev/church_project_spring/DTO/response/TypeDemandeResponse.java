@@ -18,6 +18,9 @@ public record TypeDemandeResponse(
         UUID paroissePublicId,
         String paroisseNom,
         Boolean statusDel,
+        String statutLabel,
+        String resume,
+        String disponibiliteLabel,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {

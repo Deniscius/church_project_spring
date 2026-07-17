@@ -50,11 +50,14 @@ public class ForfaitTarifServiceImpl implements ForfaitTarifService {
         validateJoursCelebration(typeDemande, request.joursCelebrationAutorises());
 
         ForfaitTarif forfaitTarif = forfaitTarifMapper.dtoToModel(request);
+        forfaitTarif.setCodeForfait(normalizeCode(request.codeForfait()));
+        forfaitTarif.setNomForfait(normalizeText(request.nomForfait()));
+        forfaitTarif.setLibelle(normalizeOptionalText(request.libelle()));
         forfaitTarif.setTypeDemande(typeDemande);
         applyJoursCelebration(forfaitTarif, request.joursCelebrationAutorises());
 
         ForfaitTarif savedForfaitTarif = forfaitTarifRepository.save(forfaitTarif);
-        return forfaitTarifMapper.modelToDto(savedForfaitTarif);
+        return forfaitTarifMapper.modelToDtoWithMeta(savedForfaitTarif);
     }
 
     @Override
@@ -85,11 +88,14 @@ public class ForfaitTarifServiceImpl implements ForfaitTarifService {
         validateJoursCelebration(typeDemande, request.joursCelebrationAutorises());
 
         forfaitTarifMapper.updateEntityFromDto(request, existingForfaitTarif);
+        existingForfaitTarif.setCodeForfait(normalizeCode(request.codeForfait()));
+        existingForfaitTarif.setNomForfait(normalizeText(request.nomForfait()));
+        existingForfaitTarif.setLibelle(normalizeOptionalText(request.libelle()));
         existingForfaitTarif.setTypeDemande(typeDemande);
         applyJoursCelebration(existingForfaitTarif, request.joursCelebrationAutorises());
 
         ForfaitTarif updatedForfaitTarif = forfaitTarifRepository.save(existingForfaitTarif);
-        return forfaitTarifMapper.modelToDto(updatedForfaitTarif);
+        return forfaitTarifMapper.modelToDtoWithMeta(updatedForfaitTarif);
     }
 
     @Override
@@ -98,14 +104,14 @@ public class ForfaitTarifServiceImpl implements ForfaitTarifService {
                 .orElseThrow(() -> new ResourceNotFoundException("Forfait tarif introuvable"));
         tenantAccessService.checkParoisseAccess(forfaitTarif.getTypeDemande().getParoisse());
 
-        return forfaitTarifMapper.modelToDto(forfaitTarif);
+        return forfaitTarifMapper.modelToDtoWithMeta(forfaitTarif);
     }
 
     @Override
     public List<ForfaitTarifResponse> getAll() {
         return forfaitTarifRepository.findByStatusDelFalse()
                 .stream()
-                .map(forfaitTarifMapper::modelToDto)
+                .map(forfaitTarifMapper::modelToDtoWithMeta)
                 .toList();
     }
 
@@ -116,7 +122,7 @@ public class ForfaitTarifServiceImpl implements ForfaitTarifService {
 
         return forfaitTarifRepository.findByTypeDemandeAndStatusDelFalse(typeDemande)
                 .stream()
-                .map(forfaitTarifMapper::modelToDto)
+                .map(forfaitTarifMapper::modelToDtoWithMeta)
                 .toList();
     }
 
@@ -127,7 +133,7 @@ public class ForfaitTarifServiceImpl implements ForfaitTarifService {
 
         return forfaitTarifRepository.findByTypeDemandeAndIsActiveTrueAndStatusDelFalse(typeDemande)
                 .stream()
-                .map(forfaitTarifMapper::modelToDto)
+                .map(forfaitTarifMapper::modelToDtoWithMeta)
                 .toList();
     }
 
@@ -143,7 +149,7 @@ public class ForfaitTarifServiceImpl implements ForfaitTarifService {
 
     private void validateJoursCelebration(TypeDemande typeDemande, Set<JourSemaine> forfaitDays) {
         if (forfaitDays == null || forfaitDays.isEmpty()) {
-            throw new BusinessRuleException("Au moins un jour de célébration est obligatoire pour le forfait");
+            throw new BusinessRuleException("Sélectionnez au moins un jour de célébration compatible avec le type de demande");
         }
 
         Set<JourSemaine> typeDays = typeDemande.getJoursCelebrationAutorises();
@@ -153,7 +159,7 @@ public class ForfaitTarifServiceImpl implements ForfaitTarifService {
 
         if (!typeDays.containsAll(forfaitDays)) {
             throw new BusinessRuleException(
-                    "Les jours du forfait doivent être inclus dans ceux autorisés par le type de demande"
+                    "Les jours du forfait doivent être compatibles avec ceux autorisés par le type de demande"
             );
         }
     }
@@ -161,5 +167,27 @@ public class ForfaitTarifServiceImpl implements ForfaitTarifService {
     private void applyJoursCelebration(ForfaitTarif forfaitTarif, Set<JourSemaine> joursCelebrationAutorises) {
         forfaitTarif.getJoursCelebrationAutorises().clear();
         forfaitTarif.getJoursCelebrationAutorises().addAll(joursCelebrationAutorises);
+    }
+
+    private String normalizeCode(String value) {
+        if (value == null) {
+            return null;
+        }
+        return value.trim().toUpperCase();
+    }
+
+    private String normalizeText(String value) {
+        if (value == null) {
+            return null;
+        }
+        return value.trim();
+    }
+
+    private String normalizeOptionalText(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isBlank() ? null : trimmed;
     }
 }

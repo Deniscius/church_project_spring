@@ -51,11 +51,13 @@ public class TypeDemandeServiceImpl implements TypeDemandeService {
         }
 
         TypeDemande typeDemande = typeDemandeMapper.dtoToModel(request);
+        typeDemande.setLibelle(normalizeText(request.libelle()));
+        typeDemande.setDescription(normalizeOptionalText(request.description()));
         typeDemande.setParoisse(paroisse);
         applyJoursCelebration(typeDemande, request.joursCelebrationAutorises());
 
         TypeDemande savedTypeDemande = typeDemandeRepository.save(typeDemande);
-        return typeDemandeMapper.modelToDto(savedTypeDemande);
+        return typeDemandeMapper.modelToDtoWithMeta(savedTypeDemande);
     }
 
     @Override
@@ -88,11 +90,13 @@ public class TypeDemandeServiceImpl implements TypeDemandeService {
         }
 
         typeDemandeMapper.updateEntityFromDto(request, existingTypeDemande);
+        existingTypeDemande.setLibelle(normalizeText(request.libelle()));
+        existingTypeDemande.setDescription(normalizeOptionalText(request.description()));
         existingTypeDemande.setParoisse(paroisse);
         applyJoursCelebration(existingTypeDemande, request.joursCelebrationAutorises());
 
         TypeDemande updatedTypeDemande = typeDemandeRepository.save(existingTypeDemande);
-        return typeDemandeMapper.modelToDto(updatedTypeDemande);
+        return typeDemandeMapper.modelToDtoWithMeta(updatedTypeDemande);
     }
 
     @Override
@@ -101,14 +105,14 @@ public class TypeDemandeServiceImpl implements TypeDemandeService {
                 .orElseThrow(() -> new ResourceNotFoundException("Type de demande introuvable"));
         tenantAccessService.checkParoisseAccess(typeDemande.getParoisse());
 
-        return typeDemandeMapper.modelToDto(typeDemande);
+        return typeDemandeMapper.modelToDtoWithMeta(typeDemande);
     }
 
     @Override
     public List<TypeDemandeResponse> getAll() {
         return typeDemandeRepository.findByStatusDelFalse()
                 .stream()
-                .map(typeDemandeMapper::modelToDto)
+                .map(typeDemandeMapper::modelToDtoWithMeta)
                 .toList();
     }
 
@@ -119,7 +123,7 @@ public class TypeDemandeServiceImpl implements TypeDemandeService {
 
         return typeDemandeRepository.findByParoisseAndStatusDelFalse(paroisse)
                 .stream()
-                .map(typeDemandeMapper::modelToDto)
+                .map(typeDemandeMapper::modelToDtoWithMeta)
                 .toList();
     }
 
@@ -127,7 +131,7 @@ public class TypeDemandeServiceImpl implements TypeDemandeService {
     public List<TypeDemandeResponse> getByTypeDemandeEnum(TypeDemandeEnum typeDemandeEnum) {
         return typeDemandeRepository.findByTypeDemandeEnumAndStatusDelFalse(typeDemandeEnum)
                 .stream()
-                .map(typeDemandeMapper::modelToDto)
+                .map(typeDemandeMapper::modelToDtoWithMeta)
                 .toList();
     }
 
@@ -138,7 +142,7 @@ public class TypeDemandeServiceImpl implements TypeDemandeService {
 
         return typeDemandeRepository.findByParoisseAndTypeDemandeEnumAndStatusDelFalse(paroisse, typeDemandeEnum)
                 .stream()
-                .map(typeDemandeMapper::modelToDto)
+                .map(typeDemandeMapper::modelToDtoWithMeta)
                 .toList();
     }
 
@@ -163,9 +167,24 @@ public class TypeDemandeServiceImpl implements TypeDemandeService {
 
     private void applyJoursCelebration(TypeDemande typeDemande, Set<JourSemaine> joursCelebrationAutorises) {
         if (joursCelebrationAutorises == null || joursCelebrationAutorises.isEmpty()) {
-            throw new BusinessRuleException("Au moins un jour de célébration est obligatoire");
+            throw new BusinessRuleException("Sélectionnez au moins un jour de célébration autorisé");
         }
         typeDemande.getJoursCelebrationAutorises().clear();
         typeDemande.getJoursCelebrationAutorises().addAll(joursCelebrationAutorises);
+    }
+
+    private String normalizeText(String value) {
+        if (value == null) {
+            return null;
+        }
+        return value.trim();
+    }
+
+    private String normalizeOptionalText(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isBlank() ? null : trimmed;
     }
 }

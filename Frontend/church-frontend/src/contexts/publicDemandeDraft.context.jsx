@@ -22,6 +22,7 @@ const initialDraft = {
   typeDemandePublicId: '',
   typeDemandeLibelle: '',
   typeDemandeDelaiMinimumHeures: 24,
+  typeDemandeJoursCelebrationAutorises: [],
   forfaitTarifPublicId: '',
   forfaitLabel: '',
   forfaitHeurePersonnalise: false,
@@ -30,6 +31,7 @@ const initialDraft = {
   horairePublicId: '',
   horaireLibelle: '',
   horaireHeureCelebration: '',
+  horaireJourSemaine: '',
   heurePersonnalisee: '',
   dateDebut: '',
   typePaiementPublicId: '',
@@ -61,6 +63,7 @@ function draftReducer(state, action) {
         typeDemandePublicId: '',
         typeDemandeLibelle: '',
         typeDemandeDelaiMinimumHeures: 24,
+        typeDemandeJoursCelebrationAutorises: [],
         forfaitTarifPublicId: '',
         forfaitLabel: '',
         forfaitHeurePersonnalise: false,
@@ -69,16 +72,18 @@ function draftReducer(state, action) {
         horairePublicId: '',
         horaireLibelle: '',
         horaireHeureCelebration: '',
+        horaireJourSemaine: '',
         heurePersonnalisee: '',
       };
     }
     case 'SELECT_TYPE_DEMANDE': {
-      const { publicId, libelle, delaiMinimumHeures } = action.payload;
+      const { publicId, libelle, delaiMinimumHeures, joursCelebrationAutorises } = action.payload;
       return {
         ...state,
         typeDemandePublicId: publicId,
         typeDemandeLibelle: libelle || '',
         typeDemandeDelaiMinimumHeures: delaiMinimumHeures ?? 24,
+        typeDemandeJoursCelebrationAutorises: joursCelebrationAutorises || [],
         forfaitTarifPublicId: '',
         forfaitLabel: '',
         forfaitHeurePersonnalise: false,
@@ -87,7 +92,9 @@ function draftReducer(state, action) {
         horairePublicId: '',
         horaireLibelle: '',
         horaireHeureCelebration: '',
+        horaireJourSemaine: '',
         heurePersonnalisee: '',
+        dateDebut: '',
       };
     }
     case 'SELECT_FORFAIT': {
@@ -109,16 +116,19 @@ function draftReducer(state, action) {
         horairePublicId: '',
         horaireLibelle: '',
         horaireHeureCelebration: '',
+        horaireJourSemaine: '',
         heurePersonnalisee: '',
       };
     }
     case 'SELECT_HORAIRE': {
-      const { publicId, libelle, heureCelebration } = action.payload;
+      const { publicId, libelle, heureCelebration, jourSemaine } = action.payload;
       return {
         ...state,
         horairePublicId: publicId,
         horaireLibelle: libelle || '',
         horaireHeureCelebration: heureCelebration || '',
+        horaireJourSemaine: jourSemaine || '',
+        dateDebut: '',
       };
     }
     case 'SELECT_PAIEMENT': {

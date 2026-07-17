@@ -1,5 +1,7 @@
 package com.eyram.dev.church_project_spring.enums;
 
+import java.time.DayOfWeek;
+
 public enum JourSemaine {
 
     DIMANCHE("Dimanche", 1),
@@ -24,6 +26,18 @@ public enum JourSemaine {
 
     public int getOrdre() {
         return ordre;
+    }
+
+    public static JourSemaine fromDayOfWeek(DayOfWeek dayOfWeek) {
+        return switch (dayOfWeek) {
+            case SUNDAY -> DIMANCHE;
+            case MONDAY -> LUNDI;
+            case TUESDAY -> MARDI;
+            case WEDNESDAY -> MERCREDI;
+            case THURSDAY -> JEUDI;
+            case FRIDAY -> VENDREDI;
+            case SATURDAY -> SAMEDI;
+        };
     }
 
     @Override

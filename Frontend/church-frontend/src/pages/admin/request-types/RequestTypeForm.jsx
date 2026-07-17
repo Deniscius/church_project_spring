@@ -4,13 +4,19 @@ import AppButton from '../../../components/ui/AppButton';
 import AppCard from '../../../components/ui/AppCard';
 import AppInput from '../../../components/ui/AppInput';
 import AppTextarea from '../../../components/ui/AppTextarea';
+import WeekDaySelector from '../../../components/ui/WeekDaySelector';
+import { WEEK_DAYS } from '../../../constants/enums';
 import { useTenant } from '../../../hooks/useTenant';
 import { requestTypeService } from '../../../services/requestType.service';
 
 const CATEGORIES = ['EUCHARISTIE', 'SACRAMENT', 'SACRAMENTAUX'];
 const INITIAL_VALUE = {
-  libelle: '', description: '', typeDemandeEnum: 'EUCHARISTIE', isActive: true,
+  libelle: '',
+  description: '',
+  typeDemandeEnum: 'EUCHARISTIE',
+  isActive: true,
   delaiMinimumHeures: 24,
+  joursCelebrationAutorises: ['DIMANCHE'],
 };
 
 export default function RequestTypeForm({ requestTypeId = null }) {
@@ -26,13 +32,20 @@ export default function RequestTypeForm({ requestTypeId = null }) {
     (async () => {
       try {
         const data = await requestTypeService.getById(requestTypeId);
-        if (!cancelled) setForm({
-          libelle: data.libelle || '',
-          description: data.description || '',
-          typeDemandeEnum: data.typeDemandeEnum || 'EUCHARISTIE',
-          isActive: data.isActive !== false,
-          delaiMinimumHeures: data.delaiMinimumHeures ?? 24,
-        });
+        if (!cancelled) {
+          setForm({
+            libelle: data.libelle || '',
+            description: data.description || '',
+            typeDemandeEnum: data.typeDemandeEnum || 'EUCHARISTIE',
+            isActive: data.isActive !== false,
+            delaiMinimumHeures: data.delaiMinimumHeures ?? 24,
+            joursCelebrationAutorises: data.joursCelebrationAutorises?.length
+              ? [...data.joursCelebrationAutorises].sort(
+                  (a, b) => WEEK_DAYS.indexOf(a) - WEEK_DAYS.indexOf(b)
+                )
+              : ['DIMANCHE'],
+          });
+        }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Type de demande introuvable');
       } finally {
@@ -45,6 +58,9 @@ export default function RequestTypeForm({ requestTypeId = null }) {
   const submit = async (event) => {
     event.preventDefault();
     if (!activeParish?.id) return setError('Aucune paroisse active');
+    if (!form.joursCelebrationAutorises.length) {
+      return setError('Sélectionnez au moins un jour de célébration');
+    }
     try {
       setLoading(true);
       setError(null);
@@ -80,6 +96,17 @@ export default function RequestTypeForm({ requestTypeId = null }) {
             <label htmlFor="type-description">Description</label>
             <AppTextarea id="type-description" value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          </div>
+          <div className="form-field full">
+            <label htmlFor="type-celebration-days">Jours de célébration autorisés *</label>
+            <WeekDaySelector
+              id="type-celebration-days"
+              value={form.joursCelebrationAutorises}
+              onChange={(joursCelebrationAutorises) => setForm({ ...form, joursCelebrationAutorises })}
+            />
+            <small className="muted">
+              Seules les dates correspondant à ces jours seront proposées aux fidèles.
+            </small>
           </div>
           <div className="form-field">
             <label htmlFor="type-lead-time">Délai minimum avant célébration (heures) *</label>

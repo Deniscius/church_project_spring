@@ -45,6 +45,7 @@ export default function ScheduleSelector() {
                   ? `${h.jourSemaine || ''} ${h.heureCelebration || ''} ${h.libelle || ''}`.trim()
                   : '',
                 heureCelebration: h?.heureCelebration || '',
+                jourSemaine: h?.jourSemaine || '',
               },
             });
           }}

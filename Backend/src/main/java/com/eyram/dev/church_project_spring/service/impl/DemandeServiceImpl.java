@@ -19,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -85,7 +86,7 @@ public class DemandeServiceImpl implements DemandeService {
                 .orElseThrow(() -> new ResourceNotFoundException("Type de paiement introuvable"));
 
         validateDates(request, forfaitTarif);
-        validateCelebrationDeadline(request, horaire, typeDemande);
+        validateCelebrationSchedule(request, horaire, typeDemande);
 
         Demande demande = demandeMapper.dtoToModel(request);
         demande.setParoisse(paroisse);
@@ -101,7 +102,7 @@ public class DemandeServiceImpl implements DemandeService {
 
         Demande savedDemande = demandeRepository.save(demande);
 
-        generateDemandeDates(savedDemande, request);
+        generateDemandeDates(savedDemande, request, typeDemande);
 
         Facture facture = new Facture();
         facture.setDemande(savedDemande);
@@ -158,7 +159,7 @@ public class DemandeServiceImpl implements DemandeService {
 
         validateHoraire(request.heurePersonnalisee(), horaire, forfaitTarif);
         validateDates(request, forfaitTarif);
-        validateCelebrationDeadline(request, horaire, typeDemande);
+        validateCelebrationSchedule(request, horaire, typeDemande);
 
         TypePaiement typePaiement = typePaiementRepository.findByPublicIdAndStatusDelFalse(request.typePaiementPublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Type de paiement introuvable"));
@@ -176,7 +177,7 @@ public class DemandeServiceImpl implements DemandeService {
 
         Demande updatedDemande = demandeRepository.save(existingDemande);
 
-        refreshDemandeDates(updatedDemande, request);
+        refreshDemandeDates(updatedDemande, request, typeDemande);
 
         Facture facture = factureRepository.findByDemandePublicIdAndStatusDelFalse(publicId)
                 .orElse(null);
@@ -344,11 +345,20 @@ public class DemandeServiceImpl implements DemandeService {
         }
     }
 
-    private void validateCelebrationDeadline(
+    private void validateCelebrationSchedule(
             DemandeRequest request,
             Horaire horaire,
             TypeDemande typeDemande
     ) {
+        demandeSchedulingPolicy.validateAllowedDay(
+                request.dateDebut(),
+                typeDemande.getJoursCelebrationAutorises()
+        );
+
+        if (horaire != null) {
+            demandeSchedulingPolicy.validateHoraireDay(request.dateDebut(), horaire.getJourSemaine());
+        }
+
         LocalTime celebrationTime = request.heurePersonnalisee() != null
                 ? request.heurePersonnalisee()
                 : horaire != null ? horaire.getHeureCelebration() : null;
@@ -360,27 +370,33 @@ public class DemandeServiceImpl implements DemandeService {
         );
     }
 
-    private void generateDemandeDates(Demande demande, DemandeRequest request) {
+    private void generateDemandeDates(Demande demande, DemandeRequest request, TypeDemande typeDemande) {
         Integer nombreCelebrations = demande.getForfaitTarif().getNombreCelebration();
 
         if (nombreCelebrations == null || nombreCelebrations <= 0) {
             return;
         }
 
+        List<LocalDate> celebrationDates = demandeSchedulingPolicy.computeCelebrationDates(
+                request.dateDebut(),
+                typeDemande.getJoursCelebrationAutorises(),
+                nombreCelebrations
+        );
+
         List<DemandeDate> demandeDates = new ArrayList<>();
 
-        for (int i = 1; i <= nombreCelebrations; i++) {
+        for (int i = 0; i < celebrationDates.size(); i++) {
             DemandeDate demandeDate = new DemandeDate();
             demandeDate.setDemande(demande);
-            demandeDate.setOrdre(i);
-            demandeDate.setDateCelebration(request.dateDebut().plusDays(i - 1));
+            demandeDate.setOrdre(i + 1);
+            demandeDate.setDateCelebration(celebrationDates.get(i));
             demandeDates.add(demandeDate);
         }
 
         demandeDateRepository.saveAll(demandeDates);
     }
 
-    private void refreshDemandeDates(Demande demande, DemandeRequest request) {
+    private void refreshDemandeDates(Demande demande, DemandeRequest request, TypeDemande typeDemande) {
         List<DemandeDate> anciennesDates =
                 demandeDateRepository.findByDemande_IdAndStatusDelFalse(demande.getId());
 
@@ -389,7 +405,7 @@ public class DemandeServiceImpl implements DemandeService {
             demandeDateRepository.saveAll(anciennesDates);
         }
 
-        generateDemandeDates(demande, request);
+        generateDemandeDates(demande, request, typeDemande);
     }
 
     private DemandeResponse buildDemandeResponse(Demande demande) {

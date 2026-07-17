@@ -1,11 +1,14 @@
 package com.eyram.dev.church_project_spring.DTO.request;
 
+import com.eyram.dev.church_project_spring.enums.JourSemaine;
 import com.eyram.dev.church_project_spring.enums.TypeDemandeEnum;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 
+import java.util.Set;
 import java.util.UUID;
 
 public record TypeDemandeRequest(
@@ -25,6 +28,9 @@ public record TypeDemandeRequest(
         @Min(value = 0, message = "Le délai minimum ne peut pas être négatif")
         @Max(value = 8760, message = "Le délai minimum ne peut pas dépasser un an")
         Integer delaiMinimumHeures,
+
+        @NotEmpty(message = "Au moins un jour de célébration est obligatoire")
+        Set<JourSemaine> joursCelebrationAutorises,
 
         @NotNull(message = "La paroisse est obligatoire")
         UUID paroissePublicId

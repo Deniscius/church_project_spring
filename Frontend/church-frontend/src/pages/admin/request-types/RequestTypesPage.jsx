@@ -12,6 +12,7 @@ import { PERMISSIONS } from '../../../constants/roles';
 const columns = [
   { key: 'label', label: 'Libellé' },
   { key: 'category', label: 'Catégorie' },
+  { key: 'allowedDays', label: 'Jours autorisés' },
   { key: 'leadTime', label: 'Délai minimum' },
   { key: 'active', label: 'État' },
   { key: 'actions', label: 'Actions' },

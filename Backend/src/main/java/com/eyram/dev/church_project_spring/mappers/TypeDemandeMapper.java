@@ -18,6 +18,7 @@ public interface TypeDemandeMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "paroisse", ignore = true)
+    @Mapping(target = "joursCelebrationAutorises", ignore = true)
     TypeDemande dtoToModel(TypeDemandeRequest request);
 
     @Mapping(target = "paroissePublicId", source = "paroisse.publicId")
@@ -31,5 +32,6 @@ public interface TypeDemandeMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "paroisse", ignore = true)
+    @Mapping(target = "joursCelebrationAutorises", ignore = true)
     void updateEntityFromDto(TypeDemandeRequest request, @MappingTarget TypeDemande entity);
 }

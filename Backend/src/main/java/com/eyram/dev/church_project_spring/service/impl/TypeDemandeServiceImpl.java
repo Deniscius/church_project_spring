@@ -4,6 +4,7 @@ import com.eyram.dev.church_project_spring.DTO.request.TypeDemandeRequest;
 import com.eyram.dev.church_project_spring.DTO.response.TypeDemandeResponse;
 import com.eyram.dev.church_project_spring.entities.Paroisse;
 import com.eyram.dev.church_project_spring.entities.TypeDemande;
+import com.eyram.dev.church_project_spring.enums.JourSemaine;
 import com.eyram.dev.church_project_spring.enums.TypeDemandeEnum;
 import com.eyram.dev.church_project_spring.mappers.TypeDemandeMapper;
 import com.eyram.dev.church_project_spring.repositories.ParoisseRepository;
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -50,6 +52,7 @@ public class TypeDemandeServiceImpl implements TypeDemandeService {
 
         TypeDemande typeDemande = typeDemandeMapper.dtoToModel(request);
         typeDemande.setParoisse(paroisse);
+        applyJoursCelebration(typeDemande, request.joursCelebrationAutorises());
 
         TypeDemande savedTypeDemande = typeDemandeRepository.save(typeDemande);
         return typeDemandeMapper.modelToDto(savedTypeDemande);
@@ -86,6 +89,7 @@ public class TypeDemandeServiceImpl implements TypeDemandeService {
 
         typeDemandeMapper.updateEntityFromDto(request, existingTypeDemande);
         existingTypeDemande.setParoisse(paroisse);
+        applyJoursCelebration(existingTypeDemande, request.joursCelebrationAutorises());
 
         TypeDemande updatedTypeDemande = typeDemandeRepository.save(existingTypeDemande);
         return typeDemandeMapper.modelToDto(updatedTypeDemande);
@@ -155,5 +159,13 @@ public class TypeDemandeServiceImpl implements TypeDemandeService {
         if (request.delaiMinimumHeures() < 0 || request.delaiMinimumHeures() > 8760) {
             throw new BusinessRuleException("Le délai minimum doit être compris entre 0 et 8760 heures");
         }
+    }
+
+    private void applyJoursCelebration(TypeDemande typeDemande, Set<JourSemaine> joursCelebrationAutorises) {
+        if (joursCelebrationAutorises == null || joursCelebrationAutorises.isEmpty()) {
+            throw new BusinessRuleException("Au moins un jour de célébration est obligatoire");
+        }
+        typeDemande.getJoursCelebrationAutorises().clear();
+        typeDemande.getJoursCelebrationAutorises().addAll(joursCelebrationAutorises);
     }
 }

@@ -106,11 +106,14 @@ export function mapTypePaiementToRow(t) {
   };
 }
 
+import { formatAllowedDays } from './schedulingUtils';
+
 export function mapTypeDemandeToRow(t) {
   return {
     id: t.publicId,
     label: t.libelle,
     category: t.typeDemandeEnum,
+    allowedDays: formatAllowedDays(t.joursCelebrationAutorises),
     leadTime: `${t.delaiMinimumHeures ?? 24} h`,
     active: t.isActive ? 'ACTIVE' : 'INACTIVE',
   };

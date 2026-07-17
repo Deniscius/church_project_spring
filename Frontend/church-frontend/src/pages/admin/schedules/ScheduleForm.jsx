@@ -6,7 +6,7 @@ import AppInput from '../../../components/ui/AppInput';
 import { useTenant } from '../../../hooks/useTenant';
 import { scheduleService } from '../../../services/schedule.service';
 
-const DAYS = ['DIMANCHE', 'LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI'];
+import { WEEK_DAYS } from '../../../constants/enums';
 const INITIAL_VALUE = {
   libelle: '',
   jourSemaine: 'DIMANCHE',
@@ -80,7 +80,7 @@ export default function ScheduleForm({ scheduleId = null }) {
             <label htmlFor="schedule-day">Jour *</label>
             <select id="schedule-day" className="select" value={form.jourSemaine}
               onChange={(e) => setForm({ ...form, jourSemaine: e.target.value })}>
-              {DAYS.map((day) => <option key={day} value={day}>{day}</option>)}
+              {WEEK_DAYS.map((day) => <option key={day} value={day}>{day}</option>)}
             </select>
           </div>
           <div className="form-field">

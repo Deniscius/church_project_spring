@@ -135,6 +135,7 @@ export function mapForfaitToRow(f) {
     label: f.libelle || f.nomForfait || f.codeForfait,
     amount: f.montantForfait != null ? Number(f.montantForfait) : null,
     celebrations: f.nombreCelebration ?? '—',
+    allowedDays: formatAllowedDays(f.joursCelebrationAutorises),
     customHour: Boolean(f.heurePersonnalise),
     active: f.isActive ? 'ACTIVE' : 'INACTIVE',
   };

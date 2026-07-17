@@ -77,4 +77,14 @@ class DemandeSchedulingPolicyTest {
                 dates
         );
     }
+
+    @Test
+    void resolvesAllowedDaysFromTypeAndForfait() {
+        Set<JourSemaine> typeDays = EnumSet.of(JourSemaine.DIMANCHE, JourSemaine.MERCREDI);
+        Set<JourSemaine> forfaitDays = EnumSet.of(JourSemaine.DIMANCHE);
+
+        Set<JourSemaine> resolved = policy.resolveAllowedDays(typeDays, forfaitDays);
+
+        assertEquals(EnumSet.of(JourSemaine.DIMANCHE), resolved);
+    }
 }

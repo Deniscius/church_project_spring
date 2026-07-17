@@ -24,13 +24,31 @@ export function formatAllowedDays(allowedDays) {
     .join(', ');
 }
 
-export function getEffectiveAllowedDays(allowedDays, horaireDay) {
-  if (horaireDay) return [horaireDay];
-  return allowedDays?.length ? allowedDays : WEEK_DAYS;
+export function resolveAllowedDays(typeDays = [], forfaitDays = []) {
+  if (forfaitDays?.length) {
+    if (typeDays?.length) {
+      const intersection = forfaitDays.filter((day) => typeDays.includes(day));
+      return intersection.length ? intersection : forfaitDays;
+    }
+    return forfaitDays;
+  }
+  if (typeDays?.length) return typeDays;
+  return WEEK_DAYS;
+}
+
+export function getEffectiveAllowedDays(typeDays, forfaitDays, horaireDay) {
+  const resolved = resolveAllowedDays(typeDays, forfaitDays);
+  if (horaireDay) return resolved.includes(horaireDay) ? [horaireDay] : [horaireDay];
+  return resolved;
+}
+
+export function filterDaysWithinType(typeDays = [], selectedDays = []) {
+  if (!typeDays.length) return selectedDays;
+  return selectedDays.filter((day) => typeDays.includes(day));
 }
 
 export function findNextAllowedDate(fromDateStr, allowedDays, maxLookaheadDays = 730) {
-  const allowed = getEffectiveAllowedDays(allowedDays);
+  const allowed = allowedDays?.length ? allowedDays : WEEK_DAYS;
   const start = fromDateStr ? new Date(`${fromDateStr}T12:00:00`) : new Date();
   if (Number.isNaN(start.getTime())) return '';
 

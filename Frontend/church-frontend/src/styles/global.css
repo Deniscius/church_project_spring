@@ -335,6 +335,10 @@ button, input, select, textarea {
   cursor: not-allowed;
 }
 
+.week-day-chip.is-disabled:not(.is-active) {
+  opacity: 0.45;
+}
+
 /* ── Buttons ── */
 
 .btn {

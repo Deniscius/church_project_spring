@@ -1,19 +1,31 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AppButton from '../../../components/ui/AppButton';
 import AppCard from '../../../components/ui/AppCard';
 import AppInput from '../../../components/ui/AppInput';
+import WeekDaySelector from '../../../components/ui/WeekDaySelector';
+import { WEEK_DAYS } from '../../../constants/enums';
 import { useTenant } from '../../../hooks/useTenant';
 import { pricingService } from '../../../services/pricing.service';
 import { requestTypeService } from '../../../services/requestType.service';
+import { filterDaysWithinType, formatAllowedDays } from '../../../utils/schedulingUtils';
 
 const INITIAL_VALUE = {
-  codeForfait: '', nomForfait: '', libelle: '', montantForfait: '',
-  nombreJour: '', nombreCelebration: '1', joursAutorise: '',
-  heurePersonnalise: false, isActive: true, typeDemandePublicId: '',
+  codeForfait: '',
+  nomForfait: '',
+  libelle: '',
+  montantForfait: '',
+  nombreJour: '',
+  nombreCelebration: '1',
+  joursCelebrationAutorises: ['DIMANCHE'],
+  heurePersonnalise: false,
+  isActive: true,
+  typeDemandePublicId: '',
 };
 
-const optionalNumber = (value) => value === '' ? null : Number(value);
+const optionalNumber = (value) => (value === '' ? null : Number(value));
+
+const sortDays = (days) => [...days].sort((a, b) => WEEK_DAYS.indexOf(a) - WEEK_DAYS.indexOf(b));
 
 export default function PricingForm({ pricingId = null }) {
   const navigate = useNavigate();
@@ -22,6 +34,12 @@ export default function PricingForm({ pricingId = null }) {
   const [types, setTypes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const selectedType = useMemo(
+    () => types.find((type) => type.publicId === form.typeDemandePublicId) || null,
+    [types, form.typeDemandePublicId]
+  );
+  const typeAllowedDays = selectedType?.joursCelebrationAutorises || [];
 
   useEffect(() => {
     if (!activeParish?.id) return;
@@ -36,6 +54,13 @@ export default function PricingForm({ pricingId = null }) {
         if (cancelled) return;
         setTypes(availableTypes || []);
         if (existing) {
+          const type = (availableTypes || []).find((item) => item.publicId === existing.typeDemandePublicId);
+          const allowedByType = type?.joursCelebrationAutorises || [];
+          const forfaitDays = existing.joursCelebrationAutorises?.length
+            ? filterDaysWithinType(allowedByType, existing.joursCelebrationAutorises)
+            : allowedByType.length
+              ? allowedByType
+              : ['DIMANCHE'];
           setForm({
             codeForfait: existing.codeForfait || '',
             nomForfait: existing.nomForfait || '',
@@ -43,13 +68,20 @@ export default function PricingForm({ pricingId = null }) {
             montantForfait: existing.montantForfait ?? '',
             nombreJour: existing.nombreJour ?? '',
             nombreCelebration: existing.nombreCelebration ?? '',
-            joursAutorise: existing.joursAutorise ?? '',
+            joursCelebrationAutorises: sortDays(forfaitDays),
             heurePersonnalise: Boolean(existing.heurePersonnalise),
             isActive: existing.isActive !== false,
             typeDemandePublicId: existing.typeDemandePublicId || '',
           });
         } else {
-          setForm((current) => ({ ...current, typeDemandePublicId: availableTypes?.[0]?.publicId || '' }));
+          const firstType = availableTypes?.[0];
+          setForm((current) => ({
+            ...current,
+            typeDemandePublicId: firstType?.publicId || '',
+            joursCelebrationAutorises: firstType?.joursCelebrationAutorises?.length
+              ? sortDays(firstType.joursCelebrationAutorises)
+              : ['DIMANCHE'],
+          }));
         }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Chargement impossible');
@@ -62,8 +94,27 @@ export default function PricingForm({ pricingId = null }) {
 
   const field = (name, value) => setForm((current) => ({ ...current, [name]: value }));
 
+  const handleTypeChange = (typeDemandePublicId) => {
+    const type = types.find((item) => item.publicId === typeDemandePublicId);
+    const nextTypeDays = type?.joursCelebrationAutorises?.length
+      ? type.joursCelebrationAutorises
+      : ['DIMANCHE'];
+    setForm((current) => ({
+      ...current,
+      typeDemandePublicId,
+      joursCelebrationAutorises: sortDays(
+        filterDaysWithinType(nextTypeDays, current.joursCelebrationAutorises).length
+          ? filterDaysWithinType(nextTypeDays, current.joursCelebrationAutorises)
+          : nextTypeDays
+      ),
+    }));
+  };
+
   const submit = async (event) => {
     event.preventDefault();
+    if (!form.joursCelebrationAutorises.length) {
+      return setError('Sélectionnez au moins un jour de célébration pour ce forfait');
+    }
     try {
       setLoading(true);
       setError(null);
@@ -72,7 +123,6 @@ export default function PricingForm({ pricingId = null }) {
         montantForfait: Number(form.montantForfait),
         nombreJour: optionalNumber(form.nombreJour),
         nombreCelebration: optionalNumber(form.nombreCelebration),
-        joursAutorise: optionalNumber(form.joursAutorise),
       };
       if (pricingId) await pricingService.update(pricingId, payload);
       else await pricingService.create(payload);
@@ -99,15 +149,27 @@ export default function PricingForm({ pricingId = null }) {
           <div className="form-field"><label htmlFor="pricing-amount">Montant *</label>
             <AppInput id="pricing-amount" type="number" min="1" step="0.01" required value={form.montantForfait} onChange={(e) => field('montantForfait', e.target.value)} /></div>
           <div className="form-field"><label htmlFor="pricing-type">Type de demande *</label>
-            <select id="pricing-type" className="select" required value={form.typeDemandePublicId} onChange={(e) => field('typeDemandePublicId', e.target.value)}>
+            <select id="pricing-type" className="select" required value={form.typeDemandePublicId} onChange={(e) => handleTypeChange(e.target.value)}>
               {types.map((type) => <option key={type.publicId} value={type.publicId}>{type.libelle}</option>)}
             </select></div>
           <div className="form-field"><label htmlFor="pricing-celebrations">Nombre de célébrations</label>
             <AppInput id="pricing-celebrations" type="number" min="0" value={form.nombreCelebration} onChange={(e) => field('nombreCelebration', e.target.value)} /></div>
           <div className="form-field"><label htmlFor="pricing-days">Nombre de jours</label>
             <AppInput id="pricing-days" type="number" min="0" value={form.nombreJour} onChange={(e) => field('nombreJour', e.target.value)} /></div>
-          <div className="form-field"><label htmlFor="pricing-allowed-days">Jours autorisés</label>
-            <AppInput id="pricing-allowed-days" type="number" min="0" value={form.joursAutorise} onChange={(e) => field('joursAutorise', e.target.value)} /></div>
+          <div className="form-field full">
+            <label htmlFor="pricing-celebration-days">Jours de célébration autorisés *</label>
+            <WeekDaySelector
+              id="pricing-celebration-days"
+              value={form.joursCelebrationAutorises}
+              availableDays={typeAllowedDays.length ? typeAllowedDays : null}
+              onChange={(joursCelebrationAutorises) => field('joursCelebrationAutorises', joursCelebrationAutorises)}
+            />
+            <small className="muted">
+              {typeAllowedDays.length
+                ? `Doit être inclus dans les jours du type : ${formatAllowedDays(typeAllowedDays)}.`
+                : 'Choisissez les jours applicables à ce forfait.'}
+            </small>
+          </div>
           <div className="form-field"><label htmlFor="pricing-custom-time">Heure personnalisée *</label>
             <select id="pricing-custom-time" className="select" value={String(form.heurePersonnalise)} onChange={(e) => field('heurePersonnalise', e.target.value === 'true')}>
               <option value="false">Non</option><option value="true">Oui</option>

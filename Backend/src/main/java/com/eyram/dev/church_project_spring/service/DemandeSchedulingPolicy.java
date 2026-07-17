@@ -48,6 +48,10 @@ public class DemandeSchedulingPolicy {
     }
 
     public void validateAllowedDay(LocalDate celebrationDate, Set<JourSemaine> allowedDays) {
+        validateAllowedDay(celebrationDate, allowedDays, "Ce forfait");
+    }
+
+    public void validateAllowedDay(LocalDate celebrationDate, Set<JourSemaine> allowedDays, String contextLabel) {
         if (celebrationDate == null) {
             throw new BusinessRuleException("La date de célébration est obligatoire");
         }
@@ -58,12 +62,29 @@ public class DemandeSchedulingPolicy {
         JourSemaine requestedDay = JourSemaine.fromDayOfWeek(celebrationDate.getDayOfWeek());
         if (!allowedDays.contains(requestedDay)) {
             throw new BusinessRuleException(
-                    "Ce type de demande n'est pas célébré le "
+                    contextLabel + " n'autorise pas de célébration le "
                             + requestedDay.getLibelle()
                             + ". Jours autorisés : "
                             + formatAllowedDays(allowedDays)
             );
         }
+    }
+
+    public Set<JourSemaine> resolveAllowedDays(Set<JourSemaine> typeDays, Set<JourSemaine> forfaitDays) {
+        if (forfaitDays != null && !forfaitDays.isEmpty()) {
+            if (typeDays != null && !typeDays.isEmpty()) {
+                Set<JourSemaine> intersection = EnumSet.copyOf(forfaitDays);
+                intersection.retainAll(typeDays);
+                if (!intersection.isEmpty()) {
+                    return intersection;
+                }
+            }
+            return EnumSet.copyOf(forfaitDays);
+        }
+        if (typeDays != null && !typeDays.isEmpty()) {
+            return EnumSet.copyOf(typeDays);
+        }
+        return EnumSet.allOf(JourSemaine.class);
     }
 
     public void validateHoraireDay(LocalDate celebrationDate, JourSemaine horaireDay) {

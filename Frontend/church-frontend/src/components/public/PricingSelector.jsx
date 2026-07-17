@@ -3,6 +3,7 @@ import AppCard from '../ui/AppCard';
 import { usePublicDemandeDraft } from '../../contexts/publicDemandeDraft.context';
 import { useForfaitsActifsQuery } from '../../hooks/queries/usePublicReferentiel';
 import { formatCurrency } from '../../utils/formatCurrency';
+import { formatAllowedDays } from '../../utils/schedulingUtils';
 
 export default function PricingSelector() {
   const { draft, dispatch } = usePublicDemandeDraft();
@@ -38,6 +39,7 @@ export default function PricingSelector() {
                 heurePersonnalise: f?.heurePersonnalise,
                 nombreCelebration: f?.nombreCelebration,
                 montantForfait: f?.montantForfait,
+                joursCelebrationAutorises: f?.joursCelebrationAutorises || [],
               },
             });
           }}
@@ -50,6 +52,11 @@ export default function PricingSelector() {
             </option>
           ))}
         </select>
+        {draft.forfaitTarifPublicId && draft.forfaitJoursCelebrationAutorises?.length ? (
+          <small className="muted">
+            Jours autorisés : {formatAllowedDays(draft.forfaitJoursCelebrationAutorises)}.
+          </small>
+        ) : null}
       </div>
     </AppCard>
   );

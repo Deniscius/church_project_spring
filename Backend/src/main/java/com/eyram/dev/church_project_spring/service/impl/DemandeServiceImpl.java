@@ -4,6 +4,7 @@ import com.eyram.dev.church_project_spring.DTO.request.DemandeRequest;
 import com.eyram.dev.church_project_spring.DTO.request.DemandeValidationRequest;
 import com.eyram.dev.church_project_spring.DTO.response.DemandeResponse;
 import com.eyram.dev.church_project_spring.entities.*;
+import com.eyram.dev.church_project_spring.enums.JourSemaine;
 import com.eyram.dev.church_project_spring.enums.StatutDemandeEnum;
 import com.eyram.dev.church_project_spring.enums.StatutPaiementEnum;
 import com.eyram.dev.church_project_spring.enums.StatutValidationEnum;
@@ -25,6 +26,7 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -86,7 +88,7 @@ public class DemandeServiceImpl implements DemandeService {
                 .orElseThrow(() -> new ResourceNotFoundException("Type de paiement introuvable"));
 
         validateDates(request, forfaitTarif);
-        validateCelebrationSchedule(request, horaire, typeDemande);
+        validateCelebrationSchedule(request, horaire, typeDemande, forfaitTarif);
 
         Demande demande = demandeMapper.dtoToModel(request);
         demande.setParoisse(paroisse);
@@ -102,7 +104,7 @@ public class DemandeServiceImpl implements DemandeService {
 
         Demande savedDemande = demandeRepository.save(demande);
 
-        generateDemandeDates(savedDemande, request, typeDemande);
+        generateDemandeDates(savedDemande, request, typeDemande, forfaitTarif);
 
         Facture facture = new Facture();
         facture.setDemande(savedDemande);
@@ -159,7 +161,7 @@ public class DemandeServiceImpl implements DemandeService {
 
         validateHoraire(request.heurePersonnalisee(), horaire, forfaitTarif);
         validateDates(request, forfaitTarif);
-        validateCelebrationSchedule(request, horaire, typeDemande);
+        validateCelebrationSchedule(request, horaire, typeDemande, forfaitTarif);
 
         TypePaiement typePaiement = typePaiementRepository.findByPublicIdAndStatusDelFalse(request.typePaiementPublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Type de paiement introuvable"));
@@ -177,7 +179,7 @@ public class DemandeServiceImpl implements DemandeService {
 
         Demande updatedDemande = demandeRepository.save(existingDemande);
 
-        refreshDemandeDates(updatedDemande, request, typeDemande);
+        refreshDemandeDates(updatedDemande, request, typeDemande, forfaitTarif);
 
         Facture facture = factureRepository.findByDemandePublicIdAndStatusDelFalse(publicId)
                 .orElse(null);
@@ -348,12 +350,15 @@ public class DemandeServiceImpl implements DemandeService {
     private void validateCelebrationSchedule(
             DemandeRequest request,
             Horaire horaire,
-            TypeDemande typeDemande
+            TypeDemande typeDemande,
+            ForfaitTarif forfaitTarif
     ) {
-        demandeSchedulingPolicy.validateAllowedDay(
-                request.dateDebut(),
-                typeDemande.getJoursCelebrationAutorises()
+        Set<JourSemaine> allowedDays = demandeSchedulingPolicy.resolveAllowedDays(
+                typeDemande.getJoursCelebrationAutorises(),
+                forfaitTarif.getJoursCelebrationAutorises()
         );
+
+        demandeSchedulingPolicy.validateAllowedDay(request.dateDebut(), allowedDays, "Ce forfait");
 
         if (horaire != null) {
             demandeSchedulingPolicy.validateHoraireDay(request.dateDebut(), horaire.getJourSemaine());
@@ -370,16 +375,26 @@ public class DemandeServiceImpl implements DemandeService {
         );
     }
 
-    private void generateDemandeDates(Demande demande, DemandeRequest request, TypeDemande typeDemande) {
+    private void generateDemandeDates(
+            Demande demande,
+            DemandeRequest request,
+            TypeDemande typeDemande,
+            ForfaitTarif forfaitTarif
+    ) {
         Integer nombreCelebrations = demande.getForfaitTarif().getNombreCelebration();
 
         if (nombreCelebrations == null || nombreCelebrations <= 0) {
             return;
         }
 
+        Set<JourSemaine> allowedDays = demandeSchedulingPolicy.resolveAllowedDays(
+                typeDemande.getJoursCelebrationAutorises(),
+                forfaitTarif.getJoursCelebrationAutorises()
+        );
+
         List<LocalDate> celebrationDates = demandeSchedulingPolicy.computeCelebrationDates(
                 request.dateDebut(),
-                typeDemande.getJoursCelebrationAutorises(),
+                allowedDays,
                 nombreCelebrations
         );
 
@@ -396,7 +411,12 @@ public class DemandeServiceImpl implements DemandeService {
         demandeDateRepository.saveAll(demandeDates);
     }
 
-    private void refreshDemandeDates(Demande demande, DemandeRequest request, TypeDemande typeDemande) {
+    private void refreshDemandeDates(
+            Demande demande,
+            DemandeRequest request,
+            TypeDemande typeDemande,
+            ForfaitTarif forfaitTarif
+    ) {
         List<DemandeDate> anciennesDates =
                 demandeDateRepository.findByDemande_IdAndStatusDelFalse(demande.getId());
 
@@ -405,7 +425,7 @@ public class DemandeServiceImpl implements DemandeService {
             demandeDateRepository.saveAll(anciennesDates);
         }
 
-        generateDemandeDates(demande, request, typeDemande);
+        generateDemandeDates(demande, request, typeDemande, forfaitTarif);
     }
 
     private DemandeResponse buildDemandeResponse(Demande demande) {

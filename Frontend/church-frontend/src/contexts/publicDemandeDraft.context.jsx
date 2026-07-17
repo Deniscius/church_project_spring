@@ -28,6 +28,7 @@ const initialDraft = {
   forfaitHeurePersonnalise: false,
   forfaitNombreCelebration: null,
   forfaitMontant: null,
+  forfaitJoursCelebrationAutorises: [],
   horairePublicId: '',
   horaireLibelle: '',
   horaireHeureCelebration: '',
@@ -69,6 +70,7 @@ function draftReducer(state, action) {
         forfaitHeurePersonnalise: false,
         forfaitNombreCelebration: null,
         forfaitMontant: null,
+        forfaitJoursCelebrationAutorises: [],
         horairePublicId: '',
         horaireLibelle: '',
         horaireHeureCelebration: '',
@@ -89,6 +91,7 @@ function draftReducer(state, action) {
         forfaitHeurePersonnalise: false,
         forfaitNombreCelebration: null,
         forfaitMontant: null,
+        forfaitJoursCelebrationAutorises: [],
         horairePublicId: '',
         horaireLibelle: '',
         horaireHeureCelebration: '',
@@ -104,6 +107,7 @@ function draftReducer(state, action) {
         heurePersonnalise,
         nombreCelebration,
         montantForfait,
+        joursCelebrationAutorises,
       } = action.payload;
       return {
         ...state,
@@ -113,11 +117,13 @@ function draftReducer(state, action) {
         forfaitNombreCelebration:
           nombreCelebration != null ? Number(nombreCelebration) : null,
         forfaitMontant: montantForfait != null ? Number(montantForfait) : null,
+        forfaitJoursCelebrationAutorises: joursCelebrationAutorises || [],
         horairePublicId: '',
         horaireLibelle: '',
         horaireHeureCelebration: '',
         horaireJourSemaine: '',
         heurePersonnalisee: '',
+        dateDebut: '',
       };
     }
     case 'SELECT_HORAIRE': {

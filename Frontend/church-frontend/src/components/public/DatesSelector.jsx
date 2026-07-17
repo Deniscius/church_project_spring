@@ -16,11 +16,17 @@ export default function DatesSelector() {
   const effectiveAllowedDays = useMemo(
     () => getEffectiveAllowedDays(
       draft.typeDemandeJoursCelebrationAutorises,
+      draft.forfaitJoursCelebrationAutorises,
       draft.horaireJourSemaine
     ),
-    [draft.typeDemandeJoursCelebrationAutorises, draft.horaireJourSemaine]
+    [
+      draft.typeDemandeJoursCelebrationAutorises,
+      draft.forfaitJoursCelebrationAutorises,
+      draft.horaireJourSemaine,
+    ]
   );
   const allowedDaysLabel = formatAllowedDays(effectiveAllowedDays);
+  const disabled = !draft.forfaitTarifPublicId;
 
   const handleDateChange = (value) => {
     if (!value) {
@@ -34,7 +40,7 @@ export default function DatesSelector() {
       return;
     }
     if (!isDateAllowedForDays(value, effectiveAllowedDays)) {
-      setDateError(`Ce jour n’est pas autorisé pour ce type de demande (${allowedDaysLabel}).`);
+      setDateError(`Ce jour n’est pas autorisé pour le forfait choisi (${allowedDaysLabel}).`);
       patch({ dateDebut: value });
       return;
     }
@@ -46,11 +52,14 @@ export default function DatesSelector() {
     <AppCard
       title="Date de début"
       subtitle={
-        n != null && n > 1
-          ? `Le backend planifie ${n} célébration(s) à partir de cette date, uniquement les jours autorisés.`
-          : 'Date de la première célébration (obligatoire).'
+        disabled
+          ? 'Sélectionnez d’abord un forfait.'
+          : n != null && n > 1
+            ? `Le backend planifie ${n} célébration(s) à partir de cette date, selon les jours du forfait.`
+            : 'Date de la première célébration (obligatoire).'
       }
     >
+      {disabled ? <p className="muted">Le calendrier s’active après le choix du forfait.</p> : null}
       <div className="form-field">
         <label htmlFor="public-date-debut">Date *</label>
         <AppInput
@@ -58,13 +67,16 @@ export default function DatesSelector() {
           type="date"
           min={minimumDate}
           value={draft.dateDebut}
+          disabled={disabled}
           onChange={(e) => handleDateChange(e.target.value)}
           required
         />
         {dateError ? <small className="text-red-600">{dateError}</small> : null}
-        <small className="muted">
-          Jours autorisés : {allowedDaysLabel}. Délai minimum : {draft.typeDemandeDelaiMinimumHeures} heure(s).
-        </small>
+        {!disabled ? (
+          <small className="muted">
+            Jours autorisés pour ce forfait : {allowedDaysLabel}. Délai minimum : {draft.typeDemandeDelaiMinimumHeures} heure(s).
+          </small>
+        ) : null}
       </div>
     </AppCard>
   );

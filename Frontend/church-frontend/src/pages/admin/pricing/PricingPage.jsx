@@ -15,6 +15,7 @@ const columns = [
   { key: 'label', label: 'Forfait' },
   { key: 'amount', label: 'Montant' },
   { key: 'celebrations', label: 'Célébrations' },
+  { key: 'allowedDays', label: 'Jours autorisés' },
   { key: 'customHour', label: 'Heure perso' },
   { key: 'active', label: 'État' },
   { key: 'actions', label: 'Actions' },

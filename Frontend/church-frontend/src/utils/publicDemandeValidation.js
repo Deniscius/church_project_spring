@@ -2,6 +2,12 @@
  * Valide le brouillon avant envoi (règles alignées sur DemandeServiceImpl).
  * @returns {{ ok: boolean, errors: string[] }}
  */
+import {
+  formatAllowedDays,
+  getEffectiveAllowedDays,
+  isDateAllowedForDays,
+} from './schedulingUtils';
+
 export function validatePublicDemandeDraft(draft) {
   const errors = [];
 
@@ -46,6 +52,18 @@ export function validatePublicDemandeDraft(draft) {
     req(
       !Number.isNaN(requestedAt.getTime()) && requestedAt >= minimumAt,
       `Choisissez une célébration au moins ${draft.typeDemandeDelaiMinimumHeures ?? 24} heure(s) après maintenant.`
+    );
+  }
+
+  if (draft.dateDebut) {
+    const allowedDays = getEffectiveAllowedDays(
+      draft.typeDemandeJoursCelebrationAutorises,
+      draft.forfaitJoursCelebrationAutorises,
+      draft.horaireJourSemaine
+    );
+    req(
+      isDateAllowedForDays(draft.dateDebut, allowedDays),
+      `La date choisie n’est pas autorisée pour ce forfait (${formatAllowedDays(allowedDays)}).`
     );
   }
 

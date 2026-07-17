@@ -18,6 +18,7 @@ public interface ForfaitTarifMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "typeDemande", ignore = true)
+    @Mapping(target = "joursCelebrationAutorises", ignore = true)
     ForfaitTarif dtoToModel(ForfaitTarifRequest request);
 
     @Mapping(target = "typeDemandePublicId", source = "typeDemande.publicId")
@@ -31,5 +32,6 @@ public interface ForfaitTarifMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "typeDemande", ignore = true)
+    @Mapping(target = "joursCelebrationAutorises", ignore = true)
     void updateEntityFromDto(ForfaitTarifRequest request, @MappingTarget ForfaitTarif entity);
 }

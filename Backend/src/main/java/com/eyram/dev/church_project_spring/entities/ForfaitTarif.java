@@ -9,8 +9,12 @@ import org.hibernate.annotations.UuidGenerator;
 import org.hibernate.annotations.Filter;
 import org.hibernate.annotations.SqlFragmentAlias;
 
+import com.eyram.dev.church_project_spring.enums.JourSemaine;
+
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -55,8 +59,14 @@ public class ForfaitTarif extends BaseEntity implements Serializable {
     @Column(name = "nombre_celebration")
     private Integer nombreCelebration;
 
-    @Column(name = "jours_autorise")
-    private Integer joursAutorise;
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(
+            name = "forfait_tarif_jour_autorise",
+            joinColumns = @JoinColumn(name = "forfait_tarif_id")
+    )
+    @Enumerated(EnumType.STRING)
+    @Column(name = "jour_semaine", nullable = false, length = 20)
+    private Set<JourSemaine> joursCelebrationAutorises = new HashSet<>();
 
     @Column(name = "heure_personnalise", nullable = false)
     private Boolean heurePersonnalise = false;

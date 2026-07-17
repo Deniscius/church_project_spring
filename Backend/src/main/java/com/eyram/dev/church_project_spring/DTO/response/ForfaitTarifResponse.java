@@ -21,6 +21,9 @@ public record ForfaitTarifResponse(
         UUID typeDemandePublicId,
         String typeDemandeLibelle,
         Boolean statusDel,
+        String statutLabel,
+        String resume,
+        String disponibiliteLabel,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {

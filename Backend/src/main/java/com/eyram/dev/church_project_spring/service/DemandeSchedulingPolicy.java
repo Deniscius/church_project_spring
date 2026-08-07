@@ -141,6 +141,62 @@ public class DemandeSchedulingPolicy {
         return dates;
     }
 
+    /**
+     * Valide et normalise les dates choisies par le fidèle pour un forfait multi-célébrations.
+     * Les dates sont triées, doivent être distinctes, autorisées, et contenues
+     * dans une fenêtre de {@code nombreJour} jours calendaires à partir de la première.
+     */
+    public List<LocalDate> validateAndNormalizeUserDates(
+            List<LocalDate> datesCelebration,
+            int nombreCelebrations,
+            Integer nombreJour,
+            Set<JourSemaine> allowedDays,
+            String forfaitLabel
+    ) {
+        if (datesCelebration == null || datesCelebration.isEmpty()) {
+            throw new BusinessRuleException(
+                    "Sélectionnez exactement " + nombreCelebrations
+                            + " date(s) de célébration pour ce " + forfaitLabel
+            );
+        }
+
+        List<LocalDate> cleaned = datesCelebration.stream()
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .sorted()
+                .toList();
+
+        if (cleaned.size() != nombreCelebrations) {
+            throw new BusinessRuleException(
+                    "Ce " + forfaitLabel + " nécessite exactement " + nombreCelebrations
+                            + " date(s) distincte(s). Vous en avez fourni " + cleaned.size() + "."
+            );
+        }
+
+        Set<JourSemaine> effectiveAllowedDays = allowedDays == null || allowedDays.isEmpty()
+                ? EnumSet.allOf(JourSemaine.class)
+                : allowedDays;
+
+        for (LocalDate date : cleaned) {
+            validateAllowedDay(date, effectiveAllowedDays, "Ce " + forfaitLabel);
+        }
+
+        int windowDays = nombreJour != null && nombreJour > 0 ? nombreJour : nombreCelebrations;
+        LocalDate first = cleaned.get(0);
+        LocalDate lastAllowed = first.plusDays(windowDays - 1L);
+        LocalDate last = cleaned.get(cleaned.size() - 1);
+
+        if (last.isAfter(lastAllowed)) {
+            throw new BusinessRuleException(
+                    "Les dates du " + forfaitLabel + " doivent s'inscrire dans une période de "
+                            + windowDays + " jour(s) à partir de la première célébration ("
+                            + first + " → " + lastAllowed + ")."
+            );
+        }
+
+        return cleaned;
+    }
+
     private String formatAllowedDays(Set<JourSemaine> allowedDays) {
         return allowedDays.stream()
                 .sorted(Comparator.comparingInt(JourSemaine::getOrdre))

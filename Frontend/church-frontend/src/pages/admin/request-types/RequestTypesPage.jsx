@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import PageHeader from '../../../components/ui/PageHeader';
 import AppTable from '../../../components/ui/AppTable';
 import AppBadge from '../../../components/ui/AppBadge';
+import AppDialog from '../../../components/ui/AppDialog';
 import { useTenant } from '../../../hooks/useTenant';
 import { requestTypeService } from '../../../services/requestType.service';
 import { mapTypeDemandeToRow } from '../../../utils/apiMappers';
@@ -24,16 +25,22 @@ export default function RequestTypesPage() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [pendingDelete, setPendingDelete] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
   const canManage = has(PERMISSIONS.REQUEST_TYPE_MANAGE);
 
-  const remove = async (id) => {
-    if (!window.confirm('Supprimer ce type de demande ?')) return;
+  const remove = async () => {
+    if (!pendingDelete) return;
     try {
+      setDeletingId(pendingDelete);
       setError(null);
-      await requestTypeService.remove(id);
-      setRows((current) => current.filter((row) => row.id !== id));
+      await requestTypeService.remove(pendingDelete);
+      setRows((current) => current.filter((row) => row.id !== pendingDelete));
+      setPendingDelete(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Suppression impossible');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -75,12 +82,31 @@ export default function RequestTypesPage() {
           if (column.key === 'actions') return canManage ? (
             <div className="button-row">
               <Link className="btn btn-secondary" to={`/admin/types-demandes/${row.id}/modifier`}>Modifier</Link>
-              <button className="btn btn-danger" onClick={() => remove(row.id)}>Supprimer</button>
+              <button
+                className="btn btn-danger"
+                disabled={deletingId === row.id}
+                onClick={() => setPendingDelete(row.id)}
+              >
+                {deletingId === row.id ? 'Suppression…' : 'Supprimer'}
+              </button>
             </div>
           ) : '—';
           return row[column.key];
         }}
       />
+
+      <AppDialog
+        open={Boolean(pendingDelete)}
+        title="Supprimer le type de demande"
+        confirmLabel="Supprimer"
+        cancelLabel="Annuler"
+        danger
+        busy={Boolean(deletingId)}
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={remove}
+      >
+        <p style={{ margin: 0 }}>Supprimer ce type de demande ?</p>
+      </AppDialog>
     </div>
   );
 }

@@ -1,0 +1,45 @@
+# Missanye
+> Plateforme web de l’Archidiocèse de Lomé pour déposer des intentions de messe,
+> suivre une demande, consulter les horaires des paroisses actives, et inscrire
+> une paroisse à l’offre SaaS multi-tenant.
+
+## Langue
+français (fr)
+
+## Pages publiques (prioritaires)
+- Accueil: /
+- Faire une demande de messe: /demande
+- Suivre une demande (code MS-…): /suivi
+- Horaires des messes: /horaires
+- Inscrire une paroisse: /inscription-paroisse
+- Plan du site: /plan-du-site
+
+## Parcours fidèle
+1. Choisir une paroisse active sur /demande
+2. Renseigner l’intention, les dates et le forfait
+3. Régler (agrégateur ou paiement local selon options)
+4. Conserver le code de suivi (format MS-{INITIALES}-{JETON})
+5. Revenir sur /suivi pour le statut, la facture ou le reçu
+
+## Parcours paroisse
+1. Demande d’inscription sur /inscription-paroisse (documents officiels)
+2. Validation plateforme puis paiement d’abonnement
+3. Connexion espace paroisse: /admin/login
+4. Gestion des demandes, horaires, feuille d’intentions, trésorerie
+
+## Zones non indexées / hors scope agents publics
+- /admin/ et /superadmin/ (espaces authentifiés)
+- /demande/recapitulatif, /demande/confirmation (brouillon session)
+- /suivi/resultat (données personnelles liées à un code)
+- /facture/, /paiement/ (documents transactionnels)
+
+## Découverte technique
+- Sitemap: /sitemap.xml
+- Robots: /robots.txt
+- Manifeste: /manifest.webmanifest
+- Ce fichier: /llms.txt
+
+## Notes pour assistants
+- Ne pas inventer de paroisses : seules les paroisses actives (abonnement à jour) apparaissent en public.
+- Les codes de suivi sont sensibles : ne pas les exposer hors du contexte utilisateur.
+- L’API métier n’est pas une surface publique documentée pour les agents ; privilégier les pages HTML listées ci-dessus.

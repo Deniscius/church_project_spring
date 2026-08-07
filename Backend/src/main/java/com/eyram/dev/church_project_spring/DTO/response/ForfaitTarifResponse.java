@@ -1,6 +1,7 @@
 package com.eyram.dev.church_project_spring.DTO.response;
 
 import com.eyram.dev.church_project_spring.enums.JourSemaine;
+import com.eyram.dev.church_project_spring.enums.NatureForfaitEnum;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -11,6 +12,7 @@ public record ForfaitTarifResponse(
         UUID publicId,
         String codeForfait,
         String nomForfait,
+        NatureForfaitEnum natureForfait,
         BigDecimal montantForfait,
         Integer nombreJour,
         Integer nombreCelebration,

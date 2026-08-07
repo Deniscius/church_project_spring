@@ -44,6 +44,8 @@ public class ParoisseManagementService {
                 userRequest.nom(),
                 userRequest.prenom(),
                 userRequest.username(),
+                userRequest.email(),
+                userRequest.telephone(),
                 userRequest.password(),
                 false,
                 true,

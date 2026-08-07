@@ -10,6 +10,8 @@ public record UserResponse(
         String nom,
         String prenom,
         String username,
+        String email,
+        String telephone,
         String role,
         Boolean isActive,
         Boolean isGlobal

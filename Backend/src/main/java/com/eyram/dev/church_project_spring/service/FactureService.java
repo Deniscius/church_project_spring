@@ -16,6 +16,8 @@ public interface FactureService {
 
     List<FactureResponse> getAll();
 
+    List<FactureResponse> getByParoisse(UUID paroissePublicId);
+
     FactureResponse update(UUID publicId, FactureRequest request);
 
     void delete(UUID publicId);

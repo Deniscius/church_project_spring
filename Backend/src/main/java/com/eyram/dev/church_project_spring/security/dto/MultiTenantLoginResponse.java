@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.io.Serializable;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -85,5 +86,9 @@ public class MultiTenantLoginResponse implements Serializable {
 
         @JsonProperty("active")
         private Boolean active;
+
+        /** Échéance d'abonnement : la paroisse doit pouvoir anticiper la coupure. */
+        @JsonProperty("subscriptionExpiresAt")
+        private LocalDateTime subscriptionExpiresAt;
     }
 }

@@ -18,19 +18,35 @@ public class CorsConfig {
     @Value("${app.cors.allowed-origins:http://localhost:5173}")
     private String allowedOrigins;
 
+    @Value("${app.cors.allowed-origin-patterns:}")
+    private String allowedOriginPatterns;
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        String[] originValues = Optional.ofNullable(allowedOrigins).orElse("http://localhost:5173").split(",");
-        List<String> origins = Arrays.stream(originValues)
-                .map(value -> value != null ? value.trim() : "")
-                .filter(StringUtils::hasText)
-                .toList();
+        List<String> origins = splitCsv(allowedOrigins);
+        List<String> patterns = splitCsv(allowedOriginPatterns);
 
-        configuration.setAllowedOrigins(origins);
+        if (!origins.isEmpty()) {
+            configuration.setAllowedOrigins(origins);
+        }
+        if (!patterns.isEmpty()) {
+            configuration.setAllowedOriginPatterns(patterns);
+        }
+        if (origins.isEmpty() && patterns.isEmpty()) {
+            configuration.setAllowedOrigins(List.of("http://localhost:5173"));
+        }
+
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"));
+        configuration.setAllowedHeaders(List.of(
+                "Authorization",
+                "Content-Type",
+                "Accept",
+                "Origin",
+                "X-Requested-With",
+                "ngrok-skip-browser-warning"
+        ));
         configuration.setExposedHeaders(List.of("Authorization"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
@@ -39,5 +55,12 @@ public class CorsConfig {
         source.registerCorsConfiguration("/**", configuration);
 
         return source;
+    }
+
+    private static List<String> splitCsv(String raw) {
+        return Arrays.stream(Optional.ofNullable(raw).orElse("").split(","))
+                .map(value -> value != null ? value.trim() : "")
+                .filter(StringUtils::hasText)
+                .toList();
     }
 }

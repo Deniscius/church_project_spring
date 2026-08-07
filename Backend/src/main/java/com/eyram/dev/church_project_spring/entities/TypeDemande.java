@@ -58,7 +58,7 @@ public class TypeDemande extends BaseEntity implements Serializable {
     @Column(name = "delai_minimum_heures", nullable = false)
     private Integer delaiMinimumHeures = 24;
 
-    @ElementCollection(fetch = FetchType.EAGER)
+    @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(
             name = "type_demande_jour_autorise",
             joinColumns = @JoinColumn(name = "type_demande_id")

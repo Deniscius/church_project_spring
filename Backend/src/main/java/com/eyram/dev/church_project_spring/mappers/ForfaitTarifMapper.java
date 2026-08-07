@@ -38,6 +38,7 @@ public interface ForfaitTarifMapper {
                 dto.publicId(),
                 dto.codeForfait(),
                 dto.nomForfait(),
+                dto.natureForfait(),
                 dto.montantForfait(),
                 dto.nombreJour(),
                 dto.nombreCelebration(),

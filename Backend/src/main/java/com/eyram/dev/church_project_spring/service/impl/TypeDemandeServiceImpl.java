@@ -38,7 +38,7 @@ public class TypeDemandeServiceImpl implements TypeDemandeService {
 
         Paroisse paroisse = paroisseRepository.findByPublicIdAndStatusDelFalse(request.paroissePublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Paroisse introuvable"));
-        tenantAccessService.checkParoisseAccess(paroisse);
+        tenantAccessService.checkCatalogWriteAccess(paroisse);
 
         boolean exists = typeDemandeRepository.existsByLibelleIgnoreCaseAndParoisseAndTypeDemandeEnumAndStatusDelFalse(
                 request.libelle(),
@@ -51,13 +51,11 @@ public class TypeDemandeServiceImpl implements TypeDemandeService {
         }
 
         TypeDemande typeDemande = typeDemandeMapper.dtoToModel(request);
-        typeDemande.setLibelle(normalizeText(request.libelle()));
-        typeDemande.setDescription(normalizeOptionalText(request.description()));
         typeDemande.setParoisse(paroisse);
         applyJoursCelebration(typeDemande, request.joursCelebrationAutorises());
 
         TypeDemande savedTypeDemande = typeDemandeRepository.save(typeDemande);
-        return typeDemandeMapper.modelToDtoWithMeta(savedTypeDemande);
+        return typeDemandeMapper.modelToDto(savedTypeDemande);
     }
 
     @Override
@@ -66,11 +64,11 @@ public class TypeDemandeServiceImpl implements TypeDemandeService {
 
         TypeDemande existingTypeDemande = typeDemandeRepository.findByPublicIdAndStatusDelFalse(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Type de demande introuvable"));
-        tenantAccessService.checkParoisseAccess(existingTypeDemande.getParoisse());
+        tenantAccessService.checkCatalogWriteAccess(existingTypeDemande.getParoisse());
 
         Paroisse paroisse = paroisseRepository.findByPublicIdAndStatusDelFalse(request.paroissePublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Paroisse introuvable"));
-        tenantAccessService.checkParoisseAccess(paroisse);
+        tenantAccessService.checkCatalogWriteAccess(paroisse);
 
         boolean dataChanged =
                 !existingTypeDemande.getLibelle().equalsIgnoreCase(request.libelle()) ||
@@ -90,29 +88,26 @@ public class TypeDemandeServiceImpl implements TypeDemandeService {
         }
 
         typeDemandeMapper.updateEntityFromDto(request, existingTypeDemande);
-        existingTypeDemande.setLibelle(normalizeText(request.libelle()));
-        existingTypeDemande.setDescription(normalizeOptionalText(request.description()));
         existingTypeDemande.setParoisse(paroisse);
         applyJoursCelebration(existingTypeDemande, request.joursCelebrationAutorises());
 
         TypeDemande updatedTypeDemande = typeDemandeRepository.save(existingTypeDemande);
-        return typeDemandeMapper.modelToDtoWithMeta(updatedTypeDemande);
+        return typeDemandeMapper.modelToDto(updatedTypeDemande);
     }
 
     @Override
     public TypeDemandeResponse getByPublicId(UUID publicId) {
         TypeDemande typeDemande = typeDemandeRepository.findByPublicIdAndStatusDelFalse(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Type de demande introuvable"));
-        tenantAccessService.checkParoisseAccess(typeDemande.getParoisse());
 
-        return typeDemandeMapper.modelToDtoWithMeta(typeDemande);
+        return typeDemandeMapper.modelToDto(typeDemande);
     }
 
     @Override
     public List<TypeDemandeResponse> getAll() {
         return typeDemandeRepository.findByStatusDelFalse()
                 .stream()
-                .map(typeDemandeMapper::modelToDtoWithMeta)
+                .map(typeDemandeMapper::modelToDto)
                 .toList();
     }
 
@@ -123,7 +118,7 @@ public class TypeDemandeServiceImpl implements TypeDemandeService {
 
         return typeDemandeRepository.findByParoisseAndStatusDelFalse(paroisse)
                 .stream()
-                .map(typeDemandeMapper::modelToDtoWithMeta)
+                .map(typeDemandeMapper::modelToDto)
                 .toList();
     }
 
@@ -131,7 +126,7 @@ public class TypeDemandeServiceImpl implements TypeDemandeService {
     public List<TypeDemandeResponse> getByTypeDemandeEnum(TypeDemandeEnum typeDemandeEnum) {
         return typeDemandeRepository.findByTypeDemandeEnumAndStatusDelFalse(typeDemandeEnum)
                 .stream()
-                .map(typeDemandeMapper::modelToDtoWithMeta)
+                .map(typeDemandeMapper::modelToDto)
                 .toList();
     }
 
@@ -142,7 +137,7 @@ public class TypeDemandeServiceImpl implements TypeDemandeService {
 
         return typeDemandeRepository.findByParoisseAndTypeDemandeEnumAndStatusDelFalse(paroisse, typeDemandeEnum)
                 .stream()
-                .map(typeDemandeMapper::modelToDtoWithMeta)
+                .map(typeDemandeMapper::modelToDto)
                 .toList();
     }
 
@@ -150,7 +145,7 @@ public class TypeDemandeServiceImpl implements TypeDemandeService {
     public void deleteByPublicId(UUID publicId) {
         TypeDemande typeDemande = typeDemandeRepository.findByPublicIdAndStatusDelFalse(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Type de demande introuvable"));
-        tenantAccessService.checkParoisseAccess(typeDemande.getParoisse());
+        tenantAccessService.checkCatalogWriteAccess(typeDemande.getParoisse());
 
         typeDemande.setStatusDel(true);
         typeDemandeRepository.save(typeDemande);
@@ -167,24 +162,12 @@ public class TypeDemandeServiceImpl implements TypeDemandeService {
 
     private void applyJoursCelebration(TypeDemande typeDemande, Set<JourSemaine> joursCelebrationAutorises) {
         if (joursCelebrationAutorises == null || joursCelebrationAutorises.isEmpty()) {
-            throw new BusinessRuleException("Sélectionnez au moins un jour de célébration autorisé");
+            throw new BusinessRuleException("Au moins un jour de célébration est obligatoire");
         }
-        typeDemande.getJoursCelebrationAutorises().clear();
-        typeDemande.getJoursCelebrationAutorises().addAll(joursCelebrationAutorises);
-    }
-
-    private String normalizeText(String value) {
-        if (value == null) {
-            return null;
-        }
-        return value.trim();
-    }
-
-    private String normalizeOptionalText(String value) {
-        if (value == null) {
-            return null;
-        }
-        String trimmed = value.trim();
-        return trimmed.isBlank() ? null : trimmed;
+        // Mise à jour différentielle : évite la violation PK (type_demande_id, jour_semaine)
+        // causée par un clear()+addAll() Hibernate (INSERT avant DELETE).
+        Set<JourSemaine> current = typeDemande.getJoursCelebrationAutorises();
+        current.removeIf(day -> !joursCelebrationAutorises.contains(day));
+        current.addAll(joursCelebrationAutorises);
     }
 }

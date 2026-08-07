@@ -11,14 +11,18 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.eyram.dev.church_project_spring.DTO.request.ChangePasswordRequest;
 import com.eyram.dev.church_project_spring.DTO.request.ParoisseAssignmentRequest;
+import com.eyram.dev.church_project_spring.DTO.request.ProfileUpdateRequest;
 import com.eyram.dev.church_project_spring.DTO.request.UserRequest;
+import com.eyram.dev.church_project_spring.DTO.response.ParoisseAccessResponse;
 import com.eyram.dev.church_project_spring.DTO.response.UserResponse;
 import com.eyram.dev.church_project_spring.entities.Paroisse;
 import com.eyram.dev.church_project_spring.entities.ParoisseAccess;
 import com.eyram.dev.church_project_spring.entities.User;
 import com.eyram.dev.church_project_spring.enums.RoleParoisse;
 import com.eyram.dev.church_project_spring.enums.UserRole;
+import com.eyram.dev.church_project_spring.mappers.ParoisseAccessMapper;
 import com.eyram.dev.church_project_spring.repositories.ParoisseAccessRepository;
 import com.eyram.dev.church_project_spring.repositories.ParoisseRepository;
 import com.eyram.dev.church_project_spring.repositories.UserRepository;
@@ -36,7 +40,9 @@ public class EnhancedUserService {
     private final UserRepository userRepository;
     private final ParoisseRepository paroisseRepository;
     private final ParoisseAccessRepository paroisseAccessRepository;
+    private final ParoisseAccessMapper paroisseAccessMapper;
     private final PasswordEncoder passwordEncoder;
+    private final ProfessionalEmailService professionalEmailService;
 
     @Transactional
     public UserResponse createUser(UserRequest request, UUID createdBy) {
@@ -60,11 +66,24 @@ public class EnhancedUserService {
         user.setNom(request.nom());
         user.setPrenom(request.prenom());
         user.setUsername(request.username());
+        user.setEmail(request.email());
+        user.setTelephone(request.telephone());
         user.setPassword(passwordEncoder.encode(request.password()));
         user.setRole(request.role());
         user.setIsGlobal(request.isGlobal());
         user.setIsActive(request.isActive());
         user.setStatusDel(false);
+
+        if (!Boolean.TRUE.equals(request.isGlobal())
+                && request.paroisses() != null
+                && !request.paroisses().isEmpty()) {
+            Paroisse firstParish = paroisseRepository
+                    .findByPublicIdAndStatusDelFalse(request.paroisses().get(0).getParoisseId())
+                    .orElse(null);
+            if (firstParish != null) {
+                professionalEmailService.assignToUser(user, firstParish);
+            }
+        }
 
         User savedUser = userRepository.save(user);
 
@@ -91,23 +110,24 @@ public class EnhancedUserService {
         validateCommonUserRequest(request);
         validatePasswordForUpdate(request.password());
 
-        if (user.getPublicId().equals(requester.getPublicId())
-                && !Boolean.TRUE.equals(request.isActive())) {
+        boolean isSelf = user.getPublicId().equals(requester.getPublicId());
+
+        if (isSelf && !Boolean.TRUE.equals(request.isActive())) {
             throw new BusinessRuleException("Vous ne pouvez pas désactiver votre propre compte");
         }
         ensureAnotherGlobalSuperAdminExistsBeforeDeactivation(user, request.isActive());
+        ensureNotLastParishAdminBeforeDeactivation(user, request.isActive());
+        enforceImmutableCredentialsOnUpdate(user, request, isSelf);
 
-        if (!user.getUsername().equals(request.username())
-                && userRepository.existsByUsernameIgnoreCaseAndStatusDelFalse(request.username())) {
-            throw new BusinessRuleException("Le nom d'utilisateur est déjà pris");
-        }
-
-        user.setNom(request.nom());
-        user.setPrenom(request.prenom());
-        user.setUsername(request.username());
-
-        if (request.password() != null && !request.password().isBlank()) {
-            user.setPassword(passwordEncoder.encode(request.password()));
+        if (isSelf) {
+            // Identité, coordonnées et mot de passe n'appartiennent qu'au titulaire du compte.
+            user.setNom(request.nom());
+            user.setPrenom(request.prenom());
+            applyEmailUpdate(user, request.email());
+            user.setTelephone(request.telephone());
+            if (request.password() != null && !request.password().isBlank()) {
+                user.setPassword(passwordEncoder.encode(request.password()));
+            }
         }
 
         user.setRole(request.role());
@@ -217,19 +237,26 @@ public class EnhancedUserService {
     /**
      * Accès interne sans filtrage par administrateur appelant.
      * Les contrôleurs doivent utiliser la surcharge avec requestedBy.
+     * Mapping DTO dans la transaction (compatible open-in-view=false).
      */
     @Transactional(readOnly = true)
-    public List<ParoisseAccess> getUserParoisses(UUID userPublicId) {
+    public List<ParoisseAccessResponse> getUserParoisses(UUID userPublicId) {
         User user = findActiveUser(userPublicId);
-        return paroisseAccessRepository.findByUserAndActiveTrueAndStatusDelFalse(user);
+        return paroisseAccessRepository.findByUserAndActiveTrueAndStatusDelFalse(user)
+                .stream()
+                .map(paroisseAccessMapper::modelToDto)
+                .toList();
     }
 
     @Transactional(readOnly = true)
-    public List<ParoisseAccess> getUserParoisses(UUID userPublicId, UUID requestedBy) {
+    public List<ParoisseAccessResponse> getUserParoisses(UUID userPublicId, UUID requestedBy) {
         User requester = findActiveUser(requestedBy);
         User target = findActiveUser(userPublicId);
         assertCanAccessUser(requester, target);
-        return paroisseAccessRepository.findByUserAndActiveTrueAndStatusDelFalse(target);
+        return paroisseAccessRepository.findByUserAndActiveTrueAndStatusDelFalse(target)
+                .stream()
+                .map(paroisseAccessMapper::modelToDto)
+                .toList();
     }
 
     /**
@@ -284,6 +311,7 @@ public class EnhancedUserService {
             throw new BusinessRuleException("Vous ne pouvez pas supprimer votre propre compte");
         }
         ensureAnotherGlobalSuperAdminExistsBeforeDeactivation(user, false);
+        ensureNotLastParishAdminBeforeDeactivation(user, false);
 
         paroisseAccessRepository.findByUserAndStatusDelFalse(user)
                 .forEach(access -> {
@@ -320,6 +348,21 @@ public class EnhancedUserService {
                 .stream()
                 .allMatch(activeAccess -> activeAccess == access
                         || Objects.equals(activeAccess.getPublicId(), access.getPublicId()));
+
+        if (access.getRoleParoisse() == RoleParoisse.ADMIN
+                && Boolean.TRUE.equals(access.getActive())
+                && Boolean.TRUE.equals(user.getIsActive())) {
+            long others = paroisseAccessRepository.countOtherActiveAdmins(
+                    paroisse,
+                    RoleParoisse.ADMIN,
+                    user.getPublicId()
+            );
+            if (others == 0) {
+                throw new BusinessRuleException(
+                        "Impossible de retirer le dernier administrateur de « " + paroisse.getNom() + " »"
+                );
+            }
+        }
 
         access.setActive(false);
         access.setStatusDel(true);
@@ -406,7 +449,8 @@ public class EnhancedUserService {
             return;
         }
 
-        if (Boolean.TRUE.equals(request.isGlobal()) || request.role() == UserRole.SUPER_ADMIN) {
+        if (Boolean.TRUE.equals(request.isGlobal()) || request.role() == UserRole.SUPER_ADMIN
+                || request.role() == UserRole.COMPTABLE) {
             throw new AccessDeniedException(
                     "Un administrateur local ne peut pas accorder des privilèges globaux"
             );
@@ -588,6 +632,8 @@ public class EnhancedUserService {
                         "Le prénom est obligatoire",
                         "Le prénom doit contenir entre 2 et 150 caractères"),
                 normalizeUsername(request.username()),
+                normalizeEmail(request.email()),
+                normalizeOptional(request.telephone(), 50, "Le téléphone ne doit pas dépasser 50 caractères"),
                 request.password(),
                 request.isGlobal(),
                 request.isActive(),
@@ -613,6 +659,32 @@ public class EnhancedUserService {
         return normalized;
     }
 
+    /** Les coordonnées restent facultatives : une chaîne vide vaut « non renseigné ». */
+    private String normalizeOptional(String value, int maxLength, String lengthMessage) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String normalized = value.strip().replaceAll("\\s+", " ");
+        if (normalized.length() > maxLength) {
+            throw new BusinessRuleException(lengthMessage);
+        }
+        return normalized;
+    }
+
+    private String normalizeEmail(String value) {
+        String normalized = normalizeOptional(
+                value, 150, "L'adresse e-mail ne doit pas dépasser 150 caractères"
+        );
+        if (normalized == null) {
+            return null;
+        }
+        normalized = normalized.toLowerCase(Locale.ROOT);
+        if (!normalized.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]{2,}$")) {
+            throw new BusinessRuleException("L'adresse e-mail est invalide");
+        }
+        return normalized;
+    }
+
     private String normalizeRequired(
             String value,
             int minLength,
@@ -632,11 +704,12 @@ public class EnhancedUserService {
 
     private void validateGlobalRoleConsistency(UserRequest request) {
         boolean global = Boolean.TRUE.equals(request.isGlobal());
-        boolean superAdmin = request.role() == UserRole.SUPER_ADMIN;
+        boolean platformRole = request.role() == UserRole.SUPER_ADMIN
+                || request.role() == UserRole.COMPTABLE;
 
-        if (global != superAdmin) {
+        if (global != platformRole) {
             throw new BusinessRuleException(
-                    "Le rôle SUPER_ADMIN et le statut global doivent être définis ensemble"
+                    "Les rôles SUPER_ADMIN / COMPTABLE et le statut global doivent être définis ensemble"
             );
         }
     }
@@ -661,12 +734,154 @@ public class EnhancedUserService {
         }
     }
 
+    /**
+     * L'administrateur fondateur (patient 0) d'une paroisse ne peut pas être retiré
+     * s'il est le dernier ADMIN actif de cette paroisse.
+     */
+    private void ensureNotLastParishAdminBeforeDeactivation(User user, Boolean requestedActive) {
+        if (Boolean.TRUE.equals(requestedActive)) {
+            return;
+        }
+        if (!Boolean.TRUE.equals(user.getIsActive())) {
+            return;
+        }
+
+        List<ParoisseAccess> adminAccesses = paroisseAccessRepository.findByUserAndStatusDelFalse(user)
+                .stream()
+                .filter(access -> Boolean.TRUE.equals(access.getActive()))
+                .filter(access -> access.getRoleParoisse() == RoleParoisse.ADMIN)
+                .toList();
+
+        for (ParoisseAccess access : adminAccesses) {
+            long others = paroisseAccessRepository.countOtherActiveAdmins(
+                    access.getParoisse(),
+                    RoleParoisse.ADMIN,
+                    user.getPublicId()
+            );
+            if (others == 0) {
+                String parishName = access.getParoisse() != null ? access.getParoisse().getNom() : "cette paroisse";
+                throw new BusinessRuleException(
+                        "Impossible de désactiver le dernier administrateur de « " + parishName + " »"
+                );
+            }
+        }
+    }
+
+    /**
+     * Le nom d'utilisateur est immuable après création, et les informations
+     * personnelles (nom, prénom, mot de passe) n'appartiennent qu'au titulaire :
+     * un administrateur n'agit que sur le rôle, le périmètre et l'activation.
+     */
+    private void enforceImmutableCredentialsOnUpdate(User user, UserRequest request, boolean isSelf) {
+        if (request.username() != null
+                && !user.getUsername().equalsIgnoreCase(request.username().trim())) {
+            throw new BusinessRuleException(
+                    "Le nom d'utilisateur ne peut pas être modifié après la création du compte"
+            );
+        }
+
+        if (isSelf) {
+            return;
+        }
+
+        if (request.password() != null && !request.password().isBlank()) {
+            throw new BusinessRuleException(
+                    "Le mot de passe d'un autre utilisateur ne peut pas être modifié. "
+                            + "Seul le titulaire du compte peut le changer."
+            );
+        }
+
+        if (differs(user.getNom(), request.nom())
+                || differs(user.getPrenom(), request.prenom())
+                || differs(user.getEmail(), request.email())
+                || differs(user.getTelephone(), request.telephone())) {
+            throw new BusinessRuleException(
+                    "Les informations personnelles d'un autre utilisateur ne peuvent pas être modifiées. "
+                            + "Seul le titulaire du compte peut les mettre à jour."
+            );
+        }
+    }
+
+    /**
+     * Compare sur la forme normalisée : une simple différence d'espacement ne
+     * doit pas bloquer un administrateur qui ne touche qu'au rôle.
+     */
+    private boolean differs(String current, String requested) {
+        if (requested == null) {
+            return false;
+        }
+        return !collapseSpaces(requested).equals(collapseSpaces(current));
+    }
+
+    /**
+     * E-mail professionnel généré à l'activation : immuable.
+     * Les adresses hors domaine plateforme restent librement modifiables.
+     */
+    private void applyEmailUpdate(User user, String requestedEmail) {
+        if (professionalEmailService.isProfessional(user.getEmail())) {
+            if (requestedEmail != null && differs(user.getEmail(), requestedEmail)) {
+                throw new BusinessRuleException(
+                        "L'e-mail professionnel de la paroisse ne peut pas être modifié."
+                );
+            }
+            return;
+        }
+        user.setEmail(requestedEmail);
+    }
+
+    private String collapseSpaces(String value) {
+        return value == null ? "" : value.strip().replaceAll("\\s+", " ");
+    }
+
+    /**
+     * Met à jour les informations personnelles de l'utilisateur connecté.
+     */
+    @Transactional
+    public UserResponse updateOwnProfile(UUID publicId, ProfileUpdateRequest request) {
+        User user = findActiveUser(publicId);
+        user.setNom(normalizeRequired(request.nom(), 2, 100,
+                "Le nom est obligatoire",
+                "Le nom doit contenir entre 2 et 100 caractères"));
+        user.setPrenom(normalizeRequired(request.prenom(), 2, 150,
+                "Le prénom est obligatoire",
+                "Le prénom doit contenir entre 2 et 150 caractères"));
+        applyEmailUpdate(user, normalizeEmail(request.email()));
+        user.setTelephone(normalizeOptional(
+                request.telephone(), 50, "Le téléphone ne doit pas dépasser 50 caractères"
+        ));
+        log.info("Profil mis à jour en libre-service : {}", user.getUsername());
+        return mapToResponse(userRepository.save(user));
+    }
+
+    /**
+     * Change le mot de passe de l'utilisateur connecté, après vérification de
+     * son mot de passe courant.
+     */
+    @Transactional
+    public void changeOwnPassword(UUID publicId, ChangePasswordRequest request) {
+        User user = findActiveUser(publicId);
+
+        if (!passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
+            throw new BusinessRuleException("Le mot de passe actuel est incorrect");
+        }
+        if (passwordEncoder.matches(request.newPassword(), user.getPassword())) {
+            throw new BusinessRuleException("Le nouveau mot de passe doit différer de l'actuel");
+        }
+        validatePasswordLength(request.newPassword());
+
+        user.setPassword(passwordEncoder.encode(request.newPassword()));
+        userRepository.save(user);
+        log.info("Mot de passe changé en libre-service : {}", user.getUsername());
+    }
+
     private UserResponse mapToResponse(User user) {
         return new UserResponse(
                 user.getPublicId(),
                 user.getNom(),
                 user.getPrenom(),
                 user.getUsername(),
+                user.getEmail(),
+                user.getTelephone(),
                 user.getRole() != null ? user.getRole().name() : null,
                 user.getIsActive(),
                 user.getIsGlobal()

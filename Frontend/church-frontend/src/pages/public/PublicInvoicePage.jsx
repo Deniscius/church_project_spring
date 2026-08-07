@@ -7,6 +7,7 @@ import AppBadge from '../../components/ui/AppBadge';
 import { invoiceService } from '../../services/invoice.service';
 import { formatCurrency } from '../../utils/formatCurrency';
 import { formatDate } from '../../utils/formatDate';
+import { paymentStatusLabel } from '../../utils/statusMapper';
 
 export default function PublicInvoicePage() {
   const { codeSuivie } = useParams();
@@ -38,7 +39,7 @@ export default function PublicInvoicePage() {
   }, [codeSuivie]);
 
   return (
-    <div className="stack">
+    <div className="stack public-page">
       <PageHeader title="Facture publique" subtitle="Consultation par code de suivi de la demande." />
       <div className="grid-2">
         <PublicInvoiceCard />
@@ -61,7 +62,10 @@ export default function PublicInvoicePage() {
               </div>
               <div className="info-row">
                 <span>Statut</span>
-                <AppBadge value={facture.statutPaiement} />
+                <AppBadge
+                  value={facture.statutPaiement}
+                  label={paymentStatusLabel(facture.statutPaiement)}
+                />
               </div>
               <div className="info-row">
                 <span>Date paiement</span>

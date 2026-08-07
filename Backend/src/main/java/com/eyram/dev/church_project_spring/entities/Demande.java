@@ -14,6 +14,7 @@ import org.hibernate.annotations.UuidGenerator;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.UUID;
 
@@ -103,5 +104,17 @@ public class Demande extends BaseEntity implements Serializable {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "type_paiement_id")
     private TypePaiement typePaiement;
+
+    /** Horodatage du soft delete — null tant que la demande est active. */
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
+    /** Nom de l'utilisateur ayant effectué le soft delete. */
+    @Column(name = "deleted_by_nom", length = 150)
+    private String deletedByNom;
+
+    /** Dernier rappel e-mail pour demande non payée proche de la célébration. */
+    @Column(name = "last_unpaid_reminder_at")
+    private LocalDateTime lastUnpaidReminderAt;
 
 }

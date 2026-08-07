@@ -6,11 +6,12 @@ import PublicFooter from '../components/public/PublicFooter';
 export default function PublicLayout() {
   return (
     <div className="app-shell">
+      <a className="skip-link" href="#contenu-principal">
+        Aller au contenu
+      </a>
       <PublicHeader />
-      <main className="page-section">
-        <div className="container">
-          <Outlet />
-        </div>
+      <main id="contenu-principal" className="public-main">
+        <Outlet />
       </main>
       <PublicFooter />
     </div>

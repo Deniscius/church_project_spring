@@ -22,9 +22,14 @@ public class FactureController {
         return factureService.create(request);
     }
 
-    @GetMapping("/{publicId}")
-    public FactureResponse getByPublicId(@PathVariable UUID publicId) {
-        return factureService.getByPublicId(publicId);
+    @GetMapping
+    public List<FactureResponse> getAll() {
+        return factureService.getAll();
+    }
+
+    @GetMapping("/paroisse/{paroissePublicId}")
+    public List<FactureResponse> getByParoisse(@PathVariable UUID paroissePublicId) {
+        return factureService.getByParoisse(paroissePublicId);
     }
 
     @GetMapping("/code-suivie/{codeSuivie}")
@@ -32,9 +37,9 @@ public class FactureController {
         return factureService.getByCodeSuivie(codeSuivie);
     }
 
-    @GetMapping
-    public List<FactureResponse> getAll() {
-        return factureService.getAll();
+    @GetMapping("/{publicId}")
+    public FactureResponse getByPublicId(@PathVariable UUID publicId) {
+        return factureService.getByPublicId(publicId);
     }
 
     @PutMapping("/{publicId}")

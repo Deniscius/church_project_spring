@@ -20,7 +20,6 @@ import com.eyram.dev.church_project_spring.DTO.request.ParoisseAssignmentRequest
 import com.eyram.dev.church_project_spring.DTO.request.UserRequest;
 import com.eyram.dev.church_project_spring.DTO.response.ParoisseAccessResponse;
 import com.eyram.dev.church_project_spring.DTO.response.UserResponse;
-import com.eyram.dev.church_project_spring.mappers.ParoisseAccessMapper;
 import com.eyram.dev.church_project_spring.service.EnhancedUserService;
 import com.eyram.dev.church_project_spring.utils.SecurityUtils;
 
@@ -39,7 +38,6 @@ import lombok.extern.slf4j.Slf4j;
 public class EnhancedUserController {
 
     private final EnhancedUserService userService;
-    private final ParoisseAccessMapper paroisseAccessMapper;
 
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
@@ -121,12 +119,7 @@ public class EnhancedUserController {
     public ResponseEntity<List<ParoisseAccessResponse>> getUserParoisses(@PathVariable UUID userId) {
         log.info("GET /admin/users/{}/paroisses - Getting user paroisses", userId);
         UUID requestedBy = SecurityUtils.getCurrentUserPublicId();
-        List<ParoisseAccessResponse> paroisses = userService
-                .getUserParoisses(userId, requestedBy)
-                .stream()
-                .map(paroisseAccessMapper::modelToDto)
-                .toList();
-        return ResponseEntity.ok(paroisses);
+        return ResponseEntity.ok(userService.getUserParoisses(userId, requestedBy));
     }
 
     @GetMapping("/paroisse/{paroisseId}")

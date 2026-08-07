@@ -2,6 +2,7 @@ package com.eyram.dev.church_project_spring.service.impl;
 
 import com.eyram.dev.church_project_spring.DTO.request.TypePaiementRequest;
 import com.eyram.dev.church_project_spring.DTO.response.TypePaiementResponse;
+import com.eyram.dev.church_project_spring.config.CacheConfig;
 import com.eyram.dev.church_project_spring.entities.TypePaiement;
 import com.eyram.dev.church_project_spring.mappers.TypePaiementMapper;
 import com.eyram.dev.church_project_spring.repositories.TypePaiementRepository;
@@ -12,6 +13,8 @@ import com.eyram.dev.church_project_spring.utils.exception.AlreadyExistException
 import com.eyram.dev.church_project_spring.utils.exception.ResourceNotFoundException;
 import com.eyram.dev.church_project_spring.utils.exception.BusinessRuleException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +32,7 @@ public class TypePaiementServiceImpl implements TypePaiementService {
     private final DetailsPaiementRepository detailsPaiementRepository;
 
     @Override
+    @CacheEvict(cacheNames = CacheConfig.TYPE_PAIEMENTS, allEntries = true)
     public TypePaiementResponse create(TypePaiementRequest request) {
         TypePaiementRequest normalizedRequest = normalize(request);
         typePaiementRepository.findByModeAndStatusDelFalse(normalizedRequest.mode())
@@ -51,6 +55,8 @@ public class TypePaiementServiceImpl implements TypePaiementService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    @Cacheable(cacheNames = CacheConfig.TYPE_PAIEMENTS)
     public List<TypePaiementResponse> getAll() {
         return typePaiementRepository.findAllByStatusDelFalse()
                 .stream()
@@ -59,6 +65,7 @@ public class TypePaiementServiceImpl implements TypePaiementService {
     }
 
     @Override
+    @CacheEvict(cacheNames = CacheConfig.TYPE_PAIEMENTS, allEntries = true)
     public TypePaiementResponse update(UUID publicId, TypePaiementRequest request) {
         TypePaiementRequest normalizedRequest = normalize(request);
         TypePaiement typePaiement = typePaiementRepository.findByPublicIdAndStatusDelFalse(publicId)
@@ -78,6 +85,7 @@ public class TypePaiementServiceImpl implements TypePaiementService {
     }
 
     @Override
+    @CacheEvict(cacheNames = CacheConfig.TYPE_PAIEMENTS, allEntries = true)
     public void delete(UUID publicId) {
         TypePaiement typePaiement = typePaiementRepository.findByPublicIdAndStatusDelFalse(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Type de paiement introuvable"));

@@ -20,18 +20,21 @@ public class UserDetailsServiceImpl implements UserDetailsService {
 
     @Override
     @Transactional(readOnly = true)
-    public UserDetails loadUserByUsername(String username)
+    public UserDetails loadUserByUsername(String login)
             throws UsernameNotFoundException {
 
-        String normalizedUsername = username == null
+        String normalized = login == null
                 ? ""
-                : username.strip().toLowerCase(Locale.ROOT);
+                : login.strip().toLowerCase(Locale.ROOT);
 
         User user = userRepository
-                .findByUsernameIgnoreCaseAndStatusDelFalse(normalizedUsername)
+                .findByUsernameIgnoreCaseAndStatusDelFalse(normalized)
+                .or(() -> normalized.contains("@")
+                        ? userRepository.findByEmailIgnoreCaseAndStatusDelFalse(normalized)
+                        : java.util.Optional.empty())
                 .orElseThrow(() ->
                         new UsernameNotFoundException(
-                                "Utilisateur introuvable : " + normalizedUsername
+                                "Utilisateur introuvable : " + normalized
                         )
                 );
 

@@ -1,79 +1,136 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import AppCard from '../ui/AppCard';
 import AppInput from '../ui/AppInput';
 import AppTextarea from '../ui/AppTextarea';
+import PhoneField from '../ui/PhoneField';
+import { FieldLabel } from '../ui/HelpTip';
 import { usePublicDemandeDraft } from '../../contexts/publicDemandeDraft.context';
+import { sanitizePersonNameInput } from '../../utils/personName';
+import { HELP } from '../../constants/helpTips';
+import { DEFAULT_PHONE_COUNTRY_ISO } from '../../utils/phone';
 
+/**
+ * Étape 1 — intention d’abord, téléphone ensuite, le reste en option.
+ */
 export default function ApplicantForm() {
   const { draft, patch } = usePublicDemandeDraft();
+  const [showOptional, setShowOptional] = useState(() => Boolean(
+    draft.prenomFidele
+    || draft.nomFidele
+    || draft.emailFidele
+    || draft.nomCoursier
+  ));
+
+  const countryIso = draft.telCountryIso || DEFAULT_PHONE_COUNTRY_ISO;
+
+  const optionalSummary = useMemo(() => {
+    const bits = [];
+    const name = [draft.prenomFidele, draft.nomFidele].filter(Boolean).join(' ');
+    if (name) bits.push(name);
+    if (draft.emailFidele) bits.push(draft.emailFidele);
+    if (draft.nomCoursier) bits.push(`coursier : ${draft.nomCoursier}`);
+    return bits.join(' · ');
+  }, [draft.prenomFidele, draft.nomFidele, draft.emailFidele, draft.nomCoursier]);
 
   return (
-    <AppCard title="Informations du demandeur" subtitle="Champs requis par l’API de création de demande.">
-      <div className="form-grid">
+    <AppCard
+      title="Votre intention"
+      subtitle="Deux infos suffisent pour commencer : l’intention et un numéro joignable."
+    >
+      <div className="stack" style={{ gap: 18 }}>
         <div className="form-field">
-          <label htmlFor="fd-prenom">Prénom *</label>
-          <AppInput
-            id="fd-prenom"
-            autoComplete="given-name"
-            value={draft.prenomFidele}
-            onChange={(e) => patch({ prenomFidele: e.target.value })}
-            placeholder="Ex. Kokou"
-            required
-          />
-        </div>
-        <div className="form-field">
-          <label htmlFor="fd-nom">Nom *</label>
-          <AppInput
-            id="fd-nom"
-            autoComplete="family-name"
-            value={draft.nomFidele}
-            onChange={(e) => patch({ nomFidele: e.target.value })}
-            placeholder="Ex. Adjei"
-            required
-          />
-        </div>
-        <div className="form-field">
-          <label htmlFor="fd-email">Email</label>
-          <AppInput
-            id="fd-email"
-            type="email"
-            autoComplete="email"
-            value={draft.emailFidele}
-            onChange={(e) => patch({ emailFidele: e.target.value })}
-            placeholder="email@example.com"
-          />
-        </div>
-        <div className="form-field">
-          <label htmlFor="fd-tel">Téléphone *</label>
-          <AppInput
-            id="fd-tel"
-            type="tel"
-            autoComplete="tel"
-            value={draft.telFidele}
-            onChange={(e) => patch({ telFidele: e.target.value })}
-            placeholder="+228 90 00 00 00"
-            required
-          />
-        </div>
-        <div className="form-field">
-          <label htmlFor="fd-coursier">Nom du coursier (optionnel)</label>
-          <AppInput
-            id="fd-coursier"
-            value={draft.nomCoursier}
-            onChange={(e) => patch({ nomCoursier: e.target.value })}
-            placeholder="Si dépôt par un tiers"
-          />
-        </div>
-        <div className="form-field full">
-          <label htmlFor="fd-intention">Intention de messe *</label>
+          <FieldLabel htmlFor="fd-intention" help={HELP.demande.intention} required>
+            Pour qui / pour quelle intention ?
+          </FieldLabel>
           <AppTextarea
             id="fd-intention"
             value={draft.intention}
             onChange={(e) => patch({ intention: e.target.value })}
-            placeholder="Décrire l’intention ou le contexte de la demande"
-            rows={4}
+            placeholder="Ex. Pour le repos de l’âme de… / Action de grâce…"
+            rows={3}
             required
+            autoFocus
           />
+        </div>
+
+        <div className="form-field">
+          <FieldLabel htmlFor="fd-phone-national" help={HELP.demande.telephone} required>
+            Téléphone
+          </FieldLabel>
+          <PhoneField
+            id="fd-phone"
+            required
+            countryIso={countryIso}
+            national={draft.telNational || ''}
+            onChange={({ countryIso: iso, national, e164 }) => {
+              patch({
+                telCountryIso: iso,
+                telNational: national,
+                telFidele: e164 || '',
+              });
+            }}
+          />
+        </div>
+
+        <div className="demande-optional">
+          <button
+            type="button"
+            className="demande-optional-toggle"
+            aria-expanded={showOptional}
+            onClick={() => setShowOptional((v) => !v)}
+          >
+            <span>{showOptional ? 'Masquer' : 'Ajouter'} nom, e-mail…</span>
+            <span className="muted">
+              {showOptional
+                ? 'optionnel'
+                : (optionalSummary || 'Sans nom → « Un(e) chrétien(ne) »')}
+            </span>
+          </button>
+
+          {showOptional ? (
+            <div className="form-grid demande-optional-fields">
+              <div className="form-field">
+                <FieldLabel htmlFor="fd-prenom" help={HELP.demande.prenom}>Prénom</FieldLabel>
+                <AppInput
+                  id="fd-prenom"
+                  autoComplete="given-name"
+                  value={draft.prenomFidele}
+                  onChange={(e) => patch({ prenomFidele: sanitizePersonNameInput(e.target.value) })}
+                  placeholder="Optionnel"
+                />
+              </div>
+              <div className="form-field">
+                <FieldLabel htmlFor="fd-nom" help={HELP.demande.nom}>Nom</FieldLabel>
+                <AppInput
+                  id="fd-nom"
+                  autoComplete="family-name"
+                  value={draft.nomFidele}
+                  onChange={(e) => patch({ nomFidele: sanitizePersonNameInput(e.target.value) })}
+                  placeholder="Optionnel"
+                />
+              </div>
+              <div className="form-field">
+                <FieldLabel htmlFor="fd-email" help={HELP.demande.email}>E-mail</FieldLabel>
+                <AppInput
+                  id="fd-email"
+                  type="email"
+                  autoComplete="email"
+                  value={draft.emailFidele}
+                  onChange={(e) => patch({ emailFidele: e.target.value })}
+                  placeholder="Optionnel"
+                />
+              </div>
+              <div className="form-field">
+                <label htmlFor="fd-coursier">Coursier (si dépôt par un tiers)</label>
+                <AppInput
+                  id="fd-coursier"
+                  value={draft.nomCoursier}
+                  onChange={(e) => patch({ nomCoursier: e.target.value })}
+                  placeholder="Optionnel"
+                />
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
     </AppCard>

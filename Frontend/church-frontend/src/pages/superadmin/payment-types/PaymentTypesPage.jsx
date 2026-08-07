@@ -4,6 +4,7 @@ import AppTable from '../../../components/ui/AppTable';
 import AppCard from '../../../components/ui/AppCard';
 import AppInput from '../../../components/ui/AppInput';
 import AppButton from '../../../components/ui/AppButton';
+import AppDialog from '../../../components/ui/AppDialog';
 import { paymentTypeService } from '../../../services/paymentType.service';
 import { mapTypePaiementToRow } from '../../../utils/apiMappers';
 
@@ -28,6 +29,7 @@ export default function PaymentTypesPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+  const [pendingDelete, setPendingDelete] = useState(null);
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -100,14 +102,15 @@ export default function PaymentTypesPage() {
     }
   };
 
-  const remove = async (row) => {
-    if (!window.confirm(`Supprimer le type de paiement « ${row.label} » ?`)) return;
+  const remove = async () => {
+    if (!pendingDelete) return;
     try {
-      setDeletingId(row.id);
+      setDeletingId(pendingDelete.id);
       setError(null);
-      await paymentTypeService.remove(row.id);
-      setRows((current) => current.filter((item) => item.id !== row.id));
-      if (editingId === row.id) closeForm();
+      await paymentTypeService.remove(pendingDelete.id);
+      setRows((current) => current.filter((item) => item.id !== pendingDelete.id));
+      if (editingId === pendingDelete.id) closeForm();
+      setPendingDelete(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Suppression impossible');
     } finally {
@@ -172,7 +175,7 @@ export default function PaymentTypesPage() {
             <div className="button-row">
               <button className="btn btn-secondary" onClick={() => openEdit(row)}>Modifier</button>
               <button className="btn btn-danger" disabled={deletingId === row.id}
-                onClick={() => remove(row)}>
+                onClick={() => setPendingDelete(row)}>
                 {deletingId === row.id ? 'Suppression…' : 'Supprimer'}
               </button>
             </div>
@@ -180,6 +183,23 @@ export default function PaymentTypesPage() {
           return row[column.key];
         }} />
       )}
+
+      <AppDialog
+        open={Boolean(pendingDelete)}
+        title="Supprimer le type de paiement"
+        confirmLabel="Supprimer"
+        cancelLabel="Annuler"
+        danger
+        busy={Boolean(deletingId)}
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={remove}
+      >
+        {pendingDelete ? (
+          <p style={{ margin: 0 }}>
+            Supprimer le type de paiement « {pendingDelete.label} » ?
+          </p>
+        ) : null}
+      </AppDialog>
     </div>
   );
 }

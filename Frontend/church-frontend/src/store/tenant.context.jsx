@@ -1,7 +1,8 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { getActiveParishId, setActiveParishId } from '../constants/authStorage';
 import { useAuth } from '../hooks/useAuth';
+import { comptabiliteService } from '../services/inscription.service';
 import { mapParoisseToTenant } from '../utils/apiMappers';
 
 const TenantContext = createContext(null);
@@ -20,6 +21,8 @@ export function TenantProvider({ children }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  const selectedParishId = selectedParoisse?.publicId || selectedParoisse?.id || null;
+
   useEffect(() => {
     let cancelled = false;
 
@@ -35,8 +38,6 @@ export function TenantProvider({ children }) {
       setError(null);
 
       try {
-        // La réponse de connexion est la source de vérité : elle ne contient
-        // que les paroisses auxquelles cet utilisateur a réellement accès.
         const mapped = (paroisses || [])
           .filter((p) => p.active !== false && p.isActive !== false)
           .map(mapParoisseToTenant)
@@ -44,15 +45,26 @@ export function TenantProvider({ children }) {
 
         if (cancelled) return;
 
-        const selectedId = selectedParoisse?.id || selectedParoisse?.publicId;
         const savedId = getActiveParishId();
-        const pick = mapped.find((p) => p.id === selectedId)
+        let pick = mapped.find((p) => p.id === selectedParishId)
           || mapped.find((p) => p.id === savedId)
           || mapped[0]
           || null;
 
+        // Équipe plateforme : paroisse modèle sans rattachement à la connexion.
+        if (!pick && user?.isGlobal && (selectedParishId || savedId)) {
+          try {
+            const template = await comptabiliteService.getCatalogueModele();
+            pick = mapParoisseToTenant(template);
+          } catch {
+            pick = null;
+          }
+        }
+
+        if (cancelled) return;
+
         setParishOptions(mapped);
-        setActiveParishState(pick);
+        setActiveParishState((prev) => (prev?.id === pick?.id ? prev : pick));
         setActiveParishId(pick?.id || null);
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Paroisse indisponible');
@@ -65,21 +77,31 @@ export function TenantProvider({ children }) {
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated, token, user?.id, paroisses, selectedParoisse]);
+  }, [isAuthenticated, token, user?.id, user?.isGlobal, paroisses, selectedParishId]);
+
+  const setActiveParish = useCallback((tenant) => {
+    const nextId = tenant?.id || null;
+    const raw = tenant?.raw || null;
+    const previousId = getActiveParishId();
+
+    setActiveParishState(tenant);
+    setActiveParishId(nextId);
+
+    if (nextId && nextId === previousId) {
+      return;
+    }
+    setSelectedParoisse(raw);
+  }, [setSelectedParoisse]);
 
   const value = useMemo(
     () => ({
       activeParish,
       parishOptions,
-      setActiveParish: (tenant) => {
-        setActiveParishState(tenant);
-        setActiveParishId(tenant?.id || null);
-        setSelectedParoisse(tenant?.raw || null);
-      },
+      setActiveParish,
       loading,
       error,
     }),
-    [activeParish, parishOptions, loading, error, setSelectedParoisse]
+    [activeParish, parishOptions, setActiveParish, loading, error]
   );
 
   return <TenantContext.Provider value={value}>{children}</TenantContext.Provider>;

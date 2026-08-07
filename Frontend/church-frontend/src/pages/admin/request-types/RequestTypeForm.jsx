@@ -7,7 +7,9 @@ import AppTextarea from '../../../components/ui/AppTextarea';
 import WeekDaySelector from '../../../components/ui/WeekDaySelector';
 import { WEEK_DAYS } from '../../../constants/enums';
 import { useTenant } from '../../../hooks/useTenant';
+import { useScrollToError } from '../../../hooks/useScrollToError';
 import { requestTypeService } from '../../../services/requestType.service';
+import FormError from '../../../components/ui/FormError';
 
 const CATEGORIES = ['EUCHARISTIE', 'SACRAMENT', 'SACRAMENTAUX'];
 const INITIAL_VALUE = {
@@ -25,6 +27,7 @@ export default function RequestTypeForm({ requestTypeId = null }) {
   const [form, setForm] = useState(INITIAL_VALUE);
   const [loading, setLoading] = useState(Boolean(requestTypeId));
   const [error, setError] = useState(null);
+  const errorRef = useScrollToError(error);
 
   useEffect(() => {
     if (!requestTypeId) return;
@@ -77,7 +80,7 @@ export default function RequestTypeForm({ requestTypeId = null }) {
 
   return (
     <AppCard title={requestTypeId ? 'Type de demande existant' : 'Nouveau type de demande'}>
-      {error ? <p className="text-red-600">{error}</p> : null}
+      <FormError error={error} errorRef={errorRef} />
       <form onSubmit={submit}>
         <div className="form-grid">
           <div className="form-field">
@@ -99,13 +102,24 @@ export default function RequestTypeForm({ requestTypeId = null }) {
           </div>
           <div className="form-field full">
             <label htmlFor="type-celebration-days">Jours de célébration autorisés *</label>
+            <div className="button-row" style={{ marginBottom: 8 }}>
+              <AppButton
+                type="button"
+                variant="secondary"
+                onClick={() => setForm({ ...form, joursCelebrationAutorises: [...WEEK_DAYS] })}
+              >
+                Tous les jours
+              </AppButton>
+            </div>
             <WeekDaySelector
               id="type-celebration-days"
               value={form.joursCelebrationAutorises}
               onChange={(joursCelebrationAutorises) => setForm({ ...form, joursCelebrationAutorises })}
             />
             <small className="muted">
-              Seules les dates correspondant à ces jours seront proposées aux fidèles.
+              Jours habituels pour les demandes courantes. Les événements solennels
+              (horaires à date précise) peuvent être programmés n’importe quel jour
+              indépendamment de cette liste — l’honoraire se choisit alors sur l’horaire.
             </small>
           </div>
           <div className="form-field">

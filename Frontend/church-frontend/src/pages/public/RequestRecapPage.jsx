@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useMutation } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import PageHeader from '../../components/ui/PageHeader';
 import RequestSummaryCard from '../../components/public/RequestSummaryCard';
+import TrackingSuccessDialog from '../../components/public/TrackingSuccessDialog';
 import AppCard from '../../components/ui/AppCard';
+import FormError from '../../components/ui/FormError';
 import AppButton from '../../components/ui/AppButton';
 import { usePublicDemandeDraft } from '../../contexts/publicDemandeDraft.context';
+import { useToast } from '../../contexts/toast.context';
+import { useScrollToError } from '../../hooks/useScrollToError';
 import { requestService } from '../../services/request.service';
 import {
   buildDemandeRequestBody,
@@ -13,18 +16,27 @@ import {
   validatePublicDemandeDraft,
 } from '../../utils/publicDemandeValidation';
 import { formatCurrency } from '../../utils/formatCurrency';
+import { useMutation } from '@tanstack/react-query';
 
 export default function RequestRecapPage() {
   const navigate = useNavigate();
-  const { draft } = usePublicDemandeDraft();
+  const toast = useToast();
+  const { draft, reset } = usePublicDemandeDraft();
   const [errors, setErrors] = useState([]);
+  const [successResult, setSuccessResult] = useState(null);
+  const errorRef = useScrollToError(errors.length ? errors.join('|') : null);
 
   useEffect(() => {
     const { ok } = validatePublicDemandeDraft(draft);
-    if (!ok) {
+    if (!ok && !successResult) {
       navigate('/demande', { replace: true });
     }
-  }, [draft, navigate]);
+  }, [draft, navigate, successResult]);
+
+  const goToConfirmation = (result) => {
+    reset();
+    navigate('/demande/confirmation', { replace: true, state: result });
+  };
 
   const mutation = useMutation({
     mutationFn: (body) => requestService.create(body),
@@ -38,10 +50,13 @@ export default function RequestRecapPage() {
         montant: data.montant,
       };
       persistDemandeCreationResult(result);
-      navigate('/demande/confirmation', { replace: true, state: result });
+      setSuccessResult(result);
+      toast.success('Demande enregistrée. Conservez votre code de suivi.');
     },
     onError: (err) => {
-      setErrors([err instanceof Error ? err.message : 'Échec de la création']);
+      const message = err instanceof Error ? err.message : 'Échec de la création';
+      setErrors([message]);
+      toast.error(message);
     },
   });
 
@@ -49,6 +64,7 @@ export default function RequestRecapPage() {
     const { ok, errors: v } = validatePublicDemandeDraft(draft);
     if (!ok) {
       setErrors(v);
+      toast.error(v.length === 1 ? v[0] : `${v.length} points à corriger avant envoi.`);
       return;
     }
     setErrors([]);
@@ -56,23 +72,15 @@ export default function RequestRecapPage() {
   };
 
   return (
-    <div className="stack">
+    <div className="stack public-page">
       <PageHeader
         title="Récapitulatif de la demande"
-        subtitle="Relisez les informations avant envoi définitif au serveur."
+        subtitle="Relisez les informations avant envoi définitif."
       />
-      {errors.length > 0 ? (
-        <div className="card" style={{ borderColor: 'var(--danger, #b91c1c)' }}>
-          <ul style={{ margin: '0 0 0 18px' }}>
-            {errors.map((msg) => (
-              <li key={msg}>{msg}</li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
+      <FormError error={errors} errorRef={errorRef} />
       <div className="grid-2">
-        <RequestSummaryCard />
-        <AppCard title="Validation" subtitle="Création via POST /demandes (sans authentification).">
+        <RequestSummaryCard mode="full" />
+        <AppCard title="Validation" subtitle="Dernière étape avant enregistrement.">
           <div className="info-list">
             <div className="info-row">
               <span>Paroisse</span>
@@ -92,15 +100,31 @@ export default function RequestRecapPage() {
             </div>
           </div>
           <div className="button-row" style={{ marginTop: 20 }}>
-            <AppButton type="button" onClick={submit} disabled={mutation.isPending}>
+            <AppButton type="button" onClick={submit} loading={mutation.isPending}>
               {mutation.isPending ? 'Envoi…' : 'Confirmer la demande'}
             </AppButton>
-            <Link to="/demande" className="btn btn-secondary" style={{ textDecoration: 'none' }}>
-              Modifier
-            </Link>
+            <AppButton
+              type="button"
+              variant="secondary"
+              disabled={mutation.isPending || Boolean(successResult)}
+              onClick={() => {
+                toast.info('Vous pouvez corriger le formulaire, vos saisies sont conservées.');
+                navigate('/demande');
+              }}
+            >
+              Corriger le formulaire
+            </AppButton>
           </div>
         </AppCard>
       </div>
+
+      <TrackingSuccessDialog
+        open={Boolean(successResult?.codeSuivie)}
+        codeSuivie={successResult?.codeSuivie}
+        onClose={() => successResult && goToConfirmation(successResult)}
+        onContinue={() => successResult && goToConfirmation(successResult)}
+        onLeave={() => reset()}
+      />
     </div>
   );
 }

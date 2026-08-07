@@ -57,6 +57,34 @@ export const parishService = {
     ),
 
   /**
+   * Met à jour les coordonnées et le RIB de la paroisse (ADMIN local)
+   * PATCH /paroisses/{id}/coordonnees
+   */
+  updateCoordonnees: (paroisseId, payload) =>
+    apiClient(`${PUBLIC_API_BASE}/${paroisseId}/coordonnees`,
+      { method: 'PATCH', body: JSON.stringify(payload) },
+      { auth: true }
+    ),
+
+  uploadLogo: (paroisseId, file) => {
+    const form = new FormData();
+    form.append('logo', file);
+    return apiClient(`${PUBLIC_API_BASE}/${paroisseId}/logo`,
+      { method: 'POST', body: form },
+      { auth: true }
+    );
+  },
+
+  removeLogo: (paroisseId) =>
+    apiClient(`${PUBLIC_API_BASE}/${paroisseId}/logo`,
+      { method: 'DELETE' },
+      { auth: true }
+    ),
+
+  fetchLogoBlob: (paroisseId) =>
+    apiClient(`${PUBLIC_API_BASE}/${paroisseId}/logo`, {}, { auth: true, parse: 'blob' }),
+
+  /**
    * Désactive une paroisse (SUPER_ADMIN)
    * DELETE /paroisses/{id}
    */

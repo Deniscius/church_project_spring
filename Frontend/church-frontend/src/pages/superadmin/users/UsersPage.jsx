@@ -2,22 +2,29 @@ import React, { useEffect, useState } from 'react';
 import PageHeader from '../../../components/ui/PageHeader';
 import AppTable from '../../../components/ui/AppTable';
 import AppBadge from '../../../components/ui/AppBadge';
+import AppDialog from '../../../components/ui/AppDialog';
 import { userService } from '../../../services/user.service';
 import { parishService } from '../../../services/parish.service';
 import { mapUserToRow } from '../../../utils/apiMappers';
+import { useAuth } from '../../../hooks/useAuth';
 
 const columns = [
   { key: 'firstName', label: 'Prénom' },
   { key: 'lastName', label: 'Nom' },
   { key: 'username', label: 'Username' },
+  { key: 'contact', label: 'Contact' },
   { key: 'role', label: 'Rôle' },
   { key: 'active', label: 'État' },
 ];
 
 export default function UsersPage() {
+  const { user: currentUser } = useAuth();
+  const currentUserId = currentUser?.id || currentUser?.publicId;
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [pendingDeactivate, setPendingDeactivate] = useState(null);
+  const [deactivating, setDeactivating] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editingIsGlobal, setEditingIsGlobal] = useState(null);
@@ -26,6 +33,8 @@ export default function UsersPage() {
     nom: '',
     prenom: '',
     username: '',
+    email: '',
+    telephone: '',
     password: '',
     role: 'SECRETAIRE',
     isActive: true,
@@ -34,6 +43,7 @@ export default function UsersPage() {
     roleParoisse: 'SECRETAIRE',
   });
 
+  const isEditingSelf = Boolean(editingId) && editingId === currentUserId;
   useEffect(() => {
     loadUsers();
     loadParishes();
@@ -67,7 +77,7 @@ export default function UsersPage() {
       setFormData(prev => ({
         ...prev,
         role: value,
-        isGlobal: value === 'SUPER_ADMIN',
+        isGlobal: value === 'SUPER_ADMIN' || value === 'COMPTABLE',
       }));
       return;
     }
@@ -88,17 +98,21 @@ export default function UsersPage() {
         nom: formData.nom,
         prenom: formData.prenom,
         username: formData.username,
-        password: formData.password,
+        email: formData.email,
+        telephone: formData.telephone,
         role: formData.role,
-        isActive: formData.isActive,
+        isActive: isEditingSelf ? true : formData.isActive,
         isGlobal: formData.isGlobal,
       };
 
       if (editingId) {
+        // Identifiant / mot de passe non modifiables par le SUPER_ADMIN
+        payload.password = '';
         await userService.update(editingId, payload);
       } else {
         const createPayload = {
           ...payload,
+          password: formData.password,
           paroisses: formData.isGlobal
             ? []
             : [{
@@ -127,6 +141,8 @@ export default function UsersPage() {
           nom: user.lastName || '',
           prenom: user.firstName || '',
           username: user.username || '',
+          email: user.email || '',
+          telephone: user.telephone || '',
           password: '',
           role: user.role || 'SECRETAIRE',
           isActive: user.isActive,
@@ -143,16 +159,22 @@ export default function UsersPage() {
     }
   };
 
-  const handleDelete = async (userId) => {
-    if (!window.confirm('Êtes-vous sûr de vouloir désactiver cet utilisateur ?')) return;
+  const handleDelete = async () => {
+    if (!pendingDeactivate) return;
+    if (pendingDeactivate === currentUserId) {
+      setError('Vous ne pouvez pas désactiver votre propre compte');
+      setPendingDeactivate(null);
+      return;
+    }
     try {
-      setLoading(true);
-      await userService.delete(userId);
+      setDeactivating(true);
+      await userService.delete(pendingDeactivate);
+      setPendingDeactivate(null);
       await loadUsers();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur');
     } finally {
-      setLoading(false);
+      setDeactivating(false);
     }
   };
 
@@ -164,6 +186,8 @@ export default function UsersPage() {
       nom: '',
       prenom: '',
       username: '',
+      email: '',
+      telephone: '',
       password: '',
       role: 'SECRETAIRE',
       isActive: true,
@@ -217,6 +241,13 @@ export default function UsersPage() {
           <h3 style={{ margin: '0 0 16px 0' }}>
             {editingId ? 'Modifier' : 'Créer'} un Utilisateur
           </h3>
+
+          {editingId ? (
+            <div className="alert-info" role="status" style={{ marginBottom: 16 }}>
+              Identité, coordonnées et mot de passe appartiennent au titulaire du compte : il les met
+              à jour lui-même depuis « Mon profil ». Cet écran pilote le rôle, le périmètre et l’activation.
+            </div>
+          ) : null}
           
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
             <div>
@@ -231,12 +262,15 @@ export default function UsersPage() {
                 required
                 minLength={2}
                 maxLength={100}
+                disabled={Boolean(editingId)}
+                readOnly={Boolean(editingId)}
                 style={{
                   width: '100%',
                   padding: '8px',
                   border: '1px solid #ddd',
                   borderRadius: '4px',
-                  fontSize: '14px'
+                  fontSize: '14px',
+                  backgroundColor: editingId ? '#f5f5f5' : undefined,
                 }}
               />
             </div>
@@ -253,12 +287,15 @@ export default function UsersPage() {
                 required
                 minLength={2}
                 maxLength={150}
+                disabled={Boolean(editingId)}
+                readOnly={Boolean(editingId)}
                 style={{
                   width: '100%',
                   padding: '8px',
                   border: '1px solid #ddd',
                   borderRadius: '4px',
-                  fontSize: '14px'
+                  fontSize: '14px',
+                  backgroundColor: editingId ? '#f5f5f5' : undefined,
                 }}
               />
             </div>
@@ -277,27 +314,85 @@ export default function UsersPage() {
                 maxLength={100}
                 pattern="[A-Za-z0-9._-]+"
                 title="Lettres, chiffres, point, tiret et underscore uniquement"
+                disabled={Boolean(editingId)}
+                readOnly={Boolean(editingId)}
                 style={{
                   width: '100%',
                   padding: '8px',
                   border: '1px solid #ddd',
                   borderRadius: '4px',
-                  fontSize: '14px'
+                  fontSize: '14px',
+                  backgroundColor: editingId ? '#f5f5f5' : undefined,
                 }}
               />
+              {editingId ? (
+                <small style={{ color: '#666' }}>Identifiant immuable après création.</small>
+              ) : null}
             </div>
 
             <div>
               <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold' }}>
-                Mot de passe {editingId ? '(laisser vide pour garder)' : '*'}
+                E-mail professionnel
+              </label>
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                maxLength={150}
+                disabled
+                readOnly
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                  backgroundColor: '#f5f5f5',
+                }}
+              />
+              <small style={{ color: '#666' }}>
+                {editingId
+                  ? 'Adresse pro immuable.'
+                  : 'Généré automatiquement selon le nom et la paroisse à la création.'}
+              </small>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold' }}>
+                Téléphone
+              </label>
+              <input
+                type="tel"
+                name="telephone"
+                value={formData.telephone}
+                onChange={handleInputChange}
+                maxLength={50}
+                disabled={Boolean(editingId)}
+                readOnly={Boolean(editingId)}
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                  backgroundColor: editingId ? '#f5f5f5' : undefined,
+                }}
+              />
+            </div>
+
+            {!editingId ? (
+            <div>
+              <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold' }}>
+                Mot de passe *
               </label>
               <input
                 type="password"
                 name="password"
                 value={formData.password}
                 onChange={handleInputChange}
-                required={!editingId}
-                minLength={editingId && !formData.password ? undefined : 8}
+                required
+                minLength={8}
                 maxLength={200}
                 style={{
                   width: '100%',
@@ -308,6 +403,11 @@ export default function UsersPage() {
                 }}
               />
             </div>
+            ) : (
+              <div style={{ padding: '8px 0', color: '#666', fontSize: '13px' }}>
+                Le mot de passe n’est pas modifiable depuis cet écran (sécurité plateforme).
+              </div>
+            )}
 
             <div>
               <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold' }}>
@@ -330,6 +430,12 @@ export default function UsersPage() {
                 <option value="CURE">Curé</option>
                 <option value="ADMIN">Admin Local</option>
                 <option
+                  value="COMPTABLE"
+                  disabled={Boolean(editingId) && editingIsGlobal === false}
+                >
+                  Comptable plateforme
+                </option>
+                <option
                   value="SUPER_ADMIN"
                   disabled={Boolean(editingId) && editingIsGlobal === false}
                 >
@@ -340,15 +446,19 @@ export default function UsersPage() {
           </div>
 
           <div style={{ marginBottom: '16px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: isEditingSelf ? 'not-allowed' : 'pointer' }}>
               <input
                 type="checkbox"
                 name="isActive"
                 checked={formData.isActive}
                 onChange={handleInputChange}
+                disabled={isEditingSelf}
               />
               <span style={{ fontWeight: 'bold' }}>Actif</span>
             </label>
+            {isEditingSelf ? (
+              <small style={{ color: '#666' }}>Vous ne pouvez pas désactiver votre propre compte.</small>
+            ) : null}
           </div>
 
           <div style={{ marginBottom: '16px' }}>
@@ -360,7 +470,7 @@ export default function UsersPage() {
                 disabled
               />
               <span style={{ fontWeight: 'bold' }}>
-                Accès global (déduit automatiquement du rôle Super Admin)
+                Accès global (SUPER_ADMIN / COMPTABLE)
               </span>
             </label>
           </div>
@@ -484,20 +594,25 @@ export default function UsersPage() {
               >
                 Modifier
               </button>
-              <button
-                onClick={() => handleDelete(row.id)}
-                style={{
-                  padding: '4px 12px',
-                  backgroundColor: '#d9534f',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '12px'
-                }}
-              >
-                Désactiver
-              </button>
+              {row.id === currentUserId ? (
+                <span style={{ fontSize: '12px', color: '#666', alignSelf: 'center' }}>Vous</span>
+              ) : (
+                <button
+                  onClick={() => setPendingDeactivate(row.id)}
+                  disabled={deactivating && pendingDeactivate === row.id}
+                  style={{
+                    padding: '4px 12px',
+                    backgroundColor: '#d9534f',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '12px'
+                  }}
+                >
+                  Désactiver
+                </button>
+              )}
             </div>
           )
         }))}
@@ -507,6 +622,21 @@ export default function UsersPage() {
           return row[column.key];
         }}
       />
+
+      <AppDialog
+        open={Boolean(pendingDeactivate)}
+        title="Désactiver l'utilisateur"
+        confirmLabel="Désactiver"
+        cancelLabel="Annuler"
+        danger
+        busy={deactivating}
+        onCancel={() => setPendingDeactivate(null)}
+        onConfirm={handleDelete}
+      >
+        <p style={{ margin: 0 }}>
+          Êtes-vous sûr de vouloir désactiver cet utilisateur ?
+        </p>
+      </AppDialog>
     </div>
   );
 }

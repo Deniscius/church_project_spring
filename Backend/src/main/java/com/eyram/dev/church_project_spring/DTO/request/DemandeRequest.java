@@ -3,10 +3,12 @@ package com.eyram.dev.church_project_spring.DTO.request;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.List;
 import java.util.UUID;
 
 public record DemandeRequest(
@@ -15,16 +17,20 @@ public record DemandeRequest(
         @Size(max = 500, message = "L'intention ne peut pas dépasser 500 caractères")
         String intention,
 
-        @NotBlank(message = "Le nom du fidèle est obligatoire")
+        /** Optionnel : avec prénom vide → défaut « Un(e) chrétien(ne) » si les deux absents. */
         @Size(max = 100, message = "Le nom du fidèle ne peut pas dépasser 100 caractères")
         String nomFidele,
 
-        @NotBlank(message = "Le prénom du fidèle est obligatoire")
+        /** Optionnel : avec nom vide → défaut « Un(e) chrétien(ne) » si les deux absents. */
         @Size(max = 100, message = "Le prénom du fidèle ne peut pas dépasser 100 caractères")
         String prenomFidele,
 
         @NotBlank(message = "Le téléphone du fidèle est obligatoire")
         @Size(max = 30, message = "Le téléphone du fidèle ne peut pas dépasser 30 caractères")
+        @Pattern(
+                regexp = "^\\+[1-9]\\d{6,14}$",
+                message = "Le téléphone doit être au format international E.164 (ex. +22890123456)"
+        )
         String telFidele,
 
         @Email(message = "L'adresse email du fidèle est invalide")
@@ -36,8 +42,31 @@ public record DemandeRequest(
 
         LocalTime heurePersonnalisee,
 
-        @NotNull(message = "La date de début est obligatoire")
+        /**
+         * Première célébration. Obligatoire pour un forfait à 1 célébration ;
+         * optionnel si {@code datesCelebration} est fourni (dérivé du minimum).
+         */
         LocalDate dateDebut,
+
+        /**
+         * Dates de célébration pour les forfaits multi-jours (triduum / neuvaine / trentaine).
+         * Optionnel si {@code dateDebut} ou {@code celebrationSlots} est fourni.
+         */
+        @Size(max = 30, message = "Au maximum 30 dates de célébration peuvent être fournies")
+        List<LocalDate> datesCelebration,
+
+        /**
+         * Créneaux détaillés (date + horaire du jour). Prioritaire sur {@code datesCelebration}
+         * pour les multi-célébrations.
+         */
+        @Size(max = 30, message = "Au maximum 30 créneaux de célébration peuvent être fournis")
+        List<CelebrationSlotRequest> celebrationSlots,
+
+        /**
+         * {@code true} = jours calendaires consécutifs ; {@code false} = dates libres
+         * dans la fenêtre {@code nombreJour}. {@code null} = déduit des dates.
+         */
+        Boolean joursConsecutifs,
 
         @NotNull(message = "La paroisse est obligatoire")
         UUID paroissePublicId,

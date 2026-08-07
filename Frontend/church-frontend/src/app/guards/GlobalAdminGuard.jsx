@@ -2,6 +2,7 @@ import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 
+/** Uniquement SUPER_ADMIN global (config système). */
 export default function GlobalAdminGuard() {
   const { user, isAuthenticated } = useAuth();
 

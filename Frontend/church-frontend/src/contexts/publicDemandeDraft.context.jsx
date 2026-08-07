@@ -7,14 +7,18 @@ import {
   useMemo,
   useReducer,
 } from 'react';
+import { toE164, DEFAULT_PHONE_COUNTRY_ISO, parseStoredPhone } from '../utils/phone';
 
-const DRAFT_STORAGE_KEY = 'public_demande_draft_v1';
+const DRAFT_STORAGE_KEY = 'public_demande_draft_v4';
 
 const initialDraft = {
   intention: '',
   prenomFidele: '',
   nomFidele: '',
   telFidele: '',
+  /** ISO pays pour l'indicatif (ex. TG) — le national est saisi à part. */
+  telCountryIso: DEFAULT_PHONE_COUNTRY_ISO,
+  telNational: '',
   emailFidele: '',
   nomCoursier: '',
   paroissePublicId: '',
@@ -25,8 +29,10 @@ const initialDraft = {
   typeDemandeJoursCelebrationAutorises: [],
   forfaitTarifPublicId: '',
   forfaitLabel: '',
+  forfaitNature: '',
   forfaitHeurePersonnalise: false,
   forfaitNombreCelebration: null,
+  forfaitNombreJour: null,
   forfaitMontant: null,
   forfaitJoursCelebrationAutorises: [],
   horairePublicId: '',
@@ -35,6 +41,9 @@ const initialDraft = {
   horaireJourSemaine: '',
   heurePersonnalisee: '',
   dateDebut: '',
+  datesCelebration: [],
+  /** Multi : { [isoDate]: { horairePublicId, horaireLibelle, heureCelebration, jourSemaine, heurePersonnalisee } } */
+  dateSchedules: {},
   typePaiementPublicId: '',
   typePaiementLibelle: '',
 };
@@ -45,10 +54,46 @@ function loadDraftFromStorage() {
     if (!raw) return { ...initialDraft };
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') return { ...initialDraft };
-    return { ...initialDraft, ...parsed };
+    const merged = {
+      ...initialDraft,
+      ...parsed,
+      datesCelebration: Array.isArray(parsed.datesCelebration) ? parsed.datesCelebration : [],
+      dateSchedules:
+        parsed.dateSchedules && typeof parsed.dateSchedules === 'object'
+          ? parsed.dateSchedules
+          : {},
+    };
+    if (merged.telNational) {
+      const iso = merged.telCountryIso || DEFAULT_PHONE_COUNTRY_ISO;
+      merged.telCountryIso = iso;
+      merged.telFidele = toE164(iso, merged.telNational) || merged.telFidele || '';
+    } else if (merged.telFidele) {
+      const parsedPhone = parseStoredPhone(
+        merged.telFidele,
+        merged.telCountryIso || DEFAULT_PHONE_COUNTRY_ISO
+      );
+      merged.telCountryIso = parsedPhone.iso;
+      merged.telNational = parsedPhone.national;
+      merged.telFidele = toE164(parsedPhone.iso, parsedPhone.national) || merged.telFidele;
+    }
+    return merged;
   } catch {
     return { ...initialDraft };
   }
+}
+
+function clearScheduleFields(state) {
+  return {
+    ...state,
+    horairePublicId: '',
+    horaireLibelle: '',
+    horaireHeureCelebration: '',
+    horaireJourSemaine: '',
+    heurePersonnalisee: '',
+    dateDebut: '',
+    datesCelebration: [],
+    dateSchedules: {},
+  };
 }
 
 function draftReducer(state, action) {
@@ -57,7 +102,7 @@ function draftReducer(state, action) {
       return { ...state, ...action.payload };
     case 'SELECT_PAROISSE': {
       const { publicId, nom } = action.payload;
-      return {
+      return clearScheduleFields({
         ...state,
         paroissePublicId: publicId,
         paroisseNom: nom || '',
@@ -67,20 +112,17 @@ function draftReducer(state, action) {
         typeDemandeJoursCelebrationAutorises: [],
         forfaitTarifPublicId: '',
         forfaitLabel: '',
+        forfaitNature: '',
         forfaitHeurePersonnalise: false,
         forfaitNombreCelebration: null,
+        forfaitNombreJour: null,
         forfaitMontant: null,
         forfaitJoursCelebrationAutorises: [],
-        horairePublicId: '',
-        horaireLibelle: '',
-        horaireHeureCelebration: '',
-        horaireJourSemaine: '',
-        heurePersonnalisee: '',
-      };
+      });
     }
     case 'SELECT_TYPE_DEMANDE': {
       const { publicId, libelle, delaiMinimumHeures, joursCelebrationAutorises } = action.payload;
-      return {
+      return clearScheduleFields({
         ...state,
         typeDemandePublicId: publicId,
         typeDemandeLibelle: libelle || '',
@@ -88,54 +130,54 @@ function draftReducer(state, action) {
         typeDemandeJoursCelebrationAutorises: joursCelebrationAutorises || [],
         forfaitTarifPublicId: '',
         forfaitLabel: '',
+        forfaitNature: '',
         forfaitHeurePersonnalise: false,
         forfaitNombreCelebration: null,
+        forfaitNombreJour: null,
         forfaitMontant: null,
         forfaitJoursCelebrationAutorises: [],
-        horairePublicId: '',
-        horaireLibelle: '',
-        horaireHeureCelebration: '',
-        horaireJourSemaine: '',
-        heurePersonnalisee: '',
-        dateDebut: '',
-      };
+      });
     }
     case 'SELECT_FORFAIT': {
       const {
         publicId,
         label,
+        natureForfait,
         heurePersonnalise,
         nombreCelebration,
+        nombreJour,
         montantForfait,
         joursCelebrationAutorises,
       } = action.payload;
-      return {
+      const n = nombreCelebration != null ? Number(nombreCelebration) : null;
+      return clearScheduleFields({
         ...state,
         forfaitTarifPublicId: publicId,
         forfaitLabel: label || '',
+        forfaitNature: natureForfait || '',
         forfaitHeurePersonnalise: Boolean(heurePersonnalise),
-        forfaitNombreCelebration:
-          nombreCelebration != null ? Number(nombreCelebration) : null,
+        forfaitNombreCelebration: n,
+        forfaitNombreJour: nombreJour != null ? Number(nombreJour) : n,
         forfaitMontant: montantForfait != null ? Number(montantForfait) : null,
         forfaitJoursCelebrationAutorises: joursCelebrationAutorises || [],
-        horairePublicId: '',
-        horaireLibelle: '',
-        horaireHeureCelebration: '',
-        horaireJourSemaine: '',
-        heurePersonnalisee: '',
-        dateDebut: '',
-      };
+        datesCelebration: n != null && n > 1 ? Array.from({ length: n }, () => '') : [],
+      });
     }
     case 'SELECT_HORAIRE': {
-      const { publicId, libelle, heureCelebration, jourSemaine } = action.payload;
-      return {
+      const { publicId, libelle, heureCelebration, jourSemaine, preserveDate } = action.payload;
+      const next = {
         ...state,
         horairePublicId: publicId,
         horaireLibelle: libelle || '',
         horaireHeureCelebration: heureCelebration || '',
         horaireJourSemaine: jourSemaine || '',
-        dateDebut: '',
       };
+      // En liaison messe unique (date déjà choisie), on conserve la date.
+      if (!preserveDate) {
+        next.dateDebut = '';
+        next.datesCelebration = [];
+      }
+      return next;
     }
     case 'SELECT_PAIEMENT': {
       const { publicId, libelle } = action.payload;
@@ -152,17 +194,20 @@ function draftReducer(state, action) {
   }
 }
 
-const PublicDemandeDraftContext = createContext(null);
+export const PublicDemandeDraftContext = createContext(null);
 
 export function PublicDemandeDraftProvider({ children }) {
   const [draft, dispatch] = useReducer(draftReducer, undefined, loadDraftFromStorage);
 
   useEffect(() => {
-    try {
-      sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
-    } catch {
-      /* quota */
-    }
+    const timer = window.setTimeout(() => {
+      try {
+        sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+      } catch {
+        /* quota */
+      }
+    }, 400);
+    return () => window.clearTimeout(timer);
   }, [draft]);
 
   const patch = useCallback((payload) => {
@@ -172,6 +217,7 @@ export function PublicDemandeDraftProvider({ children }) {
   const reset = useCallback(() => {
     try {
       sessionStorage.removeItem(DRAFT_STORAGE_KEY);
+      sessionStorage.removeItem('public_demande_draft_v1');
     } catch {
       /* */
     }

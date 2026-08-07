@@ -3,10 +3,13 @@ package com.eyram.dev.church_project_spring.security;
 import com.eyram.dev.church_project_spring.entities.Paroisse;
 import com.eyram.dev.church_project_spring.entities.User;
 import com.eyram.dev.church_project_spring.enums.RoleParoisse;
+import com.eyram.dev.church_project_spring.enums.UserRole;
 import com.eyram.dev.church_project_spring.repositories.ParoisseAccessRepository;
 import com.eyram.dev.church_project_spring.repositories.UserRepository;
+import com.eyram.dev.church_project_spring.service.tenant.TenantCatalogBootstrapService;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,11 +23,21 @@ public class TenantAccessService {
 
     private final UserRepository userRepository;
     private final ParoisseAccessRepository paroisseAccessRepository;
+    private final TenantCatalogBootstrapService tenantCatalogBootstrapService;
 
     public TenantAccessService(UserRepository userRepository,
-                               ParoisseAccessRepository paroisseAccessRepository) {
+                               ParoisseAccessRepository paroisseAccessRepository,
+                               TenantCatalogBootstrapService tenantCatalogBootstrapService) {
         this.userRepository = userRepository;
         this.paroisseAccessRepository = paroisseAccessRepository;
+        this.tenantCatalogBootstrapService = tenantCatalogBootstrapService;
+    }
+
+    public boolean isAuthenticated() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return authentication != null
+                && authentication.isAuthenticated()
+                && authentication.getPrincipal() instanceof UserDetailsImpl;
     }
 
     public User getCurrentUser() {
@@ -58,12 +71,12 @@ public class TenantAccessService {
             return false;
         }
 
-        User currentUser = getCurrentUser();
-
-        if (Boolean.TRUE.equals(currentUser.getIsGlobal())) {
+        // Évite un aller-retour DB pour les super-admins globaux.
+        if (isGlobalFromPrincipal()) {
             return true;
         }
 
+        User currentUser = getCurrentUser();
         return paroisseAccessRepository
                 .existsByUserAndParoisseAndActiveTrueAndStatusDelFalse(currentUser, paroisse);
     }
@@ -74,16 +87,41 @@ public class TenantAccessService {
         }
     }
 
+    /**
+     * Écriture du catalogue métier (horaires / types / forfaits).
+     * Le COMPTABLE ne peut modifier que la paroisse modèle SaaS.
+     */
+    public void checkCatalogWriteAccess(Paroisse paroisse) {
+        checkParoisseAccess(paroisse);
+        if (hasAuthority("ROLE_" + UserRole.COMPTABLE.name())
+                && !hasAuthority("ROLE_" + UserRole.SUPER_ADMIN.name())
+                && !tenantCatalogBootstrapService.isTemplateParoisse(paroisse)) {
+            throw new AccessDeniedException(
+                    "Le comptable ne peut modifier que le catalogue modèle de la plateforme"
+            );
+        }
+    }
+
+    private boolean hasAuthority(String authority) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null) {
+            return false;
+        }
+        return authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(authority::equals);
+    }
+
     public boolean hasParoisseRole(Paroisse paroisse, RoleParoisse... roles) {
         if (!isExistingParoisse(paroisse) || roles == null || roles.length == 0) {
             return false;
         }
 
-        User currentUser = getCurrentUser();
-
-        if (Boolean.TRUE.equals(currentUser.getIsGlobal())) {
+        if (isGlobalFromPrincipal()) {
             return true;
         }
+
+        User currentUser = getCurrentUser();
 
         return paroisseAccessRepository.findByUserAndParoisseAndStatusDelFalse(currentUser, paroisse)
                 .filter(access -> Boolean.TRUE.equals(access.getActive()))
@@ -102,7 +140,18 @@ public class TenantAccessService {
     }
 
     public boolean isGlobalUser() {
-        return Boolean.TRUE.equals(getCurrentUser().getIsGlobal());
+        if (!isAuthenticated()) {
+            return false;
+        }
+        return isGlobalFromPrincipal();
+    }
+
+    private boolean isGlobalFromPrincipal() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !(authentication.getPrincipal() instanceof UserDetailsImpl details)) {
+            return false;
+        }
+        return details.isGlobal();
     }
 
     private boolean isExistingParoisse(Paroisse paroisse) {

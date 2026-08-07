@@ -10,13 +10,26 @@ export const qk = {
   typesParish: (id) => ['type-demandes', 'parish', id],
   forfaitsActifs: (typeId) => ['forfait-tarifs', 'actifs', typeId],
   horairesParish: (id) => ['horaires', 'parish', id],
+  horairesPublicActives: ['horaires', 'public', 'paroisses-actives'],
   typePaiementsPublic: ['type-paiement', 'public'],
 };
 
-export function useParoissesPublicQuery() {
+/** Accueil / page horaires : listes chargées uniquement quand le hook est monté. */
+export function useHorairesPublicActivesQuery(options = {}) {
+  return useQuery({
+    queryKey: qk.horairesPublicActives,
+    queryFn: () => scheduleService.listPublicForActiveParishes(),
+    staleTime: 15 * 60_000,
+    enabled: options.enabled !== false,
+  });
+}
+
+export function useParoissesPublicQuery(options = {}) {
   return useQuery({
     queryKey: qk.paroissesPublic,
     queryFn: () => parishService.getAllPublic(),
+    staleTime: 15 * 60_000,
+    enabled: options.enabled !== false,
     select: (data) => (data || []).filter((p) => p.isActive !== false),
   });
 }
@@ -26,6 +39,7 @@ export function useTypeDemandesByParishQuery(paroissePublicId) {
     queryKey: qk.typesParish(paroissePublicId),
     queryFn: () => requestTypeService.getByParishPublic(paroissePublicId),
     enabled: Boolean(paroissePublicId),
+    staleTime: 10 * 60_000,
     select: (data) => (data || []).filter((t) => t.isActive !== false && !t.statusDel),
   });
 }
@@ -35,6 +49,7 @@ export function useForfaitsActifsQuery(typeDemandePublicId) {
     queryKey: qk.forfaitsActifs(typeDemandePublicId),
     queryFn: () => pricingService.getActiveByTypeDemandePublic(typeDemandePublicId),
     enabled: Boolean(typeDemandePublicId),
+    staleTime: 10 * 60_000,
     select: (data) => (data || []).filter((f) => f.isActive !== false && !f.statusDel),
   });
 }
@@ -44,13 +59,16 @@ export function useHorairesByParishQuery(paroissePublicId) {
     queryKey: qk.horairesParish(paroissePublicId),
     queryFn: () => scheduleService.getByParishPublic(paroissePublicId),
     enabled: Boolean(paroissePublicId),
+    staleTime: 10 * 60_000,
     select: (data) => (data || []).filter((h) => h.isActive !== false && !h.statusDel),
   });
 }
 
-export function useTypePaiementsPublicQuery() {
+export function useTypePaiementsPublicQuery(options = {}) {
   return useQuery({
     queryKey: qk.typePaiementsPublic,
     queryFn: () => paymentTypeService.getAllPublic(),
+    staleTime: 30 * 60_000,
+    enabled: options.enabled !== false,
   });
 }

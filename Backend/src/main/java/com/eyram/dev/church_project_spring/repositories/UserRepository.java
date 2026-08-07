@@ -19,7 +19,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
     })
     Optional<User> findByUsernameIgnoreCaseAndStatusDelFalse(String username);
 
+    Optional<User> findByEmailIgnoreCaseAndStatusDelFalse(String email);
+
     boolean existsByUsernameIgnoreCaseAndStatusDelFalse(String username);
+
+    boolean existsByEmailIgnoreCaseAndStatusDelFalse(String email);
+
+    boolean existsByEmailIgnoreCaseAndStatusDelFalseAndPublicIdNot(String email, UUID publicId);
 
     List<User> findByStatusDelFalseOrderByNomAscPrenomAsc();
 

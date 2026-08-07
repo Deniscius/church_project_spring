@@ -7,6 +7,7 @@ public record DoyenneResponse(
         UUID publicId,
         String nom,
         String description,
+        Integer rang,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {

@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import { setActiveParishId } from '../constants/authStorage';
 import { authService } from '../services/auth.service';
 import { mapJwtToUser } from '../utils/mapJwtToUser';
@@ -29,21 +29,15 @@ function initialSession() {
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(initialSession);
 
-  /**
-   * Login multi-tenant (nouveau - recommandé)
-   * Retourne : { token, user, paroisses, selectedParoisse }
-   */
-  const loginMultiTenant = async (payload) => {
+  const loginMultiTenant = useCallback(async (payload) => {
     try {
       const response = await authService.loginMultiTenant({
         username: payload.username,
         password: payload.password,
       });
-      
+
       const { token, user, paroisses = [], selectedParoisse } = response;
-      
       authService.persistSession(token, user, paroisses, selectedParoisse);
-      
       setSession({
         isAuthenticated: true,
         user,
@@ -51,18 +45,14 @@ export function AuthProvider({ children }) {
         paroisses,
         selectedParoisse,
       });
-      
       return { user, paroisses, selectedParoisse };
     } catch (error) {
       console.error('Multi-tenant login failed:', error);
       throw error;
     }
-  };
+  }, []);
 
-  /**
-   * Login classique (legacy - pour compatibilité)
-   */
-  const login = async (payload) => {
+  const login = useCallback(async (payload) => {
     try {
       const jwt = await authService.login({
         username: payload.username,
@@ -82,9 +72,9 @@ export function AuthProvider({ children }) {
       console.error('Login failed:', error);
       throw error;
     }
-  };
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     setActiveParishId(null);
     authService.logout();
     setSession({
@@ -94,18 +84,29 @@ export function AuthProvider({ children }) {
       paroisses: [],
       selectedParoisse: null,
     });
-  };
+  }, []);
 
-  /**
-   * Change la paroisse active (tenant)
-   */
-  const setSelectedParoisse = (paroisse) => {
+  const patchCurrentUser = useCallback((patch) => {
+    setSession((prev) => {
+      if (!prev.user) return prev;
+      const user = { ...prev.user, ...patch };
+      authService.persistSession(prev.token, user, prev.paroisses, prev.selectedParoisse);
+      return { ...prev, user };
+    });
+  }, []);
+
+  const setSelectedParoisse = useCallback((paroisse) => {
     authService.setSelectedParoisse(paroisse);
-    setSession((prev) => ({
-      ...prev,
-      selectedParoisse: paroisse,
-    }));
-  };
+    setSession((prev) => {
+      const prevId = prev.selectedParoisse?.publicId || prev.selectedParoisse?.id || null;
+      const nextId = paroisse?.publicId || paroisse?.id || null;
+      if (prevId === nextId) return prev;
+      return {
+        ...prev,
+        selectedParoisse: paroisse,
+      };
+    });
+  }, []);
 
   const value = useMemo(
     () => ({
@@ -114,8 +115,9 @@ export function AuthProvider({ children }) {
       loginMultiTenant,
       logout,
       setSelectedParoisse,
+      patchCurrentUser,
     }),
-    [session]
+    [session, login, loginMultiTenant, logout, setSelectedParoisse, patchCurrentUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

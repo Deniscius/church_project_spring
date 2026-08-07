@@ -1,8 +1,11 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import AppCard from '../ui/AppCard';
+import AppSelect from '../ui/AppSelect';
+import { FieldLabel } from '../ui/HelpTip';
 import { usePublicDemandeDraft } from '../../contexts/publicDemandeDraft.context';
 import { useTypeDemandesByParishQuery } from '../../hooks/queries/usePublicReferentiel';
 import { formatAllowedDays } from '../../utils/schedulingUtils';
+import { HELP } from '../../constants/helpTips';
 
 export default function RequestTypeSelector() {
   const { draft, dispatch } = usePublicDemandeDraft();
@@ -11,6 +14,16 @@ export default function RequestTypeSelector() {
   );
 
   const disabled = !draft.paroissePublicId;
+  const loading = isLoading || isFetching;
+  const noType = !disabled && !loading && !error && types.length === 0;
+
+  const options = useMemo(
+    () => types.map((t) => ({
+      value: t.publicId,
+      label: t.libelle,
+    })),
+    [types]
+  );
 
   return (
     <AppCard title="Type de demande" subtitle="Types actifs pour la paroisse choisie.">
@@ -18,35 +31,39 @@ export default function RequestTypeSelector() {
         <p className="muted">Sélectionnez d’abord une paroisse.</p>
       ) : null}
       {error ? <p className="text-red-600">{error.message}</p> : null}
-      {isLoading || isFetching ? <p className="muted">Chargement…</p> : null}
+      {loading ? <p className="muted">Chargement…</p> : null}
+      {noType ? (
+        <p className="text-red-600">
+          Aucun type de demande n’est configuré pour cette paroisse. Contactez la paroisse.
+        </p>
+      ) : null}
       <div className="form-field">
-        <label htmlFor="public-type-demande">Type *</label>
-        <select
+        <FieldLabel htmlFor="public-type-demande" help={HELP.demande.typeDemande} required>
+          Type
+        </FieldLabel>
+        <AppSelect
           id="public-type-demande"
-          className="select"
-          disabled={disabled}
+          name="typeDemandePublicId"
+          required
+          disabled={disabled || loading}
+          placeholder="— Choisir un type —"
           value={draft.typeDemandePublicId}
-          onChange={(e) => {
-            const id = e.target.value;
+          options={options}
+          onChange={(id) => {
             const t = types.find((x) => x.publicId === id);
+            const jours = t?.joursCelebrationAutorises || [];
+            const delai = t?.delaiMinimumHeures ?? 24;
             dispatch({
               type: 'SELECT_TYPE_DEMANDE',
               payload: {
                 publicId: id,
                 libelle: t?.libelle || '',
-                delaiMinimumHeures: t?.delaiMinimumHeures ?? 24,
-                joursCelebrationAutorises: t?.joursCelebrationAutorises || [],
+                delaiMinimumHeures: delai,
+                joursCelebrationAutorises: jours,
               },
             });
           }}
-        >
-          <option value="">— Choisir un type —</option>
-          {types.map((t) => (
-            <option key={t.publicId} value={t.publicId}>
-              {t.libelle}
-            </option>
-          ))}
-        </select>
+        />
         {draft.typeDemandePublicId ? (
           <small className="muted">
             À déposer au moins {draft.typeDemandeDelaiMinimumHeures} heure(s) avant la célébration.

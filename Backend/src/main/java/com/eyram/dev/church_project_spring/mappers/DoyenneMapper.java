@@ -16,6 +16,9 @@ public interface DoyenneMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "paroisses", ignore = true)
+    // Le rang est arbitré par le service : il se déduit des doyennés existants
+    // quand la requête ne le précise pas.
+    @Mapping(target = "rang", ignore = true)
     Doyenne dtoToModel(DoyenneRequest request);
 
     @Mapping(target = "id", ignore = true)
@@ -24,6 +27,7 @@ public interface DoyenneMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "paroisses", ignore = true)
+    @Mapping(target = "rang", ignore = true)
     void updateEntityFromDto(DoyenneRequest request, @MappingTarget Doyenne entity);
 
     DoyenneResponse modelToDto(Doyenne entity);

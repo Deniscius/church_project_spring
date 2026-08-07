@@ -7,8 +7,10 @@ import com.eyram.dev.church_project_spring.enums.StatutValidationEnum;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.List;
 import java.util.UUID;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -39,6 +41,8 @@ public record DemandeResponse(
 
         UUID horairePublicId,
         String horaireLibelle,
+        /** Heure de l'horaire paroissial retenu (null si heure personnalisée). */
+        LocalTime horaireHeure,
 
         UUID userPublicId,
         String username,
@@ -48,8 +52,15 @@ public record DemandeResponse(
         ModePaiement modePaiement,
 
         Boolean statusDel,
+        /** Soft delete : date/heure de retrait des listes actives. */
+        LocalDateTime deletedAt,
+        /** Soft delete : auteur de la suppression. */
+        String deletedByNom,
+        /** Date/heure de dépôt de la demande (pas la célébration). */
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
+
+        List<LocalDate> datesCelebration,
 
         UUID facturePublicId,
         String refFacture,

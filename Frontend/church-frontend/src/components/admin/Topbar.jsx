@@ -1,18 +1,30 @@
 import React from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { useTenant } from '../../hooks/useTenant';
+import { useUIStore } from '../../store/ui.context';
+import AppIcon from '../ui/AppIcon';
 
 export default function Topbar() {
   const { user, logout } = useAuth();
   const { activeParish, parishOptions, setActiveParish } = useTenant();
+  const { setSidebarOpen } = useUIStore();
 
   return (
     <div className="admin-topbar">
-      <div>
-        <strong>{activeParish?.name || '—'}</strong>
+      <div className="topbar-left">
+        <button
+          type="button"
+          className="mobile-menu-btn"
+          onClick={() => setSidebarOpen(true)}
+          aria-label="Ouvrir le menu"
+        >
+          <AppIcon name="menu" />
+        </button>
+        <div>
+          <strong>{activeParish?.name || '—'}</strong>
         {parishOptions.length > 1 ? (
-          <div className="form-field" style={{ marginTop: 8, maxWidth: 320 }}>
-            <label htmlFor="topbar-parish" className="muted" style={{ fontSize: 12 }}>
+          <div className="topbar-parish-picker">
+            <label htmlFor="topbar-parish" className="muted">
               Paroisse active
             </label>
             <select
@@ -32,12 +44,14 @@ export default function Topbar() {
             </select>
           </div>
         ) : (
-          <div style={{ color: 'var(--muted)', marginTop: 4 }}>Tableau privé de la paroisse connectée</div>
+          <div className="topbar-context">Tableau privé de la paroisse connectée</div>
         )}
+        </div>
       </div>
       <div className="button-row">
         <span className="badge">{user?.username || 'Invité'}</span>
         <button className="btn btn-secondary" type="button" onClick={logout}>
+          <AppIcon name="logout" size={17} />
           Déconnexion
         </button>
       </div>

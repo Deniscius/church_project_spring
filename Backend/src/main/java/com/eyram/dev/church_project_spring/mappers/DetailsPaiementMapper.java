@@ -17,10 +17,20 @@ public interface DetailsPaiementMapper {
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "typePaiement", ignore = true)
     @Mapping(target = "facture", ignore = true)
+    @Mapping(target = "montantFrais", ignore = true)
+    @Mapping(target = "montantFraisAgregeateur", ignore = true)
+    @Mapping(target = "montantFraisPlateforme", ignore = true)
+    @Mapping(target = "montantCharge", ignore = true)
+    @Mapping(target = "montantNet", ignore = true)
+    @Mapping(target = "provider", ignore = true)
+    @Mapping(target = "paymentUrl", ignore = true)
+    @Mapping(target = "encaisseurNom", ignore = true)
+    @Mapping(target = "encaisseurUserPublicId", ignore = true)
     DetailsPaiement dtoToModel(DetailsPaiementRequest request);
 
     @Mapping(target = "typePaiementPublicId", source = "typePaiement.publicId")
     @Mapping(target = "typePaiementLibelle", source = "typePaiement.libelle")
+    @Mapping(target = "modePaiement", source = "typePaiement.mode")
     @Mapping(target = "facturePublicId", source = "facture.publicId")
     @Mapping(target = "refFacture", source = "facture.refFacture")
     DetailsPaiementResponse modelToDto(DetailsPaiement detailsPaiement);
@@ -32,5 +42,14 @@ public interface DetailsPaiementMapper {
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "typePaiement", ignore = true)
     @Mapping(target = "facture", ignore = true)
+    @Mapping(target = "montantFrais", ignore = true)
+    @Mapping(target = "montantFraisAgregeateur", ignore = true)
+    @Mapping(target = "montantFraisPlateforme", ignore = true)
+    @Mapping(target = "montantCharge", ignore = true)
+    @Mapping(target = "montantNet", ignore = true)
+    @Mapping(target = "provider", ignore = true)
+    @Mapping(target = "paymentUrl", ignore = true)
+    @Mapping(target = "encaisseurNom", ignore = true)
+    @Mapping(target = "encaisseurUserPublicId", ignore = true)
     void dtoToModel(DetailsPaiementRequest request, @MappingTarget DetailsPaiement detailsPaiement);
 }

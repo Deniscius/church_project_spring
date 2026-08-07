@@ -1,0 +1,40 @@
+# https://www.robotstxt.org/robotstxt.html
+User-agent: *
+Allow: /
+Allow: /llms.txt
+Allow: /sitemap.xml
+Allow: /manifest.webmanifest
+Allow: /plan-du-site
+
+# Espaces authentifiés
+Disallow: /admin/
+Disallow: /superadmin/
+
+# Parcours transactionnels / données personnelles
+Disallow: /demande/recapitulatif
+Disallow: /demande/confirmation
+Disallow: /suivi/resultat
+Disallow: /facture/
+Disallow: /paiement/
+
+# Agents IA (même politique que le web ouvert)
+User-agent: GPTBot
+Allow: /
+Allow: /llms.txt
+Disallow: /admin/
+Disallow: /superadmin/
+Disallow: /demande/recapitulatif
+Disallow: /demande/confirmation
+Disallow: /suivi/resultat
+Disallow: /facture/
+Disallow: /paiement/
+
+User-agent: Google-Extended
+Allow: /
+Allow: /llms.txt
+Disallow: /admin/
+Disallow: /superadmin/
+Disallow: /facture/
+Disallow: /paiement/
+
+Sitemap: https://www.missanye.com/sitemap.xml

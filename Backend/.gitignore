@@ -31,3 +31,6 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Uploads locaux (scans inscription, logos) ###
+uploads/

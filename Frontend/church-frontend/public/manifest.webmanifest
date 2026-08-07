@@ -1,0 +1,26 @@
+{
+  "name": "Missanye",
+  "short_name": "Messes",
+  "description": "Déposez une intention de messe, suivez votre demande et consultez les horaires des paroisses actives.",
+  "lang": "fr",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#eef2f7",
+  "theme_color": "#1a3a6b",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/og-cover.jpg",
+      "sizes": "1200x675",
+      "type": "image/jpeg",
+      "purpose": "any"
+    }
+  ]
+}

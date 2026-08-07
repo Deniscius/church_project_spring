@@ -4,6 +4,8 @@ import com.eyram.dev.church_project_spring.security.jwt.AuthEntryPointJwt;
 import com.eyram.dev.church_project_spring.security.jwt.AuthTokenFilter;
 import com.eyram.dev.church_project_spring.security.jwt.JwtUtils;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -22,6 +24,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 import org.springframework.web.cors.CorsConfigurationSource;
 
 @Configuration
@@ -31,6 +34,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 public class SecurityConfig {
 
     private final AuthEntryPointJwt authEntryPointJwt;
+    private final Environment environment;
 
     @Bean
     public DaoAuthenticationProvider authenticationProvider(
@@ -43,10 +47,10 @@ public class SecurityConfig {
         provider.setPasswordEncoder(passwordEncoder);
 
         /*
-         * Permet de distinguer une mauvaise configuration de paroisse
-         * d'un simple mot de passe incorrect.
+         * Masque les détails d'échec d'authentification pour limiter
+         * l'énumération de comptes / mauvaises configs de paroisse.
          */
-        provider.setHideUserNotFoundExceptions(false);
+        provider.setHideUserNotFoundExceptions(true);
 
         return provider;
     }
@@ -72,26 +76,56 @@ public class SecurityConfig {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .csrf(AbstractHttpConfigurer::disable)
+                // Empêche la popup navigateur « Se connecter » (WWW-Authenticate: Basic).
+                .httpBasic(AbstractHttpConfigurer::disable)
+                .formLogin(AbstractHttpConfigurer::disable)
+                .logout(AbstractHttpConfigurer::disable)
+                .headers(headers -> {
+                    headers.contentTypeOptions(contentType -> {});
+                    headers.frameOptions(frame -> frame.sameOrigin());
+                    headers.referrerPolicy(referrer -> referrer.policy(
+                            ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN
+                    ));
+                    headers.permissionsPolicy(permissions -> permissions.policy(
+                            "camera=(), microphone=(), geolocation=()"
+                    ));
+                    headers.httpStrictTransportSecurity(hsts -> hsts
+                            .includeSubDomains(true)
+                            .maxAgeInSeconds(31536000)
+                    );
+                })
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(authEntryPointJwt))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         // Authentification et endpoints techniques publics
                         .requestMatchers("/auth/login", "/auth/login-multi-tenant").permitAll()
-                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                        // Swagger : jamais en production (même si springdoc était réactivé par erreur).
+                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html")
+                        .access(swaggerAccess())
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers("/error", "/login", "/login.html", "/health-ui", "/health.html", "/assets/**", "/").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
                         // Dépôt public et consultation publique par code
                         .requestMatchers(HttpMethod.POST, "/demandes").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/inscriptions-paroisse").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/inscriptions-paroisse/otp/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/demandes/code/**").permitAll()
+                        .requestMatchers(HttpMethod.PATCH, "/demandes/code/*/type-paiement").permitAll()
                         .requestMatchers(HttpMethod.GET, "/facture/code-suivie/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/details-paiement/code-suivie/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/paroisses/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/type-demandes/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/forfait-tarifs/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/horaires/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/type-paiement/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/paiements/quote/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/paiements/checkout/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/webhooks/fedapay").permitAll()
+
+                        // Catalogue public : uniquement les routes scopées (paroisse / type / actifs)
+                        .requestMatchers(HttpMethod.GET, "/paroisses", "/paroisses/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/doyennes", "/doyennes/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/type-demandes/paroisse/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/forfait-tarifs/type-demande/*/actifs").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/horaires/paroisse/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/horaires/public/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/type-paiement", "/type-paiement/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/demande-dates/demande/**").permitAll()
 
                         // Gestion des utilisateurs : aucun rôle métier inférieur ne doit accéder aux routes admin.
@@ -106,6 +140,17 @@ public class SecurityConfig {
                         .requestMatchers("/paroisse-access", "/paroisse-access/**")
                         .access(globalSuperAdminAccess())
 
+                        // Exception au référentiel global : une paroisse tient ses propres
+                        // coordonnées, son RIB et le logo du reçu.
+                        .requestMatchers(HttpMethod.PATCH, "/paroisses/*/coordonnees")
+                        .hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/paroisses/*/logo")
+                        .hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/paroisses/*/logo")
+                        .hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/paroisses/*/logo")
+                        .hasAnyRole("ADMIN", "SECRETAIRE", "CURE", "COMPTABLE_LOCAL", "SUPER_ADMIN")
+
                         // Gestion du référentiel global
                         .requestMatchers(HttpMethod.POST, "/paroisses", "/doyennes", "/type-paiement")
                         .access(globalSuperAdminAccess())
@@ -114,16 +159,19 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/paroisses/**", "/doyennes/**", "/type-paiement/**")
                         .access(globalSuperAdminAccess())
 
-                        // Paramétrage propre à une paroisse
+                        // Paramétrage paroissial : admin local, ou comptable/super admin
+                        // pour le catalogue plateforme (support is_system) cloné aux tenants.
                         .requestMatchers(HttpMethod.POST, "/horaires", "/type-demandes", "/forfait-tarifs")
-                        .hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        .hasAnyRole("ADMIN", "COMPTABLE", "SUPER_ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/horaires/**", "/type-demandes/**", "/forfait-tarifs/**")
-                        .hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        .hasAnyRole("ADMIN", "COMPTABLE", "SUPER_ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/horaires/**", "/type-demandes/**", "/forfait-tarifs/**")
-                        .hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        .hasAnyRole("ADMIN", "COMPTABLE", "SUPER_ADMIN")
 
                         // Gestion des demandes après leur dépôt public
                         .requestMatchers(HttpMethod.PUT, "/demandes/**")
+                        .hasAnyRole("SECRETAIRE", "ADMIN", "SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.PATCH, "/demandes/*/intention")
                         .hasAnyRole("SECRETAIRE", "ADMIN", "SUPER_ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/demandes/*/validation")
                         .hasAnyRole("CURE", "ADMIN", "SUPER_ADMIN")
@@ -131,8 +179,11 @@ public class SecurityConfig {
                         .hasAnyRole("ADMIN", "SUPER_ADMIN")
 
                         // Paiements : saisie par le secrétariat, suppression par un administrateur.
-                        .requestMatchers(HttpMethod.POST, "/details-paiement")
+                        // La caisse locale (espèces) est encaissée ici, hors solde de reversement.
+                        .requestMatchers(HttpMethod.POST, "/details-paiement", "/details-paiement/caisse/**")
                         .hasAnyRole("SECRETAIRE", "ADMIN", "SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/details-paiement/caisse/**")
+                        .hasAnyRole("SECRETAIRE", "COMPTABLE_LOCAL", "ADMIN", "SUPER_ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/details-paiement/**")
                         .hasAnyRole("SECRETAIRE", "ADMIN", "SUPER_ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/details-paiement/**")
@@ -160,6 +211,16 @@ public class SecurityConfig {
                 .addFilterBefore(authTokenFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    private AuthorizationManager<RequestAuthorizationContext> swaggerAccess() {
+        return (authenticationSupplier, context) -> {
+            boolean prod = environment.acceptsProfiles(Profiles.of("prod"));
+            boolean swaggerEnabled = environment.getProperty(
+                    "springdoc.swagger-ui.enabled", Boolean.class, false
+            );
+            return new AuthorizationDecision(!prod && swaggerEnabled);
+        };
     }
 
     private AuthorizationManager<RequestAuthorizationContext> globalSuperAdminAccess() {

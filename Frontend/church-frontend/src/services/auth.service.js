@@ -1,4 +1,12 @@
-import { AUTH_TOKEN_KEY, AUTH_USER_KEY } from '../constants/authStorage';
+import {
+  AUTH_PAROISSES_KEY,
+  AUTH_SELECTED_PAROISSE_KEY,
+  AUTH_TOKEN_KEY,
+  AUTH_USER_KEY,
+  authStorage,
+  clearAuthStorage,
+  migrateAuthStorage,
+} from '../constants/authStorage';
 import { apiClient } from './http/apiClient';
 
 const MULTI_TENANT_ENDPOINT = '/auth/login-multi-tenant';
@@ -32,17 +40,15 @@ export const authService = {
     }),
 
   logout: async () => {
-    sessionStorage.removeItem(AUTH_TOKEN_KEY);
-    sessionStorage.removeItem(AUTH_USER_KEY);
-    sessionStorage.removeItem('selectedParoisse');
-    sessionStorage.removeItem('paroisses');
+    clearAuthStorage();
     return true;
   },
 
   getPersistedSession: () => {
     try {
-      const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
-      const raw = sessionStorage.getItem(AUTH_USER_KEY);
+      migrateAuthStorage();
+      const token = authStorage.getItem(AUTH_TOKEN_KEY);
+      const raw = authStorage.getItem(AUTH_USER_KEY);
       if (!token || !raw) return null;
       return { token, user: JSON.parse(raw) };
     } catch {
@@ -51,12 +57,19 @@ export const authService = {
   },
 
   persistSession: (token, user, paroisses = [], selectedParoisse = null) => {
-    sessionStorage.setItem(AUTH_TOKEN_KEY, token);
-    sessionStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
-    sessionStorage.setItem('paroisses', JSON.stringify(paroisses));
+    authStorage.setItem(AUTH_TOKEN_KEY, token);
+    authStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+    authStorage.setItem(AUTH_PAROISSES_KEY, JSON.stringify(paroisses));
     if (selectedParoisse) {
-      sessionStorage.setItem('selectedParoisse', JSON.stringify(selectedParoisse));
+      authStorage.setItem(AUTH_SELECTED_PAROISSE_KEY, JSON.stringify(selectedParoisse));
+    } else {
+      authStorage.removeItem(AUTH_SELECTED_PAROISSE_KEY);
     }
+    // Drop any leftover tab-scoped session keys.
+    sessionStorage.removeItem(AUTH_TOKEN_KEY);
+    sessionStorage.removeItem(AUTH_USER_KEY);
+    sessionStorage.removeItem(AUTH_PAROISSES_KEY);
+    sessionStorage.removeItem(AUTH_SELECTED_PAROISSE_KEY);
   },
 
   /**
@@ -64,7 +77,8 @@ export const authService = {
    */
   getSessionParoisses: () => {
     try {
-      const raw = sessionStorage.getItem('paroisses');
+      migrateAuthStorage();
+      const raw = authStorage.getItem(AUTH_PAROISSES_KEY);
       return raw ? JSON.parse(raw) : [];
     } catch {
       return [];
@@ -76,7 +90,8 @@ export const authService = {
    */
   getSelectedParoisse: () => {
     try {
-      const raw = sessionStorage.getItem('selectedParoisse');
+      migrateAuthStorage();
+      const raw = authStorage.getItem(AUTH_SELECTED_PAROISSE_KEY);
       return raw ? JSON.parse(raw) : null;
     } catch {
       return null;
@@ -88,9 +103,9 @@ export const authService = {
    */
   setSelectedParoisse: (paroisse) => {
     if (paroisse) {
-      sessionStorage.setItem('selectedParoisse', JSON.stringify(paroisse));
+      authStorage.setItem(AUTH_SELECTED_PAROISSE_KEY, JSON.stringify(paroisse));
     } else {
-      sessionStorage.removeItem('selectedParoisse');
+      authStorage.removeItem(AUTH_SELECTED_PAROISSE_KEY);
     }
   },
 };

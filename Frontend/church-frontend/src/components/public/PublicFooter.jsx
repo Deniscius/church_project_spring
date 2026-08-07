@@ -8,10 +8,10 @@ export default function PublicFooter() {
     <footer className="public-footer">
       <div className="container footer-grid">
         <div>
-          <div className="footer-brand">Messes Paroissiales</div>
-          <p style={{ color: 'rgba(241,245,249,0.6)', fontSize: 14, lineHeight: 1.6, margin: 0, maxWidth: 320 }}>
-            Plateforme de gestion des demandes de messes pour les paroisses.
-            Déposez, suivez et gérez vos intentions en toute simplicité.
+          <div className="footer-brand">Missanye</div>
+          <p className="footer-lead">
+            Déposez une intention, suivez votre demande et consultez les horaires des paroisses
+            partenaires — en toute simplicité.
           </p>
         </div>
         <div>
@@ -19,18 +19,21 @@ export default function PublicFooter() {
           <div className="footer-links">
             <Link to="/demande">Faire une demande</Link>
             <Link to="/suivi">Suivre une demande</Link>
+            <Link to="/horaires">Horaires des messes</Link>
           </div>
         </div>
         <div>
-          <div className="footer-links-title">Administration</div>
+          <div className="footer-links-title">Paroisses</div>
           <div className="footer-links">
-            <Link to="/admin/login">Connexion paroisse</Link>
+            <Link to="/inscription-paroisse">Inscrire ma paroisse</Link>
+            <Link to="/admin/login">Connexion</Link>
+            <Link to="/plan-du-site">Plan du site</Link>
           </div>
         </div>
       </div>
       <div className="container footer-bottom">
-        <span>© {year} Messes Paroissiales</span>
-        <span>Système multi-paroisses sécurisé</span>
+        <span>© {year} Missanye · www.missanye.com</span>
+        <span>Multi-paroisses · Données isolées par paroisse</span>
       </div>
     </footer>
   );

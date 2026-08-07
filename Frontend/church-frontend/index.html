@@ -2,14 +2,103 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Plateforme de gestion des demandes de messes paroissiales — déposer, suivre et administrer vos intentions." />
-    <meta name="theme-color" content="#1e4d8c" />
-    <title>Messes Paroissiales — Gestion des demandes</title>
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#1a3a6b" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Missanye" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/assets/og-cover.jpg" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <title>Missanye — Demandes de messes &amp; horaires</title>
+    <meta
+      name="description"
+      content="Déposez une intention de messe, suivez votre demande et consultez les horaires des paroisses actives."
+    />
+    <meta name="robots" content="index, follow" />
+    <meta name="author" content="Missanye" />
+    <link rel="canonical" href="https://www.missanye.com/" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Missanye" />
+    <meta property="og:locale" content="fr_FR" />
+    <meta property="og:url" content="https://www.missanye.com/" />
+    <meta property="og:title" content="Missanye — Demandes de messes & horaires" />
+    <meta
+      property="og:description"
+      content="Déposez une intention de messe, suivez votre demande et consultez les horaires des paroisses actives."
+    />
+    <meta property="og:image" content="https://www.missanye.com/assets/og-cover.jpg" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="675" />
+    <meta property="og:image:alt" content="Missanye — Intentions et célébrations" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Missanye — Demandes de messes & horaires" />
+    <meta
+      name="twitter:description"
+      content="Déposez une intention de messe, suivez votre demande et consultez les horaires des paroisses actives."
+    />
+    <meta name="twitter:image" content="https://www.missanye.com/assets/og-cover.jpg" />
+    <meta name="twitter:image:alt" content="Missanye — Intentions et célébrations" />
+
+    <!-- Perf : origines + LCP -->
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preload" as="image" href="/assets/hero-sanctuary.svg" fetchpriority="high" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Source+Sans+3:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <script id="site-jsonld" type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://www.missanye.com/#organization",
+            "name": "Missanye — Archidiocèse de Lomé",
+            "alternateName": "Missanye",
+            "url": "https://www.missanye.com/",
+            "areaServed": "Lomé, Togo",
+            "inLanguage": "fr"
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://www.missanye.com/#website",
+            "name": "Missanye",
+            "url": "https://www.missanye.com/",
+            "inLanguage": "fr",
+            "publisher": { "@id": "https://www.missanye.com/#organization" }
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      <main style="max-width:40rem;margin:2rem auto;padding:1rem;font-family:system-ui,sans-serif">
+        <h1>Missanye</h1>
+        <p>Activez JavaScript pour utiliser la plateforme, ou ouvrez directement&nbsp;:</p>
+        <ul>
+          <li><a href="/demande">Faire une demande de messe</a></li>
+          <li><a href="/suivi">Suivre une demande</a></li>
+          <li><a href="/horaires">Horaires des messes</a></li>
+          <li><a href="/inscription-paroisse">Inscrire ma paroisse</a></li>
+          <li><a href="/plan-du-site">Plan du site</a></li>
+        </ul>
+      </main>
+    </noscript>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

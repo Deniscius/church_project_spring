@@ -39,8 +39,38 @@ public class DetailsPaiement extends BaseEntity implements Serializable {
     @Column(name = "montant", nullable = false)
     private Integer montant;
 
+    /** Commission agrégateur (XOF). */
+    @Column(name = "montant_frais", nullable = false)
+    private Integer montantFrais = 0;
+
+    @Column(name = "montant_frais_agregateur", nullable = false)
+    private Integer montantFraisAgregeateur = 0;
+
+    @Column(name = "montant_frais_plateforme", nullable = false)
+    private Integer montantFraisPlateforme = 0;
+
+    /** Montant effectivement débité chez le fidèle / envoyé à FedaPay. */
+    @Column(name = "montant_charge")
+    private Integer montantCharge;
+
+    /** Montant net attendu pour la paroisse après frais. */
+    @Column(name = "montant_net")
+    private Integer montantNet;
+
+    @Column(name = "provider", length = 40)
+    private String provider;
+
+    @Column(name = "payment_url", length = 500)
+    private String paymentUrl;
+
     @Column(name = "id_transaction", length = 150)
     private String idTransaction;
+
+    @Column(name = "encaisseur_nom", length = 150)
+    private String encaisseurNom;
+
+    @Column(name = "encaisseur_user_public_id")
+    private UUID encaisseurUserPublicId;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "statut_paiement", nullable = false)

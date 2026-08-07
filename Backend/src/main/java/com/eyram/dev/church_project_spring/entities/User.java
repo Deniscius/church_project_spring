@@ -49,6 +49,12 @@ public class User extends BaseEntity {
     @Column(name = "username", length = 100, nullable = false)
     private String username;
 
+    @Column(name = "email", length = 150)
+    private String email;
+
+    @Column(name = "telephone", length = 50)
+    private String telephone;
+
     @JsonIgnore
     @Column(name = "password", nullable = false)
     private String password;
@@ -61,7 +67,7 @@ public class User extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false, length = 32)
-    @Check(constraints = "(role IN ('SECRETAIRE', 'CURE', 'ADMIN', 'SUPER_ADMIN'))")
+    @Check(constraints = "(role IN ('SECRETAIRE', 'CURE', 'ADMIN', 'COMPTABLE_LOCAL', 'COMPTABLE', 'SUPER_ADMIN'))")
     private UserRole role;
 
     @JsonIgnore

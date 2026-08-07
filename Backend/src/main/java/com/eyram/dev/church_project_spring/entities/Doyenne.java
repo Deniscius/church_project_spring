@@ -34,6 +34,10 @@ public class Doyenne extends BaseEntity implements Serializable {
     @Column(name = "description", length = 500)
     private String description;
 
+    /** Rang officiel dans la nomenclature diocésaine, qui n'est pas alphabétique. */
+    @Column(name = "rang", nullable = false)
+    private Integer rang;
+
     @JsonIgnore
     @OneToMany(mappedBy = "doyenne", fetch = FetchType.LAZY)
     private List<Paroisse> paroisses = new ArrayList<>();

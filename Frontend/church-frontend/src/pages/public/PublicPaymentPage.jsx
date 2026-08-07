@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useParams, useSearchParams } from 'react-router-dom';
 import PageHeader from '../../components/ui/PageHeader';
 import PublicPaymentCard from '../../components/public/PublicPaymentCard';
 import AppCard from '../../components/ui/AppCard';
@@ -10,43 +10,57 @@ import { formatDate } from '../../utils/formatDate';
 
 export default function PublicPaymentPage() {
   const { codeSuivie } = useParams();
+  const [searchParams] = useSearchParams();
   const [demande, setDemande] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!codeSuivie) {
       setLoading(false);
       return;
     }
-    let cancelled = false;
-    (async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await requestService.getByTrackingCode(decodeURIComponent(codeSuivie));
-        if (!cancelled) setDemande(data);
-      } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Erreur');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await requestService.getByTrackingCode(decodeURIComponent(codeSuivie));
+      setDemande(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur');
+    } finally {
+      setLoading(false);
+    }
   }, [codeSuivie]);
 
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const fedapayStatus = searchParams.get('status');
+
   return (
-    <div className="stack">
-      <PageHeader title="Paiement public" subtitle="État du paiement lié à la demande (code de suivi)." />
+    <div className="stack public-page">
+      <PageHeader
+        title="Paiement"
+        subtitle="Mobile Money ou carte via FedaPay. Le paiement au comptant n’est pas proposé sur le suivi."
+      />
+      {fedapayStatus ? (
+        <p className="muted">
+          Retour FedaPay — statut transaction : <strong>{fedapayStatus}</strong>.
+          La confirmation définitive arrive via webhook (quelques secondes).
+        </p>
+      ) : null}
       <div className="grid-2">
-        <PublicPaymentCard />
+        <PublicPaymentCard demande={demande} onStatusMaybeChanged={load} />
         <AppCard title="Détails">
           {loading ? <p className="muted">Chargement…</p> : null}
           {error ? <p className="text-red-600">{error}</p> : null}
           {demande ? (
             <div className="info-list">
+              <div className="info-row">
+                <span>Code de suivi</span>
+                <strong>{demande.codeSuivie}</strong>
+              </div>
               <div className="info-row">
                 <span>Référence transaction</span>
                 <strong>{demande.idTransaction || '—'}</strong>

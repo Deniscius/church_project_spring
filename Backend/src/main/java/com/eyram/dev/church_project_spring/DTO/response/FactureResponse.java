@@ -9,6 +9,7 @@ import java.util.UUID;
 public record FactureResponse(
         UUID publicId,
         String refFacture,
+        LocalDateTime dateEmission,
         LocalDateTime datePaiement,
         Integer montant,
         StatutPaiementEnum statutPaiement,
@@ -17,9 +18,28 @@ public record FactureResponse(
         String codeSuivieDemande,
         String nomFidele,
         String prenomFidele,
+        String telFidele,
+        String emailFidele,
+        String intention,
+        String typeDemandeLibelle,
+        String forfaitNom,
+        String statutDemande,
 
         UUID typePaiementPublicId,
         String typePaiementLibelle,
-        ModePaiement modePaiement
+        ModePaiement modePaiement,
+
+        /** Détail de l'encaissement ; {@code null} tant que la facture n'est pas payée. */
+        PaiementReglementResponse reglement
 ) {
+
+    public FactureResponse withReglement(PaiementReglementResponse value) {
+        return new FactureResponse(
+                publicId, refFacture, dateEmission, datePaiement, montant, statutPaiement,
+                demandePublicId, codeSuivieDemande, nomFidele, prenomFidele, telFidele, emailFidele,
+                intention, typeDemandeLibelle, forfaitNom, statutDemande,
+                typePaiementPublicId, typePaiementLibelle, modePaiement,
+                value
+        );
+    }
 }

@@ -24,6 +24,10 @@ public record ParoisseRequest(
         @Size(max = 50, message = "Le téléphone ne doit pas dépasser 50 caractères")
         String telephone,
 
+        @Size(max = 120) String nomBanque,
+        @Size(max = 150) String titulaireCompte,
+        @Size(max = 80) String ibanOrRib,
+
         @NotNull(message = "Le doyenné est obligatoire")
         UUID doyennePublicId
 

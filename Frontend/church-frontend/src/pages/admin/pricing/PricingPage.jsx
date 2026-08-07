@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import PageHeader from '../../../components/ui/PageHeader';
 import AppTable from '../../../components/ui/AppTable';
 import AppBadge from '../../../components/ui/AppBadge';
+import AppDialog from '../../../components/ui/AppDialog';
 import { useTenant } from '../../../hooks/useTenant';
 import { pricingService } from '../../../services/pricing.service';
 import { requestTypeService } from '../../../services/requestType.service';
@@ -12,7 +13,9 @@ import { usePermissions } from '../../../hooks/usePermissions';
 import { PERMISSIONS } from '../../../constants/roles';
 
 const columns = [
+  { key: 'code', label: 'Code' },
   { key: 'label', label: 'Forfait' },
+  { key: 'nature', label: 'Nature' },
   { key: 'amount', label: 'Montant' },
   { key: 'celebrations', label: 'Célébrations' },
   { key: 'allowedDays', label: 'Jours autorisés' },
@@ -27,16 +30,22 @@ export default function PricingPage() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [pendingDelete, setPendingDelete] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
   const canManage = has(PERMISSIONS.PRICING_MANAGE);
 
-  const remove = async (id) => {
-    if (!window.confirm('Supprimer ce forfait ?')) return;
+  const remove = async () => {
+    if (!pendingDelete) return;
     try {
+      setDeletingId(pendingDelete);
       setError(null);
-      await pricingService.remove(id);
-      setRows((current) => current.filter((row) => row.id !== id));
+      await pricingService.remove(pendingDelete);
+      setRows((current) => current.filter((row) => row.id !== pendingDelete));
+      setPendingDelete(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Suppression impossible');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -52,10 +61,12 @@ export default function PricingPage() {
         setLoading(true);
         setError(null);
         const types = await requestTypeService.getByParish(activeParish.id);
-        const all = await pricingService.getAll();
         if (cancelled) return;
-        const typeSet = new Set((types || []).map((t) => t.publicId));
-        const filtered = (all || []).filter((f) => typeSet.has(f.typeDemandePublicId));
+        const forfaitLists = await Promise.all(
+          (types || []).map((type) => pricingService.getByTypeDemande(type.publicId))
+        );
+        if (cancelled) return;
+        const filtered = forfaitLists.flat().filter(Boolean);
         setRows(filtered.map(mapForfaitToRow));
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Erreur');
@@ -84,12 +95,31 @@ export default function PricingPage() {
           if (column.key === 'actions') return canManage ? (
             <div className="button-row">
               <Link className="btn btn-secondary" to={`/admin/forfaits/${row.id}/modifier`}>Modifier</Link>
-              <button className="btn btn-danger" onClick={() => remove(row.id)}>Supprimer</button>
+              <button
+                className="btn btn-danger"
+                disabled={deletingId === row.id}
+                onClick={() => setPendingDelete(row.id)}
+              >
+                {deletingId === row.id ? 'Suppression…' : 'Supprimer'}
+              </button>
             </div>
           ) : '—';
           return row[column.key];
         }}
       />
+
+      <AppDialog
+        open={Boolean(pendingDelete)}
+        title="Supprimer le forfait"
+        confirmLabel="Supprimer"
+        cancelLabel="Annuler"
+        danger
+        busy={Boolean(deletingId)}
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={remove}
+      >
+        <p style={{ margin: 0 }}>Supprimer ce forfait ?</p>
+      </AppDialog>
     </div>
   );
 }

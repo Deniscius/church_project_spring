@@ -4,16 +4,19 @@ import AppButton from '../../../components/ui/AppButton';
 import AppCard from '../../../components/ui/AppCard';
 import AppInput from '../../../components/ui/AppInput';
 import WeekDaySelector from '../../../components/ui/WeekDaySelector';
-import { WEEK_DAYS } from '../../../constants/enums';
+import { NATURE_FORFAIT_OPTIONS, WEEK_DAYS, getForfaitDureeLabel } from '../../../constants/enums';
 import { useTenant } from '../../../hooks/useTenant';
+import { useScrollToError } from '../../../hooks/useScrollToError';
 import { pricingService } from '../../../services/pricing.service';
 import { requestTypeService } from '../../../services/requestType.service';
 import { filterDaysWithinType, formatAllowedDays } from '../../../utils/schedulingUtils';
+import FormError from '../../../components/ui/FormError';
 
 const INITIAL_VALUE = {
   codeForfait: '',
   nomForfait: '',
   libelle: '',
+  natureForfait: 'NORMALE',
   montantForfait: '',
   nombreJour: '',
   nombreCelebration: '1',
@@ -34,6 +37,7 @@ export default function PricingForm({ pricingId = null }) {
   const [types, setTypes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const errorRef = useScrollToError(error);
 
   const selectedType = useMemo(
     () => types.find((type) => type.publicId === form.typeDemandePublicId) || null,
@@ -65,6 +69,7 @@ export default function PricingForm({ pricingId = null }) {
             codeForfait: existing.codeForfait || '',
             nomForfait: existing.nomForfait || '',
             libelle: existing.libelle || '',
+            natureForfait: existing.natureForfait || 'NORMALE',
             montantForfait: existing.montantForfait ?? '',
             nombreJour: existing.nombreJour ?? '',
             nombreCelebration: existing.nombreCelebration ?? '',
@@ -119,10 +124,16 @@ export default function PricingForm({ pricingId = null }) {
       setLoading(true);
       setError(null);
       const payload = {
-        ...form,
+        nomForfait: form.nomForfait,
+        libelle: form.libelle,
+        natureForfait: form.natureForfait,
         montantForfait: Number(form.montantForfait),
         nombreJour: optionalNumber(form.nombreJour),
         nombreCelebration: optionalNumber(form.nombreCelebration),
+        joursCelebrationAutorises: form.joursCelebrationAutorises,
+        heurePersonnalise: form.heurePersonnalise,
+        isActive: form.isActive,
+        typeDemandePublicId: form.typeDemandePublicId,
       };
       if (pricingId) await pricingService.update(pricingId, payload);
       else await pricingService.create(payload);
@@ -136,12 +147,17 @@ export default function PricingForm({ pricingId = null }) {
 
   return (
     <AppCard title={pricingId ? 'Forfait existant' : 'Nouveau forfait'}>
-      {error ? <p className="text-red-600">{error}</p> : null}
+      <FormError error={error} errorRef={errorRef} />
       {!types.length && !loading ? <p className="muted">Créez d’abord un type de demande actif.</p> : null}
       <form onSubmit={submit}>
         <div className="form-grid">
-          <div className="form-field"><label htmlFor="pricing-code">Code *</label>
-            <AppInput id="pricing-code" required value={form.codeForfait} onChange={(e) => field('codeForfait', e.target.value)} /></div>
+          {pricingId ? (
+            <div className="form-field">
+              <label htmlFor="pricing-code">Code forfait</label>
+              <AppInput id="pricing-code" value={form.codeForfait} readOnly disabled />
+              <small className="muted">Généré automatiquement à la création.</small>
+            </div>
+          ) : null}
           <div className="form-field"><label htmlFor="pricing-name">Nom *</label>
             <AppInput id="pricing-name" required value={form.nomForfait} onChange={(e) => field('nomForfait', e.target.value)} /></div>
           <div className="form-field"><label htmlFor="pricing-label">Libellé</label>
@@ -152,10 +168,73 @@ export default function PricingForm({ pricingId = null }) {
             <select id="pricing-type" className="select" required value={form.typeDemandePublicId} onChange={(e) => handleTypeChange(e.target.value)}>
               {types.map((type) => <option key={type.publicId} value={type.publicId}>{type.libelle}</option>)}
             </select></div>
-          <div className="form-field"><label htmlFor="pricing-celebrations">Nombre de célébrations</label>
-            <AppInput id="pricing-celebrations" type="number" min="0" value={form.nombreCelebration} onChange={(e) => field('nombreCelebration', e.target.value)} /></div>
-          <div className="form-field"><label htmlFor="pricing-days">Nombre de jours</label>
-            <AppInput id="pricing-days" type="number" min="0" value={form.nombreJour} onChange={(e) => field('nombreJour', e.target.value)} /></div>
+          <div className="form-field"><label htmlFor="pricing-nature">Nature *</label>
+            <select
+              id="pricing-nature"
+              className="select"
+              required
+              value={form.natureForfait}
+              onChange={(e) => {
+                const natureForfait = e.target.value;
+                setForm((current) => ({
+                  ...current,
+                  natureForfait,
+                  // Spéciale / solennités : souvent tous les jours autorisés du type.
+                  joursCelebrationAutorises: natureForfait === 'SPECIALE' && typeAllowedDays.length
+                    ? sortDays(typeAllowedDays)
+                    : current.joursCelebrationAutorises,
+                  heurePersonnalise: natureForfait === 'SPECIALE' ? true : current.heurePersonnalise,
+                }));
+              }}
+            >
+              {NATURE_FORFAIT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+            <small className="muted">
+              Normale / dominicale = selon le jour. Spéciale = solennités et célébrations
+              exceptionnelles (montant dédié). Une seule nature par type de demande.
+            </small>
+          </div>
+          <div className="form-field"><label htmlFor="pricing-celebrations">Nombre de célébrations *</label>
+            <AppInput
+              id="pricing-celebrations"
+              type="number"
+              min="1"
+              required
+              value={form.nombreCelebration}
+              onChange={(e) => {
+                const value = e.target.value;
+                setForm((current) => ({
+                  ...current,
+                  nombreCelebration: value,
+                  // Aligne le nombre de jours (triduum=3, neuvaine=9, trentaine=30) si vide ou égal à l’ancienne valeur.
+                  nombreJour:
+                    current.nombreJour === ''
+                    || current.nombreJour === current.nombreCelebration
+                      ? value
+                      : current.nombreJour,
+                }));
+              }}
+            />
+            <small className="muted">
+              {getForfaitDureeLabel(Number(form.nombreCelebration) || null)}
+              {' '}— le fidèle choisira exactement ce nombre de dates (3 = triduum, 9 = neuvaine, 30 = trentaine).
+            </small>
+          </div>
+          <div className="form-field"><label htmlFor="pricing-days">Nombre de jours (fenêtre)</label>
+            <AppInput
+              id="pricing-days"
+              type="number"
+              min="1"
+              value={form.nombreJour}
+              onChange={(e) => field('nombreJour', e.target.value)}
+            />
+            <small className="muted">
+              Période calendaire maximale entre la 1<sup>re</sup> et la dernière date choisie.
+              En général égal au nombre de célébrations.
+            </small>
+          </div>
           <div className="form-field full">
             <label htmlFor="pricing-celebration-days">Jours de célébration autorisés *</label>
             <WeekDaySelector

@@ -1,6 +1,7 @@
 package com.eyram.dev.church_project_spring.entities;
 
 import com.eyram.dev.church_project_spring.enums.JourSemaine;
+import com.eyram.dev.church_project_spring.enums.NatureForfaitEnum;
 import com.eyram.dev.church_project_spring.utils.BaseEntity;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -10,6 +11,7 @@ import org.hibernate.annotations.SqlFragmentAlias;
 import org.hibernate.annotations.UuidGenerator;
 
 import java.io.Serializable;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.UUID;
 
@@ -45,6 +47,29 @@ public class Horaire extends BaseEntity implements Serializable {
 
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
+
+    /**
+     * Si renseigné : créneau ponctuel pour cette date uniquement
+     * (sinon créneau hebdomadaire récurrent).
+     */
+    @Column(name = "date_specifique")
+    private LocalDate dateSpecifique;
+
+    /**
+     * Si true (implique {@code dateSpecifique}) : ce jour-là, seule cette messe
+     * est au programme de la paroisse (les créneaux hebdomadaires sont masqués).
+     */
+    @Column(name = "unique_sur_paroisse", nullable = false)
+    private Boolean uniqueSurParoisse = false;
+
+    /**
+     * Honoraire (nature de forfait) applicable aux intentions sur cette date précise.
+     * Typiquement {@code SPECIALE} pour un événement solennel ; sinon NORMALE / DOMINICALE
+     * selon le jour choisi par l'admin.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "nature_honoraire", length = 20)
+    private NatureForfaitEnum natureHonoraire;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "paroisse_id", nullable = false)

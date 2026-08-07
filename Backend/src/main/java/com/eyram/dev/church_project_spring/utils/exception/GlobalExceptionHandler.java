@@ -152,9 +152,39 @@ public class GlobalExceptionHandler {
         log.warn("Database constraint violation on {}", request.getDescription(false), ex);
         return buildResponse(
                 HttpStatus.CONFLICT,
-                "L'opération entre en conflit avec les données existantes",
+                resolveDataIntegrityMessage(ex),
                 request
         );
+    }
+
+    private String resolveDataIntegrityMessage(DataIntegrityViolationException ex) {
+        String details = "";
+        if (ex.getMostSpecificCause() != null && ex.getMostSpecificCause().getMessage() != null) {
+            details = ex.getMostSpecificCause().getMessage().toLowerCase();
+        } else if (ex.getMessage() != null) {
+            details = ex.getMessage().toLowerCase();
+        }
+
+        if (details.contains("uq_forfait_tarif_type_nature")
+                || details.contains("type_demande_id") && details.contains("nature_forfait")) {
+            return "Un forfait avec cette nature existe déjà pour ce type de demande "
+                    + "(normale, dominicale ou spéciale — une seule par nature, y compris les forfaits soft-supprimés).";
+        }
+        if (details.contains("forfait_tarif_jour_autorise")
+                || details.contains("type_demande_jour_autorise")) {
+            return "Impossible d'enregistrer les jours de célébration. Réessayez ou vérifiez qu'aucun doublon de jour n'est envoyé.";
+        }
+        if (details.contains("code_forfait")) {
+            return "Ce code forfait existe déjà.";
+        }
+        if (details.contains("nom_forfait")) {
+            return "Un forfait avec ce nom existe déjà pour ce type de demande.";
+        }
+        if (details.contains("libelle") && details.contains("paroisse")) {
+            return "Ce type de demande existe déjà pour cette paroisse.";
+        }
+
+        return "L'opération entre en conflit avec les données existantes";
     }
 
     @ExceptionHandler(AuthenticationServiceException.class)

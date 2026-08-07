@@ -69,9 +69,9 @@ public class MultiTenantAuthService {
             );
             UserDetailsImpl principal = (UserDetailsImpl) authentication.getPrincipal();
 
-            User user = userRepository.findByUsernameIgnoreCaseAndStatusDelFalse(username)
+            User user = userRepository.findByUsernameIgnoreCaseAndStatusDelFalse(principal.getUsername())
                     .orElseThrow(() -> {
-                        log.warn("User not found after successful authentication: {}", username);
+                        log.warn("User not found after successful authentication: {}", principal.getUsername());
                         return new InvalidCredentialsException("Identifiants incorrects");
                     });
 
@@ -186,6 +186,7 @@ public class MultiTenantAuthService {
                 .adresse(access.getParoisse().getAdresse())
                 .roleParoisse(access.getRoleParoisse().name())
                 .active(access.getActive())
+                .subscriptionExpiresAt(access.getParoisse().getSubscriptionExpiresAt())
                 .build();
     }
 }

@@ -25,7 +25,7 @@ public class OpenApiConfig {
                 .info(new Info()
                         .title("Church Project API")
                         .version("1.0.0")
-                        .description("Documentation de l'API de gestion des demandes de messe")
+                        .description("Documentation de l'API de gestion des demandes de messe, des paroisses, des paiements et des accès utilisateurs. Cette API expose les opérations de gestion, d'authentification et de supervision opérationnelle attendues par l'application.")
                         .contact(new Contact()
                                 .name("Eyram Dev")
                                 .email("support@churchproject.com")));

@@ -9,4 +9,9 @@ export const paymentTypeService = {
 
   create: (payload) =>
     apiClient('/type-paiement', { method: 'POST', body: JSON.stringify(payload) }, { auth: true }),
+
+  update: (publicId, payload) =>
+    apiClient(`/type-paiement/${publicId}`, { method: 'PUT', body: JSON.stringify(payload) }, { auth: true }),
+
+  remove: (publicId) => apiClient(`/type-paiement/${publicId}`, { method: 'DELETE' }, { auth: true }),
 };

@@ -1,5 +1,6 @@
-import { createContext, useContext, useMemo, useState } from 'react';
-import { setActiveParishId } from '../constants/authStorage';
+/* eslint-disable react-refresh/only-export-components */
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { clearAuthStorage, setActiveParishId } from '../constants/authStorage';
 import { authService } from '../services/auth.service';
 import { mapJwtToUser } from '../utils/mapJwtToUser';
 
@@ -10,14 +11,16 @@ function initialSession() {
   if (persisted) {
     return {
       isAuthenticated: true,
+      authReady: false,
       user: persisted.user,
-      token: persisted.token,
+      token: 'cookie',
       paroisses: authService.getSessionParoisses(),
       selectedParoisse: authService.getSelectedParoisse(),
     };
   }
   return {
     isAuthenticated: false,
+    authReady: true,
     user: null,
     token: null,
     paroisses: [],
@@ -28,51 +31,87 @@ function initialSession() {
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(initialSession);
 
-  /**
-   * Login multi-tenant (nouveau - recommandé)
-   * Retourne : { token, user, paroisses, selectedParoisse }
-   */
-  const loginMultiTenant = async (payload) => {
+  // Valide le cookie HttpOnly au démarrage (purge si expiré / révoqué).
+  useEffect(() => {
+    let cancelled = false;
+
+    async function bootstrap() {
+      const persisted = authService.getPersistedSession();
+      if (!persisted) {
+        if (!cancelled) {
+          setSession((prev) => ({ ...prev, authReady: true }));
+        }
+        return;
+      }
+      try {
+        const live = await authService.fetchCurrentSession();
+        if (cancelled) return;
+        authService.persistSession(live.user, live.paroisses, live.selectedParoisse);
+        setSession({
+          isAuthenticated: true,
+          authReady: true,
+          user: live.user,
+          token: 'cookie',
+          paroisses: live.paroisses,
+          selectedParoisse: live.selectedParoisse,
+        });
+      } catch {
+        if (cancelled) return;
+        clearAuthStorage();
+        setSession({
+          isAuthenticated: false,
+          authReady: true,
+          user: null,
+          token: null,
+          paroisses: [],
+          selectedParoisse: null,
+        });
+      }
+    }
+
+    bootstrap();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const loginMultiTenant = useCallback(async (payload) => {
     try {
       const response = await authService.loginMultiTenant({
         username: payload.username,
         password: payload.password,
       });
-      
-      const { token, user, paroisses = [], selectedParoisse } = response;
-      
-      authService.persistSession(token, user, paroisses, selectedParoisse);
-      
+
+      const { user, paroisses = [], selectedParoisse } = response;
+      authService.persistSession(user, paroisses, selectedParoisse);
       setSession({
         isAuthenticated: true,
+        authReady: true,
         user,
-        token,
+        token: 'cookie',
         paroisses,
         selectedParoisse,
       });
-      
       return { user, paroisses, selectedParoisse };
     } catch (error) {
       console.error('Multi-tenant login failed:', error);
       throw error;
     }
-  };
+  }, []);
 
-  /**
-   * Login classique (legacy - pour compatibilité)
-   */
-  const login = async (payload) => {
+  const login = useCallback(async (payload) => {
     try {
       const jwt = await authService.login({
         username: payload.username,
         password: payload.password,
       });
       const user = mapJwtToUser(jwt);
-      authService.persistSession(jwt.accessToken, user);
+      authService.persistSession(user, [], null);
       setSession({
         isAuthenticated: true,
+        authReady: true,
         user,
-        token: jwt.accessToken,
+        token: 'cookie',
         paroisses: [],
         selectedParoisse: null,
       });
@@ -81,30 +120,42 @@ export function AuthProvider({ children }) {
       console.error('Login failed:', error);
       throw error;
     }
-  };
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(async () => {
     setActiveParishId(null);
-    authService.logout();
+    await authService.logout();
     setSession({
       isAuthenticated: false,
+      authReady: true,
       user: null,
       token: null,
       paroisses: [],
       selectedParoisse: null,
     });
-  };
+  }, []);
 
-  /**
-   * Change la paroisse active (tenant)
-   */
-  const setSelectedParoisse = (paroisse) => {
+  const patchCurrentUser = useCallback((patch) => {
+    setSession((prev) => {
+      if (!prev.user) return prev;
+      const user = { ...prev.user, ...patch };
+      authService.persistSession(user, prev.paroisses, prev.selectedParoisse);
+      return { ...prev, user };
+    });
+  }, []);
+
+  const setSelectedParoisse = useCallback((paroisse) => {
     authService.setSelectedParoisse(paroisse);
-    setSession((prev) => ({
-      ...prev,
-      selectedParoisse: paroisse,
-    }));
-  };
+    setSession((prev) => {
+      const prevId = prev.selectedParoisse?.publicId || prev.selectedParoisse?.id || null;
+      const nextId = paroisse?.publicId || paroisse?.id || null;
+      if (prevId === nextId) return prev;
+      return {
+        ...prev,
+        selectedParoisse: paroisse,
+      };
+    });
+  }, []);
 
   const value = useMemo(
     () => ({
@@ -113,8 +164,9 @@ export function AuthProvider({ children }) {
       loginMultiTenant,
       logout,
       setSelectedParoisse,
+      patchCurrentUser,
     }),
-    [session]
+    [session, login, loginMultiTenant, logout, setSelectedParoisse, patchCurrentUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

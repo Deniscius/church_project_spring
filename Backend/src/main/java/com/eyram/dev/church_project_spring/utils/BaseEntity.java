@@ -1,25 +1,18 @@
 package com.eyram.dev.church_project_spring.utils;
 
-import jakarta.persistence.Column;
 import jakarta.persistence.EntityListeners;
 import jakarta.persistence.MappedSuperclass;
 import lombok.Getter;
-import org.hibernate.annotations.Filter;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @MappedSuperclass
 @EntityListeners(AuditingEntityListener.class)
-@Filter(name = "tenantFilter", condition = "tenant_id = :tenantId")
 public abstract class BaseEntity implements Serializable {
-
-    @Column(name = "tenant_id")
-    protected UUID tenantId;
 
     @Getter
     @CreatedDate

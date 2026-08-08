@@ -1,11 +1,14 @@
 package com.eyram.dev.church_project_spring.security.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+
 import com.eyram.dev.church_project_spring.security.UserDetailsImpl;
 import org.springframework.security.core.GrantedAuthority;
 
 import java.util.List;
 import java.util.UUID;
 
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record JwtResponse(
         String accessToken,
         String tokenType,

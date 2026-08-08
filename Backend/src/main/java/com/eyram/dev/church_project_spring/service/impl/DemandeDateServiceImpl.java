@@ -7,28 +7,33 @@ import com.eyram.dev.church_project_spring.entities.DemandeDate;
 import com.eyram.dev.church_project_spring.mappers.DemandeDateMapper;
 import com.eyram.dev.church_project_spring.repositories.DemandeDateRepository;
 import com.eyram.dev.church_project_spring.repositories.DemandeRepository;
+import com.eyram.dev.church_project_spring.security.TenantAccessService;
 import com.eyram.dev.church_project_spring.service.DemandeDateService;
 import com.eyram.dev.church_project_spring.utils.exception.AlreadyExistException;
 import com.eyram.dev.church_project_spring.utils.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class DemandeDateServiceImpl implements DemandeDateService {
 
     private final DemandeDateRepository demandeDateRepository;
     private final DemandeRepository demandeRepository;
     private final DemandeDateMapper demandeDateMapper;
+    private final TenantAccessService tenantAccessService;
 
     @Override
     public DemandeDateResponse create(DemandeDateRequest request) {
 
         Demande demande = demandeRepository.findByPublicIdAndStatusDelFalse(request.demandePublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Demande introuvable"));
+        tenantAccessService.checkParoisseAccess(demande.getParoisse());
 
         if (demandeDateRepository.existsByDemandeAndOrdreAndStatusDelFalse(demande, request.ordre())) {
             throw new AlreadyExistException("Cet ordre existe déjà pour cette demande");
@@ -50,9 +55,11 @@ public class DemandeDateServiceImpl implements DemandeDateService {
 
         DemandeDate existingDemandeDate = demandeDateRepository.findByPublicIdAndStatusDelFalse(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Date de demande introuvable"));
+        tenantAccessService.checkParoisseAccess(existingDemandeDate.getDemande().getParoisse());
 
         Demande demande = demandeRepository.findByPublicIdAndStatusDelFalse(request.demandePublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Demande introuvable"));
+        tenantAccessService.checkParoisseAccess(demande.getParoisse());
 
         boolean ordreChanged =
                 !existingDemandeDate.getOrdre().equals(request.ordre()) ||
@@ -81,6 +88,7 @@ public class DemandeDateServiceImpl implements DemandeDateService {
     public DemandeDateResponse getByPublicId(UUID publicId) {
         DemandeDate demandeDate = demandeDateRepository.findByPublicIdAndStatusDelFalse(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Date de demande introuvable"));
+        tenantAccessService.checkParoisseAccess(demandeDate.getDemande().getParoisse());
 
         return demandeDateMapper.modelToDto(demandeDate);
     }
@@ -89,12 +97,15 @@ public class DemandeDateServiceImpl implements DemandeDateService {
     public List<DemandeDateResponse> getAll() {
         return demandeDateRepository.findByStatusDelFalse()
                 .stream()
+                .filter(demandeDate -> tenantAccessService.isGlobalUser()
+                        || tenantAccessService.canAccessParoisse(demandeDate.getDemande().getParoisse()))
                 .map(demandeDateMapper::modelToDto)
                 .toList();
     }
 
     @Override
     public List<DemandeDateResponse> getByDemande(UUID demandePublicId) {
+        // Endpoint public (suivi) : pas de contrôle tenant.
         Demande demande = demandeRepository.findByPublicIdAndStatusDelFalse(demandePublicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Demande introuvable"));
 
@@ -108,6 +119,7 @@ public class DemandeDateServiceImpl implements DemandeDateService {
     public void deleteByPublicId(UUID publicId) {
         DemandeDate demandeDate = demandeDateRepository.findByPublicIdAndStatusDelFalse(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Date de demande introuvable"));
+        tenantAccessService.checkParoisseAccess(demandeDate.getDemande().getParoisse());
 
         demandeDate.setStatusDel(true);
         demandeDateRepository.save(demandeDate);

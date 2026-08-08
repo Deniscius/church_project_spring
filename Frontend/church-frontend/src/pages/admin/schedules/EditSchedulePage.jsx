@@ -1,20 +1,14 @@
 import React from 'react';
+import { useParams } from 'react-router-dom';
 import PageHeader from '../../../components/ui/PageHeader';
-import AppCard from '../../../components/ui/AppCard';
-import AppInput from '../../../components/ui/AppInput';
-import AppButton from '../../../components/ui/AppButton';
+import ScheduleForm from './ScheduleForm';
 
 export default function EditSchedulePage() {
+  const { id } = useParams();
   return (
     <div className="stack">
       <PageHeader title="Modifier un horaire" subtitle="Version d'édition du formulaire horaire." />
-      <AppCard title="Horaire existant">
-        <div className="form-grid">
-          <div className="form-field"><label>Libellé</label><AppInput defaultValue="Messe du soir" /></div>
-          <div className="form-field"><label>Heure</label><AppInput type="time" defaultValue="18:00" /></div>
-        </div>
-        <div className="button-row" style={{ marginTop: 18 }}><AppButton>Enregistrer</AppButton></div>
-      </AppCard>
+      <ScheduleForm scheduleId={id} />
     </div>
   );
 }

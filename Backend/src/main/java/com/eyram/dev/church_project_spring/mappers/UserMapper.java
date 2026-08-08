@@ -29,7 +29,11 @@ public interface UserMapper {
                 user.getNom(),
                 user.getPrenom(),
                 user.getUsername(),
-                user.getRole() != null ? user.getRole().name() : null
+                user.getEmail(),
+                user.getTelephone(),
+                user.getRole() != null ? user.getRole().name() : null,
+                user.getIsActive(),
+                user.getIsGlobal()
         );
     }
 

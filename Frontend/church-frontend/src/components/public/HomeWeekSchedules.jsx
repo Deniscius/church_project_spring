@@ -1,0 +1,231 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useHorairesPublicActivesQuery } from '../../hooks/queries/usePublicReferentiel';
+import { formatParishTimeInUserZone, formatTime } from '../../utils/formatTime';
+import { WEEK_DAYS, WEEK_DAY_LABELS } from '../../constants/enums';
+import { seedDemandeDraftFromSchedule } from '../../utils/demandePrefill';
+
+const SAMPLE_SIZE = 6;
+const RESAMPLE_MS = 12000;
+
+function todayEnum() {
+  const map = ['DIMANCHE', 'LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI'];
+  return map[new Date().getDay()];
+}
+
+function daysFromToday(today) {
+  const index = WEEK_DAYS.indexOf(today);
+  if (index < 0) return WEEK_DAYS;
+  return [...WEEK_DAYS.slice(index), ...WEEK_DAYS.slice(0, index)];
+}
+
+function sampleRandom(items, count) {
+  if (!items.length) return [];
+  const pool = [...items];
+  for (let i = pool.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  return pool.slice(0, Math.min(count, pool.length));
+}
+
+function slotsForDay(parish, day) {
+  return (parish.horaires || [])
+    .filter((slot) => slot.jourSemaine === day)
+    .map((slot) => ({
+      publicId: slot.publicId || '',
+      heure: formatParishTimeInUserZone(slot.heureCelebration),
+      heureRaw: formatTime(slot.heureCelebration) || '',
+      libelle: slot.libelle || '',
+      jourSemaine: slot.jourSemaine,
+    }))
+    .sort((a, b) => String(a.heureRaw || '').localeCompare(String(b.heureRaw || '')));
+}
+
+/**
+ * Accueil : onglets jours + paroisses aléatoires qui se renouvellent.
+ * Clic créneau → préremplit paroisse / heure / date.
+ */
+export default function HomeWeekSchedules() {
+  const [sectionVisible, setSectionVisible] = useState(false);
+  const { data, isLoading, isError } = useHorairesPublicActivesQuery({
+    enabled: sectionVisible,
+  });
+  const today = todayEnum();
+  const orderedDays = useMemo(() => daysFromToday(today), [today]);
+  const [selectedDay, setSelectedDay] = useState(today);
+  const [sampleSeed, setSampleSeed] = useState(0);
+
+  useEffect(() => {
+    const el = document.getElementById('home-schedules-anchor');
+    if (!el || typeof IntersectionObserver === 'undefined') {
+      setSectionVisible(true);
+      return undefined;
+    }
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setSectionVisible(true);
+          obs.disconnect();
+        }
+      },
+      { rootMargin: '120px' }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  const allParishes = useMemo(
+    () => (Array.isArray(data) ? data : []).filter((p) => (p.horaires || []).length > 0),
+    [data]
+  );
+
+  const dayCounts = useMemo(() => {
+    const counts = Object.fromEntries(WEEK_DAYS.map((d) => [d, 0]));
+    for (const parish of allParishes) {
+      for (const day of WEEK_DAYS) {
+        if (slotsForDay(parish, day).length) counts[day] += 1;
+      }
+    }
+    return counts;
+  }, [allParishes]);
+
+  const programmes = useMemo(() => {
+    void sampleSeed;
+    const withDay = allParishes.filter((p) => slotsForDay(p, selectedDay).length > 0);
+    const sampled = sampleRandom(withDay, SAMPLE_SIZE);
+    return sampled.map((parish) => {
+      const slots = slotsForDay(parish, selectedDay);
+      return {
+        paroissePublicId: parish.paroissePublicId,
+        paroisseNom: parish.paroisseNom,
+        doyenneNom: parish.doyenneNom || '',
+        slots: sampleRandom(slots, Math.min(4, slots.length)),
+      };
+    });
+  }, [allParishes, selectedDay, sampleSeed]);
+
+  useEffect(() => {
+    if (programmes.length <= 1) return undefined;
+    const id = window.setInterval(() => {
+      setSampleSeed((s) => s + 1);
+    }, RESAMPLE_MS);
+    return () => window.clearInterval(id);
+  }, [programmes.length, selectedDay]);
+
+  return (
+    <section
+      id="home-schedules-anchor"
+      className="home-section home-section-schedules container"
+      aria-labelledby="home-schedules-title"
+    >
+      <div className="home-schedules">
+        <div className="home-schedules-head home-section-head">
+          <h2 id="home-schedules-title">Horaires en ce moment</h2>
+          <p className="muted">
+            Parcourez les jours : des paroisses s’affichent au hasard. Un clic préremplit votre demande.
+          </p>
+        </div>
+
+        {!sectionVisible || isLoading ? <p className="muted">Chargement des horaires…</p> : null}
+        {isError ? (
+          <p className="muted">
+            Impossible de charger les horaires pour le moment. Vérifiez que l’API est démarrée (port 8081).
+          </p>
+        ) : null}
+
+        {sectionVisible && !isLoading && !isError ? (
+          <>
+            <div className="home-day-tabs" role="tablist" aria-label="Jours de la semaine">
+              {orderedDays.map((day) => {
+                const count = dayCounts[day] || 0;
+                const isToday = day === today;
+                return (
+                  <button
+                    key={day}
+                    type="button"
+                    role="tab"
+                    aria-selected={selectedDay === day}
+                    className={`home-day-tab${selectedDay === day ? ' is-selected' : ''}${isToday ? ' is-today' : ''}`}
+                    onClick={() => setSelectedDay(day)}
+                  >
+                    <span className="home-day-tab-label">{(WEEK_DAY_LABELS[day] || day).slice(0, 3)}</span>
+                    <span className="home-day-tab-count">{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="home-day-panel" key={`${selectedDay}-${sampleSeed}`}>
+              <header className="home-day-panel-head">
+                <h3>
+                  {WEEK_DAY_LABELS[selectedDay] || selectedDay}
+                  {selectedDay === today ? <span className="home-day-badge">Aujourd’hui</span> : null}
+                </h3>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setSampleSeed((s) => s + 1)}
+                  disabled={!allParishes.length}
+                >
+                  Autres paroisses
+                </button>
+              </header>
+
+              {programmes.length === 0 ? (
+                <p className="muted">Aucun créneau publié pour ce jour.</p>
+              ) : (
+                <div className="home-day-timeline">
+                  {programmes.map((parish) => (
+                    <article key={parish.paroissePublicId} className="home-schedule-card home-day-parish">
+                      <header className="home-schedule-card-head">
+                        <div>
+                          <h4 className="home-schedule-parish">{parish.paroisseNom}</h4>
+                          {parish.doyenneNom ? (
+                            <p className="muted home-schedule-doyenne">{parish.doyenneNom}</p>
+                          ) : null}
+                        </div>
+                      </header>
+                      <ul className="home-schedule-slots">
+                        {parish.slots.map((slot, i) => (
+                            <li key={`${parish.paroissePublicId}-${slot.heureRaw}-${i}`}>
+                              <Link
+                                to="/demande"
+                                className="home-schedule-slot-link"
+                                onClick={() => seedDemandeDraftFromSchedule({
+                                  paroissePublicId: parish.paroissePublicId,
+                                  paroisseNom: parish.paroisseNom,
+                                  horairePublicId: slot.publicId,
+                                  horaireLibelle: [slot.heureRaw, slot.libelle].filter(Boolean).join(' · '),
+                                  heureCelebration: slot.heureRaw,
+                                  jourSemaine: slot.jourSemaine || selectedDay,
+                                })}
+                              >
+                                <time className="home-day-time" dateTime={slot.heureRaw || undefined}>
+                                  {slot.heure || '—'}
+                                </time>
+                                <span className="home-day-libelle">{slot.libelle || 'Célébration'}</span>
+                              </Link>
+                            </li>
+                          ))}
+                      </ul>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="button-row home-schedules-actions">
+              <Link className="btn btn-secondary" to="/horaires">
+                Voir toutes les paroisses
+              </Link>
+              <Link className="btn btn-primary" to="/demande">
+                Faire une demande
+              </Link>
+            </div>
+          </>
+        ) : null}
+      </div>
+    </section>
+  );
+}

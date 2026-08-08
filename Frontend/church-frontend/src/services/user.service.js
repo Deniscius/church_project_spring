@@ -1,6 +1,7 @@
 import { apiClient } from './http/apiClient';
 
 const API_BASE = '/admin/users';
+const PROFILE_BASE = '/admin/profile';
 
 /**
  * Service CRUD pour la gestion des utilisateurs (Admin)
@@ -84,4 +85,26 @@ export const userService = {
    */
   getUsersByParoisse: (paroisseId) =>
     apiClient(`${API_BASE}/paroisse/${paroisseId}`, {}, { auth: true }),
+};
+
+/**
+ * Libre-service du compte connecté. Le serveur déduit la cible du jeton :
+ * ces appels ne peuvent jamais toucher un autre utilisateur.
+ */
+export const profileService = {
+  get: () => apiClient(PROFILE_BASE, {}, { auth: true }),
+
+  update: ({ nom, prenom }) =>
+    apiClient(
+      PROFILE_BASE,
+      { method: 'PUT', body: JSON.stringify({ nom, prenom }) },
+      { auth: true }
+    ),
+
+  changePassword: ({ currentPassword, newPassword }) =>
+    apiClient(
+      `${PROFILE_BASE}/password`,
+      { method: 'PUT', body: JSON.stringify({ currentPassword, newPassword }) },
+      { auth: true }
+    ),
 };

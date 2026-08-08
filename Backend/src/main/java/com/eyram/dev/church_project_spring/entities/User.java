@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.Check;
 import org.hibernate.annotations.UuidGenerator;
@@ -23,21 +22,14 @@ import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.Transient;
-import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.Setter;
 
 @Entity
-@Table(
-        name = "users",
-        uniqueConstraints = {
-                @UniqueConstraint(columnNames = "username"),
-                @UniqueConstraint(columnNames = "public_id")
-        }
-)
+@Table(name = "users")
 @Getter
 @Setter
-@AllArgsConstructor
+@NoArgsConstructor
 public class User extends BaseEntity {
 
     @Id
@@ -54,8 +46,14 @@ public class User extends BaseEntity {
     @Column(name = "prenom", length = 150, nullable = false)
     private String prenom;
 
-    @Column(name = "username", length = 100, nullable = false, unique = true)
+    @Column(name = "username", length = 100, nullable = false)
     private String username;
+
+    @Column(name = "email", length = 150)
+    private String email;
+
+    @Column(name = "telephone", length = 50)
+    private String telephone;
 
     @JsonIgnore
     @Column(name = "password", nullable = false)
@@ -69,29 +67,12 @@ public class User extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false, length = 32)
-    @Check(constraints = "(role IN ('SECRETAIRE', 'CURE', 'ADMIN', 'SUPER_ADMIN'))")
+    @Check(constraints = "(role IN ('SECRETAIRE', 'CURE', 'ADMIN', 'COMPTABLE_LOCAL', 'COMPTABLE', 'SUPER_ADMIN'))")
     private UserRole role;
 
     @JsonIgnore
     @OneToMany(mappedBy = "user")
     private List<ParoisseAccess> paroisseAccesses = new ArrayList<>();
-
-    public User() {
-    }
-
-    public User(Long id, UUID publicId, String nom, String prenom, String username,
-                String password, Boolean isGlobal, Boolean isActive,
-                List<ParoisseAccess> paroisseAccesses) {
-        this.id = id;
-        this.publicId = publicId;
-        this.nom = nom;
-        this.prenom = prenom;
-        this.username = username;
-        this.password = password;
-        this.isGlobal = isGlobal;
-        this.isActive = isActive;
-        this.paroisseAccesses = paroisseAccesses;
-    }
 
     @Transient
     public String getFullName() {

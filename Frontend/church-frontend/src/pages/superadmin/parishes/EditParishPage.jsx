@@ -1,20 +1,7 @@
 import React from 'react';
-import PageHeader from '../../../components/ui/PageHeader';
-import AppCard from '../../../components/ui/AppCard';
-import AppInput from '../../../components/ui/AppInput';
-import AppButton from '../../../components/ui/AppButton';
+import { Navigate } from 'react-router-dom';
 
+/** Ancienne route stub : le CRUD se fait sur la page liste. */
 export default function EditParishPage() {
-  return (
-    <div className="stack">
-      <PageHeader title="Modifier une paroisse" subtitle="Formulaire d'édition d'une paroisse existante." />
-      <AppCard title="Paroisse existante">
-        <div className="form-grid">
-          <div className="form-field"><label>Nom</label><AppInput defaultValue="Saint Joseph" /></div>
-          <div className="form-field"><label>Localité</label><AppInput defaultValue="Lomé Centre" /></div>
-        </div>
-        <div className="button-row" style={{ marginTop: 18 }}><AppButton>Enregistrer</AppButton></div>
-      </AppCard>
-    </div>
-  );
+  return <Navigate to="/admin/paroisses" replace />;
 }

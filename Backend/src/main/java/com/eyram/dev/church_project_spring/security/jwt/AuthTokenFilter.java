@@ -1,13 +1,11 @@
 package com.eyram.dev.church_project_spring.security.jwt;
 
-import com.eyram.dev.church_project_spring.context.HibernateTenantFilterActivator;
 import com.eyram.dev.church_project_spring.context.TenantContext;
 import com.eyram.dev.church_project_spring.security.UserDetailsImpl;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.lang.NonNull;
@@ -21,19 +19,26 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 
 /**
- * Filtre d'authentification JWT qui intercepte les requêtes HTTP entrantes.
- * Ce filtre s'exécute une fois par requête pour vérifier la présence et la validité
- * d'un token JWT dans l'en-tête d'autorisation.
- * Note: Cette classe n'est pas un @Component pour éviter les dépendances circulaires avec SecurityConfiguration.
+ * Authentifie via cookie HttpOnly (prioritaire) puis en-tête Authorization Bearer
+ * (outils / Swagger uniquement — le front navigateur n'envoie plus le JWT).
  */
-@RequiredArgsConstructor
 public class AuthTokenFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(AuthTokenFilter.class);
 
     private final JwtUtils jwtUtils;
+    private final AuthCookieService authCookieService;
     private final UserDetailsService userDetailsService;
-    private final HibernateTenantFilterActivator tenantFilterActivator;
+
+    public AuthTokenFilter(
+            JwtUtils jwtUtils,
+            AuthCookieService authCookieService,
+            UserDetailsService userDetailsService
+    ) {
+        this.jwtUtils = jwtUtils;
+        this.authCookieService = authCookieService;
+        this.userDetailsService = userDetailsService;
+    }
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
@@ -47,13 +52,19 @@ public class AuthTokenFilter extends OncePerRequestFilter {
                 String username = jwtUtils.getUsernameFromToken(token);
                 UserDetailsImpl userDetails = (UserDetailsImpl) userDetailsService.loadUserByUsername(username);
 
-                Long tenantId = jwtUtils.extractTenantId(token);
-                Boolean isGlobal = jwtUtils.extractClaim(token, claims -> claims.get("isGlobal", Boolean.class));
+                /*
+                 * Les informations d'accès sont relues depuis la base à chaque requête.
+                 * Les claims tenant/isGlobal du JWT peuvent être anciens après une
+                 * révocation d'accès, une réaffectation de paroisse ou un changement
+                 * de statut utilisateur ; ils ne doivent donc pas piloter l'isolation.
+                 */
+                if (!userDetails.isEnabled()) {
+                    throw new IllegalStateException("Compte utilisateur désactivé");
+                }
 
-                // Un SUPER_ADMIN global n'a pas de tenant → on ne filtre pas
-                if (tenantId != null && !Boolean.TRUE.equals(isGlobal)) {
+                Long tenantId = userDetails.getTenantId();
+                if (tenantId != null && !userDetails.isGlobal()) {
                     TenantContext.setCurrentTenant(tenantId);
-                    tenantFilterActivator.activateFilter();
                 }
 
                 UsernamePasswordAuthenticationToken authentication =
@@ -78,6 +89,12 @@ public class AuthTokenFilter extends OncePerRequestFilter {
     }
 
     private String resolveToken(HttpServletRequest request) {
+        return authCookieService.readAccessToken(request)
+                .filter(StringUtils::hasText)
+                .orElseGet(() -> resolveBearer(request));
+    }
+
+    private static String resolveBearer(HttpServletRequest request) {
         String bearer = request.getHeader("Authorization");
         if (StringUtils.hasText(bearer) && bearer.startsWith("Bearer ")) {
             return bearer.substring(7);

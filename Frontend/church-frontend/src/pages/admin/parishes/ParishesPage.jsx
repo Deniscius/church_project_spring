@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react';
 import { parishService } from '../../../services/parish.service';
-import { useAuthStore } from '../../../store/auth.context';
+import AppDialog from '../../../components/ui/AppDialog';
 
 /**
  * Page de gestion des paroisses (Super Admin)
  * CRUD complet : Create, Read, Update, Delete
  */
 export function ParishesPage() {
-  const { user } = useAuthStore();
   const [parishes, setParishes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -20,6 +19,8 @@ export function ParishesPage() {
     isActive: true,
   });
   const [editingId, setEditingId] = useState(null);
+  const [pendingDelete, setPendingDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Charger la liste des paroisses
   useEffect(() => {
@@ -92,20 +93,19 @@ export function ParishesPage() {
     }
   };
 
-  const handleDelete = async (paroisseId) => {
-    if (!window.confirm('Êtes-vous sûr de vouloir désactiver cette paroisse ?')) {
-      return;
-    }
+  const handleDelete = async () => {
+    if (!pendingDelete) return;
 
     try {
-      setLoading(true);
-      await parishService.delete(paroisseId);
+      setDeleting(true);
+      await parishService.delete(pendingDelete);
+      setPendingDelete(null);
       await fetchParishes();
     } catch (err) {
       setError('Erreur lors de la suppression');
       console.error(err);
     } finally {
-      setLoading(false);
+      setDeleting(false);
     }
   };
 
@@ -266,8 +266,8 @@ export function ParishesPage() {
                     </button>
                     <button
                       className="btn btn-sm btn-danger"
-                      onClick={() => handleDelete(p.id)}
-                      disabled={loading}
+                      onClick={() => setPendingDelete(p.id)}
+                      disabled={loading || deleting}
                     >
                       Désactiver
                     </button>
@@ -278,6 +278,21 @@ export function ParishesPage() {
           </table>
         )}
       </div>
+
+      <AppDialog
+        open={Boolean(pendingDelete)}
+        title="Désactiver la paroisse"
+        confirmLabel="Désactiver"
+        cancelLabel="Annuler"
+        danger
+        busy={deleting}
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={handleDelete}
+      >
+        <p style={{ margin: 0 }}>
+          Êtes-vous sûr de vouloir désactiver cette paroisse ?
+        </p>
+      </AppDialog>
     </div>
   );
 }

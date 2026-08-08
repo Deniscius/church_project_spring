@@ -1,8 +1,7 @@
 
 @FilterDef(
         name = "tenantFilter",
-        parameters = @ParamDef(name = "tenantId", type = Long.class),
-        defaultCondition = "tenant_id = :tenantId"
+        parameters = @ParamDef(name = "tenantId", type = Long.class)
 )
 package com.eyram.dev.church_project_spring.entities;
 

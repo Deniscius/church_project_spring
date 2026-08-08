@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useTenant } from '../../hooks/useTenant';
 
 export default function TenantGuard() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const { activeParish, loading, error } = useTenant();
 
   if (!isAuthenticated) {
@@ -27,5 +27,14 @@ export default function TenantGuard() {
     );
   }
 
-  return activeParish ? <Outlet /> : <Navigate to="/admin/login" replace />;
+  if (activeParish) {
+    return <Outlet />;
+  }
+
+  // Équipe plateforme : charger d'abord le catalogue modèle (contexte de travail).
+  if (user?.isGlobal) {
+    return <Navigate to="/admin/catalogue-modele" replace />;
+  }
+
+  return <Navigate to="/admin/login" replace />;
 }

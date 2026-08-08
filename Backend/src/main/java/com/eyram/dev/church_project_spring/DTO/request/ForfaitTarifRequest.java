@@ -1,19 +1,25 @@
 package com.eyram.dev.church_project_spring.DTO.request;
 
+import com.eyram.dev.church_project_spring.enums.JourSemaine;
+import com.eyram.dev.church_project_spring.enums.NatureForfaitEnum;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 
 import java.math.BigDecimal;
+import java.util.Set;
 import java.util.UUID;
 
 public record ForfaitTarifRequest(
 
-        @NotBlank(message = "Le code du forfait est obligatoire")
         String codeForfait,
 
         @NotBlank(message = "Le nom du forfait est obligatoire")
         String nomForfait,
+
+        @NotNull(message = "La nature du forfait est obligatoire")
+        NatureForfaitEnum natureForfait,
 
         @NotNull(message = "Le montant du forfait est obligatoire")
         @Positive(message = "Le montant du forfait doit être supérieur à zéro")
@@ -23,7 +29,8 @@ public record ForfaitTarifRequest(
 
         Integer nombreCelebration,
 
-        Integer joursAutorise,
+        @NotEmpty(message = "Au moins un jour de célébration est obligatoire pour le forfait")
+        Set<JourSemaine> joursCelebrationAutorises,
 
         @NotNull(message = "Le champ heure personnalisée est obligatoire")
         Boolean heurePersonnalise,

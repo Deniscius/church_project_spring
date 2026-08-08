@@ -5,6 +5,7 @@ import com.eyram.dev.church_project_spring.DTO.response.TypePaiementResponse;
 import com.eyram.dev.church_project_spring.service.TypePaiementService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -38,7 +39,8 @@ public class TypePaiementController {
     }
 
     @DeleteMapping("/{publicId}")
-    public void delete(@PathVariable UUID publicId) {
+    public ResponseEntity<Void> delete(@PathVariable UUID publicId) {
         typePaiementService.delete(publicId);
+        return ResponseEntity.noContent().build();
     }
 }

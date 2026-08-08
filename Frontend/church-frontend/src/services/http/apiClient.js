@@ -1,27 +1,46 @@
-import { getAccessToken } from '../../constants/authStorage';
-import { attachToken } from './interceptors';
+import { getApiBaseUrl } from '../../config/apiBaseUrl';
 
-/** Aligné sur le backend Spring (port par défaut 8081, pas de context-path /api). */
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081').replace(/\/$/, '');
+const API_BASE_URL = getApiBaseUrl();
 
 /**
  * @param {string} path
  * @param {RequestInit} [options]
- * @param {{ auth?: boolean }} [clientOptions] — auth: envoyer le JWT (session)
+ * @param {{ auth?: boolean, parse?: 'json' | 'blob' | 'text' | false, signal?: AbortSignal }} [clientOptions]
  */
 export async function apiClient(path, options = {}, clientOptions = {}) {
-  const { auth = false } = clientOptions;
+  const { auth = false, parse = 'json', signal } = clientOptions;
   const urlPath = path.startsWith('/') ? path : `/${path}`;
+  const method = (options.method || 'GET').toUpperCase();
   let headers = {
-    'Content-Type': 'application/json',
+    // Compte ngrok gratuit : sans ce header, les fetch() reçoivent souvent un 403 HTML
+    'ngrok-skip-browser-warning': '1',
     ...(options.headers || {}),
   };
-  if (auth) {
-    headers = attachToken(headers, getAccessToken());
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
+  if (
+    method !== 'GET'
+    && method !== 'HEAD'
+    && !isFormData
+    && !headers['Content-Type']
+    && !headers['content-type']
+  ) {
+    headers['Content-Type'] = 'application/json';
   }
+  if (isFormData) {
+    // Laisser le navigateur poser le boundary multipart.
+    delete headers['Content-Type'];
+    delete headers['content-type'];
+  }
+  // Auth = cookie HttpOnly (MS_AT) : jamais de Bearer depuis localStorage.
+  if (auth) {
+    headers['X-Requested-With'] = 'XMLHttpRequest';
+  }
+
   const response = await fetch(`${API_BASE_URL}${urlPath}`, {
     ...options,
     headers,
+    credentials: 'include',
+    signal: signal || options.signal,
   });
 
   if (!response.ok) {
@@ -38,12 +57,24 @@ export async function apiClient(path, options = {}, clientOptions = {}) {
     } catch {
       /* corps non JSON */
     }
-    throw new Error(message);
+    const error = new Error(message);
+    error.status = response.status;
+    throw error;
   }
 
-  if (response.status === 204) {
+  if (response.status === 204 || parse === false) {
     return null;
   }
+  if (parse === 'blob') {
+    return response.blob();
+  }
+  if (parse === 'text') {
+    return response.text();
+  }
 
-  return response.json();
+  const text = await response.text();
+  if (!text) {
+    return null;
+  }
+  return JSON.parse(text);
 }

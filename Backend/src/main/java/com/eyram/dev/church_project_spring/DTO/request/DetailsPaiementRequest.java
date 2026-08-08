@@ -1,6 +1,5 @@
 package com.eyram.dev.church_project_spring.DTO.request;
 
-import com.eyram.dev.church_project_spring.enums.ModePaiement;
 import com.eyram.dev.church_project_spring.enums.StatutPaiementEnum;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

@@ -39,6 +39,19 @@ public class RolePermissions {
                 PERMISSION_MANAGE_SYSTEM
         ));
 
+        // Comptable plateforme : finances SaaS (pas de config système complète)
+        ROLE_PERMISSIONS.put(UserRole.COMPTABLE, Set.of(
+                PERMISSION_READ,
+                PERMISSION_EDIT,
+                PERMISSION_ADMIN
+        ));
+
+        // Comptable local : contrôle trésorerie / caisse (lecture)
+        ROLE_PERMISSIONS.put(UserRole.COMPTABLE_LOCAL, Set.of(
+                PERMISSION_READ,
+                PERMISSION_VALIDATE
+        ));
+
         // ✅ ADMIN : administrateur local
         ROLE_PERMISSIONS.put(UserRole.ADMIN, Set.of(
                 PERMISSION_READ,
@@ -141,6 +154,7 @@ public class RolePermissions {
     public static UserRole[] getHierarchy() {
         return new UserRole[]{
                 UserRole.SUPER_ADMIN,
+                UserRole.COMPTABLE,
                 UserRole.ADMIN,
                 UserRole.SECRETAIRE,
                 UserRole.CURE

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ROLES, ROLE_LABELS, ROLE_DESCRIPTIONS } from '../../constants/roles';
+import { ROLES, ROLE_DESCRIPTIONS, ROLE_LABELS, ROLE_PERMISSIONS } from '../../constants/roles';
 
 /**
  * Composant pour sélectionner un rôle dans l'interface admin.
@@ -71,7 +71,6 @@ export function RoleBadge({ role, className = '' }) {
  * Composant pour afficher la liste des permissions d'un rôle.
  */
 export function PermissionsList({ role, className = '' }) {
-  const { ROLE_PERMISSIONS } = require('../../constants/roles');
   const permissions = ROLE_PERMISSIONS[role] || [];
 
   const permissionLabels = {

@@ -9,12 +9,12 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.Filter;
-import org.hibernate.annotations.FilterDef;
-import org.hibernate.annotations.ParamDef;
+import org.hibernate.annotations.SqlFragmentAlias;
 import org.hibernate.annotations.UuidGenerator;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.UUID;
 
@@ -23,7 +23,12 @@ import java.util.UUID;
 @Getter
 @Setter
 @NoArgsConstructor
-@Filter(name="tenantFilter", condition="paroisse_id = :tenantId")
+@Filter(
+        name = "tenantFilter",
+        condition = "{demande}.paroisse_id = :tenantId",
+        deduceAliasInjectionPoints = false,
+        aliases = @SqlFragmentAlias(alias = "demande", table = "demande")
+)
 public class Demande extends BaseEntity implements Serializable {
 
     @Id
@@ -99,5 +104,17 @@ public class Demande extends BaseEntity implements Serializable {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "type_paiement_id")
     private TypePaiement typePaiement;
+
+    /** Horodatage du soft delete — null tant que la demande est active. */
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
+    /** Nom de l'utilisateur ayant effectué le soft delete. */
+    @Column(name = "deleted_by_nom", length = 150)
+    private String deletedByNom;
+
+    /** Dernier rappel e-mail pour demande non payée proche de la célébration. */
+    @Column(name = "last_unpaid_reminder_at")
+    private LocalDateTime lastUnpaidReminderAt;
 
 }

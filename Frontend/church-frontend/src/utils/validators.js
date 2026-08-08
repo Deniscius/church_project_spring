@@ -3,8 +3,5 @@ export function required(value) {
 }
 
 export function email(value) {
-  return /^[^
-\s@]+@[^
-\s@]+\.[^
-\s@]+$/.test(String(value || '').trim());
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
 }

@@ -6,6 +6,13 @@ import com.eyram.dev.church_project_spring.DTO.response.UserResponse;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Contrat historique conservé pour la compatibilité des endpoints /users.
+ *
+ * Les nouvelles fonctionnalités doivent utiliser {@link EnhancedUserService},
+ * qui constitue désormais l'unique implémentation métier de gestion des utilisateurs.
+ */
+@Deprecated(forRemoval = false)
 public interface UserService {
 
     UserResponse create(UserRequest request);

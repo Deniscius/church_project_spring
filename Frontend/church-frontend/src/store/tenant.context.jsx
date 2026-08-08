@@ -1,33 +1,43 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+/* eslint-disable react-refresh/only-export-components */
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { getActiveParishId, setActiveParishId } from '../constants/authStorage';
 import { useAuth } from '../hooks/useAuth';
-import { parishAccessService } from '../services/parishAccess.service';
-import { parishService } from '../services/parish.service';
+import { comptabiliteService } from '../services/inscription.service';
 import { mapParoisseToTenant } from '../utils/apiMappers';
 
 const TenantContext = createContext(null);
 
 export function TenantProvider({ children }) {
-  const { user, token, isAuthenticated } = useAuth();
+  const {
+    user,
+    isAuthenticated,
+    paroisses,
+    selectedParoisse,
+    setSelectedParoisse,
+  } = useAuth();
   const [activeParish, setActiveParishState] = useState(null);
   const [parishOptions, setParishOptions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  // Empêche TenantGuard de rediriger vers login au F5 avant la fin du bootstrap paroisse.
+  const [bootstrappedUserId, setBootstrappedUserId] = useState(null);
 
-  const setActiveParish = (tenant) => {
-    setActiveParishState(tenant);
-    if (tenant?.id) setActiveParishId(tenant.id);
-    else setActiveParishId(null);
-  };
+  const selectedParishId = selectedParoisse?.publicId || selectedParoisse?.id || null;
+  const currentUserId = user?.id ?? null;
+  const awaitingBootstrap = Boolean(
+    isAuthenticated && currentUserId && bootstrappedUserId !== currentUserId
+  );
 
   useEffect(() => {
     let cancelled = false;
 
     async function bootstrap() {
-      if (!isAuthenticated || !token || !user?.id) {
+      if (!isAuthenticated || !currentUserId) {
         setActiveParishState(null);
         setParishOptions([]);
         setError(null);
+        setLoading(false);
+        setBootstrappedUserId(null);
         return;
       }
 
@@ -35,41 +45,41 @@ export function TenantProvider({ children }) {
       setError(null);
 
       try {
-        if (user.role === 'ADMIN') {
-          const list = await parishService.getAll();
-          if (cancelled) return;
-          const mapped = list
-            .filter((p) => p.isActive !== false)
-            .map(mapParoisseToTenant);
-          setParishOptions(mapped);
-          const saved = getActiveParishId();
-          const pick = mapped.find((p) => p.id === saved) || mapped[0] || null;
-          setActiveParishState(pick);
-          if (pick && !saved) setActiveParishId(pick.id);
-        } else {
-          const accesses = await parishAccessService.getByUser(user.id);
-          if (cancelled) return;
-          const actives = (accesses || []).filter((a) => a.active);
-          const mapped = actives.map((a) =>
-            mapParoisseToTenant({
-              publicId: a.paroissePublicId,
-              nom: a.paroisseNom,
-              localiteVille: '',
-              email: '',
-              telephone: '',
-              isActive: true,
-            })
-          );
-          setParishOptions(mapped);
-          const saved = getActiveParishId();
-          const pick = mapped.find((p) => p.id === saved) || mapped[0] || null;
-          setActiveParishState(pick);
-          if (pick && !saved) setActiveParishId(pick.id);
+        const mapped = (paroisses || [])
+          .filter((p) => p.active !== false && p.isActive !== false)
+          .map(mapParoisseToTenant)
+          .filter((p) => Boolean(p?.id));
+
+        if (cancelled) return;
+
+        const savedId = getActiveParishId();
+        let pick = mapped.find((p) => p.id === selectedParishId)
+          || mapped.find((p) => p.id === savedId)
+          || mapped[0]
+          || null;
+
+        // Équipe plateforme : paroisse modèle sans rattachement à la connexion.
+        if (!pick && user?.isGlobal && (selectedParishId || savedId)) {
+          try {
+            const template = await comptabiliteService.getCatalogueModele();
+            pick = mapParoisseToTenant(template);
+          } catch {
+            pick = null;
+          }
         }
+
+        if (cancelled) return;
+
+        setParishOptions(mapped);
+        setActiveParishState((prev) => (prev?.id === pick?.id ? prev : pick));
+        setActiveParishId(pick?.id || null);
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Paroisse indisponible');
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          setBootstrappedUserId(currentUserId);
+        }
       }
     }
 
@@ -77,17 +87,31 @@ export function TenantProvider({ children }) {
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated, token, user?.id, user?.role]);
+  }, [isAuthenticated, currentUserId, user?.isGlobal, paroisses, selectedParishId]);
+
+  const setActiveParish = useCallback((tenant) => {
+    const nextId = tenant?.id || null;
+    const raw = tenant?.raw || null;
+    const previousId = getActiveParishId();
+
+    setActiveParishState(tenant);
+    setActiveParishId(nextId);
+
+    if (nextId && nextId === previousId) {
+      return;
+    }
+    setSelectedParoisse(raw);
+  }, [setSelectedParoisse]);
 
   const value = useMemo(
     () => ({
       activeParish,
       parishOptions,
       setActiveParish,
-      loading,
+      loading: loading || awaitingBootstrap,
       error,
     }),
-    [activeParish, parishOptions, loading, error]
+    [activeParish, parishOptions, setActiveParish, loading, awaitingBootstrap, error]
   );
 
   return <TenantContext.Provider value={value}>{children}</TenantContext.Provider>;

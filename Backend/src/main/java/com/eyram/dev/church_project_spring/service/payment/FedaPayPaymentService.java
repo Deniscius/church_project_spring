@@ -48,6 +48,7 @@ public class FedaPayPaymentService {
     private final FactureRepository factureRepository;
     private final DetailsPaiementRepository detailsPaiementRepository;
     private final PaymentFeeCalculator feeCalculator;
+    private final PaymentReturnTokenService paymentReturnTokenService;
     private final FedaPayClient fedaPayClient;
     private final FedaPayWebhookVerifier webhookVerifier;
     private final FedaPayProperties properties;
@@ -205,6 +206,13 @@ public class FedaPayPaymentService {
         static CheckoutPrep done(PaymentCheckoutResponse response) {
             return new CheckoutPrep(response, null, null, null, null, null, null, null, null, null);
         }
+    }
+
+    /**
+     * Vérifie la signature immédiatement (thread HTTP) avant tout traitement async.
+     */
+    public void verifyWebhookSignature(String payload, String signatureHeader) {
+        webhookVerifier.verify(payload, signatureHeader);
     }
 
     @Transactional
@@ -371,7 +379,9 @@ public class FedaPayPaymentService {
             return null;
         }
         String trimmed = base.endsWith("/") ? base.substring(0, base.length() - 1) : base;
-        return trimmed + "/" + codeSuivie;
+        // URL opaque : /paiement/retour?r=<jeton signé> — pas le code de suivi en clair.
+        String token = paymentReturnTokenService.issue(codeSuivie);
+        return trimmed + "/retour?r=" + java.net.URLEncoder.encode(token, java.nio.charset.StandardCharsets.UTF_8);
     }
 
     private PaymentCheckoutResponse checkoutResponse(

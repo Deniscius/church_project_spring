@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { getApiBaseUrl } from '../../config/apiBaseUrl';
+import { Link, useNavigate } from 'react-router-dom';
 import AppCard from '../ui/AppCard';
 import AppButton from '../ui/AppButton';
+import ReceiptPreviewButton from '../ui/ReceiptPreviewButton';
 import { useToast } from '../../contexts/toast.context';
 import { copyText } from '../../utils/clipboard';
+import { goToInvoice, goToPayment, goToTrackingResult } from '../../utils/sensitiveNav';
 
 export default function ConfirmationCard({ result }) {
   const toast = useToast();
+  const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
 
   if (!result?.codeSuivie) {
@@ -19,9 +21,6 @@ export default function ConfirmationCard({ result }) {
       </AppCard>
     );
   }
-
-  const apiBaseUrl = getApiBaseUrl();
-  const receiptUrl = `${apiBaseUrl}/demandes/code/${encodeURIComponent(result.codeSuivie)}/recu.pdf`;
 
   const copyCode = async () => {
     const ok = await copyText(result.codeSuivie);
@@ -47,38 +46,24 @@ export default function ConfirmationCard({ result }) {
         </AppButton>
       </div>
       <p className="muted" style={{ margin: '12px 0 0' }}>
-        Conservez le reçu PDF (une page A4) : il contient le code de suivi et le détail du dépôt.
+        Consultez d’abord l’aperçu du reçu PDF (une page A4), puis téléchargez-le.
         Les statuts (demande, validation, paiement) y figurent.
       </p>
       <div className="button-row" style={{ marginTop: 16 }}>
-        <Link
-          to={`/suivi/resultat?code=${encodeURIComponent(result.codeSuivie)}`}
-          className="btn btn-primary"
-          style={{ textDecoration: 'none' }}
-        >
+        <AppButton type="button" onClick={() => goToTrackingResult(navigate, result.codeSuivie)}>
           Suivre la demande
-        </Link>
-        <Link
-          to={`/facture/${encodeURIComponent(result.codeSuivie)}`}
-          className="btn btn-secondary"
-          style={{ textDecoration: 'none' }}
+        </AppButton>
+        <AppButton
+          type="button"
+          variant="secondary"
+          onClick={() => goToInvoice(navigate, result.codeSuivie)}
         >
           Voir la facture
-        </Link>
-        <Link
-          to={`/paiement/${encodeURIComponent(result.codeSuivie)}`}
-          className="btn btn-primary"
-          style={{ textDecoration: 'none' }}
-        >
+        </AppButton>
+        <AppButton type="button" onClick={() => goToPayment(navigate, result.codeSuivie)}>
           Payer maintenant
-        </Link>
-        <a
-          href={receiptUrl}
-          className="btn btn-secondary"
-          style={{ textDecoration: 'none' }}
-        >
-          Télécharger le reçu
-        </a>
+        </AppButton>
+        <ReceiptPreviewButton codeSuivie={result.codeSuivie} />
       </div>
     </AppCard>
   );

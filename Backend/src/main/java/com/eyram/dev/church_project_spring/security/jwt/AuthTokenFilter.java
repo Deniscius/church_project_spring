@@ -6,7 +6,6 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.lang.NonNull;
@@ -20,18 +19,26 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 
 /**
- * Filtre d'authentification JWT qui intercepte les requêtes HTTP entrantes.
- * Ce filtre s'exécute une fois par requête pour vérifier la présence et la validité
- * d'un token JWT dans l'en-tête d'autorisation.
- * Note: Cette classe n'est pas un @Component pour éviter les dépendances circulaires avec SecurityConfiguration.
+ * Authentifie via cookie HttpOnly (prioritaire) puis en-tête Authorization Bearer
+ * (outils / Swagger uniquement — le front navigateur n'envoie plus le JWT).
  */
-@RequiredArgsConstructor
 public class AuthTokenFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(AuthTokenFilter.class);
 
     private final JwtUtils jwtUtils;
+    private final AuthCookieService authCookieService;
     private final UserDetailsService userDetailsService;
+
+    public AuthTokenFilter(
+            JwtUtils jwtUtils,
+            AuthCookieService authCookieService,
+            UserDetailsService userDetailsService
+    ) {
+        this.jwtUtils = jwtUtils;
+        this.authCookieService = authCookieService;
+        this.userDetailsService = userDetailsService;
+    }
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
@@ -82,6 +89,12 @@ public class AuthTokenFilter extends OncePerRequestFilter {
     }
 
     private String resolveToken(HttpServletRequest request) {
+        return authCookieService.readAccessToken(request)
+                .filter(StringUtils::hasText)
+                .orElseGet(() -> resolveBearer(request));
+    }
+
+    private static String resolveBearer(HttpServletRequest request) {
         String bearer = request.getHeader("Authorization");
         if (StringUtils.hasText(bearer) && bearer.startsWith("Bearer ")) {
             return bearer.substring(7);

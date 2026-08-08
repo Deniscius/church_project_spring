@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import AppCard from '../ui/AppCard';
 import AppInput from '../ui/AppInput';
 import AppTextarea from '../ui/AppTextarea';
+import AppAlert from '../ui/AppAlert';
 import PhoneField from '../ui/PhoneField';
 import { FieldLabel } from '../ui/HelpTip';
 import { usePublicDemandeDraft } from '../../contexts/publicDemandeDraft.context';
@@ -10,12 +11,15 @@ import { HELP } from '../../constants/helpTips';
 import { DEFAULT_PHONE_COUNTRY_ISO } from '../../utils/phone';
 
 /**
- * Étape 1 — intention d’abord, téléphone ensuite, le reste en option.
+ * Étape 1 — intention d’abord, téléphone ensuite, le reste en option
+ * (sauf messe spéciale : téléphone + e-mail obligatoires).
  */
 export default function ApplicantForm() {
   const { draft, patch } = usePublicDemandeDraft();
+  const speciale = draft.forfaitNature === 'SPECIALE';
   const [showOptional, setShowOptional] = useState(() => Boolean(
-    draft.prenomFidele
+    speciale
+    || draft.prenomFidele
     || draft.nomFidele
     || draft.emailFidele
     || draft.nomCoursier
@@ -35,9 +39,20 @@ export default function ApplicantForm() {
   return (
     <AppCard
       title="Votre intention"
-      subtitle="Deux infos suffisent pour commencer : l’intention et un numéro joignable."
+      subtitle={
+        speciale
+          ? 'Messe spéciale : intention, téléphone et e-mail valides sont obligatoires.'
+          : 'Deux infos suffisent pour commencer : l’intention et un numéro joignable.'
+      }
     >
       <div className="stack" style={{ gap: 18 }}>
+        {speciale ? (
+          <AppAlert variant="info">
+            Pour une demande spéciale, un numéro de téléphone et une adresse e-mail valides
+            sont obligatoires afin que la paroisse puisse vous recontacter.
+          </AppAlert>
+        ) : null}
+
         <div className="form-field">
           <FieldLabel htmlFor="fd-intention" help={HELP.demande.intention} required>
             Pour qui / pour quelle intention ?
@@ -72,6 +87,23 @@ export default function ApplicantForm() {
           />
         </div>
 
+        {speciale ? (
+          <div className="form-field">
+            <FieldLabel htmlFor="fd-email" help={HELP.demande.email} required>
+              E-mail
+            </FieldLabel>
+            <AppInput
+              id="fd-email"
+              type="email"
+              autoComplete="email"
+              value={draft.emailFidele}
+              onChange={(e) => patch({ emailFidele: e.target.value })}
+              placeholder="ex. vous@email.com"
+              required
+            />
+          </div>
+        ) : null}
+
         <div className="demande-optional">
           <button
             type="button"
@@ -79,7 +111,7 @@ export default function ApplicantForm() {
             aria-expanded={showOptional}
             onClick={() => setShowOptional((v) => !v)}
           >
-            <span>{showOptional ? 'Masquer' : 'Ajouter'} nom, e-mail…</span>
+            <span>{showOptional ? 'Masquer' : 'Ajouter'} {speciale ? 'nom…' : 'nom, e-mail…'}</span>
             <span className="muted">
               {showOptional
                 ? 'optionnel'
@@ -109,17 +141,19 @@ export default function ApplicantForm() {
                   placeholder="Optionnel"
                 />
               </div>
-              <div className="form-field">
-                <FieldLabel htmlFor="fd-email" help={HELP.demande.email}>E-mail</FieldLabel>
-                <AppInput
-                  id="fd-email"
-                  type="email"
-                  autoComplete="email"
-                  value={draft.emailFidele}
-                  onChange={(e) => patch({ emailFidele: e.target.value })}
-                  placeholder="Optionnel"
-                />
-              </div>
+              {!speciale ? (
+                <div className="form-field">
+                  <FieldLabel htmlFor="fd-email" help={HELP.demande.email}>E-mail</FieldLabel>
+                  <AppInput
+                    id="fd-email"
+                    type="email"
+                    autoComplete="email"
+                    value={draft.emailFidele}
+                    onChange={(e) => patch({ emailFidele: e.target.value })}
+                    placeholder="Optionnel"
+                  />
+                </div>
+              ) : null}
               <div className="form-field">
                 <label htmlFor="fd-coursier">Coursier (si dépôt par un tiers)</label>
                 <AppInput

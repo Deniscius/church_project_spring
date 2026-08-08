@@ -334,20 +334,11 @@ public class FeuilleCelebrationService {
         rank.setColspan(2);
         table.addCell(rank);
 
+        // Feuille légère pour le célébrant : intention, demandeur, progression (triduum/neuvaine).
         table.addCell(PdfDocumentStyles.intentionCell(info.intention()));
         PdfDocumentStyles.addMetaRow(table, "Demandeur", fullName(info.demandeurPrenom(), info.demandeurNom()));
-        PdfDocumentStyles.addMetaRow(table, "Contact", contactLine(info));
-        PdfDocumentStyles.addMetaRow(table, "Type / forfait", typeForfaitLine(info));
         if (info.progressionLabel() != null && !info.progressionLabel().isBlank()) {
             PdfDocumentStyles.addMetaRow(table, "Progression", info.progressionLabel());
-        }
-        PdfDocumentStyles.addMetaRow(table, "Réf. suivi", info.codeSuivie());
-        if (info.dateDepot() != null) {
-            PdfDocumentStyles.addMetaRow(
-                    table,
-                    "Déposée le",
-                    info.dateDepot().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
-            );
         }
         return table;
     }
@@ -418,40 +409,6 @@ public class FeuilleCelebrationService {
 
     private static String fullName(String prenom, String nom) {
         return FideleNameUtils.format(prenom, nom);
-    }
-
-    private static String contactLine(CelebrationIntentionResponse info) {
-        StringBuilder sb = new StringBuilder();
-        if (info.demandeurTelephone() != null && !info.demandeurTelephone().isBlank()) {
-            sb.append(info.demandeurTelephone());
-        }
-        if (info.demandeurEmail() != null && !info.demandeurEmail().isBlank()) {
-            if (!sb.isEmpty()) {
-                sb.append(" · ");
-            }
-            sb.append(info.demandeurEmail());
-        }
-        return sb.toString();
-    }
-
-    private static String typeForfaitLine(CelebrationIntentionResponse info) {
-        StringBuilder sb = new StringBuilder();
-        if (info.typeDemandeLibelle() != null) {
-            sb.append(info.typeDemandeLibelle());
-        }
-        if (info.forfaitNom() != null && !info.forfaitNom().isBlank()) {
-            if (!sb.isEmpty()) {
-                sb.append(" — ");
-            }
-            sb.append(info.forfaitNom());
-        }
-        if (info.dureeLabel() != null && ForfaitDureeLabels.isMultiCelebration(info.nombreCelebration())) {
-            sb.append(" (").append(info.dureeLabel()).append(')');
-        }
-        if ("SPECIALE".equals(info.natureForfait())) {
-            sb.append(" · spéciale");
-        }
-        return sb.toString();
     }
 
     private static String capitalize(String value) {

@@ -114,6 +114,11 @@ public class DemandeSchedulingPolicy {
             throw new BusinessRuleException("Le nombre de célébrations doit être positif");
         }
 
+        // Trentaine : 30 jours calendaires successifs (sans sauter de jour).
+        if (nombreCelebrations == 30) {
+            return computeConsecutiveCalendarDates(startDate, nombreCelebrations);
+        }
+
         Set<JourSemaine> effectiveAllowedDays = allowedDays == null || allowedDays.isEmpty()
                 ? EnumSet.allOf(JourSemaine.class)
                 : allowedDays;
@@ -138,6 +143,21 @@ public class DemandeSchedulingPolicy {
             }
         }
 
+        return dates;
+    }
+
+    /** N jours calendaires consécutifs à partir de {@code startDate}. */
+    public List<LocalDate> computeConsecutiveCalendarDates(LocalDate startDate, int nombreCelebrations) {
+        if (startDate == null) {
+            throw new BusinessRuleException("La date de début est obligatoire");
+        }
+        if (nombreCelebrations <= 0) {
+            throw new BusinessRuleException("Le nombre de célébrations doit être positif");
+        }
+        List<LocalDate> dates = new ArrayList<>(nombreCelebrations);
+        for (int i = 0; i < nombreCelebrations; i++) {
+            dates.add(startDate.plusDays(i));
+        }
         return dates;
     }
 
@@ -173,15 +193,31 @@ public class DemandeSchedulingPolicy {
             );
         }
 
+        boolean trentaine = nombreCelebrations == 30;
         Set<JourSemaine> effectiveAllowedDays = allowedDays == null || allowedDays.isEmpty()
                 ? EnumSet.allOf(JourSemaine.class)
                 : allowedDays;
 
-        for (LocalDate date : cleaned) {
-            validateAllowedDay(date, effectiveAllowedDays, "Ce " + forfaitLabel);
+        if (!trentaine) {
+            for (LocalDate date : cleaned) {
+                validateAllowedDay(date, effectiveAllowedDays, "Ce " + forfaitLabel);
+            }
+        } else {
+            // Trentaine : les dates doivent être 30 jours calendaires successifs.
+            LocalDate expected = cleaned.get(0);
+            for (int i = 0; i < cleaned.size(); i++) {
+                if (!cleaned.get(i).equals(expected.plusDays(i))) {
+                    throw new BusinessRuleException(
+                            "Les dates de la trentaine doivent être 30 jours calendaires successifs "
+                                    + "à partir de la première célébration."
+                    );
+                }
+            }
         }
 
-        int windowDays = nombreJour != null && nombreJour > 0 ? nombreJour : nombreCelebrations;
+        int windowDays = trentaine
+                ? 30
+                : (nombreJour != null && nombreJour > 0 ? nombreJour : nombreCelebrations);
         LocalDate first = cleaned.get(0);
         LocalDate lastAllowed = first.plusDays(windowDays - 1L);
         LocalDate last = cleaned.get(cleaned.size() - 1);

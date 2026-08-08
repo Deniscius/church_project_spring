@@ -1,18 +1,24 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useHorairesPublicActivesQuery } from '../../hooks/queries/usePublicReferentiel';
-import { formatTime } from '../../utils/formatTime';
+import { formatParishTimeInUserZone, formatTime } from '../../utils/formatTime';
 import { WEEK_DAYS, WEEK_DAY_LABELS } from '../../constants/enums';
+import { seedDemandeDraftFromSchedule } from '../../utils/demandePrefill';
 
-const SAMPLE_SIZE = 5;
-const ROTATE_MS = 4500;
+const SAMPLE_SIZE = 6;
+const RESAMPLE_MS = 12000;
 
 function todayEnum() {
   const map = ['DIMANCHE', 'LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI'];
   return map[new Date().getDay()];
 }
 
-/** Tirage aléatoire sans remise, ordre mélangé. */
+function daysFromToday(today) {
+  const index = WEEK_DAYS.indexOf(today);
+  if (index < 0) return WEEK_DAYS;
+  return [...WEEK_DAYS.slice(index), ...WEEK_DAYS.slice(0, index)];
+}
+
 function sampleRandom(items, count) {
   if (!items.length) return [];
   const pool = [...items];
@@ -27,143 +33,186 @@ function slotsForDay(parish, day) {
   return (parish.horaires || [])
     .filter((slot) => slot.jourSemaine === day)
     .map((slot) => ({
-      heure: formatTime(slot.heureCelebration),
+      publicId: slot.publicId || '',
+      heure: formatParishTimeInUserZone(slot.heureCelebration),
+      heureRaw: formatTime(slot.heureCelebration) || '',
       libelle: slot.libelle || '',
       jourSemaine: slot.jourSemaine,
     }))
-    .sort((a, b) => String(a.heure || '').localeCompare(String(b.heure || '')));
+    .sort((a, b) => String(a.heureRaw || '').localeCompare(String(b.heureRaw || '')));
 }
 
 /**
- * Accueil : quelques paroisses tirées au hasard, programmes en défilement.
- * Le catalogue complet reste sur /horaires.
+ * Accueil : onglets jours + paroisses aléatoires qui se renouvellent.
+ * Clic créneau → préremplit paroisse / heure / date.
  */
 export default function HomeWeekSchedules() {
-  const { data, isLoading, isError } = useHorairesPublicActivesQuery();
+  const [sectionVisible, setSectionVisible] = useState(false);
+  const { data, isLoading, isError } = useHorairesPublicActivesQuery({
+    enabled: sectionVisible,
+  });
   const today = todayEnum();
+  const orderedDays = useMemo(() => daysFromToday(today), [today]);
+  const [selectedDay, setSelectedDay] = useState(today);
+  const [sampleSeed, setSampleSeed] = useState(0);
 
-  const sampled = useMemo(() => {
-    const list = Array.isArray(data) ? data : [];
-    const withSlots = list.filter((p) => (p.horaires || []).length > 0);
-    return sampleRandom(withSlots, SAMPLE_SIZE);
-  }, [data]);
+  useEffect(() => {
+    const el = document.getElementById('home-schedules-anchor');
+    if (!el || typeof IntersectionObserver === 'undefined') {
+      setSectionVisible(true);
+      return undefined;
+    }
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setSectionVisible(true);
+          obs.disconnect();
+        }
+      },
+      { rootMargin: '120px' }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  const allParishes = useMemo(
+    () => (Array.isArray(data) ? data : []).filter((p) => (p.horaires || []).length > 0),
+    [data]
+  );
+
+  const dayCounts = useMemo(() => {
+    const counts = Object.fromEntries(WEEK_DAYS.map((d) => [d, 0]));
+    for (const parish of allParishes) {
+      for (const day of WEEK_DAYS) {
+        if (slotsForDay(parish, day).length) counts[day] += 1;
+      }
+    }
+    return counts;
+  }, [allParishes]);
 
   const programmes = useMemo(() => {
-    const cards = [];
-    for (const parish of sampled) {
-      let slots = slotsForDay(parish, today);
-      let dayLabel = WEEK_DAY_LABELS[today] || today;
-      let isToday = true;
-
-      if (slots.length === 0) {
-        // Si rien aujourd'hui, prendre le prochain jour avec horaire (ordre semaine).
-        const startIdx = WEEK_DAYS.indexOf(today);
-        const ordered = [...WEEK_DAYS.slice(startIdx), ...WEEK_DAYS.slice(0, startIdx)];
-        for (const day of ordered) {
-          const daySlots = slotsForDay(parish, day);
-          if (daySlots.length) {
-            slots = daySlots;
-            dayLabel = WEEK_DAY_LABELS[day] || day;
-            isToday = day === today;
-            break;
-          }
-        }
-      }
-
-      if (!slots.length) continue;
-
-      cards.push({
+    void sampleSeed;
+    const withDay = allParishes.filter((p) => slotsForDay(p, selectedDay).length > 0);
+    const sampled = sampleRandom(withDay, SAMPLE_SIZE);
+    return sampled.map((parish) => {
+      const slots = slotsForDay(parish, selectedDay);
+      return {
         paroissePublicId: parish.paroissePublicId,
         paroisseNom: parish.paroisseNom,
         doyenneNom: parish.doyenneNom || '',
-        dayLabel,
-        isToday,
         slots: sampleRandom(slots, Math.min(4, slots.length)),
-      });
-    }
-    return sampleRandom(cards, cards.length);
-  }, [sampled, today]);
-
-  const [activeIndex, setActiveIndex] = useState(0);
-
-  useEffect(() => {
-    setActiveIndex(0);
-  }, [programmes]);
+      };
+    });
+  }, [allParishes, selectedDay, sampleSeed]);
 
   useEffect(() => {
     if (programmes.length <= 1) return undefined;
     const id = window.setInterval(() => {
-      setActiveIndex((prev) => (prev + 1) % programmes.length);
-    }, ROTATE_MS);
+      setSampleSeed((s) => s + 1);
+    }, RESAMPLE_MS);
     return () => window.clearInterval(id);
-  }, [programmes]);
-
-  const active = programmes[activeIndex] || null;
+  }, [programmes.length, selectedDay]);
 
   return (
-    <section className="home-section home-section-schedules container" aria-labelledby="home-schedules-title">
+    <section
+      id="home-schedules-anchor"
+      className="home-section home-section-schedules container"
+      aria-labelledby="home-schedules-title"
+    >
       <div className="home-schedules">
         <div className="home-schedules-head home-section-head">
           <h2 id="home-schedules-title">Horaires en ce moment</h2>
           <p className="muted">
-            Aperçu tournant de quelques paroisses — le détail complet est sur la page horaires.
+            Parcourez les jours : des paroisses s’affichent au hasard. Un clic préremplit votre demande.
           </p>
         </div>
 
-        {isLoading ? <p className="muted">Chargement des horaires…</p> : null}
-        {isError ? <p className="muted">Impossible de charger les horaires pour le moment.</p> : null}
-
-        {!isLoading && !isError && programmes.length === 0 ? (
-          <p className="muted">Aucun horaire publié pour l’instant.</p>
+        {!sectionVisible || isLoading ? <p className="muted">Chargement des horaires…</p> : null}
+        {isError ? (
+          <p className="muted">
+            Impossible de charger les horaires pour le moment. Vérifiez que l’API est démarrée (port 8081).
+          </p>
         ) : null}
 
-        {!isLoading && !isError && active ? (
+        {sectionVisible && !isLoading && !isError ? (
           <>
-            <div
-              className="home-schedule-rotator"
-              aria-live="polite"
-              aria-atomic="true"
-            >
-              <article className="home-schedule-card" key={active.paroissePublicId}>
-                <header className="home-schedule-card-head">
-                  <div>
-                    <h3 className="home-schedule-parish">{active.paroisseNom}</h3>
-                    {active.doyenneNom ? (
-                      <p className="muted home-schedule-doyenne">{active.doyenneNom}</p>
-                    ) : null}
-                  </div>
-                  <span className={`home-day-badge${active.isToday ? '' : ' home-day-badge--soon'}`}>
-                    {active.isToday ? 'Aujourd’hui' : active.dayLabel}
-                  </span>
-                </header>
+            <div className="home-day-tabs" role="tablist" aria-label="Jours de la semaine">
+              {orderedDays.map((day) => {
+                const count = dayCounts[day] || 0;
+                const isToday = day === today;
+                return (
+                  <button
+                    key={day}
+                    type="button"
+                    role="tab"
+                    aria-selected={selectedDay === day}
+                    className={`home-day-tab${selectedDay === day ? ' is-selected' : ''}${isToday ? ' is-today' : ''}`}
+                    onClick={() => setSelectedDay(day)}
+                  >
+                    <span className="home-day-tab-label">{(WEEK_DAY_LABELS[day] || day).slice(0, 3)}</span>
+                    <span className="home-day-tab-count">{count}</span>
+                  </button>
+                );
+              })}
+            </div>
 
-                <ul className="home-schedule-slots">
-                  {active.slots.map((slot, i) => (
-                    <li key={`${active.paroissePublicId}-${slot.heure}-${i}`}>
-                      <time className="home-day-time" dateTime={slot.heure || undefined}>
-                        {slot.heure || '—'}
-                      </time>
-                      <span className="home-day-libelle">{slot.libelle || 'Célébration'}</span>
-                    </li>
-                  ))}
-                </ul>
-              </article>
+            <div className="home-day-panel" key={`${selectedDay}-${sampleSeed}`}>
+              <header className="home-day-panel-head">
+                <h3>
+                  {WEEK_DAY_LABELS[selectedDay] || selectedDay}
+                  {selectedDay === today ? <span className="home-day-badge">Aujourd’hui</span> : null}
+                </h3>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setSampleSeed((s) => s + 1)}
+                  disabled={!allParishes.length}
+                >
+                  Autres paroisses
+                </button>
+              </header>
 
-              {programmes.length > 1 ? (
-                <div className="home-schedule-dots" role="tablist" aria-label="Paroisses affichées">
-                  {programmes.map((p, i) => (
-                    <button
-                      key={p.paroissePublicId}
-                      type="button"
-                      role="tab"
-                      aria-selected={i === activeIndex}
-                      aria-label={p.paroisseNom}
-                      className={`home-schedule-dot${i === activeIndex ? ' is-active' : ''}`}
-                      onClick={() => setActiveIndex(i)}
-                    />
+              {programmes.length === 0 ? (
+                <p className="muted">Aucun créneau publié pour ce jour.</p>
+              ) : (
+                <div className="home-day-timeline">
+                  {programmes.map((parish) => (
+                    <article key={parish.paroissePublicId} className="home-schedule-card home-day-parish">
+                      <header className="home-schedule-card-head">
+                        <div>
+                          <h4 className="home-schedule-parish">{parish.paroisseNom}</h4>
+                          {parish.doyenneNom ? (
+                            <p className="muted home-schedule-doyenne">{parish.doyenneNom}</p>
+                          ) : null}
+                        </div>
+                      </header>
+                      <ul className="home-schedule-slots">
+                        {parish.slots.map((slot, i) => (
+                            <li key={`${parish.paroissePublicId}-${slot.heureRaw}-${i}`}>
+                              <Link
+                                to="/demande"
+                                className="home-schedule-slot-link"
+                                onClick={() => seedDemandeDraftFromSchedule({
+                                  paroissePublicId: parish.paroissePublicId,
+                                  paroisseNom: parish.paroisseNom,
+                                  horairePublicId: slot.publicId,
+                                  horaireLibelle: [slot.heureRaw, slot.libelle].filter(Boolean).join(' · '),
+                                  heureCelebration: slot.heureRaw,
+                                  jourSemaine: slot.jourSemaine || selectedDay,
+                                })}
+                              >
+                                <time className="home-day-time" dateTime={slot.heureRaw || undefined}>
+                                  {slot.heure || '—'}
+                                </time>
+                                <span className="home-day-libelle">{slot.libelle || 'Célébration'}</span>
+                              </Link>
+                            </li>
+                          ))}
+                      </ul>
+                    </article>
                   ))}
                 </div>
-              ) : null}
+              )}
             </div>
 
             <div className="button-row home-schedules-actions">

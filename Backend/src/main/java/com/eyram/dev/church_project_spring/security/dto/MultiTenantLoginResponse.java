@@ -1,5 +1,6 @@
 package com.eyram.dev.church_project_spring.security.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Builder;
 import lombok.Getter;
@@ -12,15 +13,17 @@ import java.util.UUID;
 
 /**
  * Réponse de connexion multi-tenant.
- * Inclut les paroisses auxquelles l'utilisateur a accès.
+ * Le champ {@code token} n'est plus exposé au client (cookie HttpOnly).
  */
 @Getter
 @Setter
 @Builder
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class MultiTenantLoginResponse implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
+    /** Présent uniquement en mémoire serveur avant pose du cookie — jamais sérialisé si null. */
     @JsonProperty("token")
     private String token;
 

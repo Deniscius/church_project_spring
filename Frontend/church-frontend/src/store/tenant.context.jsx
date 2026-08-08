@@ -10,7 +10,6 @@ const TenantContext = createContext(null);
 export function TenantProvider({ children }) {
   const {
     user,
-    token,
     isAuthenticated,
     paroisses,
     selectedParoisse,
@@ -20,17 +19,25 @@ export function TenantProvider({ children }) {
   const [parishOptions, setParishOptions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  // Empêche TenantGuard de rediriger vers login au F5 avant la fin du bootstrap paroisse.
+  const [bootstrappedUserId, setBootstrappedUserId] = useState(null);
 
   const selectedParishId = selectedParoisse?.publicId || selectedParoisse?.id || null;
+  const currentUserId = user?.id ?? null;
+  const awaitingBootstrap = Boolean(
+    isAuthenticated && currentUserId && bootstrappedUserId !== currentUserId
+  );
 
   useEffect(() => {
     let cancelled = false;
 
     async function bootstrap() {
-      if (!isAuthenticated || !token || !user?.id) {
+      if (!isAuthenticated || !currentUserId) {
         setActiveParishState(null);
         setParishOptions([]);
         setError(null);
+        setLoading(false);
+        setBootstrappedUserId(null);
         return;
       }
 
@@ -69,7 +76,10 @@ export function TenantProvider({ children }) {
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Paroisse indisponible');
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          setBootstrappedUserId(currentUserId);
+        }
       }
     }
 
@@ -77,7 +87,7 @@ export function TenantProvider({ children }) {
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated, token, user?.id, user?.isGlobal, paroisses, selectedParishId]);
+  }, [isAuthenticated, currentUserId, user?.isGlobal, paroisses, selectedParishId]);
 
   const setActiveParish = useCallback((tenant) => {
     const nextId = tenant?.id || null;
@@ -98,10 +108,10 @@ export function TenantProvider({ children }) {
       activeParish,
       parishOptions,
       setActiveParish,
-      loading,
+      loading: loading || awaitingBootstrap,
       error,
     }),
-    [activeParish, parishOptions, setActiveParish, loading, error]
+    [activeParish, parishOptions, setActiveParish, loading, awaitingBootstrap, error]
   );
 
   return <TenantContext.Provider value={value}>{children}</TenantContext.Provider>;

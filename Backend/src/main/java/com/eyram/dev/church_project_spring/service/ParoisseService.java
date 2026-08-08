@@ -1,5 +1,6 @@
 package com.eyram.dev.church_project_spring.service;
 import com.eyram.dev.church_project_spring.DTO.response.AnnuaireParoisseResponse;
+import com.eyram.dev.church_project_spring.DTO.response.ParoissePublicResponse;
 import com.eyram.dev.church_project_spring.DTO.response.ParoisseResponse;
 import com.eyram.dev.church_project_spring.DTO.request.ParoisseCoordonneesRequest;
 import com.eyram.dev.church_project_spring.DTO.request.ParoisseRequest;
@@ -11,6 +12,8 @@ public interface ParoisseService {
 
     ParoisseResponse create(ParoisseRequest request);
     List<ParoisseResponse> getAll();
+
+    List<ParoissePublicResponse> listPublicActives();
 
     /**
      * Paroisses d'un doyenné encore absentes de la plateforme, proposées au

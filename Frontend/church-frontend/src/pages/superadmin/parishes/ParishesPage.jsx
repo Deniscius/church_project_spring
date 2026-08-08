@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import PageHeader from '../../../components/ui/PageHeader';
 import AppTable from '../../../components/ui/AppTable';
 import AppBadge from '../../../components/ui/AppBadge';
@@ -12,6 +12,7 @@ import { deaneryService } from '../../../services/deanery.service';
 import { mapParoisseToTableRow } from '../../../utils/apiMappers';
 import { tenantStatusLabel } from '../../../utils/statusMapper';
 import { formatDate } from '../../../utils/formatDate';
+import { getDoyenneFilter, setDoyenneFilter } from '../../../utils/sensitiveNav';
 
 const columns = [
   { key: 'name', label: 'Paroisse' },
@@ -46,7 +47,8 @@ const FILTERS = [
 ];
 
 export default function ParishesPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [rows, setRows] = useState([]);
   const [doyennes, setDoyennes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -58,7 +60,12 @@ export default function ParishesPage() {
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [filter, setFilter] = useState('ALL');
-  const doyenneFilter = searchParams.get('doyenne') || '';
+  const [doyenneFilter, setDoyenneFilterState] = useState(() => getDoyenneFilter());
+
+  const applyDoyenneFilter = (id) => {
+    setDoyenneFilter(id || '');
+    setDoyenneFilterState(id || '');
+  };
 
   const load = async () => {
     try {
@@ -81,18 +88,38 @@ export default function ParishesPage() {
     load();
   }, []);
 
-  // Arrivée depuis la page Doyennés : ouvrir le formulaire pré-rempli.
+  // Arrivée depuis Doyennés via location.state (pas d’UUID dans l’URL).
   useEffect(() => {
-    if (searchParams.get('nouvelle') !== '1') return;
-    setEditingId(null);
-    setForm({ ...EMPTY_FORM, doyennePublicId: searchParams.get('doyenne') || '' });
-    setFilter('PROSPECT');
-    setError(null);
-    setShowForm(true);
-    const next = new URLSearchParams(searchParams);
-    next.delete('nouvelle');
-    setSearchParams(next, { replace: true });
-  }, [searchParams, setSearchParams]);
+    const payload = location.state;
+    if (!payload || typeof payload !== 'object') return;
+    if (payload.doyenneId) {
+      applyDoyenneFilter(payload.doyenneId);
+    }
+    if (payload.openCreate) {
+      setEditingId(null);
+      setForm({ ...EMPTY_FORM, doyennePublicId: payload.doyenneId || getDoyenneFilter() || '' });
+      setFilter('PROSPECT');
+      setError(null);
+      setShowForm(true);
+    }
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location.state, location.pathname, navigate]);
+
+  // Compat anciennes URL ?doyenne=
+  useEffect(() => {
+    const qs = new URLSearchParams(window.location.search);
+    const legacy = qs.get('doyenne');
+    const openNew = qs.get('nouvelle') === '1';
+    if (!legacy && !openNew) return;
+    if (legacy) applyDoyenneFilter(legacy);
+    if (openNew) {
+      setEditingId(null);
+      setForm({ ...EMPTY_FORM, doyennePublicId: legacy || getDoyenneFilter() || '' });
+      setFilter('PROSPECT');
+      setShowForm(true);
+    }
+    window.history.replaceState({}, '', window.location.pathname);
+  }, []);
 
   const visibleRows = useMemo(() => {
     let list = rows;
@@ -208,12 +235,7 @@ export default function ParishesPage() {
           <select
             className="select"
             value={doyenneFilter}
-            onChange={(e) => {
-              const next = new URLSearchParams(searchParams);
-              if (e.target.value) next.set('doyenne', e.target.value);
-              else next.delete('doyenne');
-              setSearchParams(next, { replace: true });
-            }}
+            onChange={(e) => applyDoyenneFilter(e.target.value)}
             aria-label="Filtrer par doyenné"
           >
             <option value="">Tous les doyennés</option>
@@ -246,11 +268,7 @@ export default function ParishesPage() {
           <button
             type="button"
             className="link-button"
-            onClick={() => {
-              const next = new URLSearchParams(searchParams);
-              next.delete('doyenne');
-              setSearchParams(next, { replace: true });
-            }}
+            onClick={() => applyDoyenneFilter('')}
           >
             Réinitialiser
           </button>

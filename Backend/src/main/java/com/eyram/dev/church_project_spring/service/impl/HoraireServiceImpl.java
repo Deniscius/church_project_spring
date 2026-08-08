@@ -149,6 +149,7 @@ public class HoraireServiceImpl implements HoraireService {
             }
             JourSemaine jour = horaire.getJourSemaine();
             ParoisseHorairesPublicResponse.Creneau creneau = new ParoisseHorairesPublicResponse.Creneau(
+                    horaire.getPublicId(),
                     jour != null ? jour.name() : null,
                     jour != null ? jour.getLibelle() : null,
                     horaire.getHeureCelebration(),

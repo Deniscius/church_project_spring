@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import PageHeader from '../../components/ui/PageHeader';
 import AppCard from '../../components/ui/AppCard';
 import AppBadge from '../../components/ui/AppBadge';
@@ -9,8 +9,13 @@ import { requestService } from '../../services/request.service';
 import { formatCurrency } from '../../utils/formatCurrency';
 import { formatDate } from '../../utils/formatDate';
 import { copyText } from '../../utils/clipboard';
-import { normalizeTrackingCode } from '../../utils/trackingCode';
-import { getApiBaseUrl } from '../../config/apiBaseUrl';
+import {
+  getTrackingCode,
+  goToInvoice,
+  goToPayment,
+  setTrackingCode,
+} from '../../utils/sensitiveNav';
+import ReceiptPreviewButton from '../../components/ui/ReceiptPreviewButton';
 
 function canOfferPayment(demande) {
   if (!demande?.codeSuivie) return false;
@@ -22,12 +27,25 @@ function canOfferPayment(demande) {
 
 export default function TrackingResultPage() {
   const toast = useToast();
-  const [params] = useSearchParams();
-  const code = normalizeTrackingCode(params.get('code') || '');
+  const navigate = useNavigate();
+  const [code, setCode] = useState(() => getTrackingCode());
   const [demande, setDemande] = useState(null);
-  const [loading, setLoading] = useState(Boolean(code));
+  const [loading, setLoading] = useState(Boolean(getTrackingCode()));
   const [error, setError] = useState(null);
   const [copied, setCopied] = useState(false);
+
+  // Compat ancienne URL ?code=… : récupère puis nettoie immédiatement la barre d’adresse.
+  useEffect(() => {
+    const qs = new URLSearchParams(window.location.search);
+    const legacy = qs.get('code');
+    if (legacy) {
+      const stored = setTrackingCode(legacy);
+      setCode(stored);
+      qs.delete('code');
+      const clean = `${window.location.pathname}${qs.toString() ? `?${qs}` : ''}`;
+      window.history.replaceState({}, '', clean);
+    }
+  }, []);
 
   useEffect(() => {
     if (!code) {
@@ -57,12 +75,6 @@ export default function TrackingResultPage() {
   const offerPayment = canOfferPayment(demande);
   const alreadyPaid = String(demande?.statutPaiement || '').toUpperCase() === 'PAYE';
   const amountLabel = formatCurrency(demande?.montant != null ? Number(demande.montant) : 0);
-  const paymentPath = demande?.codeSuivie
-    ? `/paiement/${encodeURIComponent(demande.codeSuivie)}`
-    : '';
-  const receiptUrl = demande?.codeSuivie
-    ? `${getApiBaseUrl()}/demandes/code/${encodeURIComponent(demande.codeSuivie)}/recu.pdf`
-    : '';
 
   return (
     <div className="stack public-page">
@@ -71,7 +83,11 @@ export default function TrackingResultPage() {
         subtitle="Statut de validation, paiement et prochaines étapes."
       />
       {!code ? (
-        <p className="muted">Ajoutez un code dans l’URL (?code=…) ou depuis la page Suivi.</p>
+        <p className="muted">
+          Aucun code en session.{' '}
+          <Link to="/suivi">Retourner à la page Suivi</Link>
+          {' '}pour consulter une demande.
+        </p>
       ) : null}
       {loading ? <p className="muted">Chargement…</p> : null}
       {error ? <p className="text-red-600">{error}</p> : null}
@@ -124,9 +140,16 @@ export default function TrackingResultPage() {
               <div className="info-row">
                 <span>Date(s) de célébration</span>
                 <span>
-                  {Array.isArray(demande.datesCelebration) && demande.datesCelebration.length
-                    ? demande.datesCelebration.map((d) => formatDate(d)).join(' · ')
-                    : '—'}
+                  {Array.isArray(demande.celebrationSlots) && demande.celebrationSlots.length
+                    ? demande.celebrationSlots.map((s) => {
+                      const d = formatDate(s.date);
+                      const h = s.heure ? String(s.heure).slice(0, 5) : null;
+                      const label = s.horaireLibelle ? ` · ${s.horaireLibelle}` : '';
+                      return [d, h].filter(Boolean).join(' ') + label;
+                    }).join(' · ')
+                    : Array.isArray(demande.datesCelebration) && demande.datesCelebration.length
+                      ? demande.datesCelebration.map((d) => formatDate(d)).join(' · ')
+                      : '—'}
                 </span>
               </div>
               <div className="info-row">
@@ -152,29 +175,17 @@ export default function TrackingResultPage() {
                   Montant à régler : <strong>{amountLabel}</strong>
                 </p>
                 <div className="button-row">
-                  <Link
-                    to={paymentPath}
-                    className="btn btn-primary"
-                    style={{ textDecoration: 'none' }}
-                  >
+                  <AppButton type="button" onClick={() => goToPayment(navigate, demande.codeSuivie)}>
                     Payer maintenant
-                  </Link>
-                  <a
-                    href={receiptUrl}
-                    className="btn btn-secondary"
-                    style={{ textDecoration: 'none' }}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Télécharger le reçu
-                  </a>
-                  <Link
-                    to={`/facture/${encodeURIComponent(demande.codeSuivie)}`}
-                    className="btn btn-secondary"
-                    style={{ textDecoration: 'none' }}
+                  </AppButton>
+                  <ReceiptPreviewButton codeSuivie={demande.codeSuivie} />
+                  <AppButton
+                    type="button"
+                    variant="secondary"
+                    onClick={() => goToInvoice(navigate, demande.codeSuivie)}
                   >
                     Voir la facture
-                  </Link>
+                  </AppButton>
                 </div>
                 <p className="muted" style={{ margin: 0, fontSize: '0.9rem' }}>
                   Paiement en ligne uniquement depuis le suivi. Vous pourrez revenir plus tard avec ce code.
@@ -183,30 +194,22 @@ export default function TrackingResultPage() {
             ) : (
               <div className="button-row">
                 {alreadyPaid ? (
-                  <Link
-                    to={paymentPath}
-                    className="btn btn-secondary"
-                    style={{ textDecoration: 'none' }}
+                  <AppButton
+                    type="button"
+                    variant="secondary"
+                    onClick={() => goToPayment(navigate, demande.codeSuivie)}
                   >
                     Voir le détail du paiement
-                  </Link>
+                  </AppButton>
                 ) : null}
-                <a
-                  href={receiptUrl}
-                  className="btn btn-primary"
-                  style={{ textDecoration: 'none' }}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Télécharger le reçu
-                </a>
-                <Link
-                  to={`/facture/${encodeURIComponent(demande.codeSuivie)}`}
-                  className="btn btn-secondary"
-                  style={{ textDecoration: 'none' }}
+                <ReceiptPreviewButton codeSuivie={demande.codeSuivie} variant="primary" />
+                <AppButton
+                  type="button"
+                  variant="secondary"
+                  onClick={() => goToInvoice(navigate, demande.codeSuivie)}
                 >
                   Voir la facture
-                </Link>
+                </AppButton>
                 <Link to="/suivi" className="btn btn-secondary" style={{ textDecoration: 'none' }}>
                   Nouvelle consultation
                 </Link>

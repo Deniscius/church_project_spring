@@ -21,12 +21,12 @@ public class DemandePaymentProperties {
     /**
      * Fenêtre avant la première célébration : une demande non payée dont la
      * célébration commence dans moins de N heures (ou déjà commencée) est annulée.
-     * Aligné par défaut sur le délai minimum de dépôt (24 h).
+     * Aligné par défaut sur H-6 avant la célébration.
      */
-    private int unpaidCancelHoursBefore = 24;
+    private int unpaidCancelHoursBefore = 6;
 
-    /** Cron du balayage des impayés (défaut : toutes les heures). */
-    private String unpaidCancelCron = "0 20 * * * *";
+    /** Cron du balayage des impayés (défaut : toutes les 15 minutes). */
+    private String unpaidCancelCron = "0 */15 * * * *";
 
     /**
      * Relances e-mail pour les demandes non payées dont la 1ère célébration

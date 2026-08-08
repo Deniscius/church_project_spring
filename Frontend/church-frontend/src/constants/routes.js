@@ -13,8 +13,9 @@ export const ROUTES = {
   PUBLIC_SCHEDULES: '/horaires',
   PARISH_REGISTRATION: '/inscription-paroisse',
   SITE_MAP: '/plan-du-site',
-  PUBLIC_INVOICE: '/facture/:codeSuivie',
-  PUBLIC_PAYMENT: '/paiement/:codeSuivie',
+  PUBLIC_INVOICE: '/facture',
+  PUBLIC_PAYMENT: '/paiement',
+  PUBLIC_PAYMENT_RETURN: '/paiement/retour',
 
   // Auth
   LOGIN: '/admin/login',

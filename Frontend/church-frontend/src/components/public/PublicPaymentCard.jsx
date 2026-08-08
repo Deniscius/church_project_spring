@@ -7,7 +7,7 @@ import { paymentService } from '../../services/payment.service';
 import { requestService } from '../../services/request.service';
 import { formatCurrency } from '../../utils/formatCurrency';
 import { useScrollToError } from '../../hooks/useScrollToError';
-import { getApiBaseUrl } from '../../config/apiBaseUrl';
+import ReceiptPreviewButton from '../ui/ReceiptPreviewButton';
 
 const ONLINE_MODES = new Set(['TMONEY', 'FLOOZ', 'CARTE']);
 
@@ -34,10 +34,6 @@ export default function PublicPaymentCard({ demande, onStatusMaybeChanged }) {
     status !== 'PAYE' &&
     demande?.statutDemande !== 'ANNULEE' &&
     demande?.statutDemande !== 'REJETEE';
-  const receiptUrl = demande?.codeSuivie
-    ? `${getApiBaseUrl()}/demandes/code/${encodeURIComponent(demande.codeSuivie)}/recu.pdf`
-    : '';
-
   // Si la demande est encore en espèces, ouvrir directement le choix d'un mode en ligne.
   useEffect(() => {
     if (!demande || status === 'PAYE') return;
@@ -179,16 +175,8 @@ export default function PublicPaymentCard({ demande, onStatusMaybeChanged }) {
                 </AppButton>
               </>
             ) : null}
-            {receiptUrl ? (
-              <a
-                href={receiptUrl}
-                className="btn btn-secondary"
-                style={{ textDecoration: 'none' }}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Télécharger le reçu
-              </a>
+            {demande?.codeSuivie ? (
+              <ReceiptPreviewButton codeSuivie={demande.codeSuivie} />
             ) : null}
             {canChangeMode ? (
               <AppButton

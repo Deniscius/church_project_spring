@@ -8,8 +8,12 @@ import {
   useReducer,
 } from 'react';
 import { toE164, DEFAULT_PHONE_COUNTRY_ISO, parseStoredPhone } from '../utils/phone';
-
-const DRAFT_STORAGE_KEY = 'public_demande_draft_v4';
+import { DRAFT_STORAGE_KEY, suggestCelebrationDateFromWeekday } from '../utils/demandePrefill';
+import {
+  findNextAllowedDate,
+  getEffectiveAllowedDays,
+  getMinimumCelebrationDateIso,
+} from '../utils/schedulingUtils';
 
 const initialDraft = {
   intention: '',
@@ -46,6 +50,8 @@ const initialDraft = {
   dateSchedules: {},
   typePaiementPublicId: '',
   typePaiementLibelle: '',
+  /** true si brouillon issu d'un créneau accueil / horaires */
+  prefillFromSchedule: false,
 };
 
 function loadDraftFromStorage() {
@@ -93,7 +99,42 @@ function clearScheduleFields(state) {
     dateDebut: '',
     datesCelebration: [],
     dateSchedules: {},
+    prefillFromSchedule: false,
   };
+}
+
+/** Conserve le créneau (et date) issu de l'accueil lors du choix type/forfait. */
+function withPreservedSchedulePrefill(previous, next) {
+  if (!previous.horairePublicId && !previous.prefillFromSchedule) {
+    return next;
+  }
+  return {
+    ...next,
+    horairePublicId: previous.horairePublicId || next.horairePublicId,
+    horaireLibelle: previous.horaireLibelle || next.horaireLibelle,
+    horaireHeureCelebration: previous.horaireHeureCelebration || next.horaireHeureCelebration,
+    horaireJourSemaine: previous.horaireJourSemaine || next.horaireJourSemaine,
+    dateDebut: previous.dateDebut || next.dateDebut,
+    prefillFromSchedule: previous.prefillFromSchedule || next.prefillFromSchedule,
+  };
+}
+
+function applySuggestedDate(state) {
+  if (!state.horaireJourSemaine || !state.forfaitTarifPublicId) return state;
+  const n = state.forfaitNombreCelebration != null ? Number(state.forfaitNombreCelebration) : null;
+  if (n != null && n > 1) return state;
+
+  const allowed = getEffectiveAllowedDays(
+    state.typeDemandeJoursCelebrationAutorises,
+    state.forfaitJoursCelebrationAutorises,
+    state.horaireJourSemaine
+  );
+  if (!allowed.length) return state;
+  const minIso = getMinimumCelebrationDateIso(state.typeDemandeDelaiMinimumHeures);
+  const dateDebut = findNextAllowedDate(minIso, allowed)
+    || suggestCelebrationDateFromWeekday(state.horaireJourSemaine, state.typeDemandeDelaiMinimumHeures);
+  if (!dateDebut) return state;
+  return { ...state, dateDebut, datesCelebration: [] };
 }
 
 function draftReducer(state, action) {
@@ -102,6 +143,13 @@ function draftReducer(state, action) {
       return { ...state, ...action.payload };
     case 'SELECT_PAROISSE': {
       const { publicId, nom } = action.payload;
+      // Même paroisse : ne pas effacer le préremplissage horaire/date.
+      if (publicId && publicId === state.paroissePublicId) {
+        return {
+          ...state,
+          paroisseNom: nom || state.paroisseNom || '',
+        };
+      }
       return clearScheduleFields({
         ...state,
         paroissePublicId: publicId,
@@ -122,7 +170,7 @@ function draftReducer(state, action) {
     }
     case 'SELECT_TYPE_DEMANDE': {
       const { publicId, libelle, delaiMinimumHeures, joursCelebrationAutorises } = action.payload;
-      return clearScheduleFields({
+      const cleared = clearScheduleFields({
         ...state,
         typeDemandePublicId: publicId,
         typeDemandeLibelle: libelle || '',
@@ -137,6 +185,7 @@ function draftReducer(state, action) {
         forfaitMontant: null,
         forfaitJoursCelebrationAutorises: [],
       });
+      return withPreservedSchedulePrefill(state, cleared);
     }
     case 'SELECT_FORFAIT': {
       const {
@@ -150,7 +199,7 @@ function draftReducer(state, action) {
         joursCelebrationAutorises,
       } = action.payload;
       const n = nombreCelebration != null ? Number(nombreCelebration) : null;
-      return clearScheduleFields({
+      const next = clearScheduleFields({
         ...state,
         forfaitTarifPublicId: publicId,
         forfaitLabel: label || '',
@@ -162,6 +211,11 @@ function draftReducer(state, action) {
         forfaitJoursCelebrationAutorises: joursCelebrationAutorises || [],
         datesCelebration: n != null && n > 1 ? Array.from({ length: n }, () => '') : [],
       });
+      // Préremplissage accueil : conserver créneau + recalculer la prochaine date.
+      if (n === 1 || n == null) {
+        return applySuggestedDate(withPreservedSchedulePrefill(state, next));
+      }
+      return next;
     }
     case 'SELECT_HORAIRE': {
       const { publicId, libelle, heureCelebration, jourSemaine, preserveDate } = action.payload;
@@ -171,6 +225,7 @@ function draftReducer(state, action) {
         horaireLibelle: libelle || '',
         horaireHeureCelebration: heureCelebration || '',
         horaireJourSemaine: jourSemaine || '',
+        prefillFromSchedule: false,
       };
       // En liaison messe unique (date déjà choisie), on conserve la date.
       if (!preserveDate) {

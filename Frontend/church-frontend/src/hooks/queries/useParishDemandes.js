@@ -3,22 +3,11 @@ import { requestService } from '../../services/request.service';
 
 export const parishDemandeKeys = {
   all: (parishId) => ['demandes', 'paroisse', parishId],
-  list: (parishId) => [...parishDemandeKeys.all(parishId), 'list'],
   page: (parishId, page, size) => [...parishDemandeKeys.all(parishId), 'page', page, size],
   stats: (parishId) => [...parishDemandeKeys.all(parishId), 'stats'],
 };
 
-/** Liste complète DemandeResponse (partagée Dashboard/Paiements si besoin). */
-export function useParishDemandes(parishId) {
-  return useQuery({
-    queryKey: parishDemandeKeys.list(parishId),
-    queryFn: ({ signal }) => requestService.getByParish(parishId, { signal }),
-    enabled: Boolean(parishId),
-    staleTime: 3 * 60_000,
-  });
-}
-
-/** Liste paginée pour l'écran Demandes. */
+/** Liste paginée — seul mode supporté (montée en charge). */
 export function useParishDemandesPage(parishId, page = 0, size = 20) {
   return useQuery({
     queryKey: parishDemandeKeys.page(parishId, page, size),

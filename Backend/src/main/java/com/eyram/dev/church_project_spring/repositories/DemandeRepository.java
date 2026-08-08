@@ -12,6 +12,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -21,6 +22,14 @@ public interface DemandeRepository extends JpaRepository<Demande, Long> {
     Optional<Demande> findByPublicIdAndStatusDelFalse(UUID publicId);
 
     Optional<Demande> findByCodeSuivieAndStatusDelFalse(String codeSuivie);
+
+    @Query("""
+            SELECT d.codeSuivie FROM Demande d
+            WHERE d.statusDel = false
+              AND d.telFidele IN :phones
+            ORDER BY d.createdAt DESC
+            """)
+    List<String> findCodesByTelFideleIn(@Param("phones") Collection<String> phones, Pageable pageable);
 
     List<Demande> findByStatusDelFalse();
 

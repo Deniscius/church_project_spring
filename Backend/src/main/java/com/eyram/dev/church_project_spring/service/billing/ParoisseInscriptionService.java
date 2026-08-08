@@ -18,6 +18,7 @@ import com.eyram.dev.church_project_spring.repositories.ParoisseInscriptionRepos
 import com.eyram.dev.church_project_spring.repositories.ParoisseRepository;
 import com.eyram.dev.church_project_spring.repositories.UserRepository;
 import com.eyram.dev.church_project_spring.service.accounting.ParishLedgerService;
+import com.eyram.dev.church_project_spring.service.mail.AppMailService;
 import com.eyram.dev.church_project_spring.service.ProfessionalEmailService;
 import com.eyram.dev.church_project_spring.service.storage.StoredFileService;
 import com.eyram.dev.church_project_spring.service.tenant.TenantCatalogBootstrapService;
@@ -25,6 +26,7 @@ import com.eyram.dev.church_project_spring.utils.exception.AlreadyExistException
 import com.eyram.dev.church_project_spring.utils.exception.BusinessRuleException;
 import com.eyram.dev.church_project_spring.utils.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -54,6 +56,10 @@ public class ParoisseInscriptionService {
     private final ProfessionalEmailService professionalEmailService;
     private final InscriptionOtpService inscriptionOtpService;
     private final StoredFileService storedFileService;
+    private final AppMailService appMailService;
+
+    @Value("${app.demande.public-base-url:http://localhost:5173}")
+    private String publicBaseUrl;
 
     @Transactional
     public ParoisseInscriptionResponse soumettre(
@@ -272,11 +278,43 @@ public class ParoisseInscriptionService {
         if (inscription.getStatut() != StatutInscription.SOUMISE) {
             throw new BusinessRuleException("Cette inscription n'est plus en attente");
         }
-        inscription.setStatut(StatutInscription.REJETEE);
-        if (StringUtils.hasText(motif)) {
-            inscription.setMessage(motif);
+        String cleanedMotif = motif == null ? "" : motif.trim();
+        if (!StringUtils.hasText(cleanedMotif) || cleanedMotif.length() < 8) {
+            throw new BusinessRuleException(
+                    "Indiquez un motif de rejet (au moins 8 caractères) pour informer la paroisse."
+            );
         }
-        return toResponse(inscriptionRepository.save(inscription));
+        inscription.setStatut(StatutInscription.REJETEE);
+        inscription.setMessage(cleanedMotif);
+        ParoisseInscription saved = inscriptionRepository.save(inscription);
+        notifyRejection(saved, cleanedMotif);
+        return toResponse(saved);
+    }
+
+    private void notifyRejection(ParoisseInscription inscription, String motif) {
+        String to = StringUtils.hasText(inscription.getAdminEmail())
+                ? inscription.getAdminEmail().trim()
+                : (StringUtils.hasText(inscription.getEmail()) ? inscription.getEmail().trim() : null);
+        if (!StringUtils.hasText(to)) {
+            return;
+        }
+        String subject = "Inscription refusée — " + inscription.getNomParoisse();
+        String body = """
+                Bonjour,
+
+                Votre demande d'inscription pour « %s » a été refusée.
+
+                Motif : %s
+
+                Vous pouvez déposer un nouveau dossier corrigé sur %s/inscription-paroisse
+
+                — Missanye
+                """.formatted(
+                inscription.getNomParoisse(),
+                motif,
+                publicBaseUrl.replaceAll("/+$", "")
+        );
+        appMailService.sendTextAsync(to, subject, body);
     }
 
     @Transactional(readOnly = true)

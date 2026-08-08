@@ -1,6 +1,7 @@
 package com.eyram.dev.church_project_spring.controller;
 
 import com.eyram.dev.church_project_spring.service.payment.FedaPayPaymentService;
+import com.eyram.dev.church_project_spring.service.payment.FedaPayWebhookAsyncProcessor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -19,14 +20,16 @@ import java.util.Map;
 public class WebhookController {
 
     private final FedaPayPaymentService fedaPayPaymentService;
+    private final FedaPayWebhookAsyncProcessor webhookAsyncProcessor;
 
     @PostMapping("/fedapay")
     public ResponseEntity<Map<String, Object>> fedapay(
             @RequestHeader(value = "X-FEDAPAY-SIGNATURE", required = false) String signature,
             @RequestBody String payload
     ) {
-        log.info("POST /webhooks/fedapay - événement reçu");
-        fedaPayPaymentService.handleWebhook(payload, signature);
-        return ResponseEntity.ok(Map.of("received", true));
+        // Signature vérifiée en synchrone ; traitement métier hors thread HTTP.
+        fedaPayPaymentService.verifyWebhookSignature(payload, signature);
+        webhookAsyncProcessor.processAsync(payload, signature);
+        return ResponseEntity.accepted().body(Map.of("received", true, "async", true));
     }
 }

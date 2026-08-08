@@ -1,8 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import AppCard from '../ui/AppCard';
 import AppInput from '../ui/AppInput';
 import AppSelect from '../ui/AppSelect';
-import { getForfaitDureeLabel, isMultiCelebrationForfait, WEEK_DAY_LABELS } from '../../constants/enums';
+import AppButton from '../ui/AppButton';
+import MultiScheduleModal, { emptySchedule } from './MultiScheduleModal';
+import { getForfaitDureeLabel, isMultiCelebrationForfait, WEEK_DAY_LABELS, WEEK_DAYS } from '../../constants/enums';
 import { usePublicDemandeDraft } from '../../contexts/publicDemandeDraft.context';
 import { useHorairesByParishQuery } from '../../hooks/queries/usePublicReferentiel';
 import {
@@ -12,10 +14,11 @@ import {
   getEffectiveAllowedDays,
   getMinimumCelebrationDateIso,
   isDateAllowedForDays,
+  isTrentaineForfait,
   listUpcomingAllowedDates,
   resolveHorairesForDate,
 } from '../../utils/schedulingUtils';
-import { formatTime as formatTimeDisplay } from '../../utils/formatTime';
+import { formatParishTimeInUserZone, formatTime } from '../../utils/formatTime';
 
 function formatFrDate(iso) {
   return new Date(`${iso}T12:00:00`).toLocaleDateString('fr-FR', {
@@ -26,12 +29,16 @@ function formatFrDate(iso) {
   });
 }
 
-function emptySchedule() {
+function pickDefaultSchedule(horaires, iso) {
+  const day = getDayEnumFromDateString(iso);
+  const dayHoraires = resolveHorairesForDate(horaires, iso);
+  const first = dayHoraires[0];
+  if (!first) return emptySchedule();
   return {
-    horairePublicId: '',
-    horaireLibelle: '',
-    heureCelebration: '',
-    jourSemaine: '',
+    horairePublicId: first.publicId || '',
+    horaireLibelle: [formatTime(first.heureCelebration), first.libelle].filter(Boolean).join(' · '),
+    heureCelebration: formatTime(first.heureCelebration) || first.heureCelebration || '',
+    jourSemaine: first.jourSemaine || day || '',
     heurePersonnalisee: '',
   };
 }
@@ -39,10 +46,12 @@ function emptySchedule() {
 export default function DatesSelector() {
   const { draft, patch } = usePublicDemandeDraft();
   const [slotError, setSlotError] = useState('');
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
   const n = Number(draft.forfaitNombreCelebration) || 0;
   const multi = isMultiCelebrationForfait(n);
+  const trentaine = isTrentaineForfait(n);
   const dureeLabel = getForfaitDureeLabel(n);
-  const windowDays = draft.forfaitNombreJour > 0 ? Number(draft.forfaitNombreJour) : n;
+  const windowDays = trentaine ? 30 : (draft.forfaitNombreJour > 0 ? Number(draft.forfaitNombreJour) : n);
   const minimumDate = getMinimumCelebrationDateIso(draft.typeDemandeDelaiMinimumHeures ?? 24);
   const hp = Boolean(draft.forfaitHeurePersonnalise);
 
@@ -52,13 +61,15 @@ export default function DatesSelector() {
   const loadingHoraires = isLoading || isFetching;
 
   const effectiveAllowedDays = useMemo(
-    () => getEffectiveAllowedDays(
-      draft.typeDemandeJoursCelebrationAutorises,
-      draft.forfaitJoursCelebrationAutorises,
-      // Multi : les dates ne sont plus contraintes par un horaire unique.
-      multi ? null : draft.horaireJourSemaine
-    ),
+    () => (trentaine
+      ? WEEK_DAYS
+      : getEffectiveAllowedDays(
+        draft.typeDemandeJoursCelebrationAutorises,
+        draft.forfaitJoursCelebrationAutorises,
+        multi ? null : draft.horaireJourSemaine
+      )),
     [
+      trentaine,
       draft.typeDemandeJoursCelebrationAutorises,
       draft.forfaitJoursCelebrationAutorises,
       draft.horaireJourSemaine,
@@ -66,10 +77,7 @@ export default function DatesSelector() {
     ]
   );
   const allowedDaysLabel = formatAllowedDays(effectiveAllowedDays);
-
-  // Date d'abord, puis horaire (ScheduleSelector en simple / créneaux par date en multi).
   const disabled = !draft.forfaitTarifPublicId;
-
   const startDate = draft.dateDebut || '';
   const dateSchedules = draft.dateSchedules || {};
 
@@ -92,6 +100,41 @@ export default function DatesSelector() {
       count: multi ? Math.max(n + 8, 20) : 16,
     });
   }, [disabled, minimumDate, effectiveAllowedDays, multi, n]);
+
+  const dateOptions = useMemo(
+    () => suggestedDates.map((iso) => ({ value: iso, label: formatFrDate(iso) })),
+    [suggestedDates]
+  );
+
+  const filledCount = useMemo(() => {
+    if (!generatedDates.length) return 0;
+    return generatedDates.filter((iso) => {
+      const s = dateSchedules[iso];
+      return s && (s.horairePublicId || (hp && s.heurePersonnalisee));
+    }).length;
+  }, [generatedDates, dateSchedules, hp]);
+
+  const sundayCount = useMemo(
+    () => generatedDates.filter((iso) => getDayEnumFromDateString(iso) === 'DIMANCHE').length,
+    [generatedDates]
+  );
+
+  // Trentaine : auto-remplir les horaires dès que les dates + programme sont prêts.
+  useEffect(() => {
+    if (!trentaine || !generatedDates.length || loadingHoraires || !horaires.length) return;
+    let changed = false;
+    const next = { ...dateSchedules };
+    for (const iso of generatedDates) {
+      const current = next[iso];
+      if (current?.horairePublicId || current?.heurePersonnalisee) continue;
+      next[iso] = pickDefaultSchedule(horaires, iso);
+      changed = true;
+    }
+    if (changed) {
+      patch({ dateSchedules: next });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trentaine, generatedDates.join('|'), loadingHoraires, horaires]);
 
   const validateStart = (value) => {
     if (!value) return 'La date de début est obligatoire.';
@@ -132,19 +175,23 @@ export default function DatesSelector() {
       const computed = err ? [] : computeCelebrationDates(value, effectiveAllowedDays, n);
       const nextSchedules = {};
       for (const iso of computed) {
-        nextSchedules[iso] = dateSchedules[iso] || emptySchedule();
+        nextSchedules[iso] = trentaine && horaires.length
+          ? pickDefaultSchedule(horaires, iso)
+          : (dateSchedules[iso] || emptySchedule());
       }
       patch({
         dateDebut: value,
         datesCelebration: computed,
         dateSchedules: nextSchedules,
-        // Plus d'horaire unique au niveau demande pour le multi.
         horairePublicId: '',
         horaireLibelle: '',
         horaireHeureCelebration: '',
         horaireJourSemaine: '',
         heurePersonnalisee: '',
       });
+      if (!err && computed.length === n && !trentaine) {
+        setScheduleModalOpen(true);
+      }
       return;
     }
 
@@ -166,21 +213,28 @@ export default function DatesSelector() {
     });
   };
 
+  const applyDefaultToAll = () => {
+    const next = { ...dateSchedules };
+    for (const iso of generatedDates) {
+      next[iso] = pickDefaultSchedule(horaires, iso);
+    }
+    patch({ dateSchedules: next });
+  };
+
   const title = multi ? `Date de début du ${dureeLabel.toLowerCase()}` : 'Date de célébration';
   const subtitle = disabled
     ? 'Sélectionnez d’abord la nature de la messe.'
     : multi
-      ? `Indiquez la date de début : les ${n} dates (jours autorisés) sont calculées, puis choisissez l’horaire de chaque jour.`
+      ? trentaine
+        ? 'Choisissez le premier jour : les 30 jours suivants sont calculés, les horaires sont préremplis. Ajustez les dimanches si besoin.'
+        : `Choisissez la date de début, puis les horaires des ${n} célébrations dans le panneau.`
       : 'Choisissez la date, puis l’heure de célébration à l’étape suivante.';
 
-  const dayHint = effectiveAllowedDays?.length === 1
-    ? `Uniquement les ${WEEK_DAY_LABELS[effectiveAllowedDays[0]] || effectiveAllowedDays[0]}s.`
-    : `Jours autorisés pour cette nature : ${allowedDaysLabel}.`;
-
-  const dateOptions = useMemo(
-    () => suggestedDates.map((iso) => ({ value: iso, label: formatFrDate(iso) })),
-    [suggestedDates]
-  );
+  const dayHint = trentaine
+    ? 'Trentaine : 30 jours calendaires successifs à partir de la date de début.'
+    : effectiveAllowedDays?.length === 1
+      ? `Uniquement les ${WEEK_DAY_LABELS[effectiveAllowedDays[0]] || effectiveAllowedDays[0]}s.`
+      : `Jours autorisés pour cette nature : ${allowedDaysLabel}.`;
 
   return (
     <AppCard title={title} subtitle={subtitle}>
@@ -224,79 +278,71 @@ export default function DatesSelector() {
 
       {multi && generatedDates.length === n ? (
         <div className="generated-dates-preview">
-          <p className="muted" style={{ margin: '0 0 0.5rem' }}>
+          <p className="muted" style={{ margin: '0 0 0.75rem' }}>
             Calendrier généré ({n} célébrations)
             {lastAllowed ? ` — jusqu’au ${formatFrDate(lastAllowed)}` : ''}
+            {trentaine && sundayCount ? ` · ${sundayCount} dimanche(s)` : ''}
           </p>
           {error ? <p className="text-red-600">{error.message}</p> : null}
           {loadingHoraires ? <p className="muted">Chargement des horaires…</p> : null}
-          <ol className="generated-dates-list">
-            {generatedDates.map((iso, index) => {
-              const day = getDayEnumFromDateString(iso);
-              const dayHoraires = resolveHorairesForDate(horaires, iso);
-              const schedule = dateSchedules[iso] || emptySchedule();
-              const selectedOk = dayHoraires.some((h) => h.publicId === schedule.horairePublicId);
-              const horaireOptions = dayHoraires.map((h) => ({
-                value: h.publicId,
-                label: [formatTimeDisplay(h.heureCelebration), h.libelle].filter(Boolean).join(' · '),
-              }));
 
+          <div className="formule-summary-box" style={{ marginBottom: 12 }}>
+            <p className="formule-summary-value" style={{ fontSize: '0.98rem' }}>
+              Horaires renseignés : {filledCount}/{n}
+            </p>
+            <AppButton
+              type="button"
+              variant="primary"
+              disabled={loadingHoraires}
+              onClick={() => setScheduleModalOpen(true)}
+            >
+              {trentaine
+                ? 'Ajuster les dimanches'
+                : filledCount === n
+                  ? 'Modifier les horaires'
+                  : 'Choisir les horaires'}
+            </AppButton>
+          </div>
+
+          <ol className="generated-dates-list generated-dates-list--compact">
+            {generatedDates.slice(0, trentaine ? 5 : n).map((iso, index) => {
+              const schedule = dateSchedules[iso] || emptySchedule();
+              const day = getDayEnumFromDateString(iso);
               return (
-                <li key={iso} style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
-                  <div>
-                    <span>Célébration {index + 1}</span>
-                    {' · '}
-                    <strong>{formatFrDate(iso)}</strong>
-                  </div>
-                  <div className="form-field" style={{ margin: 0 }}>
-                    <label htmlFor={`slot-horaire-${iso}`}>
-                      Horaire du {WEEK_DAY_LABELS[day] || day}{hp ? '' : ' *'}
-                    </label>
-                    <AppSelect
-                      id={`slot-horaire-${iso}`}
-                      value={selectedOk ? schedule.horairePublicId : ''}
-                      placeholder="— Choisir un créneau —"
-                      options={horaireOptions}
-                      onChange={(id) => {
-                        const h = dayHoraires.find((x) => x.publicId === id);
-                        patchDateSchedule(iso, {
-                          horairePublicId: id,
-                          horaireLibelle: h
-                            ? `${h.heureCelebration || ''} ${h.libelle || ''}`.trim()
-                            : '',
-                          heureCelebration: h?.heureCelebration || '',
-                          jourSemaine: h?.jourSemaine || day,
-                        });
-                      }}
-                    />
-                    {dayHoraires.length === 0 && !loadingHoraires ? (
-                      <small className={hp ? 'muted' : 'text-red-600'}>
-                        Aucun horaire paroissial ce jour-là.
-                        {hp ? ' Indiquez une heure personnalisée.' : ' Contactez la paroisse.'}
-                      </small>
-                    ) : (
-                      <small className="muted">
-                        Créneaux au programme pour le {WEEK_DAY_LABELS[day] || day}.
-                      </small>
-                    )}
-                  </div>
-                  {hp ? (
-                    <div className="form-field" style={{ margin: 0 }}>
-                      <label htmlFor={`slot-perso-${iso}`}>Heure personnalisée</label>
-                      <AppInput
-                        id={`slot-perso-${iso}`}
-                        type="time"
-                        value={schedule.heurePersonnalisee || ''}
-                        onChange={(e) => patchDateSchedule(iso, { heurePersonnalisee: e.target.value })}
-                      />
-                    </div>
-                  ) : null}
+                <li key={iso}>
+                  <span>J{index + 1}</span>
+                  {' · '}
+                  <strong>{formatFrDate(iso)}</strong>
+                  {day === 'DIMANCHE' ? ' · Dimanche' : ''}
+                  {' · '}
+                  <span className="muted">
+                    {schedule.heurePersonnalisee
+                      || formatParishTimeInUserZone(schedule.heureCelebration)
+                      || schedule.horaireLibelle
+                      || 'horaire à définir'}
+                  </span>
                 </li>
               );
             })}
+            {trentaine && generatedDates.length > 5 ? (
+              <li className="muted">… et {generatedDates.length - 5} autres jours</li>
+            ) : null}
           </ol>
         </div>
       ) : null}
+
+      <MultiScheduleModal
+        open={scheduleModalOpen}
+        onClose={() => setScheduleModalOpen(false)}
+        dates={generatedDates}
+        horaires={horaires}
+        dateSchedules={dateSchedules}
+        onChangeSchedule={patchDateSchedule}
+        onApplyDefaultToAll={applyDefaultToAll}
+        heurePersonnalise={hp}
+        trentaine={trentaine}
+        title={trentaine ? 'Dimanches de la trentaine' : `Horaires — ${dureeLabel}`}
+      />
     </AppCard>
   );
 }

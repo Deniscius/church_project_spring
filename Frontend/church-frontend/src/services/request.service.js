@@ -1,18 +1,18 @@
 import { apiClient } from './http/apiClient';
 
-function parishQuery(paroissePublicId, { page, size } = {}) {
+function parishQuery(paroissePublicId, { page = 0, size = 20 } = {}) {
   const params = new URLSearchParams();
-  if (page != null) params.set('page', String(page));
-  if (size != null) params.set('size', String(size));
-  const qs = params.toString();
-  return `/demandes/paroisse/${paroissePublicId}${qs ? `?${qs}` : ''}`;
+  params.set('page', String(page));
+  params.set('size', String(size));
+  return `/demandes/paroisse/${paroissePublicId}?${params.toString()}`;
 }
 
 export const requestService = {
   getAll: (options = {}) => apiClient('/demandes', {}, { auth: true, ...options }),
 
+  /** Toujours paginé côté API (PageResponse). */
   getByParish: (paroissePublicId, options = {}) => {
-    const { page, size, signal } = options;
+    const { page = 0, size = 20, signal } = options;
     return apiClient(parishQuery(paroissePublicId, { page, size }), {}, { auth: true, signal });
   },
 
@@ -24,6 +24,14 @@ export const requestService = {
 
   getByTrackingCode: (code, options = {}) =>
     apiClient(`/demandes/code/${encodeURIComponent(code)}`, {}, { auth: false, signal: options.signal }),
+
+  /** Recherche publique : codes de suivi liés à un téléphone (E.164). */
+  lookupByPhone: (telephone) =>
+    apiClient(
+      '/demandes/suivi/par-telephone',
+      { method: 'POST', body: JSON.stringify({ telephone }) },
+      { auth: false }
+    ),
 
   /** Public : change le mode de paiement tant que la demande n'est pas payée. */
   updateTypePaiementByTrackingCode: (code, typePaiementPublicId) =>

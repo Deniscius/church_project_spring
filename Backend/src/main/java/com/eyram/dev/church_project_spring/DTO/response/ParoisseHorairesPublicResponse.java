@@ -14,6 +14,7 @@ public record ParoisseHorairesPublicResponse(
         List<Creneau> horaires
 ) {
     public record Creneau(
+            UUID publicId,
             String jourSemaine,
             String jourLibelle,
             LocalTime heureCelebration,

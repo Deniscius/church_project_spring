@@ -3,7 +3,9 @@ package com.eyram.dev.church_project_spring.controller;
 import com.eyram.dev.church_project_spring.DTO.request.ParoisseCoordonneesRequest;
 import com.eyram.dev.church_project_spring.DTO.request.ParoisseRequest;
 import com.eyram.dev.church_project_spring.DTO.response.AnnuaireParoisseResponse;
+import com.eyram.dev.church_project_spring.DTO.response.ParoissePublicResponse;
 import com.eyram.dev.church_project_spring.DTO.response.ParoisseResponse;
+import com.eyram.dev.church_project_spring.service.DemandeReceiptService;
 import com.eyram.dev.church_project_spring.service.ParoisseService;
 
 import jakarta.validation.Valid;
@@ -28,6 +30,7 @@ import java.util.UUID;
 public class ParoisseController {
 
     private final ParoisseService paroisseService;
+    private final DemandeReceiptService demandeReceiptService;
 
     @PostMapping
     public ResponseEntity<ParoisseResponse> create(@Valid @RequestBody ParoisseRequest request) {
@@ -36,21 +39,36 @@ public class ParoisseController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'COMPTABLE', 'SECRETAIRE', 'CURE', 'COMPTABLE_LOCAL')")
     public ResponseEntity<List<ParoisseResponse>> getAll() {
         List<ParoisseResponse> responses = paroisseService.getAll();
         return ResponseEntity.ok(responses);
     }
 
     /**
-     * Déclaré avant {@code /{publicId}} pour rester lisible : Spring privilégie
-     * de toute façon le segment littéral sur la variable de chemin.
+     * Catalogue fidèle : id, nom, adresse, doyenné — sans RIB ni contacts sensibles.
      */
+    @GetMapping("/public")
+    public ResponseEntity<List<ParoissePublicResponse>> listPublicActives() {
+        return ResponseEntity.ok(paroisseService.listPublicActives());
+    }
+
+    /**
+     * Annuaire d'un doyenné — UUID en path (évite les query strings dans logs / Historique).
+     */
+    @GetMapping("/annuaire/{doyennePublicId}")
+    public ResponseEntity<List<AnnuaireParoisseResponse>> getAnnuaire(@PathVariable UUID doyennePublicId) {
+        return ResponseEntity.ok(paroisseService.getAnnuaireDisponible(doyennePublicId));
+    }
+
+    /** Compat : ancienne forme ?doyenne=… */
     @GetMapping("/annuaire")
-    public ResponseEntity<List<AnnuaireParoisseResponse>> getAnnuaire(@RequestParam UUID doyenne) {
+    public ResponseEntity<List<AnnuaireParoisseResponse>> getAnnuaireQuery(@RequestParam UUID doyenne) {
         return ResponseEntity.ok(paroisseService.getAnnuaireDisponible(doyenne));
     }
 
     @GetMapping("/{publicId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'COMPTABLE', 'SECRETAIRE', 'CURE', 'COMPTABLE_LOCAL')")
     public ResponseEntity<ParoisseResponse> getByPublicId(@PathVariable UUID publicId) {
         ParoisseResponse response = paroisseService.getByPublicId(publicId);
         return ResponseEntity.ok(response);
@@ -102,6 +120,19 @@ public class ParoisseController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"logo\"")
                 .contentType(MediaType.parseMediaType(paroisseService.logoContentType(publicId)))
                 .body(resource);
+    }
+
+    /**
+     * Aperçu PDF du reçu (demi-A4) avec logo / en-tête paroisse — sans demande réelle.
+     */
+    @GetMapping(value = "/{publicId}/recu-modele.pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETAIRE', 'CURE', 'COMPTABLE_LOCAL', 'SUPER_ADMIN')")
+    public ResponseEntity<byte[]> previewReceiptSample(@PathVariable UUID publicId) {
+        byte[] pdf = demandeReceiptService.generateSampleForParoisse(publicId);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"recu-modele.pdf\"")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdf);
     }
 
     @DeleteMapping("/{publicId}")

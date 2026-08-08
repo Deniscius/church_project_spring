@@ -1,6 +1,4 @@
 import { getApiBaseUrl } from '../../config/apiBaseUrl';
-import { getAccessToken } from '../../constants/authStorage';
-import { attachToken } from './interceptors';
 
 const API_BASE_URL = getApiBaseUrl();
 
@@ -33,12 +31,15 @@ export async function apiClient(path, options = {}, clientOptions = {}) {
     delete headers['Content-Type'];
     delete headers['content-type'];
   }
+  // Auth = cookie HttpOnly (MS_AT) : jamais de Bearer depuis localStorage.
   if (auth) {
-    headers = attachToken(headers, getAccessToken());
+    headers['X-Requested-With'] = 'XMLHttpRequest';
   }
+
   const response = await fetch(`${API_BASE_URL}${urlPath}`, {
     ...options,
     headers,
+    credentials: 'include',
     signal: signal || options.signal,
   });
 
@@ -56,7 +57,9 @@ export async function apiClient(path, options = {}, clientOptions = {}) {
     } catch {
       /* corps non JSON */
     }
-    throw new Error(message);
+    const error = new Error(message);
+    error.status = response.status;
+    throw error;
   }
 
   if (response.status === 204 || parse === false) {

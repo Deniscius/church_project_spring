@@ -125,6 +125,43 @@ public class MultiTenantAuthService {
         }
     }
 
+    /**
+     * Reconstruit le contexte session sans régénérer de jeton (cookie déjà présent).
+     */
+    @Transactional(readOnly = true)
+    public MultiTenantLoginResponse currentSession(UserDetailsImpl principal) {
+        if (principal == null) {
+            throw new InvalidCredentialsException("Session expirée");
+        }
+        User user = userRepository.findByUsernameIgnoreCaseAndStatusDelFalse(principal.getUsername())
+                .orElseThrow(() -> new InvalidCredentialsException("Session expirée"));
+        validateAuthenticatedUser(user);
+
+        List<ParoisseAccess> eligibleAccesses = findEligibleParoisseAccesses(user);
+        List<ParoisseAccess> responseAccesses = resolveResponseAccesses(user, eligibleAccesses);
+        List<MultiTenantLoginResponse.ParoisseAccessDto> paroissesDtos = responseAccesses.stream()
+                .map(this::mapParoisseAccess)
+                .toList();
+        MultiTenantLoginResponse.ParoisseAccessDto selectedParoisse =
+                paroissesDtos.isEmpty() ? null : paroissesDtos.get(0);
+
+        MultiTenantLoginResponse.UserInfoDto userDto = MultiTenantLoginResponse.UserInfoDto.builder()
+                .publicId(user.getPublicId())
+                .nom(user.getNom())
+                .prenom(user.getPrenom())
+                .username(user.getUsername())
+                .role(user.getRole().name())
+                .isGlobal(user.getIsGlobal())
+                .build();
+
+        return MultiTenantLoginResponse.builder()
+                .token(null)
+                .user(userDto)
+                .paroisses(paroissesDtos)
+                .selectedParoisse(selectedParoisse)
+                .build();
+    }
+
     private void validateAuthenticatedUser(User user) {
         if (!Boolean.TRUE.equals(user.getIsActive())) {
             throw new AccountDisabledException("Compte désactivé. Contactez un administrateur.");

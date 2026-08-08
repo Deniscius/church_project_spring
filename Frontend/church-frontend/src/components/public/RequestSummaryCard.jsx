@@ -19,6 +19,17 @@ export default function RequestSummaryCard({ step = 4, mode = 'wizard' }) {
   const showThrough = mode === 'full' ? 4 : step;
   const rows = [];
 
+  if (draft.prefillFromSchedule && showThrough >= 2) {
+    rows.push([
+      'Prérempli',
+      [
+        draft.paroisseNom,
+        draft.horaireLibelle || draft.horaireHeureCelebration,
+        draft.dateDebut,
+      ].filter(Boolean).join(' · ') || 'Créneau depuis l’accueil',
+    ]);
+  }
+
   if (showThrough >= 1) {
     rows.push(
       ['Intention de messe', draft.intention?.trim() || '—'],
@@ -58,11 +69,23 @@ export default function RequestSummaryCard({ step = 4, mode = 'wizard' }) {
       ],
       [
         'Horaire',
-        `${draft.horaireLibelle || '—'}${
-          draft.forfaitHeurePersonnalise && draft.heurePersonnalisee
-            ? ` · perso ${draft.heurePersonnalisee}`
-            : ''
-        }`,
+        multi
+          ? (() => {
+            const schedules = draft.dateSchedules || {};
+            const bits = dates
+              .map((iso) => {
+                const s = schedules[iso] || {};
+                const h = s.heurePersonnalisee || s.heureCelebration?.slice?.(0, 5) || s.horaireLibelle;
+                return h ? `${iso.slice(5)} ${String(h).slice(0, 5)}` : null;
+              })
+              .filter(Boolean);
+            return bits.length ? bits.join(' · ') : '—';
+          })()
+          : `${draft.horaireLibelle || '—'}${
+            draft.forfaitHeurePersonnalise && draft.heurePersonnalisee
+              ? ` · perso ${draft.heurePersonnalisee}`
+              : ''
+          }`,
       ],
     );
   }

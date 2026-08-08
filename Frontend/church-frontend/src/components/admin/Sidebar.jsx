@@ -13,7 +13,7 @@ const parishMenu = [
   { to: '/admin/demandes', label: 'Demandes', icon: 'requests', permission: PERMISSIONS.DEMAND_READ },
   { to: '/admin/feuille-intentions', label: "Feuille d'intentions", icon: 'celebrations', permission: PERMISSIONS.DEMAND_READ },
   { to: '/admin/paiements', label: 'Paiements', icon: 'payments', permission: PERMISSIONS.PAYMENT_READ },
-  { to: '/admin/tresorerie', label: 'Trésorerie', icon: 'invoices', permission: PERMISSIONS.TREASURY_READ },
+  { to: '/admin/tresorerie', label: 'Trésorerie', icon: 'treasury', permission: PERMISSIONS.TREASURY_READ },
   { to: '/admin/factures', label: 'Factures', icon: 'invoices', permission: PERMISSIONS.INVOICE_READ },
   { to: '/admin/horaires', label: 'Horaires', icon: 'schedules', permission: PERMISSIONS.SCHEDULE_READ },
   { to: '/admin/types-demandes', label: 'Types de demande', icon: 'types', permission: PERMISSIONS.REQUEST_TYPE_READ },

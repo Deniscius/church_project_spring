@@ -147,13 +147,19 @@ export default function InscriptionsPage() {
 
   async function rejeter() {
     if (!pendingReject) return;
+    const motif = rejectMotif.trim();
+    if (motif.length < 8) {
+      setError('Indiquez un motif de rejet (au moins 8 caractères).');
+      return;
+    }
     setBusy(true);
+    setError(null);
     try {
-      const motif = rejectMotif.trim() || undefined;
       await inscriptionService.rejeter(pendingReject.publicId, motif);
-      setInfo('Inscription rejetée.');
+      setInfo('Inscription rejetée. Un e-mail a été envoyé au contact admin.');
       setPendingReject(null);
       setRejectMotif('');
+      setFilter('REJETEE');
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Échec rejet');
@@ -245,11 +251,23 @@ export default function InscriptionsPage() {
         }
       />
 
-      <div className="card-grid">
-        <div className="card"><div className="muted">À approuver</div><strong style={{ fontSize: '1.4rem' }}>{counts.SOUMISE}</strong></div>
-        <div className="card"><div className="muted">À activer</div><strong style={{ fontSize: '1.4rem' }}>{counts.A_ACTIVER}</strong></div>
-        <div className="card"><div className="muted">En service</div><strong style={{ fontSize: '1.4rem' }}>{counts.ACTIVE}</strong></div>
-        <div className="card"><div className="muted">Total</div><strong style={{ fontSize: '1.4rem' }}>{counts.ALL}</strong></div>
+      <div className="card-grid inscription-kpi-grid">
+        {[
+          { id: 'SOUMISE', label: 'À approuver', tone: 'warn' },
+          { id: 'A_ACTIVER', label: 'À activer', tone: 'info' },
+          { id: 'ACTIVE', label: 'En service', tone: 'ok' },
+          { id: 'REJETEE', label: 'Rejetées', tone: 'danger' },
+        ].map((kpi) => (
+          <button
+            key={kpi.id}
+            type="button"
+            className={`card inscription-kpi inscription-kpi--${kpi.tone}${filter === kpi.id ? ' is-active' : ''}`}
+            onClick={() => setFilter(kpi.id)}
+          >
+            <div className="muted">{kpi.label}</div>
+            <strong style={{ fontSize: '1.45rem' }}>{counts[kpi.id] || 0}</strong>
+          </button>
+        ))}
       </div>
 
       <div className="filter-chips" role="group" aria-label="Étape du dossier">
@@ -274,24 +292,46 @@ export default function InscriptionsPage() {
           {visible.length === 0 ? (
             <p className="muted" style={{ margin: 0 }}>Aucun dossier dans ce filtre.</p>
           ) : (
-            visible.map((row) => (
-              <button
-                key={row.publicId}
-                type="button"
-                className={`inbox-item${selected?.publicId === row.publicId ? ' active' : ''}`}
-                onClick={() => {
-                  setSelectedId(row.publicId);
-                  setPaymentUrl('');
-                }}
-              >
-                <div className="inbox-item-top">
-                  <strong>{row.nomParoisse}</strong>
-                  <AppBadge value={row.statut} />
-                </div>
-                <div className="muted text-sm">{row.planAbonnement} · {formatCurrency(row.montantAbonnement)}</div>
-                <div className="muted text-sm">{row.adminPrenom} {row.adminNom}</div>
-              </button>
-            ))
+            visible.map((row) => {
+              const stage = row.statut === 'REJETEE'
+                ? 'Rejetée'
+                : row.statut === 'SOUMISE'
+                  ? 'À approuver'
+                  : row.paroisseActive
+                    ? 'En service'
+                    : 'À activer';
+              const docs = [
+                row.mandatCurePresent ? 'Mandat' : null,
+                row.adminCniPresent ? 'CNI' : null,
+              ].filter(Boolean).join(' · ') || 'Docs manquants';
+              return (
+                <button
+                  key={row.publicId}
+                  type="button"
+                  className={`inbox-item inscription-card${selected?.publicId === row.publicId ? ' active' : ''}`}
+                  onClick={() => {
+                    setSelectedId(row.publicId);
+                    setPaymentUrl('');
+                  }}
+                >
+                  <div className="inbox-item-top">
+                    <strong>{row.nomParoisse}</strong>
+                    <span className={`inscription-stage-chip statut-${row.statut?.toLowerCase() || 'x'}`}>
+                      {stage}
+                    </span>
+                  </div>
+                  <div className="inscription-card-meta">
+                    <span>{row.planAbonnement} · {formatCurrency(row.montantAbonnement)}</span>
+                    <span>{formatDateTime(row.createdAt)}</span>
+                  </div>
+                  <div className="muted text-sm">
+                    {row.adminPrenom} {row.adminNom}
+                    {row.doyenneNom ? ` · ${row.doyenneNom}` : ''}
+                  </div>
+                  <div className="inscription-card-docs muted text-sm">{docs}</div>
+                </button>
+              );
+            })
           )}
         </aside>
 
@@ -338,7 +378,7 @@ export default function InscriptionsPage() {
                     <span className="muted">La paroisse sera créée à l’approbation</span>
                   </div>
                 )}
-                {selected.message ? (
+                {selected.message && selected.statut !== 'REJETEE' ? (
                   <div className="info-row"><span>Message</span><span>{selected.message}</span></div>
                 ) : null}
                 <div className="info-row">
@@ -398,6 +438,17 @@ export default function InscriptionsPage() {
                       Voir la pièce d’identité
                     </button>
                   ) : null}
+                </div>
+              ) : null}
+
+              {selected.statut === 'REJETEE' ? (
+                <div className="alert-danger" role="status">
+                  <strong>Dossier rejeté.</strong>
+                  {selected.message ? (
+                    <p style={{ margin: '8px 0 0' }}>Motif : {selected.message}</p>
+                  ) : (
+                    <p style={{ margin: '8px 0 0' }} className="muted">Aucun motif renseigné.</p>
+                  )}
                 </div>
               ) : null}
 
@@ -491,7 +542,7 @@ export default function InscriptionsPage() {
         cancelLabel="Annuler"
         danger
         busy={busy}
-        promptLabel="Motif du rejet (optionnel)"
+        promptLabel="Motif du rejet (obligatoire, min. 8 caractères)"
         promptValue={rejectMotif}
         onPromptChange={setRejectMotif}
         onCancel={() => {
@@ -503,6 +554,7 @@ export default function InscriptionsPage() {
         {pendingReject ? (
           <p style={{ margin: 0 }}>
             Rejeter le dossier « {pendingReject.nomParoisse} » ?
+            Un e-mail avec le motif sera envoyé au contact admin.
           </p>
         ) : null}
       </AppDialog>

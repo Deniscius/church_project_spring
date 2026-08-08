@@ -37,6 +37,14 @@ public interface DemandeDateRepository extends JpaRepository<DemandeDate, Long> 
 
     @Query("""
             SELECT dd FROM DemandeDate dd
+            LEFT JOIN FETCH dd.horaire
+            WHERE dd.statusDel = false
+              AND dd.demande.id IN :demandeIds
+            """)
+    List<DemandeDate> findWithHoraireByDemandeIds(@Param("demandeIds") Collection<Long> demandeIds);
+
+    @Query("""
+            SELECT dd FROM DemandeDate dd
             JOIN FETCH dd.demande d
             JOIN FETCH d.paroisse p
             JOIN FETCH d.typeDemande

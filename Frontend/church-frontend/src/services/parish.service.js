@@ -11,14 +11,28 @@ export const parishService = {
   // ========== ENDPOINTS PUBLICS (sans auth) ==========
 
   /**
-   * Liste publique des paroisses actives
-   * Utilisé pour formulaire de demande publique
-   */
-  getAllPublic: () => 
-    apiClient(PUBLIC_API_BASE, {}, { auth: false }),
+ * Liste publique des paroisses actives (sans RIB / contacts sensibles).
+ * GET /paroisses/public
+ */
+getAllPublic: () =>
+  apiClient(`${PUBLIC_API_BASE}/public`, {}, { auth: false }),
 
-  getByIdPublic: (publicId) => 
-    apiClient(`${PUBLIC_API_BASE}/${publicId}`, {}, { auth: false }),
+/**
+ * @deprecated Ne plus appeler : GET /paroisses/{id} exige une auth et peut exposer le RIB.
+ * Utiliser getAllPublic() puis filtrer, ou getById() côté admin authentifié.
+ */
+getByIdPublic: (publicId) =>
+  apiClient(`${PUBLIC_API_BASE}/public`, {}, { auth: false }).then((list) => {
+    const found = Array.isArray(list)
+      ? list.find((p) => p.publicId === publicId)
+      : null;
+    if (!found) {
+      const err = new Error('Paroisse introuvable');
+      err.status = 404;
+      throw err;
+    }
+    return found;
+  }),
 
   // ========== ENDPOINTS ADMIN (avec auth) ==========
 
@@ -83,6 +97,10 @@ export const parishService = {
 
   fetchLogoBlob: (paroisseId) =>
     apiClient(`${PUBLIC_API_BASE}/${paroisseId}/logo`, {}, { auth: true, parse: 'blob' }),
+
+  /** Aperçu PDF modèle du reçu (avec logo) — admin. */
+  fetchReceiptSamplePdf: (paroisseId) =>
+    apiClient(`${PUBLIC_API_BASE}/${paroisseId}/recu-modele.pdf`, {}, { auth: true, parse: 'blob' }),
 
   /**
    * Désactive une paroisse (SUPER_ADMIN)

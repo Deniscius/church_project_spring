@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import PageHeader from '../../../components/ui/PageHeader';
@@ -38,6 +38,8 @@ export default function InvoicesPage() {
   const { activeParish } = useTenant();
   const [status, setStatus] = useState('ALL');
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 30;
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['factures', 'paroisse', activeParish?.id],
@@ -78,6 +80,13 @@ export default function InvoicesPage() {
     });
   }, [rows, status, search]);
 
+  useEffect(() => {
+    setPage(0);
+  }, [status, search, activeParish?.id]);
+
+  const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+  const pagedRows = visible.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
   return (
     <div className="stack">
       <PageHeader
@@ -148,7 +157,7 @@ export default function InvoicesPage() {
 
       <AppTable
         columns={columns}
-        rows={visible}
+        rows={pagedRows}
         ariaLabel="Factures de la paroisse"
         emptyMessage={
           rows.length
@@ -191,6 +200,33 @@ export default function InvoicesPage() {
           }
         }}
       />
+
+      {visible.length > PAGE_SIZE ? (
+        <div className="button-row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+          <span className="muted text-sm">
+            {safePage * PAGE_SIZE + 1}–{Math.min((safePage + 1) * PAGE_SIZE, visible.length)}
+            {' '}sur {visible.length}
+          </span>
+          <div className="button-row">
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              disabled={safePage <= 0}
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+            >
+              Précédent
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              disabled={safePage >= pageCount - 1}
+              onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+            >
+              Suivant
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

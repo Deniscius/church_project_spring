@@ -1,8 +1,10 @@
 package com.eyram.dev.church_project_spring.security;
 
+import com.eyram.dev.church_project_spring.security.jwt.AuthCookieService;
 import com.eyram.dev.church_project_spring.security.jwt.AuthEntryPointJwt;
 import com.eyram.dev.church_project_spring.security.jwt.AuthTokenFilter;
 import com.eyram.dev.church_project_spring.security.jwt.JwtUtils;
+import com.eyram.dev.church_project_spring.security.PublicRateLimitFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
@@ -63,8 +65,9 @@ public class SecurityConfig {
     @Bean
     public AuthTokenFilter authTokenFilter(
             JwtUtils jwtUtils,
+            AuthCookieService authCookieService,
             UserDetailsService userDetailsService) {
-        return new AuthTokenFilter(jwtUtils, userDetailsService);
+        return new AuthTokenFilter(jwtUtils, authCookieService, userDetailsService);
     }
 
     @Bean
@@ -72,7 +75,8 @@ public class SecurityConfig {
             HttpSecurity http,
             CorsConfigurationSource corsConfigurationSource,
             DaoAuthenticationProvider authenticationProvider,
-            AuthTokenFilter authTokenFilter) throws Exception {
+            AuthTokenFilter authTokenFilter,
+            PublicRateLimitFilter publicRateLimitFilter) throws Exception {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .csrf(AbstractHttpConfigurer::disable)
@@ -84,10 +88,13 @@ public class SecurityConfig {
                     headers.contentTypeOptions(contentType -> {});
                     headers.frameOptions(frame -> frame.sameOrigin());
                     headers.referrerPolicy(referrer -> referrer.policy(
-                            ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN
+                            ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER
                     ));
                     headers.permissionsPolicy(permissions -> permissions.policy(
                             "camera=(), microphone=(), geolocation=()"
+                    ));
+                    headers.contentSecurityPolicy(csp -> csp.policyDirectives(
+                            "frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
                     ));
                     headers.httpStrictTransportSecurity(hsts -> hsts
                             .includeSubDomains(true)
@@ -98,11 +105,14 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         // Authentification et endpoints techniques publics
-                        .requestMatchers("/auth/login", "/auth/login-multi-tenant").permitAll()
+                        .requestMatchers("/auth/login", "/auth/login-multi-tenant",
+                                "/auth/forgot-password", "/auth/reset-password").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/auth/logout").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/auth/me").authenticated()
                         // Swagger : jamais en production (même si springdoc était réactivé par erreur).
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html")
                         .access(swaggerAccess())
-                        .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/prometheus").permitAll()
                         .requestMatchers("/error", "/login", "/login.html", "/health-ui", "/health.html", "/assets/**", "/").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
@@ -116,17 +126,20 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/details-paiement/code-suivie/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/paiements/quote/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/paiements/checkout/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/paiements/retour/resoudre").permitAll()
                         .requestMatchers(HttpMethod.POST, "/webhooks/fedapay").permitAll()
 
-                        // Catalogue public : uniquement les routes scopées (paroisse / type / actifs)
-                        .requestMatchers(HttpMethod.GET, "/paroisses", "/paroisses/*").permitAll()
+                        // Catalogue public : DTO slim uniquement (pas de RIB sur /paroisses)
+                        .requestMatchers(HttpMethod.GET, "/paroisses/public", "/paroisses/annuaire",
+                                "/paroisses/annuaire/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/doyennes", "/doyennes/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/type-demandes/paroisse/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/forfait-tarifs/type-demande/*/actifs").permitAll()
                         .requestMatchers(HttpMethod.GET, "/horaires/paroisse/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/horaires/public/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/type-paiement", "/type-paiement/*").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/demande-dates/demande/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/demandes/suivi/par-telephone").permitAll()
+                        // Dates par demandePublicId : trop permissif — retiré du permitAll
 
                         // Gestion des utilisateurs : aucun rôle métier inférieur ne doit accéder aux routes admin.
                         .requestMatchers("/admin/users", "/admin/users/**")
@@ -208,6 +221,7 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 .authenticationProvider(authenticationProvider)
+                .addFilterBefore(publicRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(authTokenFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

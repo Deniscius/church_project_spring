@@ -9,6 +9,7 @@ import {
   formatAllowedDays,
   getEffectiveAllowedDays,
   isDateAllowedForDays,
+  isTrentaineForfait,
 } from './schedulingUtils';
 import {
   DEFAULT_PHONE_COUNTRY_ISO,
@@ -62,12 +63,19 @@ export function validatePublicDemandeStep1(draft) {
     } else if (!draft.telFidele?.trim()) {
       errors.push('Le téléphone est obligatoire.');
     }
+
+    if (draft.forfaitNature === 'SPECIALE') {
+      const email = draft.emailFidele?.trim();
+      if (!email) {
+        errors.push('Pour une messe spéciale, une adresse e-mail valide est obligatoire.');
+      }
+    }
   });
 }
 
 /** Étape 2 — paroisse, type, nature */
 export function validatePublicDemandeStep2(draft) {
-  return collect((req) => {
+  return collect((req, errors) => {
     req(draft.paroissePublicId, 'Choisissez une paroisse.');
     req(draft.typeDemandePublicId, 'Choisissez un type de demande.');
     req(draft.forfaitTarifPublicId, 'Choisissez la nature de la messe (normale, dominicale ou spéciale).');
@@ -75,6 +83,23 @@ export function validatePublicDemandeStep2(draft) {
       draft.forfaitNombreCelebration != null && draft.forfaitNombreCelebration > 0,
       'Le forfait doit prévoir au moins une célébration.'
     );
+
+    if (draft.forfaitNature === 'SPECIALE') {
+      const phone = validatePhoneForCountry(
+        draft.telCountryIso || DEFAULT_PHONE_COUNTRY_ISO,
+        draft.telNational || ''
+      );
+      if (!phone.ok || !draft.telFidele?.trim()) {
+        errors.push('Pour une messe spéciale, un numéro de téléphone valide est obligatoire.');
+      }
+      const email = draft.emailFidele?.trim();
+      if (!email) {
+        errors.push('Pour une messe spéciale, une adresse e-mail valide est obligatoire.');
+      } else {
+        const mailErr = emailError(email);
+        if (mailErr) errors.push(mailErr);
+      }
+    }
   });
 }
 
@@ -83,8 +108,9 @@ export function validatePublicDemandeStep3(draft) {
   return collect((req) => {
     const n = draft.forfaitNombreCelebration;
     const multi = isMultiCelebrationForfait(n);
+    const trentaine = isTrentaineForfait(n);
     const dureeLabel = getForfaitDureeLabel(n);
-    const windowDays = draft.forfaitNombreJour > 0 ? Number(draft.forfaitNombreJour) : Number(n);
+    const windowDays = trentaine ? 30 : (draft.forfaitNombreJour > 0 ? Number(draft.forfaitNombreJour) : Number(n));
 
     const allowedDays = getEffectiveAllowedDays(
       draft.typeDemandeJoursCelebrationAutorises,
@@ -144,7 +170,7 @@ export function validatePublicDemandeStep3(draft) {
         // Multi : chaque date doit respecter les jours du forfait.
         // Unique : le fidèle choisit librement (y compris une date précise hors grille) ;
         // si messe unique ce jour-là, seule l’heure est imposée.
-        if (multi) {
+        if (multi && !trentaine) {
           req(
             isDateAllowedForDays(dateStr, allowedDays),
             `La date ${index + 1} n’est pas autorisée pour cette nature (${formatAllowedDays(allowedDays)}).`

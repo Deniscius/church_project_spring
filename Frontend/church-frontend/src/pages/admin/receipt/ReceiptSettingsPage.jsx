@@ -4,13 +4,13 @@ import AppAlert from '../../../components/ui/AppAlert';
 import AppButton from '../../../components/ui/AppButton';
 import AppCard from '../../../components/ui/AppCard';
 import AppInput from '../../../components/ui/AppInput';
+import PdfPreviewModal from '../../../components/ui/PdfPreviewModal';
 import PhoneField from '../../../components/ui/PhoneField';
 import { FieldLabel } from '../../../components/ui/HelpTip';
 import { useTenant } from '../../../hooks/useTenant';
 import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../contexts/toast.context';
 import { parishService } from '../../../services/parish.service';
-import { HELP } from '../../../constants/helpTips';
 import {
   DEFAULT_PHONE_COUNTRY_ISO,
   parseStoredPhone,
@@ -20,9 +20,6 @@ import {
 
 const ARCHIDIOCESE = 'ARCHIDIOCÈSE DE LOMÉ';
 
-/**
- * Personnalisation du reçu PDF — disponible après activation du compte paroisse.
- */
 export default function ReceiptSettingsPage() {
   const toast = useToast();
   const { activeParish } = useTenant();
@@ -37,11 +34,16 @@ export default function ReceiptSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [pdfOpen, setPdfOpen] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfError, setPdfError] = useState(null);
 
   const statut = parish?.statutTenant;
   const unlocked = statut === 'ACTIVE' || statut === 'EN_TOLERANCE';
   const phoneCheck = validatePhoneForCountry(telCountryIso, telNational);
   const displayPhone = toE164(telCountryIso, telNational) || parish?.telephone || '';
+  const contactLine = [parish?.email, displayPhone].filter(Boolean).join(' · ') || 'Contact paroisse';
 
   async function load() {
     if (!paroisseId) return;
@@ -84,9 +86,32 @@ export default function ReceiptSettingsPage() {
         if (prev) URL.revokeObjectURL(prev);
         return null;
       });
+      setPdfUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paroisseId]);
+
+  async function openPdfSample() {
+    if (!paroisseId) return;
+    setPdfLoading(true);
+    setPdfError(null);
+    setPdfOpen(true);
+    try {
+      const blob = await parishService.fetchReceiptSamplePdf(paroisseId);
+      setPdfUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return URL.createObjectURL(blob);
+      });
+    } catch (e) {
+      setPdfError(e instanceof Error ? e.message : 'Aperçu PDF impossible');
+      setPdfUrl(null);
+    } finally {
+      setPdfLoading(false);
+    }
+  }
 
   async function saveContact(e) {
     e.preventDefault();
@@ -118,28 +143,14 @@ export default function ReceiptSettingsPage() {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file || !paroisseId || !canEdit) return;
-
-    const maxBytes = 5 * 1024 * 1024;
-    const allowed = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
-    const name = (file.name || '').toLowerCase();
-    const extOk = /\.(jpe?g|png|webp)$/.test(name);
-    if (file.size > maxBytes) {
-      setError('Fichier trop volumineux (max 5 Mo).');
-      return;
-    }
-    if (file.type && !allowed.has(file.type) && !extOk) {
-      setError('Logo accepté : JPEG, PNG ou WebP.');
-      return;
-    }
-
     setBusy(true);
     setError(null);
     try {
       await parishService.uploadLogo(paroisseId, file);
-      toast.success('Logo enregistré — il figurera sur les prochains reçus.');
+      toast.success('Logo enregistré.');
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Upload du logo impossible');
+      setError(err instanceof Error ? err.message : 'Upload impossible');
     } finally {
       setBusy(false);
     }
@@ -160,24 +171,21 @@ export default function ReceiptSettingsPage() {
     }
   }
 
-  const contactLine = [parish?.email, displayPhone].filter(Boolean).join(' · ')
-    || 'E-mail et téléphone de la paroisse';
-
   return (
-    <div className="stack receipt-page">
+    <div className="stack">
       <PageHeader
-        title="Reçu des demandes"
-        subtitle={HELP.admin.recu}
+        title="Personnalisation du reçu"
+        subtitle="Logo et contact affichés sur le reçu PDF A4 (ORIGINAL + DUPLICATA)."
+        actions={(
+          unlocked && paroisseId ? (
+            <AppButton type="button" variant="primary" onClick={openPdfSample} disabled={pdfLoading}>
+              {pdfLoading ? 'Préparation…' : 'Simuler le reçu PDF'}
+            </AppButton>
+          ) : null
+        )}
       />
 
       {error ? <AppAlert variant="danger">{error}</AppAlert> : null}
-
-      {!paroisseId ? (
-        <AppAlert variant="info">
-          Sélectionnez une paroisse active pour personnaliser le reçu.
-        </AppAlert>
-      ) : null}
-
       {loading ? <p className="muted">Chargement…</p> : null}
 
       {!loading && paroisseId && !unlocked ? (
@@ -189,11 +197,11 @@ export default function ReceiptSettingsPage() {
 
       {!loading && unlocked ? (
         <div className="receipt-layout">
-            <AppCard
-            title="Aperçu du reçu"
-            subtitle="Une page A4 : en-tête paroisse, code de suivi, intention, célébration, demandeur et paiement."
+          <AppCard
+            title="Aperçu rapide"
+            subtitle="En-tête tel qu’il apparaîtra. Utilisez « Simuler le reçu PDF » pour le rendu exact."
           >
-            <div className="receipt-single-preview" aria-label="Aperçu reçu A4">
+            <div className="receipt-single-preview" aria-label="Aperçu reçu">
               <div className="receipt-preview">
                 {logoPreview ? (
                   <img src={logoPreview} alt="" className="receipt-preview-logo" />
@@ -209,17 +217,19 @@ export default function ReceiptSettingsPage() {
                   </div>
                   <div className="muted text-sm">{contactLine}</div>
                   <div className="receipt-preview-meta">
-                    Code de suivi · Montant · Intention · Célébration
+                    Code · Montant · Dépôt · Intention
                   </div>
                 </div>
               </div>
             </div>
+            <div className="button-row" style={{ marginTop: 14 }}>
+              <AppButton type="button" variant="secondary" onClick={openPdfSample} disabled={pdfLoading}>
+                Simuler le reçu PDF
+              </AppButton>
+            </div>
           </AppCard>
 
-          <AppCard
-            title="Logo de la paroisse"
-            subtitle="Optionnel. JPEG, PNG ou WebP — 5 Mo max."
-          >
+          <AppCard title="Logo de la paroisse" subtitle="Optionnel. JPEG, PNG ou WebP — 5 Mo max.">
             {canEdit ? (
               <div className="button-row">
                 <label className={`btn btn-secondary${busy ? ' is-disabled' : ''}`}>
@@ -252,12 +262,7 @@ export default function ReceiptSettingsPage() {
             <form className="stack" onSubmit={saveContact} style={{ gap: 16 }}>
               <div className="form-field">
                 <FieldLabel htmlFor="receipt-email">E-mail (reçu)</FieldLabel>
-                <AppInput
-                  id="receipt-email"
-                  value={parish?.email || ''}
-                  disabled
-                  readOnly
-                />
+                <AppInput id="receipt-email" value={parish?.email || ''} disabled readOnly />
               </div>
               <div className="form-field">
                 <FieldLabel htmlFor="receipt-phone" required={false}>
@@ -285,6 +290,25 @@ export default function ReceiptSettingsPage() {
           </AppCard>
         </div>
       ) : null}
+
+      <PdfPreviewModal
+        open={pdfOpen}
+        title="Simulation du reçu PDF"
+        blobUrl={pdfUrl}
+        fileName="recu-modele.pdf"
+        loading={pdfLoading}
+        error={pdfError}
+        onClose={() => setPdfOpen(false)}
+        onDownload={() => {
+          if (!pdfUrl) return;
+          const a = document.createElement('a');
+          a.href = pdfUrl;
+          a.download = 'recu-modele.pdf';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        }}
+      />
     </div>
   );
 }

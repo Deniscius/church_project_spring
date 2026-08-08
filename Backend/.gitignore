@@ -32,5 +32,8 @@ build/
 ### VS Code ###
 .vscode/
 
-### Uploads locaux (scans inscription, logos) ###
-uploads/
+### Secrets locaux (jamais versionnés) ###
+.env
+.env.*
+!.env.example
+

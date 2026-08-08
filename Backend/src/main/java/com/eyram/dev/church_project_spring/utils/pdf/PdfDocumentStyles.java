@@ -416,7 +416,7 @@ public final class PdfDocumentStyles {
     ) {
         PdfPTable wrap = new PdfPTable(1);
         wrap.setWidthPercentage(100);
-        wrap.setSpacingAfter(6);
+        wrap.setSpacingAfter(3);
 
         PdfPCell identity = new PdfPCell();
         identity.setBorderColor(BORDER);
@@ -431,7 +431,7 @@ public final class PdfDocumentStyles {
                 row.setWidthPercentage(100);
 
                 Image logo = Image.getInstance(logoAbsolutePath.toAbsolutePath().toString());
-                logo.scaleToFit(44, 44);
+                logo.scaleToFit(34, 34);
                 PdfPCell logoCell = new PdfPCell(logo, false);
                 logoCell.setBorder(0);
                 logoCell.setHorizontalAlignment(Element.ALIGN_CENTER);

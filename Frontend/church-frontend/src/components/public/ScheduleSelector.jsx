@@ -9,7 +9,7 @@ import {
   resolveAllowedDays,
   resolveHorairesForDate,
 } from '../../utils/schedulingUtils';
-import { formatTime as formatTimeDisplay } from '../../utils/formatTime';
+import { formatParishTimeInUserZone } from '../../utils/formatTime';
 
 /** Sélecteur d'horaire pour une célébration unique (le multi gère ses créneaux dans DatesSelector). */
 export default function ScheduleSelector() {
@@ -103,7 +103,7 @@ export default function ScheduleSelector() {
   const allowHeurePerso = hp && !messeUnique;
 
   const uniqueHeureLabel = uniqueSlot
-    ? [formatTimeDisplay(uniqueSlot.heureCelebration), uniqueSlot.libelle].filter(Boolean).join(' · ')
+    ? [formatParishTimeInUserZone(uniqueSlot.heureCelebration), uniqueSlot.libelle].filter(Boolean).join(' · ')
     : '';
 
   return (
@@ -162,7 +162,7 @@ export default function ScheduleSelector() {
             }
             options={filteredHoraires.map((h) => ({
               value: h.publicId,
-              label: [formatTimeDisplay(h.heureCelebration), h.libelle].filter(Boolean).join(' · '),
+              label: [formatParishTimeInUserZone(h.heureCelebration), h.libelle].filter(Boolean).join(' · '),
             }))}
             onChange={(id) => {
               const h = filteredHoraires.find((x) => x.publicId === id);

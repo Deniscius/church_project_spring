@@ -1,6 +1,9 @@
 import React, { useMemo } from 'react';
 import AppCard from '../ui/AppCard';
 import AppSelect from '../ui/AppSelect';
+import AppAlert from '../ui/AppAlert';
+import AppInput from '../ui/AppInput';
+import { FieldLabel } from '../ui/HelpTip';
 import { getForfaitDureeLabel, isMultiCelebrationForfait, NATURE_FORFAIT_OPTIONS } from '../../constants/enums';
 import { usePublicDemandeDraft } from '../../contexts/publicDemandeDraft.context';
 import {
@@ -13,9 +16,10 @@ import {
   resolveReferencedCelebrationDate,
 } from '../../utils/schedulingUtils';
 import { formatCurrency } from '../../utils/formatCurrency';
+import { HELP } from '../../constants/helpTips';
 
 export default function RequestNatureSelector() {
-  const { draft, dispatch } = usePublicDemandeDraft();
+  const { draft, dispatch, patch } = usePublicDemandeDraft();
   const { data: forfaits = [], isLoading, error, isFetching } = useForfaitsActifsQuery(
     draft.typeDemandePublicId
   );
@@ -125,6 +129,11 @@ export default function RequestNatureSelector() {
       {programmeHint ? (
         <p className="muted" style={{ marginTop: 0 }}>{programmeHint}</p>
       ) : null}
+      {draft.forfaitNature === 'SPECIALE' ? (
+        <AppAlert variant="info">
+          Messe spéciale : un numéro de téléphone et une adresse e-mail valides sont obligatoires.
+        </AppAlert>
+      ) : null}
       <div className="form-field">
         <label htmlFor="public-nature">Nature *</label>
         <AppSelect
@@ -138,6 +147,22 @@ export default function RequestNatureSelector() {
           onChange={(nature) => selectNature(nature)}
         />
       </div>
+      {draft.forfaitNature === 'SPECIALE' ? (
+        <div className="form-field">
+          <FieldLabel htmlFor="nature-email" help={HELP.demande.email} required>
+            E-mail (obligatoire pour une spéciale)
+          </FieldLabel>
+          <AppInput
+            id="nature-email"
+            type="email"
+            autoComplete="email"
+            value={draft.emailFidele || ''}
+            onChange={(e) => patch({ emailFidele: e.target.value })}
+            placeholder="ex. vous@email.com"
+            required
+          />
+        </div>
+      ) : null}
     </AppCard>
   );
 }

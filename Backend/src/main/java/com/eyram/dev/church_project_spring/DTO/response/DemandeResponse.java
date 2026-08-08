@@ -62,6 +62,9 @@ public record DemandeResponse(
 
         List<LocalDate> datesCelebration,
 
+        /** Détail par date (heure / horaire) — essentiel pour neuvaine / triduum. */
+        List<CelebrationSlotResponse> celebrationSlots,
+
         UUID facturePublicId,
         String refFacture,
         LocalDateTime dateDetailsPaiement,

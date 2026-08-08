@@ -180,6 +180,10 @@ export function listUpcomingAllowedDates(fromDateStr, allowedDays, options = {})
 export function computeCelebrationDates(startDateStr, allowedDays, nombreCelebrations) {
   const count = Number(nombreCelebrations) || 0;
   if (!startDateStr || count <= 0) return [];
+  // Trentaine : 30 jours calendaires successifs (sans sauter de jour).
+  if (count === 30) {
+    return computeConsecutiveCalendarDates(startDateStr, count);
+  }
   if (!isDateAllowedForDays(startDateStr, allowedDays)) return [];
 
   const dates = [];
@@ -198,6 +202,11 @@ export function computeCelebrationDates(startDateStr, allowedDays, nombreCelebra
     if (cursor > max) break;
   }
   return dates.length === count ? dates : [];
+}
+
+/** True pour une trentaine (30 célébrations journalières successives). */
+export function isTrentaineForfait(nombreCelebrations) {
+  return Number(nombreCelebrations) === 30;
 }
 
 /**

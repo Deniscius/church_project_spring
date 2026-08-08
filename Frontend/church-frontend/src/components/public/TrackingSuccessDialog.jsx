@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import AppDialog from '../ui/AppDialog';
 import AppButton from '../ui/AppButton';
 import { useToast } from '../../contexts/toast.context';
 import { copyText } from '../../utils/clipboard';
+import { goToPayment, goToTrackingResult } from '../../utils/sensitiveNav';
 
 /**
  * Modal post-création : met en avant le numéro de suivi du fidèle.
@@ -16,6 +17,7 @@ export default function TrackingSuccessDialog({
   onLeave,
 }) {
   const toast = useToast();
+  const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
 
   const copyCode = async () => {
@@ -53,22 +55,25 @@ export default function TrackingSuccessDialog({
         </AppButton>
       </div>
       <div className="button-row tracking-code-links">
-        <Link
-          to={`/suivi/resultat?code=${encodeURIComponent(codeSuivie || '')}`}
-          className="btn btn-secondary"
-          style={{ textDecoration: 'none' }}
-          onClick={() => onLeave?.()}
+        <AppButton
+          type="button"
+          variant="secondary"
+          onClick={() => {
+            onLeave?.();
+            goToTrackingResult(navigate, codeSuivie);
+          }}
         >
           Suivre la demande
-        </Link>
-        <Link
-          to={`/paiement/${encodeURIComponent(codeSuivie || '')}`}
-          className="btn btn-primary"
-          style={{ textDecoration: 'none' }}
-          onClick={() => onLeave?.()}
+        </AppButton>
+        <AppButton
+          type="button"
+          onClick={() => {
+            onLeave?.();
+            goToPayment(navigate, codeSuivie);
+          }}
         >
           Payer maintenant
-        </Link>
+        </AppButton>
       </div>
     </AppDialog>
   );

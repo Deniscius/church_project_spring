@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
  * Demandes fidèles non payées :
  * <ul>
  *   <li>rappels e-mail à partir de J-3 (toutes les 6 h) ;</li>
- *   <li>annulation automatique à l'approche de la célébration (H-24).</li>
+ *   <li>annulation automatique à l'approche de la célébration (H-6).</li>
  * </ul>
  */
 @Slf4j

@@ -14,7 +14,7 @@ import { usePermissions } from '../../../hooks/usePermissions';
 import { PERMISSIONS } from '../../../constants/roles';
 import AppButton from '../../../components/ui/AppButton';
 import AppDialog from '../../../components/ui/AppDialog';
-import { getApiBaseUrl } from '../../../config/apiBaseUrl';
+import ReceiptPreviewButton from '../../../components/ui/ReceiptPreviewButton';
 
 export default function RequestDetailsPage() {
   const { id } = useParams();
@@ -134,53 +134,23 @@ export default function RequestDetailsPage() {
             title="Intention de messe"
             subtitle="Motif de la célébration — corrigeable par le secrétariat."
           >
-            {editingIntention ? (
-              <div className="stack">
-                <textarea
-                  className="textarea"
-                  rows={4}
-                  maxLength={500}
-                  value={intentionDraft}
-                  onChange={(e) => setIntentionDraft(e.target.value)}
-                  autoFocus
-                />
-                <div className="button-row">
-                  <AppButton onClick={saveIntention} disabled={savingIntention}>
-                    {savingIntention ? 'Enregistrement…' : 'Enregistrer'}
-                  </AppButton>
-                  <AppButton
-                    variant="secondary"
-                    disabled={savingIntention}
-                    onClick={() => {
-                      setEditingIntention(false);
-                      setIntentionDraft(request.intention || '');
-                    }}
-                  >
-                    Annuler
-                  </AppButton>
-                </div>
+            <p style={{ margin: 0, fontSize: '1.05rem', fontWeight: 600, lineHeight: 1.45 }}>
+              {request.intention || '—'}
+            </p>
+            {canEdit ? (
+              <div className="button-row" style={{ marginTop: 14 }}>
+                <AppButton
+                  variant="secondary"
+                  onClick={() => {
+                    setIntentionDraft(request.intention || '');
+                    setEditingIntention(true);
+                    setInfo(null);
+                  }}
+                >
+                  Corriger l’intention
+                </AppButton>
               </div>
-            ) : (
-              <>
-                <p style={{ margin: 0, fontSize: '1.05rem', fontWeight: 600, lineHeight: 1.45 }}>
-                  {request.intention || '—'}
-                </p>
-                {canEdit ? (
-                  <div className="button-row" style={{ marginTop: 14 }}>
-                    <AppButton
-                      variant="secondary"
-                      onClick={() => {
-                        setIntentionDraft(request.intention || '');
-                        setEditingIntention(true);
-                        setInfo(null);
-                      }}
-                    >
-                      Corriger l’intention
-                    </AppButton>
-                  </div>
-                ) : null}
-              </>
-            )}
+            ) : null}
           </AppCard>
 
           <AppCard title="Célébration" subtitle="Jour(s) où la messe sera célébrée.">
@@ -188,14 +158,24 @@ export default function RequestDetailsPage() {
               <div className="info-row">
                 <span>Date(s) de célébration</span>
                 <span>
-                  {Array.isArray(request.datesCelebration) && request.datesCelebration.length
-                    ? request.datesCelebration.map((d) => formatDate(d)).join(' · ')
-                    : '—'}
+                  {Array.isArray(request.celebrationSlots) && request.celebrationSlots.length
+                    ? request.celebrationSlots.map((s) => {
+                      const d = formatDate(s.date);
+                      const h = s.heure ? String(s.heure).slice(0, 5) : null;
+                      return [d, h].filter(Boolean).join(' ');
+                    }).join(' · ')
+                    : Array.isArray(request.datesCelebration) && request.datesCelebration.length
+                      ? request.datesCelebration.map((d) => formatDate(d)).join(' · ')
+                      : '—'}
                 </span>
               </div>
               <div className="info-row">
                 <span>Heure de célébration</span>
-                <span>{formatCelebrationTime(request)}</span>
+                <span>
+                  {Array.isArray(request.celebrationSlots) && request.celebrationSlots.length > 1
+                    ? `${request.celebrationSlots.length} créneaux (voir dates)`
+                    : formatCelebrationTime(request)}
+                </span>
               </div>
               <div className="info-row">
                 <span>Type</span>
@@ -279,15 +259,7 @@ export default function RequestDetailsPage() {
             </div>
             <div className="button-row" style={{ marginTop: 18 }}>
               {request.codeSuivie ? (
-                <a
-                  href={`${getApiBaseUrl()}/demandes/code/${encodeURIComponent(request.codeSuivie)}/recu.pdf`}
-                  className="btn btn-secondary"
-                  style={{ textDecoration: 'none' }}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Imprimer le reçu
-                </a>
+                <ReceiptPreviewButton codeSuivie={request.codeSuivie} label="Aperçu / imprimer le reçu" />
               ) : null}
               {canValidate ? (
                 <>
@@ -325,6 +297,27 @@ export default function RequestDetailsPage() {
           </AppCard>
         </div>
       ) : null}
+
+      <AppDialog
+        open={editingIntention}
+        title="Corriger l’intention"
+        confirmLabel={savingIntention ? 'Enregistrement…' : 'Enregistrer'}
+        cancelLabel="Annuler"
+        busy={savingIntention}
+        size="lg"
+        promptLabel="Texte de l’intention"
+        promptValue={intentionDraft}
+        onPromptChange={setIntentionDraft}
+        promptRows={4}
+        promptPlaceholder="Ex. Pour le repos de l’âme de…"
+        onCancel={() => {
+          if (!savingIntention) {
+            setEditingIntention(false);
+            setIntentionDraft(request?.intention || '');
+          }
+        }}
+        onConfirm={saveIntention}
+      />
 
       <AppDialog
         open={confirmCaisse}

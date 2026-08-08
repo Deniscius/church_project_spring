@@ -1,7 +1,5 @@
 import { getApiBaseUrl } from '../config/apiBaseUrl';
-import { getAccessToken } from '../constants/authStorage';
 import { apiClient } from './http/apiClient';
-import { attachToken } from './http/interceptors';
 
 const API_BASE_URL = getApiBaseUrl();
 
@@ -24,16 +22,16 @@ export const celebrationService = {
 
   downloadFeuillePdf: async (paroissePublicId, { date, inclureNonPayees = false, heures = [] }) => {
     const query = buildQuery({ date, inclureNonPayees, heures });
-    const headers = attachToken(
-      {
-        Accept: 'application/pdf',
-        'ngrok-skip-browser-warning': '1',
-      },
-      getAccessToken()
-    );
     const response = await fetch(
       `${API_BASE_URL}/celebrations/paroisse/${paroissePublicId}/feuille.pdf?${query}`,
-      { headers }
+      {
+        credentials: 'include',
+        headers: {
+          Accept: 'application/pdf',
+          'ngrok-skip-browser-warning': '1',
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+      }
     );
     if (!response.ok) {
       let message = `Erreur HTTP ${response.status}`;

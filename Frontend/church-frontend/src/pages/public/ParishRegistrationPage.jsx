@@ -134,6 +134,8 @@ export default function ParishRegistrationPage() {
   const [error, setError] = useState(null);
   const [done, setDone] = useState(null);
   const [horsAnnuaire, setHorsAnnuaire] = useState(false);
+  const [annuairePublicId, setAnnuairePublicId] = useState('');
+
   const [, startTransition] = useTransition();
 
   const { data: doyennes = [], isLoading: loadingDoyennes } = useQuery({
@@ -145,7 +147,7 @@ export default function ParishRegistrationPage() {
 
   const { data: annuaire = [], isLoading: loadingAnnuaire } = useQuery({
     queryKey: ['annuaire', form.doyennePublicId],
-    queryFn: () => apiClient(`/paroisses/annuaire?doyenne=${form.doyennePublicId}`),
+    queryFn: () => apiClient(`/paroisses/annuaire/${form.doyennePublicId}`),
     enabled: Boolean(form.doyennePublicId),
     staleTime: 10 * 60_000,
     select: (data) => (Array.isArray(data) ? data : []),
@@ -157,7 +159,10 @@ export default function ParishRegistrationPage() {
   );
 
   const annuaireOptions = useMemo(
-    () => annuaire.map((p) => ({ value: p.nom, label: p.nom })),
+    () => annuaire.map((p) => ({
+      value: p.publicId || p.nom,
+      label: p.nom,
+    })),
     [annuaire]
   );
 
@@ -199,15 +204,19 @@ export default function ParishRegistrationPage() {
 
   function selectDoyenne(doyennePublicId) {
     setHorsAnnuaire(false);
-    setForm((prev) => ({ ...prev, doyennePublicId, nomParoisse: '' }));
+    setAnnuairePublicId('');
+    setForm((prev) => ({ ...prev, doyennePublicId, nomParoisse: '', adresse: '' }));
   }
 
-  function selectParoisseAnnuaire(nom) {
-    const entree = annuaire.find((p) => p.nom === nom);
+  function selectParoisseAnnuaire(value) {
+    const entree = annuaire.find(
+      (p) => p.publicId === value || p.nom === value
+    );
+    setAnnuairePublicId(entree?.publicId || value || '');
     setForm((prev) => ({
       ...prev,
-      nomParoisse: nom,
-      adresse: prev.adresse || entree?.adresse || '',
+      nomParoisse: entree?.nom || value || '',
+      adresse: (entree?.adresse || '').trim(),
     }));
   }
 
@@ -495,10 +504,10 @@ export default function ParishRegistrationPage() {
                           ? 'Chargement…'
                           : 'Saisir ou choisir votre paroisse'
                     }
-                    value={form.nomParoisse}
+                    value={annuairePublicId}
                     options={annuaireOptions}
                     disabled={!form.doyennePublicId || loadingAnnuaire}
-                    onChange={(nom) => selectParoisseAnnuaire(nom)}
+                    onChange={(id) => selectParoisseAnnuaire(id)}
                   />
                 )}
               </div>
@@ -511,7 +520,11 @@ export default function ParishRegistrationPage() {
                       <button
                         type="button"
                         className="link-button"
-                        onClick={() => { setHorsAnnuaire(false); setField('nomParoisse', ''); }}
+                        onClick={() => {
+                          setHorsAnnuaire(false);
+                          setAnnuairePublicId('');
+                          setForm((prev) => ({ ...prev, nomParoisse: '', adresse: '' }));
+                        }}
                       >
                         Revenir à l’annuaire
                       </button>
@@ -522,7 +535,11 @@ export default function ParishRegistrationPage() {
                       <button
                         type="button"
                         className="link-button"
-                        onClick={() => { setHorsAnnuaire(true); setField('nomParoisse', ''); }}
+                        onClick={() => {
+                          setHorsAnnuaire(true);
+                          setAnnuairePublicId('');
+                          setForm((prev) => ({ ...prev, nomParoisse: '', adresse: '' }));
+                        }}
                       >
                         Saisir son nom manuellement
                       </button>
@@ -544,8 +561,17 @@ export default function ParishRegistrationPage() {
                   autoComplete="street-address"
                   value={form.adresse}
                   onChange={(e) => setField('adresse', e.target.value)}
-                  placeholder="Quartier, rue, ville…"
+                  placeholder={
+                    !horsAnnuaire && !annuairePublicId
+                      ? 'Sélectionnez une paroisse pour préremplir l’adresse'
+                      : 'Quartier, rue, ville…'
+                  }
                 />
+                {!horsAnnuaire && annuairePublicId ? (
+                  <span className="muted text-sm">
+                    Adresse reprise de l’annuaire — vous pouvez la corriger si besoin.
+                  </span>
+                ) : null}
               </div>
 
               <div className="form-field">

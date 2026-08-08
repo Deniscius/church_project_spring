@@ -4,7 +4,9 @@ import com.eyram.dev.church_project_spring.config.AdminSeedProperties;
 import com.eyram.dev.church_project_spring.config.DemandePaymentProperties;
 import com.eyram.dev.church_project_spring.config.FedaPayProperties;
 import com.eyram.dev.church_project_spring.config.JwtProperties;
+import com.eyram.dev.church_project_spring.config.LocalDotEnvLoader;
 import com.eyram.dev.church_project_spring.config.PlatformBillingProperties;
+import com.eyram.dev.church_project_spring.config.RateLimitProperties;
 import com.eyram.dev.church_project_spring.config.StorageProperties;
 import com.eyram.dev.church_project_spring.config.TenantCatalogProperties;
 import com.eyram.dev.church_project_spring.entities.Paroisse;
@@ -29,11 +31,13 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
         PlatformBillingProperties.class,
         TenantCatalogProperties.class,
         DemandePaymentProperties.class,
-        StorageProperties.class
+        StorageProperties.class,
+        RateLimitProperties.class
 })
 public class ChurchProjectSpringApplication {
 
     public static void main(String[] args) {
+        LocalDotEnvLoader.loadIfPresent();
         SpringApplication.run(ChurchProjectSpringApplication.class, args);
     }
 }

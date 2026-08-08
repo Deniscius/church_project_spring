@@ -3,9 +3,12 @@ package com.eyram.dev.church_project_spring.service.impl;
 import com.eyram.dev.church_project_spring.DTO.request.ParoisseCoordonneesRequest;
 import com.eyram.dev.church_project_spring.DTO.request.ParoisseRequest;
 import com.eyram.dev.church_project_spring.DTO.response.AnnuaireParoisseResponse;
+import com.eyram.dev.church_project_spring.DTO.response.ParoissePublicResponse;
 import com.eyram.dev.church_project_spring.DTO.response.ParoisseResponse;
 import com.eyram.dev.church_project_spring.entities.Doyenne;
 import com.eyram.dev.church_project_spring.entities.Paroisse;
+import com.eyram.dev.church_project_spring.entities.ParoisseAccess;
+import com.eyram.dev.church_project_spring.entities.User;
 import com.eyram.dev.church_project_spring.enums.StatutTenant;
 import com.eyram.dev.church_project_spring.mappers.ParoisseMapper;
 import com.eyram.dev.church_project_spring.repositories.DoyenneRepository;
@@ -79,12 +82,41 @@ public class ParoisseServiceImpl implements ParoisseService {
     @Override
     @Transactional(readOnly = true)
     public List<ParoisseResponse> getAll() {
-        // Catalogue public : paroisses actives uniquement.
-        // SUPER_ADMIN global : toutes les paroisses (y compris en attente d'abonnement).
-        List<Paroisse> paroisses = tenantAccessService.isGlobalUser()
-                ? paroisseRepository.findAllByStatusDelFalseAndIsSystemFalseOrderByNomAsc()
-                : paroisseRepository.findAllByStatusDelFalseAndIsActiveTrueAndIsSystemFalseOrderByNomAsc();
-        return paroisses.stream().map(paroisseMapper::modelToDto).toList();
+        // Global : catalogue complet. Local : uniquement les paroisses auxquelles l'utilisateur a accès
+        // (évite la fuite cross-tenant des RIB / contacts).
+        if (tenantAccessService.isGlobalUser()) {
+            return paroisseRepository.findAllByStatusDelFalseAndIsSystemFalseOrderByNomAsc()
+                    .stream()
+                    .map(paroisseMapper::modelToDto)
+                    .toList();
+        }
+        User currentUser = tenantAccessService.getCurrentUser();
+        return paroisseAccessRepository.findByUserAndActiveTrueAndStatusDelFalse(currentUser)
+                .stream()
+                .map(ParoisseAccess::getParoisse)
+                .filter(p -> p != null && !Boolean.TRUE.equals(p.getStatusDel()))
+                .sorted((a, b) -> String.CASE_INSENSITIVE_ORDER.compare(
+                        a.getNom() != null ? a.getNom() : "",
+                        b.getNom() != null ? b.getNom() : ""
+                ))
+                .map(paroisseMapper::modelToDto)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ParoissePublicResponse> listPublicActives() {
+        return paroisseRepository.findAllByStatusDelFalseAndIsActiveTrueAndIsSystemFalseOrderByNomAsc()
+                .stream()
+                .map(p -> new ParoissePublicResponse(
+                        p.getPublicId(),
+                        p.getNom(),
+                        p.getAdresse(),
+                        p.getIsActive(),
+                        p.getDoyenne() != null ? p.getDoyenne().getPublicId() : null,
+                        p.getDoyenne() != null ? p.getDoyenne().getNom() : null
+                ))
+                .toList();
     }
 
     @Override
@@ -105,7 +137,7 @@ public class ParoisseServiceImpl implements ParoisseService {
     @Transactional(readOnly = true)
     public ParoisseResponse getByPublicId(UUID publicId) {
         Paroisse paroisse = findActiveParoisse(publicId);
-
+        tenantAccessService.checkParoisseAccess(paroisse);
         return paroisseMapper.modelToDto(paroisse);
     }
 
@@ -190,6 +222,7 @@ public class ParoisseServiceImpl implements ParoisseService {
     @Transactional(readOnly = true)
     public Resource loadLogo(UUID publicId) {
         Paroisse paroisse = findActiveParoisse(publicId);
+        tenantAccessService.checkParoisseAccess(paroisse);
         if (!StringUtils.hasText(paroisse.getLogoPath())) {
             throw new ResourceNotFoundException("Aucun logo configuré pour cette paroisse");
         }
@@ -200,6 +233,7 @@ public class ParoisseServiceImpl implements ParoisseService {
     @Transactional(readOnly = true)
     public String logoContentType(UUID publicId) {
         Paroisse paroisse = findActiveParoisse(publicId);
+        tenantAccessService.checkParoisseAccess(paroisse);
         if (!StringUtils.hasText(paroisse.getLogoPath())) {
             throw new ResourceNotFoundException("Aucun logo configuré pour cette paroisse");
         }

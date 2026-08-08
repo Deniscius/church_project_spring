@@ -1,45 +1,98 @@
 import {
   AUTH_PAROISSES_KEY,
   AUTH_SELECTED_PAROISSE_KEY,
-  AUTH_TOKEN_KEY,
   AUTH_USER_KEY,
   authStorage,
   clearAuthStorage,
+  hasSessionFlag,
   migrateAuthStorage,
+  setSessionFlag,
 } from '../constants/authStorage';
 import { apiClient } from './http/apiClient';
 
 const MULTI_TENANT_ENDPOINT = '/auth/login-multi-tenant';
 const LEGACY_ENDPOINT = '/auth/login';
 
+function mapLoginUser(user) {
+  if (!user) return null;
+  return {
+    id: user.id || user.publicId,
+    nom: user.nom || '',
+    prenom: user.prenom || '',
+    username: user.username,
+    role: user.role,
+    isGlobal: Boolean(user.isGlobal),
+  };
+}
+
+function mapParoisses(list = []) {
+  return (list || []).map((p) => ({
+    id: p.id || p.paroisseId || p.publicId,
+    publicId: p.id || p.paroisseId || p.publicId,
+    nom: p.nom || p.paroisseNom || '',
+    name: p.nom || p.paroisseNom || '',
+    adresse: p.adresse || '',
+    roleParoisse: p.roleParoisse,
+    active: p.active !== false,
+    subscriptionExpiresAt: p.subscriptionExpiresAt || null,
+    raw: p,
+  }));
+}
+
 export const authService = {
   /**
-   * Login avec support multi-tenant
-   * Retourne : { token, user, paroisses, selectedParoisse }
+   * Login multi-tenant — le JWT est posé en cookie HttpOnly par le serveur.
    */
   loginMultiTenant: async ({ username, password }) => {
-    try {
-      const response = await apiClient(MULTI_TENANT_ENDPOINT, {
-        method: 'POST',
-        body: JSON.stringify({ username, password }),
-      });
-      return response;
-    } catch (err) {
-      console.error('Multi-tenant login failed:', err);
-      throw err;
-    }
+    const response = await apiClient(MULTI_TENANT_ENDPOINT, {
+      method: 'POST',
+      body: JSON.stringify({ username, password }),
+    });
+    return {
+      user: mapLoginUser(response?.user),
+      paroisses: mapParoisses(response?.paroisses),
+      selectedParoisse: response?.selectedParoisse
+        ? mapParoisses([response.selectedParoisse])[0]
+        : null,
+    };
   },
 
-  /**
-   * Login classique (deprecated - utilise loginMultiTenant)
-   */
   login: async ({ username, password }) =>
     apiClient(LEGACY_ENDPOINT, {
       method: 'POST',
       body: JSON.stringify({ username, password }),
     }),
 
+  /** Restaure la session depuis le cookie (sans JWT côté client). */
+  fetchCurrentSession: async () => {
+    const response = await apiClient('/auth/me', {}, { auth: true });
+    return {
+      user: mapLoginUser(response?.user),
+      paroisses: mapParoisses(response?.paroisses),
+      selectedParoisse: response?.selectedParoisse
+        ? mapParoisses([response.selectedParoisse])[0]
+        : null,
+    };
+  },
+
+  forgotPassword: async (usernameOrEmail) =>
+    apiClient('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ usernameOrEmail }),
+    }),
+
+  resetPassword: async ({ token, newPassword }) =>
+    apiClient('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token, newPassword }),
+    }),
+
   logout: async () => {
+    try {
+      await apiClient('/auth/logout', { method: 'POST' }, { auth: true });
+    } catch {
+      // Cookie déjà expiré : on nettoie quand même le stockage profil.
+    }
     clearAuthStorage();
     return true;
   },
@@ -47,17 +100,21 @@ export const authService = {
   getPersistedSession: () => {
     try {
       migrateAuthStorage();
-      const token = authStorage.getItem(AUTH_TOKEN_KEY);
+      if (!hasSessionFlag()) return null;
       const raw = authStorage.getItem(AUTH_USER_KEY);
-      if (!token || !raw) return null;
-      return { token, user: JSON.parse(raw) };
+      if (!raw) return null;
+      return {
+        user: JSON.parse(raw),
+        // Sentinel : auth réelle = cookie serveur, pas un JWT lisible.
+        token: 'cookie',
+      };
     } catch {
       return null;
     }
   },
 
-  persistSession: (token, user, paroisses = [], selectedParoisse = null) => {
-    authStorage.setItem(AUTH_TOKEN_KEY, token);
+  persistSession: (user, paroisses = [], selectedParoisse = null) => {
+    setSessionFlag(true);
     authStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
     authStorage.setItem(AUTH_PAROISSES_KEY, JSON.stringify(paroisses));
     if (selectedParoisse) {
@@ -65,16 +122,11 @@ export const authService = {
     } else {
       authStorage.removeItem(AUTH_SELECTED_PAROISSE_KEY);
     }
-    // Drop any leftover tab-scoped session keys.
-    sessionStorage.removeItem(AUTH_TOKEN_KEY);
-    sessionStorage.removeItem(AUTH_USER_KEY);
-    sessionStorage.removeItem(AUTH_PAROISSES_KEY);
-    sessionStorage.removeItem(AUTH_SELECTED_PAROISSE_KEY);
+    // Purge historique JWT.
+    authStorage.removeItem('church_auth_token');
+    sessionStorage.removeItem('church_auth_token');
   },
 
-  /**
-   * Récupère les paroisses de l'utilisateur depuis la session
-   */
   getSessionParoisses: () => {
     try {
       migrateAuthStorage();
@@ -85,9 +137,6 @@ export const authService = {
     }
   },
 
-  /**
-   * Récupère la paroisse sélectionnée
-   */
   getSelectedParoisse: () => {
     try {
       migrateAuthStorage();
@@ -98,9 +147,6 @@ export const authService = {
     }
   },
 
-  /**
-   * Définit la paroisse active (tenant)
-   */
   setSelectedParoisse: (paroisse) => {
     if (paroisse) {
       authStorage.setItem(AUTH_SELECTED_PAROISSE_KEY, JSON.stringify(paroisse));

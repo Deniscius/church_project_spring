@@ -6,6 +6,7 @@ import com.eyram.dev.church_project_spring.DTO.request.DemandeValidationRequest;
 import com.eyram.dev.church_project_spring.DTO.response.DemandeParoisseStatsResponse;
 import com.eyram.dev.church_project_spring.DTO.response.DemandeResponse;
 import com.eyram.dev.church_project_spring.DTO.response.PageResponse;
+import com.eyram.dev.church_project_spring.DTO.response.TrackingByPhoneResponse;
 import com.eyram.dev.church_project_spring.enums.StatutDemandeEnum;
 
 import java.util.List;
@@ -30,6 +31,12 @@ public interface DemandeService {
     DemandeResponse getByPublicId(UUID publicId);
 
     DemandeResponse getByCodeSuivie(String codeSuivie);
+
+    /**
+     * Recherche publique par téléphone : retourne uniquement les codes de suivi
+     * (anti-énumération partielle + rate-limit côté filtre HTTP).
+     */
+    TrackingByPhoneResponse findTrackingCodesByPhone(String telephone);
 
     List<DemandeResponse> getAll();
 

@@ -1,7 +1,9 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import AppCard from '../ui/AppCard';
 import AppSelect from '../ui/AppSelect';
+import AppButton from '../ui/AppButton';
 import { FieldLabel } from '../ui/HelpTip';
+import FormuleChoiceModal from './FormuleChoiceModal';
 import { usePublicDemandeDraft } from '../../contexts/publicDemandeDraft.context';
 import {
   useForfaitsActifsQuery,
@@ -14,10 +16,11 @@ import { formatCurrency } from '../../utils/formatCurrency';
 import { HELP } from '../../constants/helpTips';
 
 /**
- * Étape 2 — paroisse, type et tarif dans une seule carte progressive.
+ * Étape 2 — paroisse + modal de formule (triduum / neuvaine / tarif).
  */
 export default function CelebrationChoiceForm() {
   const { draft, dispatch } = usePublicDemandeDraft();
+  const [formuleOpen, setFormuleOpen] = useState(false);
   const { data: paroisses = [], isLoading: loadingParishes, error: parishError } = useParoissesPublicQuery();
   const {
     data: types = [],
@@ -40,49 +43,35 @@ export default function CelebrationChoiceForm() {
     [paroisses]
   );
 
-  const typeOptions = useMemo(
-    () => types.map((t) => ({ value: t.publicId, label: t.libelle })),
-    [types]
-  );
+  const typesBusy = loadingTypes || fetchingTypes;
+  const forfaitsBusy = loadingForfaits || fetchingForfaits;
 
-  const forfaitsByNature = useMemo(
-    () => Object.fromEntries(forfaits.map((f) => [f.natureForfait, f])),
-    [forfaits]
-  );
+  const selectType = (t) => {
+    if (!t) return;
+    dispatch({
+      type: 'SELECT_TYPE_DEMANDE',
+      payload: {
+        publicId: t.publicId,
+        libelle: t.libelle || '',
+        delaiMinimumHeures: t.delaiMinimumHeures ?? 24,
+        joursCelebrationAutorises: t.joursCelebrationAutorises || [],
+      },
+    });
+  };
 
-  const natureOptions = useMemo(
-    () => NATURE_FORFAIT_OPTIONS
-      .filter((option) => forfaitsByNature[option.value])
-      .map((option) => {
-        const forfait = forfaitsByNature[option.value];
-        const amount = formatCurrency(
-          forfait.montantForfait != null ? Number(forfait.montantForfait) : 0
-        );
-        const multi = isMultiCelebrationForfait(forfait.nombreCelebration);
-        const duree = multi
-          ? ` · ${getForfaitDureeLabel(forfait.nombreCelebration)}`
-          : '';
-        return {
-          value: option.value,
-          label: `${option.label} — ${amount}${duree}`,
-        };
-      }),
-    [forfaitsByNature]
-  );
-
-  const selectNature = (nature) => {
-    const forfait = forfaitsByNature[nature];
+  const selectForfait = (forfait) => {
     if (!forfait) return;
     const n = forfait.nombreCelebration != null ? Number(forfait.nombreCelebration) : null;
     const multi = isMultiCelebrationForfait(n);
-    const natureLabel = NATURE_FORFAIT_OPTIONS.find((o) => o.value === nature)?.label || forfait.nomForfait;
+    const natureLabel = NATURE_FORFAIT_OPTIONS.find((o) => o.value === forfait.natureForfait)?.label
+      || forfait.nomForfait;
     const dureeLabel = getForfaitDureeLabel(forfait.nombreCelebration);
     dispatch({
       type: 'SELECT_FORFAIT',
       payload: {
         publicId: forfait.publicId,
         label: multi ? `${natureLabel} · ${dureeLabel}` : natureLabel,
-        natureForfait: nature,
+        natureForfait: forfait.natureForfait,
         heurePersonnalise: forfait.heurePersonnalise,
         nombreCelebration: forfait.nombreCelebration,
         nombreJour: forfait.nombreJour ?? forfait.nombreCelebration,
@@ -92,13 +81,16 @@ export default function CelebrationChoiceForm() {
     });
   };
 
-  const typesBusy = loadingTypes || fetchingTypes;
-  const forfaitsBusy = loadingForfaits || fetchingForfaits;
+  const summary = [
+    draft.typeDemandeLibelle,
+    draft.forfaitLabel,
+    draft.forfaitMontant != null ? formatCurrency(Number(draft.forfaitMontant)) : null,
+  ].filter(Boolean).join(' · ');
 
   return (
     <AppCard
       title="Où et pour quelle messe ?"
-      subtitle="Choisissez la paroisse, puis le type et le tarif — étape par étape."
+      subtitle="Choisissez la paroisse, puis la formule (messe, triduum, neuvaine…)."
     >
       <div className="stack demande-choice-steps" style={{ gap: 18 }}>
         <div className="form-field">
@@ -127,77 +119,66 @@ export default function CelebrationChoiceForm() {
         </div>
 
         <div className="form-field">
-          <FieldLabel htmlFor="public-type-demande" help={HELP.demande.typeDemande} required>
-            2. Type de demande
+          <FieldLabel help={HELP.demande.typeDemande} required>
+            2. Formule de célébration
           </FieldLabel>
           {!draft.paroissePublicId ? (
             <p className="muted">Choisissez d’abord la paroisse.</p>
           ) : null}
           {typeError ? <p className="text-red-600">{typeError.message}</p> : null}
-          {draft.paroissePublicId && typesBusy ? <p className="muted">Chargement…</p> : null}
-          {draft.paroissePublicId && !typesBusy && !typeError && types.length === 0 ? (
-            <p className="text-red-600">Aucun type configuré pour cette paroisse.</p>
-          ) : null}
-          <AppSelect
-            id="public-type-demande"
-            placeholder="— Choisir un type —"
-            value={draft.typeDemandePublicId}
-            options={typeOptions}
-            disabled={!draft.paroissePublicId || typesBusy}
-            required
-            onChange={(id) => {
-              const t = types.find((x) => x.publicId === id);
-              dispatch({
-                type: 'SELECT_TYPE_DEMANDE',
-                payload: {
-                  publicId: id,
-                  libelle: t?.libelle || '',
-                  delaiMinimumHeures: t?.delaiMinimumHeures ?? 24,
-                  joursCelebrationAutorises: t?.joursCelebrationAutorises || [],
-                },
-              });
-            }}
-          />
-          {draft.typeDemandePublicId ? (
-            <small className="muted">
-              Délai minimum : {draft.typeDemandeDelaiMinimumHeures} h avant la célébration
-              {draft.typeDemandeJoursCelebrationAutorises?.length
-                ? ` · ${formatAllowedDays(draft.typeDemandeJoursCelebrationAutorises)}`
-                : ''}
-              .
-            </small>
-          ) : null}
-        </div>
-
-        <div className="form-field">
-          <FieldLabel htmlFor="public-nature" help={HELP.demande.nature} required>
-            3. Tarif / nature
-          </FieldLabel>
-          {!draft.typeDemandePublicId ? (
-            <p className="muted">Choisissez d’abord le type de demande.</p>
-          ) : null}
           {forfaitError ? <p className="text-red-600">{forfaitError.message}</p> : null}
-          {draft.typeDemandePublicId && forfaitsBusy ? <p className="muted">Chargement…</p> : null}
-          {draft.typeDemandePublicId && !forfaitsBusy && !natureOptions.length ? (
-            <p className="text-red-600">Aucun tarif actif pour ce type.</p>
-          ) : null}
-          <AppSelect
-            id="public-nature"
-            placeholder="— Choisir un tarif —"
-            value={draft.forfaitNature || ''}
-            options={natureOptions}
-            disabled={!draft.typeDemandePublicId || forfaitsBusy}
-            required
-            onChange={selectNature}
-          />
-          {draft.forfaitMontant != null ? (
-            <small className="muted">
-              Montant : {formatCurrency(Number(draft.forfaitMontant))}
-              {draft.forfaitLabel ? ` · ${draft.forfaitLabel}` : ''}
-            </small>
+
+          {draft.paroissePublicId ? (
+            <div className="formule-summary-box">
+              {summary ? (
+                <>
+                  <p className="formule-summary-value">{summary}</p>
+                  {draft.typeDemandePublicId ? (
+                    <small className="muted">
+                      Délai minimum : {draft.typeDemandeDelaiMinimumHeures} h
+                      {draft.typeDemandeJoursCelebrationAutorises?.length
+                        ? ` · ${formatAllowedDays(draft.typeDemandeJoursCelebrationAutorises)}`
+                        : ''}
+                      {isMultiCelebrationForfait(draft.forfaitNombreCelebration)
+                        ? ` · ${getForfaitDureeLabel(draft.forfaitNombreCelebration)}`
+                        : ''}
+                    </small>
+                  ) : null}
+                </>
+              ) : (
+                <p className="muted" style={{ margin: 0 }}>
+                  Triduum, neuvaine, trentaine ou messe unique — choisissez dans le panneau.
+                </p>
+              )}
+              <AppButton
+                type="button"
+                variant={summary ? 'secondary' : 'primary'}
+                disabled={typesBusy}
+                onClick={() => setFormuleOpen(true)}
+              >
+                {typesBusy
+                  ? 'Chargement…'
+                  : summary
+                    ? 'Modifier la formule'
+                    : 'Choisir triduum, neuvaine…'}
+              </AppButton>
+            </div>
           ) : null}
         </div>
       </div>
+
+      <FormuleChoiceModal
+        open={formuleOpen}
+        onClose={() => setFormuleOpen(false)}
+        types={types}
+        typesLoading={typesBusy}
+        forfaits={forfaits}
+        forfaitsLoading={forfaitsBusy}
+        selectedTypeId={draft.typeDemandePublicId}
+        selectedNature={draft.forfaitNature}
+        onSelectType={selectType}
+        onSelectForfait={selectForfait}
+      />
     </AppCard>
   );
 }

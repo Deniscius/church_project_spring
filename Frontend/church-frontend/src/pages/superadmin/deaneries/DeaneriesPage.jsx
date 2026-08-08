@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import PageHeader from '../../../components/ui/PageHeader';
 import AppTable from '../../../components/ui/AppTable';
 import AppInput from '../../../components/ui/AppInput';
@@ -7,6 +7,7 @@ import AppButton from '../../../components/ui/AppButton';
 import AppDialog from '../../../components/ui/AppDialog';
 import { deaneryService } from '../../../services/deanery.service';
 import { mapDoyenneToRow } from '../../../utils/apiMappers';
+import { setDoyenneFilter } from '../../../utils/sensitiveNav';
 
 const columns = [
   { key: 'rang', label: 'Rang' },
@@ -24,6 +25,7 @@ const sortRows = (rows) => [...rows].sort((a, b) => {
 });
 
 export default function DeaneriesPage() {
+  const navigate = useNavigate();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -217,20 +219,26 @@ export default function DeaneriesPage() {
           if (column.key === 'rang') return row.rang ?? '—';
           if (column.key === 'actions') return (
             <div className="button-row">
-              <Link
+              <button
+                type="button"
                 className="btn btn-secondary"
-                to={`/admin/paroisses?doyenne=${row.id}&nouvelle=1`}
-                style={{ textDecoration: 'none' }}
+                onClick={() => {
+                  setDoyenneFilter(row.id);
+                  navigate('/admin/paroisses', { state: { doyenneId: row.id, openCreate: true } });
+                }}
               >
                 Ajouter une paroisse
-              </Link>
-              <Link
+              </button>
+              <button
+                type="button"
                 className="btn btn-secondary"
-                to={`/admin/paroisses?doyenne=${row.id}`}
-                style={{ textDecoration: 'none' }}
+                onClick={() => {
+                  setDoyenneFilter(row.id);
+                  navigate('/admin/paroisses', { state: { doyenneId: row.id } });
+                }}
               >
                 Voir les paroisses
-              </Link>
+              </button>
               <button className="btn btn-secondary" onClick={() => openEdit(row)}>Modifier</button>
               <button className="btn btn-danger" disabled={deletingId === row.id}
                 onClick={() => setPendingDelete(row)}>

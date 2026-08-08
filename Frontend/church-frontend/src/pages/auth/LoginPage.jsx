@@ -1,11 +1,12 @@
 import React, { useId, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import AppInput from '../../components/ui/AppInput';
 import AppButton from '../../components/ui/AppButton';
 import { useAuth } from '../../hooks/useAuth';
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { loginMultiTenant } = useAuth();
   const errorId = useId();
   const [username, setUsername] = useState('');
@@ -13,6 +14,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const resetOk = Boolean(location.state?.resetOk);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -41,6 +43,12 @@ export default function LoginPage() {
         <p>Connectez-vous avec les identifiants fournis par votre paroisse ou l’équipe plateforme.</p>
       </header>
 
+      {resetOk ? (
+        <p className="auth-form-success" role="status">
+          Mot de passe mis à jour. Vous pouvez vous connecter.
+        </p>
+      ) : null}
+
       {error ? (
         <p id={errorId} className="auth-form-error" role="alert">
           {error}
@@ -58,7 +66,7 @@ export default function LoginPage() {
           spellCheck={false}
           value={username}
           onChange={(e) => setUsername(e.target.value)}
-          placeholder="ex. jean.dupont ou jean.dupont@paroisse…"
+          placeholder="ex. jean.dupont ou jean.dupont@missanye.com"
           required
           disabled={loading}
           aria-invalid={error ? true : undefined}
@@ -69,14 +77,19 @@ export default function LoginPage() {
       <div className="form-field">
         <div className="auth-label-row">
           <label htmlFor="login-password">Mot de passe</label>
-          <button
-            type="button"
-            className="auth-text-btn"
-            onClick={() => setShowPassword((v) => !v)}
-            aria-pressed={showPassword}
-          >
-            {showPassword ? 'Masquer' : 'Afficher'}
-          </button>
+          <div className="auth-label-actions">
+            <Link to="/admin/forgot-password" className="auth-text-link">
+              Mot de passe oublié ?
+            </Link>
+            <button
+              type="button"
+              className="auth-text-btn"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-pressed={showPassword}
+            >
+              {showPassword ? 'Masquer' : 'Afficher'}
+            </button>
+          </div>
         </div>
         <AppInput
           id="login-password"

@@ -21,15 +21,15 @@ import java.util.stream.Collectors;
  * Adresses professionnelles courtes sur le domaine plateforme :
  * <ul>
  *   <li>Paroisse : {@code {slug}@missanye.com}</li>
- *   <li>Membre : {@code {prenom}.{nom}.{slug}@missanye.com}</li>
+ *   <li>Membre : {@code {prenom}.{nom}@missanye.com}</li>
  * </ul>
  */
 @Service
 @RequiredArgsConstructor
 public class ProfessionalEmailService {
 
-    private static final int PARISH_SLUG_MAX = 18;
-    private static final int PERSON_PART_MAX = 12;
+    private static final int PARISH_SLUG_MAX = 12;
+    private static final int PERSON_PART_MAX = 8;
     private static final Set<String> NOISE_WORDS = Set.of(
             "paroisse", "quasi", "quasi-paroisse", "eglise", "église",
             "saint", "sainte", "st", "ste", "apotre", "apôtre", "bienheureux", "bienheureuse"
@@ -115,8 +115,22 @@ public class ProfessionalEmailService {
     private String memberLocal(String prenom, String nom, String parishName) {
         String p = slugify(prenom, PERSON_PART_MAX);
         String n = slugify(nom, PERSON_PART_MAX);
-        String parish = slugify(parishName, 10);
-        return p + "." + n + "." + parish;
+        // Format court : prenom.nom (sans slug paroisse — le tenant est déjà isolé).
+        if (StringUtils.hasText(p) && StringUtils.hasText(n) && !"paroisse".equals(p) && !"paroisse".equals(n)) {
+            return p + "." + n;
+        }
+        if (StringUtils.hasText(n) && !"paroisse".equals(n)) {
+            return n;
+        }
+        if (StringUtils.hasText(p) && !"paroisse".equals(p)) {
+            return p;
+        }
+        // Dernier recours : initiale + slug paroisse court.
+        String parish = slugify(parishName, 8);
+        String initial = StringUtils.hasText(prenom)
+                ? slugify(prenom, 1)
+                : "u";
+        return initial + "." + parish;
     }
 
     public void assignToParoisse(Paroisse paroisse) {

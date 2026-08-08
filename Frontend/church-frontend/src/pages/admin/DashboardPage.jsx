@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import PageHeader from '../../components/ui/PageHeader';
 import AppCard from '../../components/ui/AppCard';
 import { useTenant } from '../../hooks/useTenant';
-import { formatTime } from '../../utils/formatTime';
+import { formatParishTimeInUserZone } from '../../utils/formatTime';
 import { useParishDemandeStats } from '../../hooks/queries/useParishDemandes';
 import { useParishProgrammeQuery } from '../../hooks/queries/useParishProgramme';
 import { WEEK_DAY_LABELS } from '../../constants/enums';
@@ -75,7 +75,7 @@ export default function DashboardPage() {
       {stats.impayeesProches > 0 ? (
         <div className="alert-warning" role="alert">
           <strong>{stats.impayeesProches} demande{stats.impayeesProches > 1 ? 's' : ''} non payée{stats.impayeesProches > 1 ? 's' : ''}</strong>
-          {' '}avec célébration dans les 3 jours — le fidèle reçoit un rappel e-mail toutes les 6 h.
+          {' '}avec célébration dans les 3 jours — rappel e-mail toutes les 6 h, annulation automatique 6 h avant la célébration.
           {' '}
           <Link to="/admin/demandes">Voir les demandes</Link>
         </div>
@@ -173,7 +173,7 @@ export default function DashboardPage() {
                       <ul style={{ margin: 0, paddingLeft: 18, textAlign: 'left' }}>
                         {day.creneaux.map((c) => (
                           <li key={c.horairePublicId || `${day.date}-${c.heureCelebration}`}>
-                            {formatTime(c.heureCelebration)}
+                            {formatParishTimeInUserZone(c.heureCelebration)}
                             {c.libelle ? ` · ${c.libelle}` : ''}
                             {c.dateSpecifique ? ' · ponctuelle' : ''}
                           </li>

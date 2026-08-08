@@ -4,9 +4,11 @@ import com.eyram.dev.church_project_spring.DTO.request.DemandeRequest;
 import com.eyram.dev.church_project_spring.DTO.request.CelebrationSlotRequest;
 import com.eyram.dev.church_project_spring.DTO.request.DemandeIntentionRequest;
 import com.eyram.dev.church_project_spring.DTO.request.DemandeValidationRequest;
+import com.eyram.dev.church_project_spring.DTO.response.CelebrationSlotResponse;
 import com.eyram.dev.church_project_spring.DTO.response.DemandeParoisseStatsResponse;
 import com.eyram.dev.church_project_spring.DTO.response.DemandeResponse;
 import com.eyram.dev.church_project_spring.DTO.response.PageResponse;
+import com.eyram.dev.church_project_spring.DTO.response.TrackingByPhoneResponse;
 import com.eyram.dev.church_project_spring.entities.*;
 import com.eyram.dev.church_project_spring.enums.JourSemaine;
 import com.eyram.dev.church_project_spring.enums.ModePaiement;
@@ -45,9 +47,13 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -134,6 +140,7 @@ public class DemandeServiceImpl implements DemandeService {
                     .orElseThrow(() -> new ResourceNotFoundException("Utilisateur introuvable"));
         }
 
+        validateSpecialeContact(request, forfaitTarif);
         validateDates(request, forfaitTarif);
         if (ForfaitDureeLabels.isMultiCelebration(forfaitTarif.getNombreCelebration())) {
             if (!hasCelebrationSlots(request)) {
@@ -390,6 +397,39 @@ public class DemandeServiceImpl implements DemandeService {
 
     @Override
     @Transactional(readOnly = true)
+    public TrackingByPhoneResponse findTrackingCodesByPhone(String telephone) {
+        Set<String> variants = phoneLookupVariants(telephone);
+        if (variants.isEmpty()) {
+            return new TrackingByPhoneResponse(List.of(), 0);
+        }
+        List<String> codes = demandeRepository.findCodesByTelFideleIn(
+                variants,
+                PageRequest.of(0, 10)
+        );
+        // Dédupliquer en conservant l'ordre.
+        List<String> unique = codes.stream().filter(Objects::nonNull).distinct().toList();
+        return new TrackingByPhoneResponse(unique, unique.size());
+    }
+
+    private static Set<String> phoneLookupVariants(String raw) {
+        if (raw == null) return Set.of();
+        String compact = raw.trim().replaceAll("[\\s.\\-()]", "");
+        if (compact.length() < 8) return Set.of();
+        Set<String> out = new LinkedHashSet<>();
+        out.add(compact);
+        if (compact.startsWith("00") && compact.length() > 4) {
+            out.add("+" + compact.substring(2));
+        }
+        if (compact.startsWith("+")) {
+            out.add(compact.substring(1));
+        } else if (compact.matches("\\d{8,15}")) {
+            out.add("+" + compact);
+        }
+        return out;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<DemandeResponse> getAll() {
         // Le tenantFilter Hibernate restreint déjà les lignes pour les utilisateurs non globaux.
         return buildDemandeResponses(demandeRepository.findAllActiveWithAssociations());
@@ -482,7 +522,7 @@ public class DemandeServiceImpl implements DemandeService {
 
     /**
      * Politique produit : rappel e-mail dès J-3 (toutes les 6 h), puis
-     * annulation automatique si toujours impayé à l'approche (H-24).
+     * annulation automatique si toujours impayé à l'approche (H-6).
      */
     @Override
     public int cancelUnpaidApproachingCelebrations() {
@@ -754,6 +794,31 @@ public class DemandeServiceImpl implements DemandeService {
         } else {
             demande.setStatutValidation(StatutValidationEnum.VALIDEE);
             demande.setStatutDemande(StatutDemandeEnum.VALIDEE);
+        }
+    }
+
+    /**
+     * Demande spéciale : téléphone et e-mail valides obligatoires (contact pour validation).
+     */
+    private void validateSpecialeContact(DemandeRequest request, ForfaitTarif forfaitTarif) {
+        if (forfaitTarif == null || forfaitTarif.getNatureForfait() != NatureForfaitEnum.SPECIALE) {
+            return;
+        }
+        if (!StringUtils.hasText(request.telFidele())) {
+            throw new BusinessRuleException(
+                    "Pour une messe spéciale, un numéro de téléphone valide est obligatoire."
+            );
+        }
+        String email = request.emailFidele() != null ? request.emailFidele().trim() : "";
+        if (!StringUtils.hasText(email)) {
+            throw new BusinessRuleException(
+                    "Pour une messe spéciale, une adresse e-mail valide est obligatoire."
+            );
+        }
+        if (!email.contains("@") || email.length() > 150) {
+            throw new BusinessRuleException(
+                    "Pour une messe spéciale, l'adresse e-mail fournie n'est pas valide."
+            );
         }
     }
 
@@ -1129,14 +1194,11 @@ public class DemandeServiceImpl implements DemandeService {
         List<Long> demandeIds = demandes.stream().map(Demande::getId).filter(Objects::nonNull).toList();
         List<UUID> demandePublicIds = demandes.stream().map(Demande::getPublicId).toList();
 
-        Map<Long, List<LocalDate>> datesByDemandeId = demandeIds.isEmpty()
+        Map<Long, List<DemandeDate>> datesEntityByDemandeId = demandeIds.isEmpty()
                 ? Map.of()
-                : demandeDateRepository.findByDemande_IdInAndStatusDelFalseOrderByOrdreAsc(demandeIds)
+                : demandeDateRepository.findWithHoraireByDemandeIds(demandeIds)
                 .stream()
-                .collect(Collectors.groupingBy(
-                        dd -> dd.getDemande().getId(),
-                        Collectors.mapping(DemandeDate::getDateCelebration, Collectors.toList())
-                ));
+                .collect(Collectors.groupingBy(dd -> dd.getDemande().getId()));
 
         List<Facture> factures = demandePublicIds.isEmpty()
                 ? List.of()
@@ -1183,7 +1245,20 @@ public class DemandeServiceImpl implements DemandeService {
                         }
                     }
 
-                    List<LocalDate> datesCelebration = datesByDemandeId.getOrDefault(demande.getId(), List.of());
+                    List<DemandeDate> dateRows = datesEntityByDemandeId.getOrDefault(demande.getId(), List.of())
+                            .stream()
+                            .sorted(Comparator.comparing(
+                                    DemandeDate::getOrdre,
+                                    Comparator.nullsLast(Integer::compareTo)
+                            ))
+                            .toList();
+                    List<LocalDate> datesCelebration = dateRows.stream()
+                            .map(DemandeDate::getDateCelebration)
+                            .filter(Objects::nonNull)
+                            .toList();
+                    List<CelebrationSlotResponse> celebrationSlots = dateRows.stream()
+                            .map(this::toCelebrationSlot)
+                            .toList();
 
                     return new DemandeResponse(
                             base.publicId(),
@@ -1220,6 +1295,7 @@ public class DemandeServiceImpl implements DemandeService {
                             base.createdAt(),
                             base.updatedAt(),
                             datesCelebration,
+                            celebrationSlots,
                             facturePublicId,
                             refFacture,
                             dateDetailsPaiement,
@@ -1228,6 +1304,39 @@ public class DemandeServiceImpl implements DemandeService {
                     );
                 })
                 .toList();
+    }
+
+    private CelebrationSlotResponse toCelebrationSlot(DemandeDate dd) {
+        LocalTime heure = dd.getHeurePersonnalisee();
+        String libelle = null;
+        UUID horaireId = null;
+        if (dd.getHoraire() != null) {
+            horaireId = dd.getHoraire().getPublicId();
+            libelle = dd.getHoraire().getLibelle();
+            if (heure == null) {
+                heure = dd.getHoraire().getHeureCelebration();
+            }
+        }
+        if (heure == null && dd.getDemande() != null) {
+            if (dd.getDemande().getHeurePersonnalisee() != null) {
+                heure = dd.getDemande().getHeurePersonnalisee();
+            } else if (dd.getDemande().getHoraire() != null) {
+                heure = dd.getDemande().getHoraire().getHeureCelebration();
+                if (libelle == null) {
+                    libelle = dd.getDemande().getHoraire().getLibelle();
+                }
+                if (horaireId == null) {
+                    horaireId = dd.getDemande().getHoraire().getPublicId();
+                }
+            }
+        }
+        return new CelebrationSlotResponse(
+                dd.getDateCelebration(),
+                dd.getOrdre(),
+                heure,
+                libelle,
+                horaireId
+        );
     }
 
     private void validateHoraire(LocalTime heurePersonnalisee, Horaire horaire, ForfaitTarif forfaitTarif) {

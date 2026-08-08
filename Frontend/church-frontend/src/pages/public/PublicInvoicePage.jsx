@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import PageHeader from '../../components/ui/PageHeader';
 import PublicInvoiceCard from '../../components/public/PublicInvoiceCard';
 import AppCard from '../../components/ui/AppCard';
@@ -8,15 +8,27 @@ import { invoiceService } from '../../services/invoice.service';
 import { formatCurrency } from '../../utils/formatCurrency';
 import { formatDate } from '../../utils/formatDate';
 import { paymentStatusLabel } from '../../utils/statusMapper';
+import { getInvoiceCode, setInvoiceCode } from '../../utils/sensitiveNav';
 
 export default function PublicInvoicePage() {
-  const { codeSuivie } = useParams();
+  const navigate = useNavigate();
+  const [codeSuivie, setCodeSuivie] = useState(() => getInvoiceCode());
   const [facture, setFacture] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!codeSuivie) {
+    const parts = window.location.pathname.split('/').filter(Boolean);
+    if (parts[0] === 'facture' && parts[1]) {
+      setInvoiceCode(decodeURIComponent(parts[1]));
+      setCodeSuivie(getInvoiceCode());
+      navigate('/facture', { replace: true });
+    }
+  }, [navigate]);
+
+  useEffect(() => {
+    const code = codeSuivie || getInvoiceCode();
+    if (!code) {
       setLoading(false);
       return;
     }
@@ -25,7 +37,7 @@ export default function PublicInvoicePage() {
       try {
         setLoading(true);
         setError(null);
-        const data = await invoiceService.getByTrackingCode(decodeURIComponent(codeSuivie));
+        const data = await invoiceService.getByTrackingCode(code);
         if (!cancelled) setFacture(data);
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Erreur');
@@ -41,6 +53,11 @@ export default function PublicInvoicePage() {
   return (
     <div className="stack public-page">
       <PageHeader title="Facture publique" subtitle="Consultation par code de suivi de la demande." />
+      {!codeSuivie && !loading ? (
+        <p className="muted">
+          Aucune facture en session. <Link to="/suivi">Passer par le suivi</Link>.
+        </p>
+      ) : null}
       <div className="grid-2">
         <PublicInvoiceCard />
         <AppCard title="Données facture">
@@ -62,14 +79,11 @@ export default function PublicInvoicePage() {
               </div>
               <div className="info-row">
                 <span>Statut</span>
-                <AppBadge
-                  value={facture.statutPaiement}
-                  label={paymentStatusLabel(facture.statutPaiement)}
-                />
+                <AppBadge value={paymentStatusLabel(facture.statutPaiement) || facture.statutPaiement} />
               </div>
               <div className="info-row">
-                <span>Date paiement</span>
-                <span>{formatDate(facture.datePaiement)}</span>
+                <span>Émise le</span>
+                <span>{formatDate(facture.createdAt)}</span>
               </div>
             </div>
           ) : null}

@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
-import { setActiveParishId } from '../constants/authStorage';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { clearAuthStorage, setActiveParishId } from '../constants/authStorage';
 import { authService } from '../services/auth.service';
 import { mapJwtToUser } from '../utils/mapJwtToUser';
 
@@ -11,14 +11,16 @@ function initialSession() {
   if (persisted) {
     return {
       isAuthenticated: true,
+      authReady: false,
       user: persisted.user,
-      token: persisted.token,
+      token: 'cookie',
       paroisses: authService.getSessionParoisses(),
       selectedParoisse: authService.getSelectedParoisse(),
     };
   }
   return {
     isAuthenticated: false,
+    authReady: true,
     user: null,
     token: null,
     paroisses: [],
@@ -29,6 +31,50 @@ function initialSession() {
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(initialSession);
 
+  // Valide le cookie HttpOnly au démarrage (purge si expiré / révoqué).
+  useEffect(() => {
+    let cancelled = false;
+
+    async function bootstrap() {
+      const persisted = authService.getPersistedSession();
+      if (!persisted) {
+        if (!cancelled) {
+          setSession((prev) => ({ ...prev, authReady: true }));
+        }
+        return;
+      }
+      try {
+        const live = await authService.fetchCurrentSession();
+        if (cancelled) return;
+        authService.persistSession(live.user, live.paroisses, live.selectedParoisse);
+        setSession({
+          isAuthenticated: true,
+          authReady: true,
+          user: live.user,
+          token: 'cookie',
+          paroisses: live.paroisses,
+          selectedParoisse: live.selectedParoisse,
+        });
+      } catch {
+        if (cancelled) return;
+        clearAuthStorage();
+        setSession({
+          isAuthenticated: false,
+          authReady: true,
+          user: null,
+          token: null,
+          paroisses: [],
+          selectedParoisse: null,
+        });
+      }
+    }
+
+    bootstrap();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const loginMultiTenant = useCallback(async (payload) => {
     try {
       const response = await authService.loginMultiTenant({
@@ -36,12 +82,13 @@ export function AuthProvider({ children }) {
         password: payload.password,
       });
 
-      const { token, user, paroisses = [], selectedParoisse } = response;
-      authService.persistSession(token, user, paroisses, selectedParoisse);
+      const { user, paroisses = [], selectedParoisse } = response;
+      authService.persistSession(user, paroisses, selectedParoisse);
       setSession({
         isAuthenticated: true,
+        authReady: true,
         user,
-        token,
+        token: 'cookie',
         paroisses,
         selectedParoisse,
       });
@@ -59,11 +106,12 @@ export function AuthProvider({ children }) {
         password: payload.password,
       });
       const user = mapJwtToUser(jwt);
-      authService.persistSession(jwt.accessToken, user);
+      authService.persistSession(user, [], null);
       setSession({
         isAuthenticated: true,
+        authReady: true,
         user,
-        token: jwt.accessToken,
+        token: 'cookie',
         paroisses: [],
         selectedParoisse: null,
       });
@@ -74,11 +122,12 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
     setActiveParishId(null);
-    authService.logout();
+    await authService.logout();
     setSession({
       isAuthenticated: false,
+      authReady: true,
       user: null,
       token: null,
       paroisses: [],
@@ -90,7 +139,7 @@ export function AuthProvider({ children }) {
     setSession((prev) => {
       if (!prev.user) return prev;
       const user = { ...prev.user, ...patch };
-      authService.persistSession(prev.token, user, prev.paroisses, prev.selectedParoisse);
+      authService.persistSession(user, prev.paroisses, prev.selectedParoisse);
       return { ...prev, user };
     });
   }, []);

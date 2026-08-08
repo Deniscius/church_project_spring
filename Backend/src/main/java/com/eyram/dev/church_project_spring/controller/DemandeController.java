@@ -4,9 +4,11 @@ import com.eyram.dev.church_project_spring.DTO.request.DemandeIntentionRequest;
 import com.eyram.dev.church_project_spring.DTO.request.DemandeRequest;
 import com.eyram.dev.church_project_spring.DTO.request.DemandeTypePaiementRequest;
 import com.eyram.dev.church_project_spring.DTO.request.DemandeValidationRequest;
+import com.eyram.dev.church_project_spring.DTO.request.TrackingByPhoneRequest;
 import com.eyram.dev.church_project_spring.DTO.response.DemandeParoisseStatsResponse;
 import com.eyram.dev.church_project_spring.DTO.response.DemandeResponse;
 import com.eyram.dev.church_project_spring.DTO.response.PageResponse;
+import com.eyram.dev.church_project_spring.DTO.response.TrackingByPhoneResponse;
 import com.eyram.dev.church_project_spring.enums.StatutDemandeEnum;
 import com.eyram.dev.church_project_spring.service.DemandeReceiptService;
 import com.eyram.dev.church_project_spring.service.DemandeService;
@@ -16,6 +18,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -66,6 +69,16 @@ public class DemandeController {
         return ResponseEntity.ok(demandeService.getByCodeSuivie(codeSuivie));
     }
 
+    /**
+     * Recherche publique par téléphone : renvoie uniquement les codes de suivi.
+     */
+    @PostMapping("/suivi/par-telephone")
+    public ResponseEntity<TrackingByPhoneResponse> lookupByPhone(
+            @Valid @RequestBody TrackingByPhoneRequest request
+    ) {
+        return ResponseEntity.ok(demandeService.findTrackingCodesByPhone(request.telephone()));
+    }
+
     /** Public : le fidèle peut changer de mode tant que la demande n'est pas payée. */
     @PatchMapping("/code/{codeSuivie}/type-paiement")
     public ResponseEntity<DemandeResponse> updateTypePaiementByCode(
@@ -89,6 +102,7 @@ public class DemandeController {
     }
 
     @GetMapping
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<List<DemandeResponse>> getAll() {
         return ResponseEntity.ok(demandeService.getAll());
     }
@@ -100,19 +114,21 @@ public class DemandeController {
         return ResponseEntity.ok(demandeService.getParoisseStats(paroissePublicId));
     }
 
+    /**
+     * Liste paroisse toujours paginée (évite les dumps mémoire sous charge).
+     * Sans {@code page}, renvoie la page 0 (taille 20).
+     */
     @GetMapping("/paroisse/{paroissePublicId}")
-    public ResponseEntity<?> getByParoisse(
+    public ResponseEntity<PageResponse<DemandeResponse>> getByParoisse(
             @PathVariable UUID paroissePublicId,
-            @RequestParam(required = false) Integer page,
-            @RequestParam(required = false) Integer size
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
     ) {
-        if (page != null) {
-            int pageSize = size != null ? size : 20;
-            PageResponse<DemandeResponse> result =
-                    demandeService.getByParoissePaged(paroissePublicId, page, pageSize);
-            return ResponseEntity.ok(result);
-        }
-        return ResponseEntity.ok(demandeService.getByParoisse(paroissePublicId));
+        int safeSize = Math.min(Math.max(size, 1), 100);
+        int safePage = Math.max(page, 0);
+        return ResponseEntity.ok(
+                demandeService.getByParoissePaged(paroissePublicId, safePage, safeSize)
+        );
     }
 
     @GetMapping("/paroisse/{paroissePublicId}/statut/{statutDemande}")

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import PageHeader from '../../components/ui/PageHeader';
 import FormStepper from '../../components/ui/FormStepper';
 import FormError from '../../components/ui/FormError';
@@ -16,6 +16,8 @@ import { useScrollToError } from '../../hooks/useScrollToError';
 import { validatePublicDemandeStep } from '../../utils/publicDemandeValidation';
 import { isMultiCelebrationForfait } from '../../constants/enums';
 import { formatCurrency } from '../../utils/formatCurrency';
+import { useHorairesByParishQuery, useParoissesPublicQuery } from '../../hooks/queries/usePublicReferentiel';
+import { formatTime } from '../../utils/formatTime';
 
 const STEPS = [
   { id: 'identity', label: 'Intention' },
@@ -27,11 +29,74 @@ const STEPS = [
 export default function NewRequestPage() {
   const navigate = useNavigate();
   const toast = useToast();
-  const { draft, reset } = usePublicDemandeDraft();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { draft, patch, reset } = usePublicDemandeDraft();
   const multi = isMultiCelebrationForfait(draft.forfaitNombreCelebration);
   const [step, setStep] = useState(1);
   const [errors, setErrors] = useState([]);
   const errorRef = useScrollToError(errors.length ? errors.join('|') : null);
+  const urlPrefillDone = useRef(false);
+
+  const urlParoisse = searchParams.get('paroisse') || '';
+  const urlHoraire = searchParams.get('horaire') || '';
+  const { data: paroisses = [] } = useParoissesPublicQuery();
+  const { data: horaires = [] } = useHorairesByParishQuery(
+    urlParoisse || draft.paroissePublicId || undefined
+  );
+
+  // Deep-link /demande?paroisse=&horaire= (et rattrapage si sessionStorage vide).
+  useEffect(() => {
+    if (urlPrefillDone.current) return;
+    const paroisseId = urlParoisse || draft.paroissePublicId;
+    if (!paroisseId || !paroisses.length) return;
+
+    const parish = paroisses.find((p) => p.publicId === paroisseId);
+    if (!parish) {
+      if (urlParoisse) urlPrefillDone.current = true;
+      return;
+    }
+
+    const horaireId = urlHoraire || draft.horairePublicId || '';
+    const slot = horaireId
+      ? (horaires || []).find((h) => h.publicId === horaireId)
+      : null;
+
+    // Attendre les horaires si un créneau est demandé.
+    if (horaireId && !slot && (urlHoraire || !draft.horaireLibelle)) {
+      return;
+    }
+
+    urlPrefillDone.current = true;
+    const next = {
+      paroissePublicId: parish.publicId,
+      paroisseNom: parish.nom || draft.paroisseNom || '',
+    };
+    if (slot) {
+      next.horairePublicId = slot.publicId;
+      next.horaireLibelle = [
+        formatTime(slot.heureCelebration),
+        slot.libelle,
+      ].filter(Boolean).join(' · ');
+      next.horaireHeureCelebration = formatTime(slot.heureCelebration) || '';
+      next.horaireJourSemaine = slot.jourSemaine || '';
+    }
+
+    patch(next);
+    if (urlParoisse || urlHoraire) {
+      setSearchParams({}, { replace: true });
+    }
+  }, [
+    paroisses,
+    horaires,
+    urlParoisse,
+    urlHoraire,
+    draft.paroissePublicId,
+    draft.horairePublicId,
+    draft.paroisseNom,
+    draft.horaireLibelle,
+    patch,
+    setSearchParams,
+  ]);
 
   const goNext = () => {
     const { ok, errors: v } = validatePublicDemandeStep(step, draft);

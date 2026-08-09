@@ -108,7 +108,7 @@ export default function RequestNatureSelector() {
         weekday: 'long',
         day: '2-digit',
         month: 'long',
-      })} — vous pourrez le choisir à l’étape date.`
+      })} — choisissez-le avec la date ci-dessous.`
     : null;
 
   return (

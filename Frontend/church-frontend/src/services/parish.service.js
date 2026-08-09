@@ -99,8 +99,16 @@ getByIdPublic: (publicId) =>
     apiClient(`${PUBLIC_API_BASE}/${paroisseId}/logo`, {}, { auth: true, parse: 'blob' }),
 
   /** Aperçu PDF modèle du reçu (avec logo) — admin. */
-  fetchReceiptSamplePdf: (paroisseId) =>
-    apiClient(`${PUBLIC_API_BASE}/${paroisseId}/recu-modele.pdf`, {}, { auth: true, parse: 'blob' }),
+  fetchReceiptSamplePdf: async (paroisseId) => {
+    try {
+      return await apiClient(`${PUBLIC_API_BASE}/${paroisseId}/recu-modele`, {}, { auth: true, parse: 'blob' });
+    } catch (err) {
+      if (err?.status === 404) {
+        return apiClient(`${PUBLIC_API_BASE}/${paroisseId}/recu-modele.pdf`, {}, { auth: true, parse: 'blob' });
+      }
+      throw err;
+    }
+  },
 
   /**
    * Désactive une paroisse (SUPER_ADMIN)

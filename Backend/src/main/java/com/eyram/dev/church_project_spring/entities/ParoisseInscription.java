@@ -60,7 +60,8 @@ public class ParoisseInscription extends BaseEntity {
     @Column(name = "admin_username", nullable = false, length = 80)
     private String adminUsername;
 
-    @Column(name = "admin_password_hash", nullable = false, length = 255)
+    /** Null après approbation / rejet (secret copié sur User puis purgé). */
+    @Column(name = "admin_password_hash", length = 255)
     private String adminPasswordHash;
 
     @Enumerated(EnumType.STRING)

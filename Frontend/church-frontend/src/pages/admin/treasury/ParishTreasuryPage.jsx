@@ -3,7 +3,9 @@ import PageHeader from '../../../components/ui/PageHeader';
 import AppBadge from '../../../components/ui/AppBadge';
 import AppDialog from '../../../components/ui/AppDialog';
 import AppTable from '../../../components/ui/AppTable';
+import BankNameField from '../../../components/ui/BankNameField';
 import StepHelpBanner from '../../../components/ui/StepHelpBanner';
+import { validateRibTogo } from '../../../utils/ribTogo';
 import { useTenant } from '../../../hooks/useTenant';
 import { comptabiliteService } from '../../../services/inscription.service';
 import { parishService } from '../../../services/parish.service';
@@ -80,6 +82,7 @@ export default function ParishTreasuryPage() {
   const [bankDraft, setBankDraft] = useState(EMPTY_BANK);
   const [savingBank, setSavingBank] = useState(false);
   const [bankModalOpen, setBankModalOpen] = useState(false);
+  const [bankFormError, setBankFormError] = useState(null);
   const [reversementModalOpen, setReversementModalOpen] = useState(false);
   const [caisse, setCaisse] = useState(null);
   const [caissePage, setCaissePage] = useState(0);
@@ -119,17 +122,38 @@ export default function ParishTreasuryPage() {
 
   async function saveBank() {
     if (!paroisseId) return;
+    const titulaire = (bankDraft.titulaireCompte || '').trim();
+    const banque = (bankDraft.nomBanque || '').trim();
+    if (!titulaire || !banque || !(bankDraft.ibanOrRib || '').trim()) {
+      setBankFormError('Renseignez le titulaire, la banque et le RIB / numéro de compte.');
+      return;
+    }
+    const ribCheck = validateRibTogo(bankDraft.ibanOrRib, banque);
+    if (!ribCheck.valid) {
+      setBankFormError(ribCheck.message);
+      return;
+    }
     setSavingBank(true);
+    setBankFormError(null);
     setError(null);
     setInfo(null);
     try {
-      await parishService.updateCoordonnees(paroisseId, bankDraft);
-      setBank(bankDraft);
+      const payload = {
+        ...bankDraft,
+        titulaireCompte: titulaire,
+        nomBanque: banque,
+        ibanOrRib: ribCheck.normalized,
+        email: (bankDraft.email || '').trim(),
+        telephone: (bankDraft.telephone || '').trim(),
+      };
+      await parishService.updateCoordonnees(paroisseId, payload);
+      setBank(payload);
+      setBankDraft(payload);
       setBankModalOpen(false);
       setInfo('Coordonnées bancaires enregistrées.');
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Enregistrement impossible');
+      setBankFormError(err instanceof Error ? err.message : 'Enregistrement impossible');
     } finally {
       setSavingBank(false);
     }
@@ -422,6 +446,7 @@ export default function ParishTreasuryPage() {
               className="btn btn-secondary"
               onClick={() => {
                 setBankDraft(bank);
+                setBankFormError(null);
                 setBankModalOpen(true);
               }}
             >
@@ -538,42 +563,89 @@ export default function ParishTreasuryPage() {
         busy={savingBank}
         size="lg"
         onCancel={() => {
-          if (!savingBank) setBankModalOpen(false);
+          if (!savingBank) {
+            setBankDraft(bank);
+            setBankFormError(null);
+            setBankModalOpen(false);
+          }
         }}
         onConfirm={saveBank}
       >
+        <p className="muted" style={{ marginTop: 0 }}>
+          Ces informations servent aux virements de reversement. Vérifiez-les avant chaque demande.
+        </p>
+        {bankFormError ? (
+          <div className="alert alert-danger" role="alert">{bankFormError}</div>
+        ) : null}
         <div className="form-grid">
           <div className="form-field">
-            <label htmlFor="bank-holder">Titulaire du compte</label>
+            <label htmlFor="bank-holder">Titulaire du compte *</label>
             <input
               id="bank-holder"
+              className="input"
+              required
               maxLength={150}
+              placeholder="Nom du titulaire (paroisse ou managé)"
               value={bankDraft.titulaireCompte}
               onChange={(e) => setBankDraft({ ...bankDraft, titulaireCompte: e.target.value })}
             />
           </div>
           <div className="form-field">
-            <label htmlFor="bank-name">Banque</label>
-            <input
+            <label htmlFor="bank-name">Banque *</label>
+            <BankNameField
               id="bank-name"
-              maxLength={120}
+              required
               value={bankDraft.nomBanque}
-              onChange={(e) => setBankDraft({ ...bankDraft, nomBanque: e.target.value })}
+              onChange={(nomBanque) => setBankDraft({ ...bankDraft, nomBanque })}
             />
           </div>
           <div className="form-field full">
-            <label htmlFor="bank-rib">RIB / IBAN</label>
+            <label htmlFor="bank-rib">RIB / IBAN *</label>
             <input
               id="bank-rib"
+              className="input"
+              required
               maxLength={80}
+              spellCheck={false}
+              autoComplete="off"
+              placeholder="Ex. TG53 TG00 9060 4310 3465 0040 0070"
               value={bankDraft.ibanOrRib}
-              onChange={(e) => setBankDraft({ ...bankDraft, ibanOrRib: e.target.value })}
+              onChange={(e) => {
+                setBankDraft({ ...bankDraft, ibanOrRib: e.target.value });
+                setBankFormError(null);
+              }}
+              onBlur={() => {
+                if (!(bankDraft.ibanOrRib || '').trim()) return;
+                const check = validateRibTogo(bankDraft.ibanOrRib, bankDraft.nomBanque);
+                if (!check.valid) setBankFormError(check.message);
+              }}
             />
+            {(() => {
+              const live = (bankDraft.ibanOrRib || '').trim()
+                ? validateRibTogo(bankDraft.ibanOrRib, bankDraft.nomBanque)
+                : null;
+              if (!live) {
+                return (
+                  <small className="muted">
+                    IBAN Togo (28 car.) ou RIB domestique (24 car. commençant par TG…). Espaces acceptés.
+                  </small>
+                );
+              }
+              return (
+                <small
+                  role="status"
+                  style={{ color: live.valid ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}
+                >
+                  {live.message}
+                </small>
+              );
+            })()}
           </div>
           <div className="form-field">
             <label htmlFor="bank-email">E-mail de la paroisse</label>
             <input
               id="bank-email"
+              className="input"
               type="email"
               maxLength={150}
               value={bankDraft.email}
@@ -584,6 +656,7 @@ export default function ParishTreasuryPage() {
             <label htmlFor="bank-phone">Téléphone</label>
             <input
               id="bank-phone"
+              className="input"
               type="tel"
               maxLength={50}
               value={bankDraft.telephone}

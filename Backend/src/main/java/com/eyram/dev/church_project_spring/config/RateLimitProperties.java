@@ -16,6 +16,8 @@ public record RateLimitProperties(
         /** OTP / forgot-password / suivi téléphone / minute par IP. */
         @DefaultValue("8") int authSensitivePerMinute,
         /** Webhooks FedaPay / minute par IP (réseau FedaPay). */
-        @DefaultValue("120") int webhookPerMinute
+        @DefaultValue("120") int webhookPerMinute,
+        /** Lecture publique par code (demande / facture / PDF) / minute par IP. */
+        @DefaultValue("30") int codeLookupPerMinute
 ) {
 }

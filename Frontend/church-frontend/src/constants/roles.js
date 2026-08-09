@@ -34,7 +34,8 @@ export const ROLE_DESCRIPTIONS = {
   ADMIN: 'Administrateur - Gestion complète de sa paroisse et ses utilisateurs',
   COMPTABLE_LOCAL: 'Comptable paroissial - Contrôle de la caisse et de la trésorerie locale',
   COMPTABLE: 'Comptable SaaS - Finances, abonnements et catalogue plateforme',
-  SUPER_ADMIN: 'Super Administrateur - Gestion système complète, multi-paroisse',
+  SUPER_ADMIN:
+    'Super Administrateur — plateforme (paroisses, accès, finances) ; intervention ponctuelle sur un tenant en cas de souci',
 };
 
 /**
@@ -97,6 +98,14 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.DEANERY_MANAGE,
     PERMISSIONS.PAYMENT_TYPE_MANAGE,
     PERMISSIONS.FINANCE_READ,
+    // Intervention multi-tenant : outils paroissiaux pour contrôle / support.
+    ...PARISH_READ_PERMISSIONS,
+    PERMISSIONS.DEMAND_EDIT,
+    PERMISSIONS.DEMAND_DELETE,
+    PERMISSIONS.DEMAND_VALIDATE,
+    PERMISSIONS.PAYMENT_MANAGE,
+    PERMISSIONS.TREASURY_READ,
+    PERMISSIONS.RECEIPT_MANAGE,
     // Catalogue plateforme (même écran que le comptable).
     PERMISSIONS.SCHEDULE_READ,
     PERMISSIONS.SCHEDULE_MANAGE,

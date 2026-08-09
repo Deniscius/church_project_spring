@@ -11,6 +11,7 @@ import { toE164, DEFAULT_PHONE_COUNTRY_ISO, parseStoredPhone } from '../utils/ph
 import { DRAFT_STORAGE_KEY, suggestCelebrationDateFromWeekday } from '../utils/demandePrefill';
 import {
   findNextAllowedDate,
+  getDayEnumFromDateString,
   getEffectiveAllowedDays,
   getMinimumCelebrationDateIso,
 } from '../utils/schedulingUtils';
@@ -52,6 +53,8 @@ const initialDraft = {
   typePaiementLibelle: '',
   /** true si brouillon issu d'un créneau accueil / horaires */
   prefillFromSchedule: false,
+  /** Nature d'honoraire du créneau (NORMALE / DOMINICALE / SPECIALE) */
+  prefillNatureHonoraire: '',
 };
 
 function loadDraftFromStorage() {
@@ -100,6 +103,7 @@ function clearScheduleFields(state) {
     datesCelebration: [],
     dateSchedules: {},
     prefillFromSchedule: false,
+    prefillNatureHonoraire: '',
   };
 }
 
@@ -116,6 +120,7 @@ function withPreservedSchedulePrefill(previous, next) {
     horaireJourSemaine: previous.horaireJourSemaine || next.horaireJourSemaine,
     dateDebut: previous.dateDebut || next.dateDebut,
     prefillFromSchedule: previous.prefillFromSchedule || next.prefillFromSchedule,
+    prefillNatureHonoraire: previous.prefillNatureHonoraire || next.prefillNatureHonoraire,
   };
 }
 
@@ -131,6 +136,15 @@ function applySuggestedDate(state) {
   );
   if (!allowed.length) return state;
   const minIso = getMinimumCelebrationDateIso(state.typeDemandeDelaiMinimumHeures);
+
+  // Préremplissage : conserver la date déjà calculée si elle reste valide.
+  if (state.prefillFromSchedule && state.dateDebut && state.dateDebut >= minIso) {
+    const day = getDayEnumFromDateString(state.dateDebut);
+    if (day && allowed.includes(day)) {
+      return { ...state, datesCelebration: [] };
+    }
+  }
+
   const dateDebut = findNextAllowedDate(minIso, allowed)
     || suggestCelebrationDateFromWeekday(state.horaireJourSemaine, state.typeDemandeDelaiMinimumHeures);
   if (!dateDebut) return state;
@@ -149,6 +163,10 @@ function draftReducer(state, action) {
           ...state,
           paroisseNom: nom || state.paroisseNom || '',
         };
+      }
+      // Créneau figé : la paroisse ne peut pas être changée.
+      if (state.prefillFromSchedule && state.paroissePublicId) {
+        return state;
       }
       return clearScheduleFields({
         ...state,
@@ -170,6 +188,15 @@ function draftReducer(state, action) {
     }
     case 'SELECT_TYPE_DEMANDE': {
       const { publicId, libelle, delaiMinimumHeures, joursCelebrationAutorises } = action.payload;
+      // Créneau figé : seul le 1er type (messe unique) peut être posé, pas un changement manuel.
+      if (
+        state.prefillFromSchedule
+        && state.typeDemandePublicId
+        && publicId
+        && publicId !== state.typeDemandePublicId
+      ) {
+        return state;
+      }
       const cleared = clearScheduleFields({
         ...state,
         typeDemandePublicId: publicId,
@@ -199,6 +226,10 @@ function draftReducer(state, action) {
         joursCelebrationAutorises,
       } = action.payload;
       const n = nombreCelebration != null ? Number(nombreCelebration) : null;
+      // Créneau figé : interdire triduum / neuvaine / autre formule multi.
+      if (state.prefillFromSchedule && n != null && n > 1) {
+        return state;
+      }
       const next = clearScheduleFields({
         ...state,
         forfaitTarifPublicId: publicId,
@@ -217,6 +248,34 @@ function draftReducer(state, action) {
       }
       return next;
     }
+    /** Met à jour le tarif selon le jour sans effacer date / horaire. */
+    case 'SYNC_FORFAIT': {
+      const {
+        publicId,
+        label,
+        natureForfait,
+        heurePersonnalise,
+        nombreCelebration,
+        nombreJour,
+        montantForfait,
+        joursCelebrationAutorises,
+      } = action.payload;
+      if (!publicId || publicId === state.forfaitTarifPublicId) return state;
+      const n = nombreCelebration != null ? Number(nombreCelebration) : state.forfaitNombreCelebration;
+      return {
+        ...state,
+        forfaitTarifPublicId: publicId,
+        forfaitLabel: label || state.forfaitLabel || '',
+        forfaitNature: natureForfait || '',
+        forfaitHeurePersonnalise: heurePersonnalise != null
+          ? Boolean(heurePersonnalise)
+          : state.forfaitHeurePersonnalise,
+        forfaitNombreCelebration: n,
+        forfaitNombreJour: nombreJour != null ? Number(nombreJour) : state.forfaitNombreJour,
+        forfaitMontant: montantForfait != null ? Number(montantForfait) : null,
+        forfaitJoursCelebrationAutorises: joursCelebrationAutorises || [],
+      };
+    }
     case 'SELECT_HORAIRE': {
       const { publicId, libelle, heureCelebration, jourSemaine, preserveDate } = action.payload;
       const next = {
@@ -225,12 +284,17 @@ function draftReducer(state, action) {
         horaireLibelle: libelle || '',
         horaireHeureCelebration: heureCelebration || '',
         horaireJourSemaine: jourSemaine || '',
-        prefillFromSchedule: false,
+        prefillFromSchedule: Boolean(preserveDate && state.prefillFromSchedule && publicId),
       };
-      // En liaison messe unique (date déjà choisie), on conserve la date.
+      if (!publicId) {
+        next.prefillFromSchedule = false;
+        next.prefillNatureHonoraire = '';
+      }
+      // Sans preserveDate : nouveau choix manuel → date à resaisir.
       if (!preserveDate) {
         next.dateDebut = '';
         next.datesCelebration = [];
+        next.prefillFromSchedule = false;
       }
       return next;
     }

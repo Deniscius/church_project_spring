@@ -31,6 +31,14 @@ public interface DemandeRepository extends JpaRepository<Demande, Long> {
             """)
     List<String> findCodesByTelFideleIn(@Param("phones") Collection<String> phones, Pageable pageable);
 
+    @Query("""
+            SELECT d FROM Demande d
+            WHERE d.statusDel = false
+              AND d.telFidele IN :phones
+            ORDER BY d.createdAt DESC
+            """)
+    List<Demande> findByTelFideleIn(@Param("phones") Collection<String> phones, Pageable pageable);
+
     List<Demande> findByStatusDelFalse();
 
     List<Demande> findByParoisseAndStatusDelFalse(Paroisse paroisse);

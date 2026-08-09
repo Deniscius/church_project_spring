@@ -4,6 +4,8 @@ import com.eyram.dev.church_project_spring.utils.BaseEntity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.Filter;
+import org.hibernate.annotations.SqlFragmentAlias;
 import org.hibernate.annotations.UuidGenerator;
 
 import java.util.UUID;
@@ -12,6 +14,12 @@ import java.util.UUID;
 @Table(name = "compte_paroisse")
 @Getter
 @Setter
+@Filter(
+        name = "tenantFilter",
+        condition = "{compte}.paroisse_id = :tenantId",
+        deduceAliasInjectionPoints = false,
+        aliases = @SqlFragmentAlias(alias = "compte", table = "compte_paroisse")
+)
 public class CompteParoisse extends BaseEntity {
 
     @Id

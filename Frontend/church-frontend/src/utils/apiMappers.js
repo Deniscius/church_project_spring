@@ -7,6 +7,8 @@ export function mapParoisseToTenant(p) {
     email: p.email || '',
     phone: p.telephone || '',
     subscriptionExpiresAt: p.subscriptionExpiresAt || null,
+    isSystem: Boolean(p.isSystem),
+    statutTenant: p.statutTenant || null,
     raw: p,
   };
 }
@@ -30,7 +32,7 @@ export function mapParoisseToTableRow(p) {
 
 export function mapDemandeToRequestRow(d) {
   const celebrationDates = Array.isArray(d.datesCelebration) && d.datesCelebration.length
-    ? d.datesCelebration.map((date) => formatDateShort(date)).join(' · ')
+    ? d.datesCelebration.map((date) => formatDateShort(date) || '—').join(' · ')
     : '—';
   return {
     id: d.publicId,
@@ -45,14 +47,6 @@ export function mapDemandeToRequestRow(d) {
     celebrationDates,
     _raw: d,
   };
-}
-
-function formatDateShort(value) {
-  if (!value) return '—';
-  const raw = String(value).slice(0, 10);
-  const [y, m, d] = raw.split('-');
-  if (!y || !m || !d) return raw;
-  return `${d}/${m}/${y}`;
 }
 
 export function mapDemandeToPaymentRow(d) {
@@ -157,6 +151,7 @@ export function mapTypePaiementToRow(t) {
 
 import { formatAllowedDays } from './schedulingUtils';
 import { formatFideleName } from './personName';
+import { formatDateShort } from './formatDate';
 import { NATURE_FORFAIT_LABELS, WEEK_DAY_LABELS, getForfaitDureeLabel } from '../constants/enums';
 
 export function mapTypeDemandeToRow(t) {

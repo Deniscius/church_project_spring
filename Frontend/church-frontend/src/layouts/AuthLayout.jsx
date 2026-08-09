@@ -1,17 +1,20 @@
 import React, { useState } from 'react';
 import { Link, Outlet } from 'react-router-dom';
+import ThemeToggle from '../components/ui/ThemeToggle';
+import BrandLogo from '../components/ui/BrandLogo';
 
 export default function AuthLayout() {
   const [illustrationFailed, setIllustrationFailed] = useState(false);
 
   return (
     <div className="auth-shell">
-      <aside className="auth-panel-brand" aria-label="Présentation">
+      <aside className="auth-panel-brand" aria-label="Présentation Missanye">
         <div className="auth-brand-top">
           <Link to="/" className="auth-brand-link">
-            <span className="brand-mark" aria-hidden="true" />
+            <BrandLogo size={34} className="auth-brand-logo" alt="" />
             <span className="auth-brand-name">Missanye</span>
           </Link>
+          <ThemeToggle compact className="auth-theme-toggle auth-theme-toggle--brand" />
         </div>
 
         <div className="auth-illustration-wrap">
@@ -20,8 +23,8 @@ export default function AuthLayout() {
               className="auth-illustration"
               src="/assets/undraw-authentication.svg"
               alt=""
-              width={520}
-              height={407}
+              width={480}
+              height={376}
               decoding="async"
               loading="lazy"
               fetchPriority="low"
@@ -31,9 +34,9 @@ export default function AuthLayout() {
         </div>
 
         <div className="auth-brand-copy">
-          <p className="auth-brand-headline">Espace sécurisé de votre paroisse</p>
+          <p className="auth-brand-headline">L’espace de votre paroisse</p>
           <p className="auth-brand-tagline">
-            Gérez les intentions, les célébrations et la trésorerie depuis un seul accès.
+            Intentions, horaires et trésorerie — un accès sécurisé pour l’équipe paroissiale.
           </p>
         </div>
       </aside>
@@ -41,15 +44,16 @@ export default function AuthLayout() {
       <div className="auth-panel-form">
         <div className="auth-mobile-brand">
           <Link to="/" className="auth-brand-link auth-brand-link--light">
-            <span className="brand-mark" aria-hidden="true" />
+            <BrandLogo size={30} className="auth-brand-logo" alt="" />
             <span className="auth-brand-name">Missanye</span>
           </Link>
+          <ThemeToggle compact className="auth-theme-toggle" />
         </div>
         <div className="auth-card">
           <Outlet />
         </div>
         <p className="auth-footer-note">
-          Besoin d’aide ? Contactez l’administrateur de votre paroisse.
+          Identifiants fournis par votre paroisse ou l’équipe Missanye.
         </p>
       </div>
     </div>

@@ -5,13 +5,18 @@ import com.eyram.dev.church_project_spring.DTO.request.DemandeRequest;
 import com.eyram.dev.church_project_spring.DTO.request.DemandeTypePaiementRequest;
 import com.eyram.dev.church_project_spring.DTO.request.DemandeValidationRequest;
 import com.eyram.dev.church_project_spring.DTO.request.TrackingByPhoneRequest;
+import com.eyram.dev.church_project_spring.DTO.request.TrackingByPhoneVerifyRequest;
 import com.eyram.dev.church_project_spring.DTO.response.DemandeParoisseStatsResponse;
+import com.eyram.dev.church_project_spring.DTO.response.DemandePublicResponse;
 import com.eyram.dev.church_project_spring.DTO.response.DemandeResponse;
 import com.eyram.dev.church_project_spring.DTO.response.PageResponse;
+import com.eyram.dev.church_project_spring.DTO.response.TrackingByPhoneChallengeResponse;
 import com.eyram.dev.church_project_spring.DTO.response.TrackingByPhoneResponse;
 import com.eyram.dev.church_project_spring.enums.StatutDemandeEnum;
 import com.eyram.dev.church_project_spring.service.DemandeReceiptService;
 import com.eyram.dev.church_project_spring.service.DemandeService;
+import com.eyram.dev.church_project_spring.service.PublicDemandeViewService;
+import com.eyram.dev.church_project_spring.service.TrackingPhoneOtpService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -31,6 +36,8 @@ public class DemandeController {
 
     private final DemandeService demandeService;
     private final DemandeReceiptService demandeReceiptService;
+    private final PublicDemandeViewService publicDemandeViewService;
+    private final TrackingPhoneOtpService trackingPhoneOtpService;
 
     @PostMapping
     public ResponseEntity<DemandeResponse> create(@Valid @RequestBody DemandeRequest request) {
@@ -65,37 +72,51 @@ public class DemandeController {
     }
 
     @GetMapping("/code/{codeSuivie}")
-    public ResponseEntity<DemandeResponse> getByCodeSuivie(@PathVariable String codeSuivie) {
-        return ResponseEntity.ok(demandeService.getByCodeSuivie(codeSuivie));
+    public ResponseEntity<DemandePublicResponse> getByCodeSuivie(@PathVariable String codeSuivie) {
+        return ResponseEntity.ok(publicDemandeViewService.toPublic(demandeService.getByCodeSuivie(codeSuivie)));
     }
 
     /**
-     * Recherche publique par téléphone : renvoie uniquement les codes de suivi.
+     * Étape 1 : envoie un OTP à l'e-mail lié au téléphone (ne révèle pas les codes).
      */
     @PostMapping("/suivi/par-telephone")
-    public ResponseEntity<TrackingByPhoneResponse> lookupByPhone(
+    public ResponseEntity<TrackingByPhoneChallengeResponse> lookupByPhone(
             @Valid @RequestBody TrackingByPhoneRequest request
     ) {
-        return ResponseEntity.ok(demandeService.findTrackingCodesByPhone(request.telephone()));
+        return ResponseEntity.ok(trackingPhoneOtpService.requestOtp(request.telephone()));
+    }
+
+    /** Étape 2 : après OTP, renvoie les codes de suivi. */
+    @PostMapping("/suivi/par-telephone/verifier")
+    public ResponseEntity<TrackingByPhoneResponse> verifyPhoneLookup(
+            @Valid @RequestBody TrackingByPhoneVerifyRequest request
+    ) {
+        return ResponseEntity.ok(trackingPhoneOtpService.verifyOtp(request.telephone(), request.code()));
     }
 
     /** Public : le fidèle peut changer de mode tant que la demande n'est pas payée. */
     @PatchMapping("/code/{codeSuivie}/type-paiement")
-    public ResponseEntity<DemandeResponse> updateTypePaiementByCode(
+    public ResponseEntity<DemandePublicResponse> updateTypePaiementByCode(
             @PathVariable String codeSuivie,
             @Valid @RequestBody DemandeTypePaiementRequest request
     ) {
-        return ResponseEntity.ok(
+        return ResponseEntity.ok(publicDemandeViewService.toPublic(
                 demandeService.updateTypePaiementByCodeSuivie(codeSuivie, request.typePaiementPublicId())
-        );
+        ));
     }
 
-    @GetMapping(value = "/code/{codeSuivie}/recu.pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+    /**
+     * {@code /recu} sans extension : fetch JS (évite l’interception navigateur des URL {@code .pdf}).
+     * {@code /recu.pdf} : ouverture directe / téléchargement.
+     */
+    @GetMapping(value = { "/code/{codeSuivie}/recu", "/code/{codeSuivie}/recu.pdf" },
+            produces = MediaType.APPLICATION_PDF_VALUE)
     public ResponseEntity<byte[]> downloadReceipt(@PathVariable String codeSuivie) {
         byte[] pdf = demandeReceiptService.generate(codeSuivie);
         return ResponseEntity.ok()
+                // inline : aperçu navigateur / iframe ; le front gère le téléchargement en blob
                 .header(HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=\"recu-" + codeSuivie + ".pdf\"")
+                        "inline; filename=\"recu-" + codeSuivie + ".pdf\"")
                 .contentType(MediaType.APPLICATION_PDF)
                 .contentLength(pdf.length)
                 .body(pdf);

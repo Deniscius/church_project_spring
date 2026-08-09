@@ -5,6 +5,7 @@ import PublicPaymentCard from '../../components/public/PublicPaymentCard';
 import AppCard from '../../components/ui/AppCard';
 import AppBadge from '../../components/ui/AppBadge';
 import { requestService } from '../../services/request.service';
+import { paymentService } from '../../services/payment.service';
 import { formatCurrency } from '../../utils/formatCurrency';
 import { formatDate } from '../../utils/formatDate';
 import { getPaymentCode, setPaymentCode } from '../../utils/sensitiveNav';
@@ -16,11 +17,15 @@ export default function PublicPaymentPage() {
   const [demande, setDemande] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [fedapayStatus] = useState(() => {
+  const [returnHint] = useState(() => {
     try {
-      return new URLSearchParams(window.location.search).get('status') || '';
+      const q = new URLSearchParams(window.location.search);
+      return {
+        statut: (q.get('statut') || '').toUpperCase(),
+        status: (q.get('status') || '').toLowerCase(),
+      };
     } catch {
-      return '';
+      return { statut: '', status: '' };
     }
   });
 
@@ -63,17 +68,55 @@ export default function PublicPaymentPage() {
     load();
   }, [load]);
 
+  // Après retour FedaPay : resync (webhook peut arriver après le navigateur).
+  useEffect(() => {
+    if (!codeSuivie || (!returnHint.statut && !returnHint.status)) return undefined;
+    if (returnHint.statut === 'PAYE') return undefined;
+    let cancelled = false;
+    let attempts = 0;
+    let nextTimer;
+    const tick = async () => {
+      attempts += 1;
+      try {
+        await paymentService.reconcileByTrackingCode(codeSuivie);
+        if (!cancelled) await load();
+      } catch {
+        /* ignore — le load principal suffit */
+      }
+      if (!cancelled && attempts < 4) {
+        nextTimer = window.setTimeout(tick, 2500);
+      }
+    };
+    const t = window.setTimeout(tick, 1500);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+      if (nextTimer) window.clearTimeout(nextTimer);
+    };
+  }, [codeSuivie, returnHint.statut, returnHint.status, load]);
+
+  const returnBanner = (() => {
+    if (returnHint.statut === 'PAYE' || demande?.statutPaiement === 'PAYE') {
+      return 'Paiement confirmé. Merci !';
+    }
+    if (returnHint.statut === 'ECHOUE' || returnHint.status === 'declined'
+      || returnHint.status === 'canceled' || returnHint.status === 'cancelled') {
+      return 'Le paiement n’a pas abouti. Vous pouvez réessayer ci-dessous.';
+    }
+    if (returnHint.statut || returnHint.status) {
+      return 'Retour de FedaPay reçu. Vérification du statut en cours (webhook / API)…';
+    }
+    return '';
+  })();
+
   return (
     <div className="stack public-page">
       <PageHeader
         title="Paiement"
         subtitle="Mobile Money ou carte via FedaPay. Le paiement au comptant n’est pas proposé sur le suivi."
       />
-      {fedapayStatus ? (
-        <p className="muted">
-          Retour FedaPay — statut transaction : <strong>{fedapayStatus}</strong>.
-          La confirmation définitive arrive via webhook (quelques secondes).
-        </p>
+      {returnBanner ? (
+        <p className="muted">{returnBanner}</p>
       ) : null}
       {!codeSuivie && !loading ? (
         <p className="muted">

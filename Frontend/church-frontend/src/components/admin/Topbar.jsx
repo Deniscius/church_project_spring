@@ -1,16 +1,65 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useTenant } from '../../hooks/useTenant';
 import { useUIStore } from '../../store/ui.context';
 import AppIcon from '../ui/AppIcon';
+import ThemeToggle from '../ui/ThemeToggle';
+import { tenantStatusLabel } from '../../utils/statusMapper';
 
 export default function Topbar() {
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const { activeParish, parishOptions, setActiveParish } = useTenant();
+  const { activeParish, parishOptions, setActiveParish, isIntervening } = useTenant();
   const { setSidebarOpen } = useUIStore();
+  const isSuperAdmin = user?.isGlobal === true && user?.role === 'SUPER_ADMIN';
+  const [tenantQuery, setTenantQuery] = useState('');
+
+  const filteredOptions = useMemo(() => {
+    const q = tenantQuery.trim().toLowerCase();
+    let list = parishOptions;
+    if (q && isSuperAdmin) {
+      list = parishOptions.filter((p) => {
+        const hay = [p.name, p.city, p.statutTenant]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        return hay.includes(q);
+      });
+    }
+    if (
+      activeParish?.id
+      && !activeParish?.isSystem
+      && !list.some((p) => p.id === activeParish.id)
+    ) {
+      list = [activeParish, ...list];
+    }
+    return list;
+  }, [parishOptions, tenantQuery, isSuperAdmin, activeParish]);
+
+  const showPicker = isSuperAdmin
+    ? parishOptions.length > 0
+    : parishOptions.length > 1;
+
+  const onPick = (value) => {
+    if (!value) {
+      setActiveParish(null);
+      if (isSuperAdmin) navigate('/admin/paroisses');
+      return;
+    }
+    const next = parishOptions.find((p) => p.id === value);
+    if (!next) return;
+    setActiveParish(next);
+    setTenantQuery('');
+    if (isSuperAdmin) navigate('/admin/dashboard');
+  };
+
+  const title = isIntervening
+    ? activeParish?.name
+    : (isSuperAdmin ? 'Plateforme' : (activeParish?.name || 'Administration'));
 
   return (
-    <div className="admin-topbar">
+    <header className="admin-topbar">
       <div className="topbar-left">
         <button
           type="button"
@@ -18,43 +67,78 @@ export default function Topbar() {
           onClick={() => setSidebarOpen(true)}
           aria-label="Ouvrir le menu"
         >
-          <AppIcon name="menu" />
+          <AppIcon name="menu" size={18} />
         </button>
-        <div>
-          <strong>{activeParish?.name || '—'}</strong>
-        {parishOptions.length > 1 ? (
+
+        <div className="topbar-title-block">
+          <strong className="topbar-title" title={title || undefined}>{title}</strong>
+          {isIntervening ? (
+            <span className="topbar-pill">Intervention</span>
+          ) : null}
+        </div>
+
+        {showPicker ? (
           <div className="topbar-parish-picker">
-            <label htmlFor="topbar-parish" className="muted">
-              Paroisse active
-            </label>
+            {isSuperAdmin ? (
+              <input
+                type="search"
+                className="input topbar-tenant-search"
+                placeholder="Rechercher…"
+                value={tenantQuery}
+                onChange={(e) => setTenantQuery(e.target.value)}
+                aria-label="Rechercher un tenant"
+              />
+            ) : null}
             <select
               id="topbar-parish"
-              className="select"
-              value={activeParish?.id || ''}
-              onChange={(e) => {
-                const next = parishOptions.find((p) => p.id === e.target.value);
-                if (next) setActiveParish(next);
-              }}
+              className="select topbar-parish-select"
+              value={activeParish?.isSystem ? '' : (activeParish?.id || '')}
+              onChange={(e) => onPick(e.target.value)}
+              aria-label={isSuperAdmin ? 'Intervenir sur un tenant' : 'Paroisse active'}
             >
-              {parishOptions.map((p) => (
+              {isSuperAdmin ? (
+                <option value="">Plateforme</option>
+              ) : null}
+              {filteredOptions.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
+                  {p.city ? ` · ${p.city}` : ''}
+                  {p.statutTenant ? ` (${tenantStatusLabel(p.statutTenant)})` : ''}
                 </option>
               ))}
             </select>
           </div>
-        ) : (
-          <div className="topbar-context">Tableau privé de la paroisse connectée</div>
-        )}
-        </div>
+        ) : null}
       </div>
-      <div className="button-row">
-        <span className="badge">{user?.username || 'Invité'}</span>
-        <button className="btn btn-secondary" type="button" onClick={logout}>
-          <AppIcon name="logout" size={17} />
-          Déconnexion
+
+      <div className="topbar-actions">
+        {isIntervening ? (
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => {
+              setActiveParish(null);
+              navigate('/admin/paroisses');
+            }}
+          >
+            Quitter
+          </button>
+        ) : null}
+        <ThemeToggle compact className="topbar-theme-toggle" />
+        <span className="topbar-user" title={user?.username || ''}>
+          {user?.username || 'Invité'}
+        </span>
+        <button
+          className="btn btn-ghost topbar-logout"
+          type="button"
+          onClick={logout}
+          aria-label="Déconnexion"
+          title="Déconnexion"
+        >
+          <AppIcon name="logout" size={16} />
+          <span className="topbar-logout-label">Déconnexion</span>
         </button>
       </div>
-    </div>
+    </header>
   );
 }

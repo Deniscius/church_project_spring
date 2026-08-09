@@ -18,7 +18,9 @@ public record ParoisseHorairesPublicResponse(
             String jourSemaine,
             String jourLibelle,
             LocalTime heureCelebration,
-            String libelle
+            String libelle,
+            /** Honoraire (NORMALE / DOMINICALE / SPECIALE) pour préremplir la formule. */
+            String natureHonoraire
     ) {
     }
 }

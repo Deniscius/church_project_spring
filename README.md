@@ -591,97 +591,46 @@ CLÉS :
 
 ---
 
-## 🚀 6. STACK TECHNIQUE WEB
+## 🚀 6. STACK TECHNIQUE (actuel)
 
 ```yaml
-Frontend Web (3 applications) :
-  Fidèles:
-    - Framework: React.js / Vue.js 3
-    - UI: Tailwind CSS + Headless UI
-    - Forms: React Hook Form + Yup
-    - State: Zustand / Pinia
-    - Build: Vite
-    
-  Dashboards (Admin & Secrétaire):
-    - Framework: React.js + TypeScript
-    - UI: Ant Design / Material-UI
-    - Charts: Recharts / Chart.js
-    - Tables: TanStack Table
-    - State: Redux Toolkit
-    - Router: React Router v6
+Frontend (une app Vite) :
+  - React 19 + React Router 7
+  - TanStack Query
+  - Build: Vite 8
+  - Auth navigateur: cookie HttpOnly (pas de JWT en localStorage)
 
 Backend API:
-  - Framework: Spring Boot 3.2
-  - Java: Java 17 LTS
-  - Database: MySQL 8.0+
-  - Cache: Redis 7+
-  - Security: Spring Security + JWT
-  - ORM: Spring Data JPA / Hibernate
-  - Migration: Flyway / Liquibase
-  - Documentation: Swagger/OpenAPI 3
+  - Spring Boot 3.5 / Java 17
+  - PostgreSQL + Flyway
+  - Spring Security + JWT cookie (AES-GCM optionnel)
+  - Multi-tenant Hibernate filter
+  - Paiements: FedaPay (webhook HMAC)
 
 Infrastructure:
-  - Reverse Proxy: Nginx
-  - Container: Docker + Docker Compose
-  - CI/CD: GitHub Actions / GitLab CI
-  - Monitoring: Prometheus + Grafana
-  - Logs: ELK Stack (Elasticsearch, Logstash, Kibana)
+  - Render: Postgres + API Docker + static site (render.yaml)
+  - CI: GitHub Actions (.github/workflows/ci.yml)
+  - Dependabot: Maven + npm
+  - Docs ops: docs/RENDER.md, docs/FEDAPAY.md, docs/SCALING.md
 ```
 
 ---
 
 ## 📦 7. DÉPLOIEMENT
 
+**Cible actuelle : Render** — procédure dans [`docs/RENDER.md`](docs/RENDER.md), blueprint [`render.yaml`](render.yaml).
+
 ```
-┌─────────────────────────────────────────────┐
-│           PRODUCTION (Cloud)                 │
-└─────────────────────────────────────────────┘
+[Render]
+├─ missanye-web   → Static Vite (CSP + rewrite SPA)
+├─ missanye-api   → Docker Spring Boot (health /actuator/health)
+└─ missanye-db    → PostgreSQL managé + disque uploads API
 
-[Domaines]
-├─ messes.paroisse.tg         → Frontend Fidèles
-├─- admin.messes.paroisse.tg  → Dashboards Admin
-└─- api.messes.paroisse.tg    → API Backend
-
-[Serveurs]
-├─ Web Server (Nginx)
-│  └─ Serve static files + Reverse proxy
-│
-├─ Application Server
-│  ├─ Spring Boot (JAR)
-│  └─ JVM tuning (Heap, GC)
-│
-├─ Database Server
-│  ├─ MySQL Primary
-│  └─ MySQL Replica (Read)
-│
-└─ Cache Server
-   └─ Redis Cluster
-
-[Services de Notification]
-├─ Email: SMTP (SendGrid / MailGun / Gmail SMTP)
-│  ├─ Fidèles: Confirmation + Reçu (si email fourni)
-│  └─ Admins: Notifications système
-│
-└─ Paiement Mobile: TMoney/Flooz API
-   └─ Intégration webhook pour callbacks
-
-Note: Pas de service SMS (coût élevé)
-      Notifications fidèles via Pop-up web
-
-[Sauvegarde]
-├─ Database: Backup quotidien (pg_dump)
-├─ Files: S3/MinIO
-└─ Logs: Rotation 30 jours
+[Sécurité prod]
+├─ SPRING_PROFILES_ACTIVE=prod
+├─ JWT cookie Secure + SameSite=Lax
+├─ SMTP obligatoire (app.mail.fail-closed)
+├─ CORS = URL front exacte
+└─ Webhook FedaPay → /webhooks/fedapay
 ```
 
----
-
-Cette architecture web est **moderne, scalable et sécurisée** ! 🚀
-
-Entities
-Utils
-Repositiries
-DTO 
-Mapprrs
-service
-Controlle

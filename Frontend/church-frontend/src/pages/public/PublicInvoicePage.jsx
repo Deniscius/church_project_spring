@@ -83,7 +83,7 @@ export default function PublicInvoicePage() {
               </div>
               <div className="info-row">
                 <span>Émise le</span>
-                <span>{formatDate(facture.createdAt)}</span>
+                <span>{formatDate(facture.dateEmission)}</span>
               </div>
             </div>
           ) : null}

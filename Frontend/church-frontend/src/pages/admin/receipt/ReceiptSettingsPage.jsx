@@ -106,7 +106,12 @@ export default function ReceiptSettingsPage() {
         return URL.createObjectURL(blob);
       });
     } catch (e) {
-      setPdfError(e instanceof Error ? e.message : 'Aperçu PDF impossible');
+      const raw = e instanceof Error ? e.message : String(e || '');
+      setPdfError(
+        /failed to fetch|networkerror|load failed/i.test(raw)
+          ? 'Impossible de charger le reçu (réseau / tunnel). Réessayez ou téléchargez-le.'
+          : (raw || 'Aperçu PDF impossible')
+      );
       setPdfUrl(null);
     } finally {
       setPdfLoading(false);
@@ -143,6 +148,10 @@ export default function ReceiptSettingsPage() {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file || !paroisseId || !canEdit) return;
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Logo trop volumineux (max 2 Mo).');
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -215,7 +224,7 @@ export default function ReceiptSettingsPage() {
                   <div className="receipt-preview-parish">
                     {parish?.nom || activeParish?.name || 'Nom de la paroisse'}
                   </div>
-                  <div className="muted text-sm">{contactLine}</div>
+                  <p className="receipt-preview-contact">{contactLine}</p>
                   <div className="receipt-preview-meta">
                     Code · Montant · Dépôt · Intention
                   </div>
@@ -229,7 +238,7 @@ export default function ReceiptSettingsPage() {
             </div>
           </AppCard>
 
-          <AppCard title="Logo de la paroisse" subtitle="Optionnel. JPEG, PNG ou WebP — 5 Mo max.">
+          <AppCard title="Logo de la paroisse" subtitle="Optionnel. JPEG, PNG ou WebP — 2 Mo max (optimisé côté serveur).">
             {canEdit ? (
               <div className="button-row">
                 <label className={`btn btn-secondary${busy ? ' is-disabled' : ''}`}>

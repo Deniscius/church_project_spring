@@ -5,17 +5,20 @@ import { ToastProvider } from '../../contexts/toast.context';
 import { AuthProvider } from '../../store/auth.context';
 import { TenantProvider } from '../../store/tenant.context';
 import { UIProvider } from '../../store/ui.context';
+import { ThemeProvider } from '../../store/theme.context';
 
 export function AppProvider({ children }) {
   return (
     <QueryClientProvider client={queryClient}>
-      <ToastProvider>
-        <AuthProvider>
-          <TenantProvider>
-            <UIProvider>{children}</UIProvider>
-          </TenantProvider>
-        </AuthProvider>
-      </ToastProvider>
+      <ThemeProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <TenantProvider>
+              <UIProvider>{children}</UIProvider>
+            </TenantProvider>
+          </AuthProvider>
+        </ToastProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

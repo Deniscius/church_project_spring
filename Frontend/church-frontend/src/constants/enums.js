@@ -12,6 +12,17 @@ export const WEEK_DAY_LABELS = {
   SAMEDI: 'Samedi',
 };
 
+/** Abréviations FR (évite .slice(0,3) qui casse « Mercredi » / « Mardi »). */
+export const WEEK_DAY_SHORT = {
+  DIMANCHE: 'Dim.',
+  LUNDI: 'Lun.',
+  MARDI: 'Mar.',
+  MERCREDI: 'Mer.',
+  JEUDI: 'Jeu.',
+  VENDREDI: 'Ven.',
+  SAMEDI: 'Sam.',
+};
+
 export const NATURE_FORFAIT_OPTIONS = [
   {
     value: 'NORMALE',

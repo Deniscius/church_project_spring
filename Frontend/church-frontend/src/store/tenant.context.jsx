@@ -3,9 +3,14 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { getActiveParishId, setActiveParishId } from '../constants/authStorage';
 import { useAuth } from '../hooks/useAuth';
 import { comptabiliteService } from '../services/inscription.service';
+import { parishService } from '../services/parish.service';
 import { mapParoisseToTenant } from '../utils/apiMappers';
 
 const TenantContext = createContext(null);
+
+function sortTenants(list) {
+  return [...list].sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'fr'));
+}
 
 export function TenantProvider({ children }) {
   const {
@@ -24,6 +29,7 @@ export function TenantProvider({ children }) {
 
   const selectedParishId = selectedParoisse?.publicId || selectedParoisse?.id || null;
   const currentUserId = user?.id ?? null;
+  const isSuperAdmin = user?.isGlobal === true && user?.role === 'SUPER_ADMIN';
   const awaitingBootstrap = Boolean(
     isAuthenticated && currentUserId && bootstrappedUserId !== currentUserId
   );
@@ -45,26 +51,65 @@ export function TenantProvider({ children }) {
       setError(null);
 
       try {
-        const mapped = (paroisses || [])
+        let mapped = (paroisses || [])
           .filter((p) => p.active !== false && p.isActive !== false)
           .map(mapParoisseToTenant)
           .filter((p) => Boolean(p?.id));
+
+        // Super Admin : catalogue complet de tous les tenants (hors modèle système).
+        if (isSuperAdmin) {
+          try {
+            const all = await parishService.getAll();
+            mapped = sortTenants(
+              (Array.isArray(all) ? all : [])
+                .filter((p) => !p?.isSystem)
+                .map(mapParoisseToTenant)
+                .filter((p) => Boolean(p?.id))
+            );
+          } catch (e) {
+            if (!cancelled) {
+              setError(e instanceof Error ? e.message : 'Impossible de charger les paroisses');
+            }
+          }
+        }
 
         if (cancelled) return;
 
         const savedId = getActiveParishId();
         let pick = mapped.find((p) => p.id === selectedParishId)
           || mapped.find((p) => p.id === savedId)
-          || mapped[0]
           || null;
 
-        // Équipe plateforme : paroisse modèle sans rattachement à la connexion.
-        if (!pick && user?.isGlobal && (selectedParishId || savedId)) {
+        // Locaux : une seule paroisse → sélection auto.
+        if (!pick && !isSuperAdmin && mapped.length === 1) {
+          pick = mapped[0];
+        }
+
+        // Équipe plateforme (comptable) : paroisse modèle sans rattachement.
+        if (!pick && user?.isGlobal && !isSuperAdmin && (selectedParishId || savedId)) {
           try {
             const template = await comptabiliteService.getCatalogueModele();
             pick = mapParoisseToTenant(template);
           } catch {
             pick = null;
+          }
+        }
+
+        // Super Admin : conserver le modèle catalogue si c’était le contexte sauvegardé.
+        if (!pick && isSuperAdmin && savedId) {
+          const fromList = mapped.find((p) => p.id === savedId);
+          if (fromList) {
+            pick = fromList;
+          } else {
+            try {
+              const template = await comptabiliteService.getCatalogueModele();
+              const mappedTemplate = mapParoisseToTenant(template);
+              if (mappedTemplate?.id === savedId) {
+                pick = mappedTemplate;
+              }
+            } catch {
+              pick = null;
+            }
           }
         }
 
@@ -87,14 +132,14 @@ export function TenantProvider({ children }) {
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated, currentUserId, user?.isGlobal, paroisses, selectedParishId]);
+  }, [isAuthenticated, currentUserId, user?.isGlobal, isSuperAdmin, paroisses, selectedParishId]);
 
   const setActiveParish = useCallback((tenant) => {
     const nextId = tenant?.id || null;
     const raw = tenant?.raw || null;
     const previousId = getActiveParishId();
 
-    setActiveParishState(tenant);
+    setActiveParishState(tenant || null);
     setActiveParishId(nextId);
 
     if (nextId && nextId === previousId) {
@@ -103,6 +148,10 @@ export function TenantProvider({ children }) {
     setSelectedParoisse(raw);
   }, [setSelectedParoisse]);
 
+  const intervening = Boolean(
+    isSuperAdmin && activeParish?.id && !activeParish?.isSystem
+  );
+
   const value = useMemo(
     () => ({
       activeParish,
@@ -110,8 +159,15 @@ export function TenantProvider({ children }) {
       setActiveParish,
       loading: loading || awaitingBootstrap,
       error,
+      /**
+       * Super Admin en contrôle administratif d’un tenant réel
+       * (intervention support — pas le catalogue modèle).
+       */
+      isIntervening: intervening,
+      /** @deprecated préférer isIntervening */
+      isOperatingParish: intervening,
     }),
-    [activeParish, parishOptions, setActiveParish, loading, awaitingBootstrap, error]
+    [activeParish, parishOptions, setActiveParish, loading, awaitingBootstrap, error, intervening]
   );
 
   return <TenantContext.Provider value={value}>{children}</TenantContext.Provider>;

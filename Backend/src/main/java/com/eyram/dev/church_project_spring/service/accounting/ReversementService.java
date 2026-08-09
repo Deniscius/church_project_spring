@@ -32,6 +32,7 @@ public class ReversementService {
     private final ParoisseRepository paroisseRepository;
     private final ParishLedgerService parishLedgerService;
     private final TenantAccessService tenantAccessService;
+    private final ReversementMailNotifier reversementMailNotifier;
 
     /**
      * Consultation pure : le compte n'est matérialisé qu'au premier mouvement
@@ -70,6 +71,7 @@ public class ReversementService {
         demande = demandeReversementRepository.save(demande);
 
         parishLedgerService.holdForPayout(paroisse, request.montant(), "REV:" + demande.getPublicId());
+        reversementMailNotifier.notifyComptablesNouvelleDemande(demande);
         return toResponse(demande);
     }
 
@@ -109,7 +111,9 @@ public class ReversementService {
         demande.setReferenceVirement(request.referenceVirement().trim());
         demande.setTraitePar(traitePar);
         demande.setTraiteAt(LocalDateTime.now());
-        return toResponse(demandeReversementRepository.save(demande));
+        demande = demandeReversementRepository.save(demande);
+        reversementMailNotifier.notifyParoisseDecision(demande);
+        return toResponse(demande);
     }
 
     @Transactional
@@ -129,7 +133,9 @@ public class ReversementService {
         }
         demande.setTraitePar(traitePar);
         demande.setTraiteAt(LocalDateTime.now());
-        return toResponse(demandeReversementRepository.save(demande));
+        demande = demandeReversementRepository.save(demande);
+        reversementMailNotifier.notifyParoisseDecision(demande);
+        return toResponse(demande);
     }
 
     private DemandeReversement requireDemande(UUID publicId) {

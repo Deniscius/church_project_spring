@@ -27,6 +27,7 @@ import com.eyram.dev.church_project_spring.service.mail.AppMailService;
 import com.eyram.dev.church_project_spring.utils.BusinessCodeGenerator;
 import com.eyram.dev.church_project_spring.utils.FideleNameUtils;
 import com.eyram.dev.church_project_spring.utils.ForfaitDureeLabels;
+import com.eyram.dev.church_project_spring.utils.IntentionTextUtils;
 import com.eyram.dev.church_project_spring.utils.exception.BusinessRuleException;
 import com.eyram.dev.church_project_spring.utils.exception.ResourceNotFoundException;
 import com.eyram.dev.church_project_spring.utils.exception.TrackingIdNotFoundException;
@@ -75,7 +76,7 @@ public class DemandeServiceImpl implements DemandeService {
     private static final DateTimeFormatter REMINDER_DATE_FORMAT =
             DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DateTimeFormatter REMINDER_TIME_FORMAT =
-            DateTimeFormatter.ofPattern("HH:mm");
+            DateTimeFormatter.ofPattern("HH' h 'mm");
 
     /** Intervalle minimum entre deux rappels (le cron tourne toutes les 6 h). */
     private static final long REMINDER_MIN_HOURS = 5;
@@ -134,6 +135,9 @@ public class DemandeServiceImpl implements DemandeService {
             }
         }
 
+        // Tarif selon le jour / nature d'honoraire du créneau (NORMALE vs DOMINICALE…).
+        forfaitTarif = resolveForfaitForCelebrationDay(typeDemande, forfaitTarif, request, horaire);
+
         User user = null;
         if (request.userPublicId() != null) {
             user = userRepository.findByPublicIdAndStatusDelFalse(request.userPublicId())
@@ -161,7 +165,10 @@ public class DemandeServiceImpl implements DemandeService {
         TypePaiement typePaiement = typePaiementRepository.findByPublicIdAndStatusDelFalse(request.typePaiementPublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Type de paiement introuvable"));
 
+        String intention = IntentionTextUtils.requireValid(request.intention());
+
         Demande demande = demandeMapper.dtoToModel(request);
+        demande.setIntention(intention);
         applyFideleIdentity(demande, request);
         demande.setParoisse(paroisse);
         demande.setTypeDemande(typeDemande);
@@ -225,6 +232,8 @@ public class DemandeServiceImpl implements DemandeService {
             }
         }
 
+        forfaitTarif = resolveForfaitForCelebrationDay(typeDemande, forfaitTarif, request, horaire);
+
         User user = null;
         if (request.userPublicId() != null) {
             user = userRepository.findByPublicIdAndStatusDelFalse(request.userPublicId())
@@ -254,7 +263,10 @@ public class DemandeServiceImpl implements DemandeService {
                 ? existingDemande.getForfaitTarif().getNatureForfait()
                 : null;
 
+        String intention = IntentionTextUtils.requireValid(request.intention());
+
         demandeMapper.updateEntityFromDto(request, existingDemande);
+        existingDemande.setIntention(intention);
         applyFideleIdentity(existingDemande, request);
         existingDemande.setParoisse(paroisse);
         existingDemande.setTypeDemande(typeDemande);
@@ -287,13 +299,7 @@ public class DemandeServiceImpl implements DemandeService {
 
     @Override
     public DemandeResponse updateIntention(UUID publicId, DemandeIntentionRequest request) {
-        if (request == null || request.intention() == null || request.intention().isBlank()) {
-            throw new BusinessRuleException("L'intention est obligatoire");
-        }
-        String intention = request.intention().strip().replaceAll("\\s+", " ");
-        if (intention.length() > 500) {
-            throw new BusinessRuleException("L'intention ne doit pas dépasser 500 caractères");
-        }
+        String intention = IntentionTextUtils.requireValid(request == null ? null : request.intention());
 
         Demande demande = demandeRepository.findByPublicIdAndStatusDelFalse(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Demande introuvable"));
@@ -1106,6 +1112,106 @@ public class DemandeServiceImpl implements DemandeService {
                             + ")"
             );
         }
+    }
+
+    /**
+     * Aligne le forfait (et donc le montant) sur le jour de célébration :
+     * dimanche → DOMINICALE, semaine → NORMALE, créneau SPECIALE → SPECIALE.
+     * Les formules multi (triduum / neuvaine…) et le choix explicite SPECIALE sont conservés.
+     */
+    private ForfaitTarif resolveForfaitForCelebrationDay(
+            TypeDemande typeDemande,
+            ForfaitTarif requested,
+            DemandeRequest request,
+            Horaire horaire
+    ) {
+        if (requested == null || typeDemande == null) {
+            return requested;
+        }
+        if (ForfaitDureeLabels.isMultiCelebration(requested.getNombreCelebration())) {
+            return requested;
+        }
+        // SPECIALE volontaire (hors créneau imposé) : on respecte le choix du fidèle.
+        if (requested.getNatureForfait() == NatureForfaitEnum.SPECIALE
+                && (horaire == null || horaire.getNatureHonoraire() == null
+                || horaire.getNatureHonoraire() == NatureForfaitEnum.SPECIALE)) {
+            return requested;
+        }
+
+        LocalDate celebrationDate = resolvePrimaryCelebrationDate(request);
+        if (celebrationDate == null && horaire == null) {
+            return requested;
+        }
+
+        NatureForfaitEnum required = resolveRequiredNature(celebrationDate, horaire);
+        if (required == null || required == requested.getNatureForfait()) {
+            return requested;
+        }
+
+        Integer nombre = requested.getNombreCelebration();
+        ForfaitTarif matched = forfaitTarifRepository
+                .findByTypeDemandeAndIsActiveTrueAndStatusDelFalse(typeDemande)
+                .stream()
+                .filter(f -> f.getNatureForfait() == required)
+                .filter(f -> Objects.equals(f.getNombreCelebration(), nombre))
+                .filter(f -> celebrationDate == null || forfaitAllowsDay(f, celebrationDate))
+                .findFirst()
+                .orElse(null);
+
+        if (matched == null) {
+            throw new BusinessRuleException(
+                    "Le tarif « " + required.name()
+                            + " » est requis pour cette date de célébration. "
+                            + "Aucun forfait actif correspondant n’est configuré pour cette formule."
+            );
+        }
+
+        log.info(
+                "Forfait aligné sur le jour de célébration : {} → {} (montant {})",
+                requested.getNatureForfait(),
+                matched.getNatureForfait(),
+                matched.getMontantForfait()
+        );
+        return matched;
+    }
+
+    private static NatureForfaitEnum resolveRequiredNature(LocalDate celebrationDate, Horaire horaire) {
+        if (horaire != null && horaire.getNatureHonoraire() != null) {
+            return horaire.getNatureHonoraire();
+        }
+        if (celebrationDate == null) {
+            return null;
+        }
+        JourSemaine jour = JourSemaine.fromDayOfWeek(celebrationDate.getDayOfWeek());
+        return jour == JourSemaine.DIMANCHE ? NatureForfaitEnum.DOMINICALE : NatureForfaitEnum.NORMALE;
+    }
+
+    private static boolean forfaitAllowsDay(ForfaitTarif forfait, LocalDate date) {
+        Set<JourSemaine> days = forfait.getJoursCelebrationAutorises();
+        if (days == null || days.isEmpty()) {
+            return true;
+        }
+        return days.contains(JourSemaine.fromDayOfWeek(date.getDayOfWeek()));
+    }
+
+    private LocalDate resolvePrimaryCelebrationDate(DemandeRequest request) {
+        if (request.dateDebut() != null) {
+            return request.dateDebut();
+        }
+        if (request.datesCelebration() != null) {
+            return request.datesCelebration().stream()
+                    .filter(Objects::nonNull)
+                    .findFirst()
+                    .orElse(null);
+        }
+        if (hasCelebrationSlots(request)) {
+            return request.celebrationSlots().stream()
+                    .filter(slot -> slot != null && slot.date() != null)
+                    .map(CelebrationSlotRequest::date)
+                    .findFirst()
+                    .orElse(null);
+        }
+        return null;
     }
 
     private void generateDemandeDates(

@@ -55,12 +55,13 @@ import java.util.stream.Collectors;
 public class DemandeReceiptService {
 
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-    private static final DateTimeFormatter DATE_TIME_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+    private static final DateTimeFormatter DATE_TIME_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy HH' h 'mm");
+    private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH' h 'mm");
 
-    /** Marges serrées pour tenir sur une page. */
-    private static final float MARGIN_X = 22f;
-    private static final float MARGIN_Y = 16f;
-    private static final float CUT_HEIGHT = 22f;
+    /** Marges serrées pour tenir sur une page A4 (2 volets). */
+    private static final float MARGIN_X = 20f;
+    private static final float MARGIN_Y = 12f;
+    private static final float CUT_HEIGHT = 20f;
 
     private final DemandeRepository demandeRepository;
     private final DemandeDateRepository demandeDateRepository;
@@ -98,7 +99,7 @@ public class DemandeReceiptService {
                 "5 000 FCFA",
                 LocalDateTime.now().format(DATE_TIME_FORMAT),
                 "Exemple — Action de grâce pour la famille.",
-                LocalDate.now().plusDays(3).format(DATE_FORMAT) + " · 07:00",
+                LocalDate.now().plusDays(3).format(DATE_FORMAT) + " · 07 h 00",
                 "Messe (aperçu)",
                 "Jean Dupont · +22890000000",
                 "Espèces · Aperçu",
@@ -175,7 +176,7 @@ public class DemandeReceiptService {
         badgeRow.setWidthPercentage(100);
         PdfPCell badge = new PdfPCell(new Phrase(
                 copyLabel,
-                FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8, new Color(90, 90, 90))
+                FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, new Color(90, 90, 90))
         ));
         badge.setBorder(0);
         badge.setHorizontalAlignment(Element.ALIGN_RIGHT);
@@ -190,13 +191,13 @@ public class DemandeReceiptService {
                 logoPath,
                 "REÇU DE DÉPÔT"
         );
-        header.setSpacingAfter(3);
+        header.setSpacingAfter(4);
         block.addCell(wrapNoBorder(header));
 
         // Code / montant / dépôt
         PdfPTable highlight = new PdfPTable(new float[]{1.2f, 1f, 1.15f});
         highlight.setWidthPercentage(100);
-        highlight.setSpacingAfter(3);
+        highlight.setSpacingAfter(4);
         highlight.addCell(compactHighlight("Code de suivi", data.codeSuivie()));
         highlight.addCell(compactHighlight("Montant", data.montant()));
         highlight.addCell(compactHighlight("Dépôt", data.depot()));
@@ -205,12 +206,12 @@ public class DemandeReceiptService {
         // Intention
         PdfPTable intention = new PdfPTable(1);
         intention.setWidthPercentage(100);
-        intention.setSpacingAfter(2);
-        intention.addCell(PdfDocumentStyles.compactIntentionCell(truncate(data.intention(), 180)));
+        intention.setSpacingAfter(3);
+        intention.addCell(PdfDocumentStyles.compactIntentionCell(truncate(data.intention(), 160)));
         block.addCell(wrapNoBorder(intention));
 
         // Méta
-        PdfPTable meta = new PdfPTable(new float[]{1.15f, 3.4f});
+        PdfPTable meta = new PdfPTable(new float[]{1.2f, 3.3f});
         meta.setWidthPercentage(100);
         meta.setSpacingAfter(2);
         PdfDocumentStyles.addCompactMetaRow(meta, "Célébration", truncate(data.celebration(), 120));
@@ -224,11 +225,11 @@ public class DemandeReceiptService {
 
         PdfPCell notice = new PdfPCell(new Phrase(
                 data.notice() != null ? data.notice() : "",
-                PdfDocumentStyles.mutedFont()
+                FontFactory.getFont(FontFactory.HELVETICA, 9, new Color(102, 112, 133))
         ));
         notice.setBorder(0);
         notice.setPadding(0);
-        notice.setPaddingTop(1);
+        notice.setPaddingTop(2);
         block.addCell(notice);
 
         return block;
@@ -283,16 +284,16 @@ public class DemandeReceiptService {
 
         PdfPCell labelCell = new PdfPCell(new Phrase(
                 label,
-                FontFactory.getFont(FontFactory.HELVETICA, 7, new Color(102, 112, 133))
+                FontFactory.getFont(FontFactory.HELVETICA, 8, new Color(102, 112, 133))
         ));
         labelCell.setBorder(0);
         labelCell.setPadding(0);
-        labelCell.setPaddingBottom(1);
+        labelCell.setPaddingBottom(2);
         inner.addCell(labelCell);
 
         PdfPCell valueCell = new PdfPCell(new Phrase(
                 value != null && !value.isBlank() ? value : "—",
-                FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, new Color(16, 24, 40))
+                FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11, new Color(16, 24, 40))
         ));
         valueCell.setBorder(0);
         valueCell.setPadding(0);
@@ -302,9 +303,9 @@ public class DemandeReceiptService {
         wrap.setBackgroundColor(new Color(248, 250, 252));
         wrap.setBorderColor(new Color(208, 213, 221));
         wrap.setBorderWidth(0.8f);
-        wrap.setPadding(5);
-        wrap.setPaddingLeft(6);
-        wrap.setPaddingRight(6);
+        wrap.setPadding(6);
+        wrap.setPaddingLeft(7);
+        wrap.setPaddingRight(7);
         return wrap;
     }
 
@@ -414,10 +415,10 @@ public class DemandeReceiptService {
 
     private static String celebrationTime(Demande demande) {
         if (demande.getHeurePersonnalisee() != null) {
-            return demande.getHeurePersonnalisee().toString();
+            return demande.getHeurePersonnalisee().format(TIME_FORMAT);
         }
         return demande.getHoraire() != null && demande.getHoraire().getHeureCelebration() != null
-                ? demande.getHoraire().getHeureCelebration().toString()
+                ? demande.getHoraire().getHeureCelebration().format(TIME_FORMAT)
                 : "—";
     }
 

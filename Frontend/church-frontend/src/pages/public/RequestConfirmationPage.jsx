@@ -44,7 +44,7 @@ export default function RequestConfirmationPage() {
     <div className="stack public-page">
       <PageHeader
         title="Confirmation"
-        subtitle="Votre demande est enregistrée. Copiez et conservez votre numéro de suivi."
+        subtitle="Votre demande est enregistrée. Conservez le code de suivi et le téléphone du dépôt."
       />
       <div className="grid-2">
         <ConfirmationCard result={result} />
@@ -88,6 +88,16 @@ export default function RequestConfirmationPage() {
           ) : (
             <p className="muted">Ouvrez cette page après une création réussie, ou utilisez le lien ci-contre.</p>
           )}
+          {result?.codeSuivie ? (
+            <div className="demande-confirm-tips" role="note" style={{ marginTop: 16 }}>
+              <p style={{ margin: '0 0 6px' }}>
+                <strong>Retrouver vos demandes</strong>
+              </p>
+              <p className="muted" style={{ margin: 0 }}>
+                Code de suivi ci-dessus, ou téléphone du dépôt sur la page Suivi.
+              </p>
+            </div>
+          ) : null}
         </AppCard>
       </div>
     </div>

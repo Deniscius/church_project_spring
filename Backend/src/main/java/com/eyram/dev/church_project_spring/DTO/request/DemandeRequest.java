@@ -14,7 +14,7 @@ import java.util.UUID;
 public record DemandeRequest(
 
         @NotBlank(message = "L'intention est obligatoire")
-        @Size(max = 500, message = "L'intention ne peut pas dépasser 500 caractères")
+        @Size(min = 10, max = 500, message = "L'intention doit contenir entre 10 et 500 caractères")
         String intention,
 
         /** Optionnel : avec prénom vide → défaut « Un(e) chrétien(ne) » si les deux absents. */

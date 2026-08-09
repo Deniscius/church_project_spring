@@ -41,7 +41,8 @@ public class CelebrationController {
         );
     }
 
-    @GetMapping(value = "/paroisse/{paroissePublicId}/feuille.pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+    @GetMapping(value = { "/paroisse/{paroissePublicId}/feuille", "/paroisse/{paroissePublicId}/feuille.pdf" },
+            produces = MediaType.APPLICATION_PDF_VALUE)
     public ResponseEntity<byte[]> downloadFeuille(
             @PathVariable UUID paroissePublicId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,

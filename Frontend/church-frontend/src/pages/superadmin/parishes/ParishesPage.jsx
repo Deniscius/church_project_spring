@@ -7,12 +7,16 @@ import AppCard from '../../../components/ui/AppCard';
 import AppInput from '../../../components/ui/AppInput';
 import AppButton from '../../../components/ui/AppButton';
 import AppDialog from '../../../components/ui/AppDialog';
+import BankNameField from '../../../components/ui/BankNameField';
+import { validateRibTogo } from '../../../utils/ribTogo';
 import { parishService } from '../../../services/parish.service';
 import { deaneryService } from '../../../services/deanery.service';
-import { mapParoisseToTableRow } from '../../../utils/apiMappers';
+import { mapParoisseToTableRow, mapParoisseToTenant } from '../../../utils/apiMappers';
 import { tenantStatusLabel } from '../../../utils/statusMapper';
 import { formatDate } from '../../../utils/formatDate';
 import { getDoyenneFilter, setDoyenneFilter } from '../../../utils/sensitiveNav';
+import { useTenant } from '../../../hooks/useTenant';
+import { useToast } from '../../../contexts/toast.context';
 
 const columns = [
   { key: 'name', label: 'Paroisse' },
@@ -49,6 +53,8 @@ const FILTERS = [
 export default function ParishesPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const toast = useToast();
+  const { setActiveParish } = useTenant();
   const [rows, setRows] = useState([]);
   const [doyennes, setDoyennes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -61,6 +67,7 @@ export default function ParishesPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [filter, setFilter] = useState('ALL');
   const [doyenneFilter, setDoyenneFilterState] = useState(() => getDoyenneFilter());
+  const [search, setSearch] = useState('');
 
   const applyDoyenneFilter = (id) => {
     setDoyenneFilter(id || '');
@@ -125,8 +132,18 @@ export default function ParishesPage() {
     let list = rows;
     if (doyenneFilter) list = list.filter((r) => r.deaneryId === doyenneFilter);
     if (filter !== 'ALL') list = list.filter((r) => r.active === filter);
+    const q = search.trim().toLowerCase();
+    if (q) {
+      list = list.filter((r) => {
+        const hay = [r.name, r.city, r.email, r.phone, r.address]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        return hay.includes(q);
+      });
+    }
     return list;
-  }, [rows, filter, doyenneFilter]);
+  }, [rows, filter, doyenneFilter, search]);
 
   const stats = useMemo(() => {
     const scope = doyenneFilter ? rows.filter((r) => r.deaneryId === doyenneFilter) : rows;
@@ -173,13 +190,24 @@ export default function ParishesPage() {
     try {
       setSaving(true);
       setError(null);
+      const banque = form.nomBanque.trim() || null;
+      let rib = form.ibanOrRib.trim() || null;
+      if (rib) {
+        const ribCheck = validateRibTogo(rib, banque);
+        if (!ribCheck.valid) {
+          setError(ribCheck.message);
+          setSaving(false);
+          return;
+        }
+        rib = ribCheck.normalized;
+      }
       const payload = {
         ...form,
         email: form.email.trim() || null,
         telephone: form.telephone.trim() || null,
-        nomBanque: form.nomBanque.trim() || null,
+        nomBanque: banque,
         titulaireCompte: form.titulaireCompte.trim() || null,
-        ibanOrRib: form.ibanOrRib.trim() || null,
+        ibanOrRib: rib,
       };
       if (editingId) await parishService.update(editingId, payload);
       else await parishService.create(payload);
@@ -211,7 +239,7 @@ export default function ParishesPage() {
     <div className="stack">
       <PageHeader
         title="Paroisses"
-        subtitle="L’annuaire complet de l’archidiocèse, du prospect jamais démarché à la paroisse abonnée."
+        subtitle="Annuaire des tenants. Intervenez uniquement en cas de souci — le quotidien reste à l’équipe locale."
         actions={
           <div className="button-row">
             <Link className="btn btn-secondary" to="/admin/inscriptions-paroisse" style={{ textDecoration: 'none' }}>
@@ -230,6 +258,17 @@ export default function ParishesPage() {
       </div>
 
       <div className="button-row" style={{ flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
+        <label className="muted parish-search-field" style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '1 1 220px' }}>
+          <span className="sr-only">Rechercher un tenant</span>
+          <AppInput
+            id="parish-search"
+            type="search"
+            placeholder="Rechercher (nom, doyenné, email, tél.)…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            aria-label="Rechercher un tenant"
+          />
+        </label>
         <label className="muted" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span>Doyenné</span>
           <select
@@ -331,8 +370,11 @@ export default function ParishesPage() {
               </div>
               <div className="form-field">
                 <label htmlFor="parish-bank">Banque</label>
-                <AppInput id="parish-bank" maxLength={120} value={form.nomBanque}
-                  onChange={(e) => setForm({ ...form, nomBanque: e.target.value })} />
+                <BankNameField
+                  id="parish-bank"
+                  value={form.nomBanque}
+                  onChange={(nomBanque) => setForm({ ...form, nomBanque })}
+                />
               </div>
               <div className="form-field">
                 <label htmlFor="parish-holder">Titulaire</label>
@@ -341,8 +383,30 @@ export default function ParishesPage() {
               </div>
               <div className="form-field full">
                 <label htmlFor="parish-rib">RIB / IBAN</label>
-                <AppInput id="parish-rib" maxLength={80} value={form.ibanOrRib}
-                  onChange={(e) => setForm({ ...form, ibanOrRib: e.target.value })} />
+                <AppInput
+                  id="parish-rib"
+                  maxLength={80}
+                  spellCheck={false}
+                  autoComplete="off"
+                  placeholder="Ex. TG53 TG00 9060 4310 3465 0040 0070"
+                  value={form.ibanOrRib}
+                  onChange={(e) => setForm({ ...form, ibanOrRib: e.target.value })}
+                />
+                {form.ibanOrRib.trim() ? (() => {
+                  const live = validateRibTogo(form.ibanOrRib, form.nomBanque);
+                  return (
+                    <small
+                      role="status"
+                      style={{ color: live.valid ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}
+                    >
+                      {live.message}
+                    </small>
+                  );
+                })() : (
+                  <small className="muted">
+                    IBAN Togo (28 car.) ou RIB domestique (24 car.). Vérifié avec la banque choisie.
+                  </small>
+                )}
               </div>
             </div>
             <div className="button-row" style={{ marginTop: 18 }}>
@@ -357,7 +421,11 @@ export default function ParishesPage() {
 
       {loading ? <p className="muted">Chargement…</p> : null}
       {!loading && visibleRows.length === 0 ? (
-        <div className="card empty-state">Aucune paroisse pour ce filtre.</div>
+        <div className="card empty-state">
+          {search.trim()
+            ? `Aucun tenant ne correspond à « ${search.trim()} ».`
+            : 'Aucune paroisse pour ce filtre.'}
+        </div>
       ) : (
         <AppTable columns={columns} rows={visibleRows} renderCell={(row, column) => {
           if (column.key === 'active') {
@@ -371,6 +439,27 @@ export default function ParishesPage() {
           if (column.key === 'actions') {
             return (
               <div className="button-row">
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={async () => {
+                    try {
+                      const full = await parishService.getById(row.id);
+                      const tenant = mapParoisseToTenant(full);
+                      if (!tenant?.id) {
+                        toast.error('Paroisse introuvable.');
+                        return;
+                      }
+                      setActiveParish(tenant);
+                      toast.success(`Intervention : ${tenant.name}`);
+                      navigate('/admin/dashboard');
+                    } catch (e) {
+                      toast.error(e instanceof Error ? e.message : 'Impossible d’intervenir sur la paroisse');
+                    }
+                  }}
+                >
+                  Intervenir
+                </button>
                 <button type="button" className="btn btn-secondary" onClick={() => openEdit(row)}>Modifier</button>
                 <button
                   type="button"

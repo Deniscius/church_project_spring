@@ -1,10 +1,27 @@
-import React, { useEffect, useState } from 'react';
-import { getApiBaseUrl } from '../../config/apiBaseUrl';
+import React, { useEffect, useMemo, useState } from 'react';
+import { getReceiptPdfUrl, getReceiptPreviewUrl } from '../../utils/receiptPdfUrl';
+import { requestService } from '../../services/request.service';
 import AppButton from './AppButton';
 import PdfPreviewModal from './PdfPreviewModal';
 
+async function blobLooksLikePdf(blob) {
+  if (!(blob instanceof Blob) || blob.size < 5) return false;
+  const head = new Uint8Array(await blob.slice(0, 4).arrayBuffer());
+  return head[0] === 0x25 && head[1] === 0x50 && head[2] === 0x44 && head[3] === 0x46;
+}
+
+function humanizeReceiptError(err) {
+  const raw = err instanceof Error ? err.message : String(err || '');
+  if (/failed to fetch|networkerror|load failed|network request failed/i.test(raw)) {
+    return 'Impossible de charger le reçu (réseau / tunnel). Essayez « Ouvrir dans un onglet ».';
+  }
+  return raw || 'Impossible de charger le reçu.';
+}
+
 /**
- * Bouton « Aperçu du reçu » : charge le PDF en blob, affiche un aperçu, puis téléchargement.
+ * Aperçu reçu :
+ * 1) blob via apiClient (prod cross-origin + CSP)
+ * 2) iframe same-origin /__receipt (dev, prod:share, ngrok) — sans fetch JS
  */
 export default function ReceiptPreviewButton({
   codeSuivie,
@@ -19,48 +36,65 @@ export default function ReceiptPreviewButton({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  const previewUrl = useMemo(() => getReceiptPreviewUrl(codeSuivie), [codeSuivie]);
+  const pdfUrl = useMemo(() => getReceiptPdfUrl(codeSuivie), [codeSuivie]);
+  const fileName = useMemo(
+    () => (codeSuivie ? `recu-${codeSuivie}.pdf` : 'recu.pdf'),
+    [codeSuivie]
+  );
+  const sameOriginPreview = Boolean(
+    previewUrl && (previewUrl.startsWith('/__receipt') || previewUrl.startsWith('/api/'))
+  );
+
   useEffect(() => () => {
     if (blobUrl) URL.revokeObjectURL(blobUrl);
   }, [blobUrl]);
 
-  if (!codeSuivie) return null;
+  if (!codeSuivie || !previewUrl) return null;
 
-  const fileName = `recu-${codeSuivie}.pdf`;
-  const pdfUrl = `${getApiBaseUrl()}/demandes/code/${encodeURIComponent(codeSuivie)}/recu.pdf`;
+  const openInTab = () => {
+    window.open(pdfUrl || previewUrl, '_blank', 'noopener,noreferrer');
+  };
 
   const openPreview = async () => {
+    setOpen(true);
     setLoading(true);
     setError(null);
-    setOpen(true);
     try {
-      const res = await fetch(pdfUrl, { headers: { Accept: 'application/pdf' } });
-      if (!res.ok) {
-        throw new Error('Impossible de charger le reçu PDF.');
+      const blob = await requestService.fetchReceiptPdf(codeSuivie);
+      if (!(await blobLooksLikePdf(blob))) {
+        throw new Error(
+          'Réponse non-PDF (interstitiel ngrok ?). Ouvrez le site via « Visit Site » puis réessayez.'
+        );
       }
-      const blob = await res.blob();
+      const next = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
       if (blobUrl) URL.revokeObjectURL(blobUrl);
-      setBlobUrl(URL.createObjectURL(blob));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Aperçu impossible');
+      setBlobUrl(next);
+    } catch (err) {
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
       setBlobUrl(null);
+      if (sameOriginPreview) {
+        // Iframe du PDF proxy — pas de fetch navigateur.
+        setError(null);
+        return;
+      }
+      setError(humanizeReceiptError(err));
     } finally {
       setLoading(false);
     }
   };
 
   const download = () => {
-    if (!blobUrl) return;
-    const anchor = document.createElement('a');
-    anchor.href = blobUrl;
-    anchor.download = fileName;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-  };
-
-  const close = () => {
-    setOpen(false);
-    setError(null);
+    if (blobUrl) {
+      const anchor = document.createElement('a');
+      anchor.href = blobUrl;
+      anchor.download = fileName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      return;
+    }
+    openInTab();
   };
 
   return (
@@ -85,11 +119,16 @@ export default function ReceiptPreviewButton({
         open={open}
         title="Aperçu du reçu"
         blobUrl={blobUrl}
+        pdfUrl={!blobUrl && !error ? previewUrl : ''}
         fileName={fileName}
         loading={loading}
         error={error}
-        onClose={close}
+        onClose={() => {
+          setOpen(false);
+          setError(null);
+        }}
         onDownload={download}
+        onOpenInTab={openInTab}
       />
     </>
   );

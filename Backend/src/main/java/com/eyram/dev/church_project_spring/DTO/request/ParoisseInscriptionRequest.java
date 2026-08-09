@@ -23,9 +23,12 @@ public record ParoisseInscriptionRequest(
         /** E-mail personnel vérifié par OTP — requis. */
         @NotBlank @Email @Size(max = 150) String adminEmail,
         @Size(max = 50) String adminTelephone,
+        /**
+         * Identifiant annoncé après OTP (doit correspondre à la preuve serveur).
+         * Le mot de passe n'est jamais accepté du client : il est pris depuis {@code otpProof}.
+         */
         @NotBlank @Size(max = 80) String adminUsername,
-        @NotBlank @Size(min = 8, max = 100) String adminPassword,
-        /** Preuve OTP renvoyée par /otp/verifier. */
+        /** Preuve OTP renvoyée par /otp/verifier (porte le mot de passe côté serveur). */
         @NotBlank @Size(max = 80) String otpProof,
         @Size(max = 500) String message,
         @Valid List<MembreRequest> membres

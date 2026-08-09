@@ -11,8 +11,48 @@ import ReceiptPreviewButton from '../ui/ReceiptPreviewButton';
 
 const ONLINE_MODES = new Set(['TMONEY', 'FLOOZ', 'CARTE']);
 
+function FeeBreakdown({ quote, loading }) {
+  if (loading && !quote) {
+    return <p className="muted" style={{ margin: 0 }}>Calcul du total…</p>;
+  }
+  if (!quote) return null;
+
+  return (
+    <div className="payment-fee-breakdown">
+      <div className="info-list">
+        <div className="info-row">
+          <span>Prix de l’intention</span>
+          <span>{formatCurrency(quote.montantFacture)}</span>
+        </div>
+        <div className="info-row">
+          <span>
+            Frais de service
+            {quote.feePercentPlateforme != null ? ` (${quote.feePercentPlateforme}%)` : ''}
+          </span>
+          <span>{formatCurrency(quote.montantFraisPlateforme ?? 0)}</span>
+        </div>
+        <div className="info-row">
+          <span>
+            Frais de paiement
+            {quote.feePercentAgregeateur != null ? ` (${quote.feePercentAgregeateur}%)` : ''}
+          </span>
+          <span>{formatCurrency(quote.montantFraisAgregeateur ?? quote.montantFrais ?? 0)}</span>
+        </div>
+        <div className="info-row info-row-total payment-fee-total">
+          <span>Total à payer</span>
+          <strong>{formatCurrency(quote.montantCharge)}</strong>
+        </div>
+      </div>
+      <p className="muted payment-fee-hint">
+        Ce total inclut les frais. C’est le montant qui sera débité.
+      </p>
+    </div>
+  );
+}
+
 export default function PublicPaymentCard({ demande, onStatusMaybeChanged }) {
   const [quote, setQuote] = useState(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [changingMode, setChangingMode] = useState(false);
   const [error, setError] = useState(null);
@@ -34,7 +74,7 @@ export default function PublicPaymentCard({ demande, onStatusMaybeChanged }) {
     status !== 'PAYE' &&
     demande?.statutDemande !== 'ANNULEE' &&
     demande?.statutDemande !== 'REJETEE';
-  // Si la demande est encore en espèces, ouvrir directement le choix d'un mode en ligne.
+
   useEffect(() => {
     if (!demande || status === 'PAYE') return;
     if (isCash) {
@@ -44,16 +84,32 @@ export default function PublicPaymentCard({ demande, onStatusMaybeChanged }) {
     }
   }, [demande?.codeSuivie, isCash, status]);
 
-  async function loadQuote() {
-    if (!demande?.codeSuivie) return;
-    setError(null);
-    try {
-      const data = await paymentService.quoteByTrackingCode(demande.codeSuivie);
-      setQuote(data);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Impossible de calculer les frais');
+  // Affiche le total TTC dès l’arrivée (mode en ligne).
+  useEffect(() => {
+    if (!canPayOnline || !demande?.codeSuivie) {
+      setQuote(null);
+      return undefined;
     }
-  }
+    let cancelled = false;
+    (async () => {
+      setQuoteLoading(true);
+      setError(null);
+      try {
+        const data = await paymentService.quoteByTrackingCode(demande.codeSuivie);
+        if (!cancelled) setQuote(data);
+      } catch (e) {
+        if (!cancelled) {
+          setQuote(null);
+          setError(e instanceof Error ? e.message : 'Impossible de calculer le total');
+        }
+      } finally {
+        if (!cancelled) setQuoteLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [canPayOnline, demande?.codeSuivie, demande?.modePaiement, demande?.typePaiementPublicId]);
 
   async function startCheckout() {
     if (!demande?.codeSuivie) return;
@@ -73,8 +129,6 @@ export default function PublicPaymentCard({ demande, onStatusMaybeChanged }) {
         montantFraisAgregeateur: data.montantFraisAgregeateur,
         montantFraisPlateforme: data.montantFraisPlateforme,
         montantCharge: data.montantCharge,
-        montantNet: data.montantNetParoisse,
-        montantNetParoisse: data.montantNetParoisse,
         feePercentAgregeateur: data.feePercentAgregeateur,
         feePercentPlateforme: data.feePercentPlateforme,
         feePayer: data.feePayer,
@@ -102,7 +156,7 @@ export default function PublicPaymentCard({ demande, onStatusMaybeChanged }) {
       await requestService.updateTypePaiementByTrackingCode(demande.codeSuivie, pendingModeId);
       setQuote(null);
       setShowModeEditor(false);
-      setInfo('Mode de paiement mis à jour. Vous pouvez payer en ligne.');
+      setInfo('Mode de paiement mis à jour. Le total ci-dessous est recalculé.');
       onStatusMaybeChanged?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Impossible de changer le mode de paiement');
@@ -110,6 +164,10 @@ export default function PublicPaymentCard({ demande, onStatusMaybeChanged }) {
       setChangingMode(false);
     }
   }
+
+  const payLabel = quote?.montantCharge != null
+    ? `Payer ${formatCurrency(quote.montantCharge)}`
+    : 'Payer avec FedaPay';
 
   return (
     <AppCard
@@ -136,29 +194,8 @@ export default function PublicPaymentCard({ demande, onStatusMaybeChanged }) {
             </p>
           ) : null}
 
-          {quote ? (
-            <div className="info-list">
-              <div className="info-row">
-                <span>Prix messe (paroisse)</span>
-                <strong>{formatCurrency(quote.montantFacture)}</strong>
-              </div>
-              <div className="info-row">
-                <span>Frais plateforme{quote.feePercentPlateforme != null ? ` (${quote.feePercentPlateforme}%)` : ''}</span>
-                <span>{formatCurrency(quote.montantFraisPlateforme ?? 0)}</span>
-              </div>
-              <div className="info-row">
-                <span>Frais FedaPay{quote.feePercentAgregeateur != null ? ` (${quote.feePercentAgregeateur}%)` : ''}</span>
-                <span>{formatCurrency(quote.montantFraisAgregeateur ?? quote.montantFrais ?? 0)}</span>
-              </div>
-              <div className="info-row">
-                <span>Total à débiter</span>
-                <strong>{formatCurrency(quote.montantCharge)}</strong>
-              </div>
-              <div className="info-row">
-                <span>Net paroisse</span>
-                <span>{formatCurrency(quote.montantNetParoisse ?? quote.montantNet)}</span>
-              </div>
-            </div>
+          {canPayOnline || (quote && status !== 'PAYE') ? (
+            <FeeBreakdown quote={quote} loading={quoteLoading} />
           ) : null}
 
           {error ? <FormError error={error} errorRef={errorRef} /> : null}
@@ -166,14 +203,9 @@ export default function PublicPaymentCard({ demande, onStatusMaybeChanged }) {
 
           <div className="button-row">
             {canPayOnline ? (
-              <>
-                <AppButton type="button" variant="secondary" onClick={loadQuote} disabled={busy}>
-                  Voir les frais
-                </AppButton>
-                <AppButton type="button" onClick={startCheckout} loading={busy}>
-                  {busy ? 'Redirection…' : 'Payer avec FedaPay'}
-                </AppButton>
-              </>
+              <AppButton type="button" onClick={startCheckout} loading={busy} disabled={quoteLoading}>
+                {busy ? 'Redirection…' : payLabel}
+              </AppButton>
             ) : null}
             {demande?.codeSuivie ? (
               <ReceiptPreviewButton codeSuivie={demande.codeSuivie} />

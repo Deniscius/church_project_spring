@@ -1,0 +1,34 @@
+# Build artifacts & VCS
+target/
+.git/
+.gitignore
+.gitattributes
+.mvn/
+mvnw
+mvnw.cmd
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+.DS_Store
+Thumbs.db
+
+# Secrets & local data (never in image context)
+.env
+.env.*
+!.env.example
+!.env.production.example
+uploads/
+**/uploads/
+
+# Tests & docs (not needed to package the app)
+src/test/
+HELP.md
+*.md
+
+# Docker meta (avoid invalidating cache when only docs change)
+Dockerfile*
+.dockerignore

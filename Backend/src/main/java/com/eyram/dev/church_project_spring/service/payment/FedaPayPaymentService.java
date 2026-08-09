@@ -14,6 +14,7 @@ import com.eyram.dev.church_project_spring.repositories.FactureRepository;
 import com.eyram.dev.church_project_spring.service.accounting.ParishLedgerService;
 import com.eyram.dev.church_project_spring.service.billing.SubscriptionBillingService;
 import com.eyram.dev.church_project_spring.service.payment.fedapay.FedaPayClient;
+import com.eyram.dev.church_project_spring.service.payment.fedapay.FedaPayPhone;
 import com.eyram.dev.church_project_spring.service.payment.fedapay.FedaPayWebhookVerifier;
 import com.eyram.dev.church_project_spring.utils.BusinessCodeGenerator;
 import com.eyram.dev.church_project_spring.utils.exception.BusinessRuleException;
@@ -66,8 +67,11 @@ public class FedaPayPaymentService {
     }
 
     /**
-     * Prépare en base, appelle FedaPay hors transaction (évite de saturer le pool Hikari),
-     * puis persiste l'URL / id transaction dans une seconde transaction courte.
+     * Flux FedaPay conforme :
+     * 1) préparer / réutiliser une session
+     * 2) appels API hors transaction (create + token)
+     * 3) persister l'URL
+     * Confirmation métier = webhook {@code transaction.approved} (ou réconciliation GET).
      */
     public PaymentCheckoutResponse checkout(String codeSuivie) {
         CheckoutPrep prep = transactionTemplate.execute(status -> prepareCheckout(codeSuivie));
@@ -76,6 +80,44 @@ public class FedaPayPaymentService {
         }
         if (prep.earlyResponse() != null) {
             return prep.earlyResponse();
+        }
+
+        // Session existante : le statut réel est chez FedaPay (GET), pas en local seul.
+        if (StringUtils.hasText(prep.reuseTransactionId())) {
+            final String existingTxId = prep.reuseTransactionId();
+            final String existingPaymentUrl = prep.reusePaymentUrl();
+            String remoteStatus = fetchRemoteStatus(existingTxId);
+            if (isApprovedStatus(remoteStatus)) {
+                transactionTemplate.executeWithoutResult(status -> markPaid(existingTxId));
+                return quoteCheckoutSnapshot(codeSuivie, "Paiement déjà confirmé chez FedaPay.");
+            }
+            if (isFailedStatus(remoteStatus)) {
+                transactionTemplate.executeWithoutResult(status -> markFailed(existingTxId));
+                // Nouvelle transaction ci-dessous (prepareCheckout ne réutilise plus EN_ATTENTE).
+                CheckoutPrep afterFail = transactionTemplate.execute(status -> prepareCheckout(codeSuivie));
+                if (afterFail == null) {
+                    throw new BusinessRuleException("Impossible de préparer le paiement");
+                }
+                if (afterFail.earlyResponse() != null) {
+                    return afterFail.earlyResponse();
+                }
+                prep = afterFail;
+            } else {
+                // pending / unknown : réutiliser l'URL ou régénérer le token (pas de double create).
+                if (StringUtils.hasText(existingPaymentUrl)) {
+                    return quoteCheckoutSnapshot(codeSuivie, "Session de paiement déjà ouverte.");
+                }
+                long existingId = Long.parseLong(existingTxId.trim());
+                FedaPayClient.PaymentToken token = fedaPayClient.generateToken(existingId);
+                CheckoutPrep reusePrep = prep;
+                return transactionTemplate.execute(status ->
+                        persistReusedToken(reusePrep, existingId, token)
+                );
+            }
+        }
+
+        if (prep.customer() == null || prep.fees() == null) {
+            throw new BusinessRuleException("Préparation paiement incomplète");
         }
 
         FedaPayClient.CreatedTransaction created = fedaPayClient.createTransaction(
@@ -89,9 +131,54 @@ public class FedaPayPaymentService {
         );
         FedaPayClient.PaymentToken token = fedaPayClient.generateToken(created.id());
 
+        CheckoutPrep createPrep = prep;
         return transactionTemplate.execute(status ->
-                persistCheckout(prep, created, token)
+                persistCheckout(createPrep, created, token)
         );
+    }
+
+    /**
+     * Après callback_url FedaPay : résout le jeton puis synchronise le statut via GET /transactions/:id.
+     * Ne fait pas confiance seule au query param {@code status}.
+     */
+    public Map<String, String> resolveReturnAndReconcile(String returnToken, String providerTransactionId) {
+        String code = paymentReturnTokenService.resolve(returnToken);
+        reconcileByTrackingCode(code, providerTransactionId);
+        Demande demande = requireDemande(code);
+        Map<String, String> out = new LinkedHashMap<>();
+        out.put("codeSuivie", demande.getCodeSuivie());
+        out.put("statutPaiement", demande.getStatutPaiement() != null
+                ? demande.getStatutPaiement().name()
+                : "");
+        return out;
+    }
+
+    /**
+     * Réconciliation explicite (retour navigateur ou polling).
+     */
+    public PaymentCheckoutResponse reconcileByTrackingCode(String codeSuivie, String providerTransactionIdHint) {
+        DetailsPaiement details = transactionTemplate.execute(status -> {
+            Demande demande = requireDemande(codeSuivie);
+            Facture facture = requireFacture(demande);
+            return detailsPaiementRepository
+                    .findByFacturePublicIdAndStatusDelFalse(facture.getPublicId())
+                    .orElse(null);
+        });
+
+        String txId = StringUtils.hasText(providerTransactionIdHint)
+                ? providerTransactionIdHint.trim()
+                : (details != null ? details.getIdTransaction() : null);
+
+        if (StringUtils.hasText(txId)) {
+            String remoteStatus = fetchRemoteStatus(txId);
+            if (isApprovedStatus(remoteStatus)) {
+                transactionTemplate.executeWithoutResult(status -> markPaid(txId));
+            } else if (isFailedStatus(remoteStatus)) {
+                transactionTemplate.executeWithoutResult(status -> markFailed(txId));
+            }
+        }
+
+        return quoteCheckoutSnapshot(codeSuivie, "Statut synchronisé avec FedaPay.");
     }
 
     private CheckoutPrep prepareCheckout(String codeSuivie) {
@@ -125,15 +212,23 @@ public class FedaPayPaymentService {
                 && Boolean.FALSE.equals(existingOpt.get().getStatusDel())
                 && existingOpt.get().getStatutPaiement() == StatutPaiementEnum.EN_ATTENTE
                 && PROVIDER_FEDAPAY.equals(existingOpt.get().getProvider())
-                && StringUtils.hasText(existingOpt.get().getPaymentUrl())
                 && StringUtils.hasText(existingOpt.get().getIdTransaction())) {
             DetailsPaiement pending = existingOpt.get();
-            return CheckoutPrep.done(checkoutResponse(
-                    demande, mode, fees, true,
-                    pending.getPaymentUrl(),
+            // Ne pas renvoyer earlyResponse : laisser checkout() vérifier le statut FedaPay.
+            return new CheckoutPrep(
+                    null,
+                    demande.getCodeSuivie(),
+                    facture.getPublicId(),
+                    pending.getId(),
+                    mode,
+                    fees,
+                    null,
+                    null,
+                    null,
+                    demande.getTelFidele(),
                     pending.getIdTransaction(),
-                    "Session de paiement déjà ouverte."
-            ));
+                    pending.getPaymentUrl()
+            );
         }
 
         Map<String, Object> customer = buildCustomer(demande);
@@ -152,7 +247,9 @@ public class FedaPayPaymentService {
                 customer,
                 metadata,
                 buildCallbackUrl(demande.getCodeSuivie()),
-                demande.getTelFidele()
+                demande.getTelFidele(),
+                null,
+                null
         );
     }
 
@@ -191,6 +288,33 @@ public class FedaPayPaymentService {
         );
     }
 
+    /** Régénère / rafraîchit l'URL de paiement pour une transaction FedaPay déjà créée. */
+    private PaymentCheckoutResponse persistReusedToken(
+            CheckoutPrep prep,
+            long transactionId,
+            FedaPayClient.PaymentToken token
+    ) {
+        Demande demande = requireDemande(prep.codeSuivie());
+        Facture facture = requireFacture(demande);
+        DetailsPaiement details = prep.existingDetailsId() != null
+                ? detailsPaiementRepository.findById(prep.existingDetailsId()).orElse(null)
+                : detailsPaiementRepository.findByFacturePublicId(facture.getPublicId()).orElse(null);
+        if (details == null) {
+            throw new BusinessRuleException("Détails de paiement introuvables pour réutilisation");
+        }
+        details.setPaymentUrl(token.url());
+        details.setIdTransaction(String.valueOf(transactionId));
+        details.setStatutPaiement(StatutPaiementEnum.EN_ATTENTE);
+        details.setStatusDel(false);
+        detailsPaiementRepository.save(details);
+        return checkoutResponse(
+                demande, prep.mode(), prep.fees(), true,
+                token.url(),
+                String.valueOf(transactionId),
+                "Redirection vers FedaPay."
+        );
+    }
+
     private record CheckoutPrep(
             PaymentCheckoutResponse earlyResponse,
             String codeSuivie,
@@ -201,11 +325,66 @@ public class FedaPayPaymentService {
             Map<String, Object> customer,
             Map<String, String> metadata,
             String callbackUrl,
-            String telFidele
+            String telFidele,
+            String reuseTransactionId,
+            String reusePaymentUrl
     ) {
         static CheckoutPrep done(PaymentCheckoutResponse response) {
-            return new CheckoutPrep(response, null, null, null, null, null, null, null, null, null);
+            return new CheckoutPrep(
+                    response, null, null, null, null, null, null, null, null, null, null, null
+            );
         }
+    }
+
+    private PaymentCheckoutResponse quoteCheckoutSnapshot(String codeSuivie, String message) {
+        Demande demande = requireDemande(codeSuivie);
+        Facture facture = requireFacture(demande);
+        ModePaiement mode = resolveMode(demande);
+        PaymentFeeBreakdown fees = feeCalculator.calculate(facture.getMontant(), mode);
+        DetailsPaiement details = detailsPaiementRepository
+                .findByFacturePublicIdAndStatusDelFalse(facture.getPublicId())
+                .orElse(null);
+        boolean online = details != null
+                && PROVIDER_FEDAPAY.equals(details.getProvider())
+                && StringUtils.hasText(details.getPaymentUrl())
+                && demande.getStatutPaiement() != StatutPaiementEnum.PAYE;
+        return checkoutResponse(
+                demande,
+                mode,
+                fees,
+                online,
+                details != null ? details.getPaymentUrl() : null,
+                details != null ? details.getIdTransaction() : null,
+                message
+        );
+    }
+
+    private String fetchRemoteStatus(String transactionId) {
+        try {
+            long id = Long.parseLong(transactionId.trim());
+            JsonNode tx = fedaPayClient.getTransaction(id);
+            return text(tx, "status");
+        } catch (Exception ex) {
+            log.warn("Impossible de lire le statut FedaPay {}: {}", transactionId, ex.getMessage());
+            return null;
+        }
+    }
+
+    private static boolean isApprovedStatus(String status) {
+        if (!StringUtils.hasText(status)) {
+            return false;
+        }
+        String s = status.trim().toLowerCase();
+        return "approved".equals(s) || "transferred".equals(s);
+    }
+
+    private static boolean isFailedStatus(String status) {
+        if (!StringUtils.hasText(status)) {
+            return false;
+        }
+        String s = status.trim().toLowerCase();
+        return "declined".equals(s) || "canceled".equals(s) || "cancelled".equals(s)
+                || "failed".equals(s) || "expired".equals(s);
     }
 
     /**
@@ -238,16 +417,22 @@ public class FedaPayPaymentService {
                 return;
             }
 
-            if ("transaction.approved".equals(name)) {
-                if (!markPaid(String.valueOf(transactionId))) {
-                    subscriptionBillingService.activateFromProviderTransaction(String.valueOf(transactionId));
+            String entityStatus = text(entity, "status");
+            String txKey = String.valueOf(transactionId);
+
+            if ("transaction.approved".equals(name) || isApprovedStatus(entityStatus)) {
+                if (!markPaid(txKey)) {
+                    subscriptionBillingService.activateFromProviderTransaction(txKey);
                 }
-            } else if ("transaction.declined".equals(name) || "transaction.canceled".equals(name)) {
-                if (!markFailed(String.valueOf(transactionId))) {
-                    subscriptionBillingService.markFailedFromProviderTransaction(String.valueOf(transactionId));
+            } else if ("transaction.declined".equals(name)
+                    || "transaction.canceled".equals(name)
+                    || "transaction.cancelled".equals(name)
+                    || isFailedStatus(entityStatus)) {
+                if (!markFailed(txKey)) {
+                    subscriptionBillingService.markFailedFromProviderTransaction(txKey);
                 }
             } else {
-                log.debug("Webhook FedaPay ignoré: {}", name);
+                log.debug("Webhook FedaPay ignoré: {} status={}", name, entityStatus);
             }
         } catch (BusinessRuleException ex) {
             throw ex;
@@ -360,15 +545,24 @@ public class FedaPayPaymentService {
         Map<String, Object> customer = new LinkedHashMap<>();
         customer.put("firstname", blankToDash(demande.getPrenomFidele()));
         customer.put("lastname", blankToDash(demande.getNomFidele()));
+        // FedaPay recommande email + téléphone ; email technique si absent.
         if (StringUtils.hasText(demande.getEmailFidele())) {
             customer.put("email", demande.getEmailFidele().trim());
+        } else if (StringUtils.hasText(demande.getCodeSuivie())) {
+            String safe = demande.getCodeSuivie().replaceAll("[^A-Za-z0-9]", "").toLowerCase();
+            customer.put("email", "fidele+" + safe + "@pay.missanye.local");
         }
-        String phone = normalizePhone(demande.getTelFidele());
-        if (StringUtils.hasText(phone)) {
-            customer.put("phone_number", Map.of(
-                    "number", phone,
-                    "country", properties.getCustomerCountry()
-            ));
+        Map<String, Object> phone = FedaPayPhone.toCustomerPhone(
+                demande.getTelFidele(),
+                properties.getCustomerCountry()
+        );
+        if (phone != null) {
+            customer.put("phone_number", phone);
+        } else if (StringUtils.hasText(demande.getTelFidele())) {
+            log.warn(
+                    "Téléphone fidèle non envoyé à FedaPay (format invalide): code={}",
+                    demande.getCodeSuivie()
+            );
         }
         return customer;
     }
@@ -438,20 +632,5 @@ public class FedaPayPaymentService {
 
     private static String blankToDash(String value) {
         return StringUtils.hasText(value) ? value.trim() : "-";
-    }
-
-    private static String normalizePhone(String raw) {
-        if (!StringUtils.hasText(raw)) {
-            return null;
-        }
-        String digits = raw.replaceAll("[^0-9+]", "");
-        if (digits.startsWith("+228")) {
-            digits = digits.substring(4);
-        } else if (digits.startsWith("00228")) {
-            digits = digits.substring(5);
-        } else if (digits.startsWith("228") && digits.length() > 8) {
-            digits = digits.substring(3);
-        }
-        return digits.replace("+", "");
     }
 }

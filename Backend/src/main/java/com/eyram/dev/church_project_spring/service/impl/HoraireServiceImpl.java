@@ -153,7 +153,8 @@ public class HoraireServiceImpl implements HoraireService {
                     jour != null ? jour.name() : null,
                     jour != null ? jour.getLibelle() : null,
                     horaire.getHeureCelebration(),
-                    horaire.getLibelle()
+                    horaire.getLibelle(),
+                    horaire.getNatureHonoraire() != null ? horaire.getNatureHonoraire().name() : null
             );
 
             byParish.compute(paroisse.getPublicId(), (id, existing) -> {

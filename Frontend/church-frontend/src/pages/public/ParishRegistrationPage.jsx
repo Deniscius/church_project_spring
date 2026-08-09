@@ -68,7 +68,6 @@ const emptyForm = {
   adminTelephoneCountryIso: DEFAULT_PHONE_COUNTRY_ISO,
   adminTelephoneNational: '',
   adminUsername: '',
-  adminPassword: '',
   otpProof: '',
   message: '',
 };
@@ -125,8 +124,6 @@ export default function ParishRegistrationPage() {
   const [otpCode, setOtpCode] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
-  const [credentials, setCredentials] = useState(null);
-  const [copied, setCopied] = useState(false);
   const [mandatCure, setMandatCure] = useState(null);
   const [adminCni, setAdminCni] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -180,10 +177,8 @@ export default function ParishRegistrationPage() {
 
   function resetOtpState() {
     setOtpVerified(false);
-    setCredentials(null);
     setOtpSent(false);
     setOtpCode('');
-    setCopied(false);
   }
 
   function setField(key, value) {
@@ -193,7 +188,6 @@ export default function ParishRegistrationPage() {
       if (resetsOtp) {
         next.otpProof = '';
         next.adminUsername = '';
-        next.adminPassword = '';
       }
       return next;
     });
@@ -253,9 +247,8 @@ export default function ParishRegistrationPage() {
       if (!form.adminEmail.trim()) return 'E-mail personnel requis pour la vérification.';
       const adminPhone = validateOptionalPhone(form.adminTelephoneCountryIso, form.adminTelephoneNational);
       if (!adminPhone.ok) return adminPhone.message;
-      if (!otpVerified || !form.otpProof) return 'Validez d’abord votre e-mail avec le code reçu.';
-      if (!form.adminUsername || !form.adminPassword) {
-        return 'Identifiants non générés — recommencez la vérification e-mail.';
+      if (!otpVerified || !form.otpProof || !form.adminUsername) {
+        return 'Validez d’abord votre e-mail avec le code reçu.';
       }
     }
     if (current === 4) {
@@ -309,30 +302,13 @@ export default function ParishRegistrationPage() {
         ...prev,
         otpProof: res.otpProof,
         adminUsername: res.adminUsername,
-        adminPassword: res.adminPassword,
         adminEmail: res.email || prev.adminEmail,
       }));
-      setCredentials({
-        username: res.adminUsername,
-        password: res.adminPassword,
-      });
       setOtpVerified(true);
-      setCopied(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Code incorrect');
     } finally {
       setOtpBusy(false);
-    }
-  }
-
-  async function copyCredentials() {
-    if (!credentials) return;
-    const text = `Identifiant : ${credentials.username}\nMot de passe : ${credentials.password}`;
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-    } catch {
-      setError('Impossible de copier automatiquement — notez les identifiants à la main.');
     }
   }
 
@@ -369,15 +345,21 @@ export default function ParishRegistrationPage() {
     setError(null);
     try {
       const payload = {
-        ...form,
+        nomParoisse: form.nomParoisse,
+        adresse: form.adresse,
+        email: form.email || '',
         telephone: form.telephone || '',
+        doyennePublicId: form.doyennePublicId,
+        planAbonnement: form.planAbonnement,
+        adminNom: form.adminNom,
+        adminPrenom: form.adminPrenom,
+        adminEmail: form.adminEmail,
         adminTelephone: form.adminTelephone || '',
+        adminUsername: form.adminUsername,
+        otpProof: form.otpProof,
+        message: form.message || '',
         membres: [],
       };
-      delete payload.telephoneCountryIso;
-      delete payload.telephoneNational;
-      delete payload.adminTelephoneCountryIso;
-      delete payload.adminTelephoneNational;
       const res = await inscriptionService.soumettre(payload, mandatCure, adminCni);
       setDone(res);
     } catch (err) {
@@ -759,18 +741,14 @@ export default function ParishRegistrationPage() {
               </div>
             ) : null}
 
-            {otpVerified && credentials ? (
+            {otpVerified ? (
               <AppAlert variant="success">
-                <strong>E-mail vérifié — conservez vos identifiants</strong>
-                <div className="info-list" style={{ marginTop: 10 }}>
-                  <div className="info-row"><span>Identifiant</span><strong>{credentials.username}</strong></div>
-                  <div className="info-row"><span>Mot de passe</span><strong>{credentials.password}</strong></div>
-                </div>
-                <div className="button-row" style={{ marginTop: 12 }}>
-                  <AppButton type="button" variant="secondary" size="sm" onClick={copyCredentials}>
-                    {copied ? 'Copié' : 'Copier les identifiants'}
-                  </AppButton>
-                </div>
+                <strong>E-mail vérifié</strong>
+                <p className="muted text-sm" style={{ marginTop: 8, marginBottom: 0 }}>
+                  Identifiant réservé : <strong>{form.adminUsername}</strong>.
+                  Le mot de passe temporaire a été envoyé uniquement à{' '}
+                  <strong>{form.adminEmail}</strong> — il n’apparaît jamais dans cette page.
+                </p>
               </AppAlert>
             ) : null}
 

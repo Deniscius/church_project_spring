@@ -18,6 +18,7 @@ import com.eyram.dev.church_project_spring.security.TenantAccessService;
 import com.eyram.dev.church_project_spring.service.ParoisseService;
 import com.eyram.dev.church_project_spring.service.ProfessionalEmailService;
 import com.eyram.dev.church_project_spring.service.storage.StoredFileService;
+import com.eyram.dev.church_project_spring.utils.RibTogoValidator;
 import com.eyram.dev.church_project_spring.utils.exception.AlreadyExistException;
 import com.eyram.dev.church_project_spring.utils.exception.BusinessRuleException;
 import com.eyram.dev.church_project_spring.utils.exception.ResourceNotFoundException;
@@ -184,7 +185,7 @@ public class ParoisseServiceImpl implements ParoisseService {
         paroisse.setTelephone(blankToNull(request.telephone()));
         paroisse.setNomBanque(blankToNull(request.nomBanque()));
         paroisse.setTitulaireCompte(blankToNull(request.titulaireCompte()));
-        paroisse.setIbanOrRib(blankToNull(request.ibanOrRib()));
+        paroisse.setIbanOrRib(requireValidRib(request.ibanOrRib(), request.nomBanque()));
 
         return paroisseMapper.modelToDto(paroisseRepository.save(paroisse));
     }
@@ -308,10 +309,27 @@ public class ParoisseServiceImpl implements ParoisseService {
                         "Le nom de banque doit contenir entre 2 et 120 caractères"),
                 normalizeOptional(request.titulaireCompte(), 2, 150,
                         "Le titulaire doit contenir entre 2 et 150 caractères"),
-                normalizeOptional(request.ibanOrRib(), 5, 80,
-                        "Le RIB/IBAN doit contenir entre 5 et 80 caractères"),
+                normalizeOptionalRib(request.ibanOrRib(), request.nomBanque()),
                 request.doyennePublicId()
         );
+    }
+
+    private String normalizeOptionalRib(String raw, String nomBanque) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        return requireValidRib(raw, nomBanque);
+    }
+
+    private String requireValidRib(String raw, String nomBanque) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        RibTogoValidator.Result result = RibTogoValidator.validate(raw, nomBanque);
+        if (!result.valid()) {
+            throw new BusinessRuleException(result.message());
+        }
+        return result.normalized();
     }
 
     private String normalizeRequired(

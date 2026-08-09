@@ -76,8 +76,8 @@ public class ParoisseInscriptionService {
                 request.adminUsername()
         );
 
-        if (userRepository.existsByUsernameIgnoreCaseAndStatusDelFalse(request.adminUsername())
-                || inscriptionRepository.existsByAdminUsernameIgnoreCaseAndStatusDelFalse(request.adminUsername())) {
+        if (userRepository.existsByUsernameIgnoreCaseAndStatusDelFalse(proof.username())
+                || inscriptionRepository.existsByAdminUsernameIgnoreCaseAndStatusDelFalse(proof.username())) {
             throw new AlreadyExistException("Ce nom d'utilisateur est déjà pris");
         }
 
@@ -101,43 +101,49 @@ public class ParoisseInscriptionService {
         String mandatPath = storedFileService.storeInscriptionDocument(mandatCure, "mandat");
         String cniPath = storedFileService.storeInscriptionDocument(adminCni, "cni");
 
-        ParoisseInscription inscription = new ParoisseInscription();
-        inscription.setNomParoisse(request.nomParoisse().trim());
-        inscription.setAdresse(request.adresse().trim());
-        inscription.setEmail(request.email());
-        inscription.setTelephone(request.telephone());
-        inscription.setDoyennePublicId(request.doyennePublicId());
-        inscription.setPlanAbonnement(request.planAbonnement());
-        inscription.setAdminNom(request.adminNom().trim());
-        inscription.setAdminPrenom(request.adminPrenom().trim());
-        inscription.setAdminEmail(proof.email());
-        inscription.setAdminTelephone(request.adminTelephone());
-        inscription.setAdminUsername(proof.username());
-        // Mot de passe issu de la preuve OTP (pas une saisie libre non vérifiée).
-        inscription.setAdminPasswordHash(passwordEncoder.encode(proof.password()));
-        inscription.setMessage(request.message());
-        inscription.setMandatCurePath(mandatPath);
-        inscription.setAdminCniPath(cniPath);
-        inscription.setStatut(StatutInscription.SOUMISE);
-        inscription.setStatusDel(false);
+        try {
+            ParoisseInscription inscription = new ParoisseInscription();
+            inscription.setNomParoisse(request.nomParoisse().trim());
+            inscription.setAdresse(request.adresse().trim());
+            inscription.setEmail(request.email());
+            inscription.setTelephone(request.telephone());
+            inscription.setDoyennePublicId(request.doyennePublicId());
+            inscription.setPlanAbonnement(request.planAbonnement());
+            inscription.setAdminNom(request.adminNom().trim());
+            inscription.setAdminPrenom(request.adminPrenom().trim());
+            inscription.setAdminEmail(proof.email());
+            inscription.setAdminTelephone(request.adminTelephone());
+            inscription.setAdminUsername(proof.username());
+            // Mot de passe uniquement depuis la preuve OTP serveur (jamais du JSON client).
+            inscription.setAdminPasswordHash(passwordEncoder.encode(proof.password()));
+            inscription.setMessage(request.message());
+            inscription.setMandatCurePath(mandatPath);
+            inscription.setAdminCniPath(cniPath);
+            inscription.setStatut(StatutInscription.SOUMISE);
+            inscription.setStatusDel(false);
 
-        if (request.membres() != null) {
-            for (ParoisseInscriptionRequest.MembreRequest m : request.membres()) {
-                ParoisseInscriptionMembre membre = new ParoisseInscriptionMembre();
-                membre.setInscription(inscription);
-                membre.setNom(m.nom().trim());
-                membre.setPrenom(m.prenom().trim());
-                membre.setEmail(m.email());
-                membre.setTelephone(m.telephone());
-                membre.setRoleParoisse(m.roleParoisse());
-                membre.setUsername(m.username());
-                inscription.getMembres().add(membre);
+            if (request.membres() != null) {
+                for (ParoisseInscriptionRequest.MembreRequest m : request.membres()) {
+                    ParoisseInscriptionMembre membre = new ParoisseInscriptionMembre();
+                    membre.setInscription(inscription);
+                    membre.setNom(m.nom().trim());
+                    membre.setPrenom(m.prenom().trim());
+                    membre.setEmail(m.email());
+                    membre.setTelephone(m.telephone());
+                    membre.setRoleParoisse(m.roleParoisse());
+                    membre.setUsername(m.username());
+                    inscription.getMembres().add(membre);
+                }
             }
-        }
 
-        ParoisseInscriptionResponse response = toResponse(inscriptionRepository.save(inscription));
-        inscriptionOtpService.consumeProof(request.otpProof());
-        return response;
+            ParoisseInscriptionResponse response = toResponse(inscriptionRepository.save(inscription));
+            inscriptionOtpService.consumeProof(request.otpProof());
+            return response;
+        } catch (RuntimeException ex) {
+            storedFileService.deleteQuietly(mandatPath);
+            storedFileService.deleteQuietly(cniPath);
+            throw ex;
+        }
     }
 
     /**
@@ -255,7 +261,15 @@ public class ParoisseInscriptionService {
 
         inscription.setStatut(StatutInscription.APPROUVEE);
         inscription.setParoissePublicId(paroisse.getPublicId());
+        // PII : purger scans + hash mdp après création du compte User (déjà hashé dessus).
+        String mandatPath = inscription.getMandatCurePath();
+        String cniPath = inscription.getAdminCniPath();
+        inscription.setMandatCurePath(null);
+        inscription.setAdminCniPath(null);
+        inscription.setAdminPasswordHash(null);
         inscriptionRepository.save(inscription);
+        storedFileService.deleteQuietly(mandatPath);
+        storedFileService.deleteQuietly(cniPath);
 
         Map<String, Object> checkout = subscriptionBillingService.checkout(
                 paroisse.getPublicId(),
@@ -286,7 +300,15 @@ public class ParoisseInscriptionService {
         }
         inscription.setStatut(StatutInscription.REJETEE);
         inscription.setMessage(cleanedMotif);
+        // PII : purger scans + hash mdp après rejet.
+        String mandatPath = inscription.getMandatCurePath();
+        String cniPath = inscription.getAdminCniPath();
+        inscription.setMandatCurePath(null);
+        inscription.setAdminCniPath(null);
+        inscription.setAdminPasswordHash(null);
         ParoisseInscription saved = inscriptionRepository.save(inscription);
+        storedFileService.deleteQuietly(mandatPath);
+        storedFileService.deleteQuietly(cniPath);
         notifyRejection(saved, cleanedMotif);
         return toResponse(saved);
     }

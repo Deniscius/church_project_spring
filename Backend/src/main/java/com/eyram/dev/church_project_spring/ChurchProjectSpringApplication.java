@@ -1,6 +1,7 @@
 package com.eyram.dev.church_project_spring;
 
 import com.eyram.dev.church_project_spring.config.AdminSeedProperties;
+import com.eyram.dev.church_project_spring.config.DatabaseUrlBootstrap;
 import com.eyram.dev.church_project_spring.config.DemandePaymentProperties;
 import com.eyram.dev.church_project_spring.config.FedaPayProperties;
 import com.eyram.dev.church_project_spring.config.JwtProperties;
@@ -38,6 +39,7 @@ public class ChurchProjectSpringApplication {
 
     public static void main(String[] args) {
         LocalDotEnvLoader.loadIfPresent();
+        DatabaseUrlBootstrap.applyIfPresent();
         SpringApplication.run(ChurchProjectSpringApplication.class, args);
     }
 }

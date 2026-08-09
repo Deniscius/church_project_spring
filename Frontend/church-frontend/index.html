@@ -3,8 +3,34 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="light" />
+    <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" content="#1a3a6b" />
+    <!-- Fond de secours avant CSS (thème) -->
+    <style>
+      html, body { margin: 0; min-height: 100%; background: #e8eef6; color: #121a2b; }
+      html[data-theme="dark"], html[data-theme="dark"] body {
+        background: #0b1220; color: #f0f4fa;
+      }
+    </style>
+    <!-- Thème avant paint : évite le flash clair/sombre (préférence système par défaut) -->
+    <script>
+      (function () {
+        try {
+          var key = 'missanye_theme';
+          var pref = localStorage.getItem(key);
+          if (pref !== 'light' && pref !== 'dark' && pref !== 'system') pref = 'system';
+          var dark =
+            pref === 'dark' ||
+            (pref !== 'light' &&
+              window.matchMedia &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches);
+          var resolved = dark ? 'dark' : 'light';
+          document.documentElement.setAttribute('data-theme', resolved);
+          document.documentElement.setAttribute('data-theme-pref', pref);
+          document.documentElement.style.colorScheme = resolved;
+        } catch (e) {}
+      })();
+    </script>
     <meta name="format-detection" content="telephone=no" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -54,8 +80,14 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="preload" as="image" href="/assets/hero-sanctuary.svg" fetchpriority="high" />
+    <!-- Roboto : display=swap + latin-ext (accents FR) — lisibilité / perf SEO -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Source+Sans+3:wght@400;600;700&display=swap"
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,700;1,400&display=swap"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,700;1,400&display=swap"
       rel="stylesheet"
     />
 

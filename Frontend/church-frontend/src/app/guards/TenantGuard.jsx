@@ -31,7 +31,12 @@ export default function TenantGuard() {
     return <Outlet />;
   }
 
-  // Équipe plateforme : charger d'abord le catalogue modèle (contexte de travail).
+  // Super Admin : choisir un tenant depuis l’annuaire avant les écrans paroissiaux.
+  if (user?.isGlobal && user?.role === 'SUPER_ADMIN') {
+    return <Navigate to="/admin/paroisses" replace />;
+  }
+
+  // Comptable plateforme : charger d'abord le catalogue modèle (contexte de travail).
   if (user?.isGlobal) {
     return <Navigate to="/admin/catalogue-modele" replace />;
   }

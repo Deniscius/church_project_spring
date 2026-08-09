@@ -1,27 +1,47 @@
-import React, { useId, useState } from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import AppInput from '../../components/ui/AppInput';
 import AppButton from '../../components/ui/AppButton';
+import FormError from '../../components/ui/FormError';
 import { useAuth } from '../../hooks/useAuth';
+import { useToast } from '../../contexts/toast.context';
+import { useScrollToError } from '../../hooks/useScrollToError';
+import {
+  normalizeFormErrors,
+  sanitizeAuthPasswordEdges,
+  sanitizeAuthUsernameInput,
+} from '../../utils/formErrors';
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const toast = useToast();
   const { loginMultiTenant } = useAuth();
-  const errorId = useId();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const resetOk = Boolean(location.state?.resetOk);
+  const errorRef = useScrollToError(error);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    const cleanUser = sanitizeAuthUsernameInput(username);
+    const cleanPass = sanitizeAuthPasswordEdges(password);
+    setUsername(cleanUser);
+    setPassword(cleanPass);
+    if (!cleanUser || !cleanPass) {
+      const msg = 'Identifiant et mot de passe sont obligatoires.';
+      setError(msg);
+      toast.error(msg);
+      return;
+    }
     setLoading(true);
     try {
-      const { user } = await loginMultiTenant({ username: username.trim(), password });
+      const { user } = await loginMultiTenant({ username: cleanUser, password: cleanPass });
+      toast.success('Connexion réussie.');
       let home = '/admin/dashboard';
       if (user?.isGlobal === true && user?.role === 'COMPTABLE') {
         home = '/admin/inscriptions-paroisse';
@@ -30,7 +50,9 @@ export default function LoginPage() {
       }
       navigate(home, { replace: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Connexion impossible');
+      const messages = normalizeFormErrors(err);
+      setError(messages.join(' ; '));
+      toast.error(messages.length === 1 ? messages[0] : `${messages.length} erreurs`);
     } finally {
       setLoading(false);
     }
@@ -39,8 +61,9 @@ export default function LoginPage() {
   return (
     <form className="auth-form" onSubmit={handleSubmit} noValidate>
       <header className="auth-form-header">
-        <h1>Espace paroisse</h1>
-        <p>Connectez-vous avec les identifiants fournis par votre paroisse ou l’équipe plateforme.</p>
+        <p className="auth-form-kicker">Espace paroisse</p>
+        <h1>Connexion</h1>
+        <p>Accédez à la gestion des demandes, horaires et finances.</p>
       </header>
 
       {resetOk ? (
@@ -49,14 +72,10 @@ export default function LoginPage() {
         </p>
       ) : null}
 
-      {error ? (
-        <p id={errorId} className="auth-form-error" role="alert">
-          {error}
-        </p>
-      ) : null}
+      <FormError error={error} errorRef={errorRef} title="Connexion impossible" />
 
       <div className="form-field">
-        <label htmlFor="login-username">Identifiant ou e-mail professionnel</label>
+        <label htmlFor="login-username">Identifiant ou e-mail</label>
         <AppInput
           id="login-username"
           name="username"
@@ -65,56 +84,59 @@ export default function LoginPage() {
           autoCorrect="off"
           spellCheck={false}
           value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          placeholder="ex. jean.dupont ou jean.dupont@missanye.com"
+          onChange={(e) => setUsername(sanitizeAuthUsernameInput(e.target.value))}
+          onBlur={() => setUsername((v) => sanitizeAuthUsernameInput(v))}
+          placeholder="ex. admin.saint-joseph"
           required
           disabled={loading}
           aria-invalid={error ? true : undefined}
-          aria-describedby={error ? errorId : undefined}
         />
       </div>
 
       <div className="form-field">
-        <div className="auth-label-row">
-          <label htmlFor="login-password">Mot de passe</label>
-          <div className="auth-label-actions">
-            <Link to="/admin/forgot-password" className="auth-text-link">
-              Mot de passe oublié ?
-            </Link>
-            <button
-              type="button"
-              className="auth-text-btn"
-              onClick={() => setShowPassword((v) => !v)}
-              aria-pressed={showPassword}
-            >
-              {showPassword ? 'Masquer' : 'Afficher'}
-            </button>
-          </div>
+        <label htmlFor="login-password">Mot de passe</label>
+        <div className="auth-password-field">
+          <AppInput
+            id="login-password"
+            name="password"
+            className="auth-password-input"
+            type={showPassword ? 'text' : 'password'}
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onBlur={() => setPassword((v) => sanitizeAuthPasswordEdges(v))}
+            placeholder="Votre mot de passe"
+            required
+            disabled={loading}
+            aria-invalid={error ? true : undefined}
+          />
+          <button
+            type="button"
+            className="auth-password-toggle"
+            onClick={() => setShowPassword((v) => !v)}
+            aria-pressed={showPassword}
+            aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+            disabled={loading}
+          >
+            {showPassword ? 'Masquer' : 'Voir'}
+          </button>
         </div>
-        <AppInput
-          id="login-password"
-          name="password"
-          type={showPassword ? 'text' : 'password'}
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="••••••••"
-          required
-          disabled={loading}
-          aria-invalid={error ? true : undefined}
-          aria-describedby={error ? errorId : undefined}
-        />
+        <div className="auth-field-meta">
+          <Link to="/admin/forgot-password" className="auth-text-link">
+            Mot de passe oublié ?
+          </Link>
+        </div>
       </div>
 
       <AppButton type="submit" className="auth-submit" disabled={loading} loading={loading}>
         {loading ? 'Connexion…' : 'Se connecter'}
       </AppButton>
 
-      <p className="auth-form-links">
-        <Link to="/">Retour à l’accueil</Link>
-        <span aria-hidden="true">·</span>
+      <nav className="auth-form-links" aria-label="Autres actions">
+        <Link to="/">Accueil public</Link>
+        <span className="auth-form-links-sep" aria-hidden="true" />
         <Link to="/inscription-paroisse">Inscrire une paroisse</Link>
-      </p>
+      </nav>
     </form>
   );
 }

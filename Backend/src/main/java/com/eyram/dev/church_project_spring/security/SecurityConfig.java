@@ -76,9 +76,12 @@ public class SecurityConfig {
             CorsConfigurationSource corsConfigurationSource,
             DaoAuthenticationProvider authenticationProvider,
             AuthTokenFilter authTokenFilter,
-            PublicRateLimitFilter publicRateLimitFilter) throws Exception {
+            PublicRateLimitFilter publicRateLimitFilter,
+            CookieAuthMutationGuardFilter cookieAuthMutationGuardFilter) throws Exception {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
+                // CSRF Spring désactivé : SPA + cookie. Mitigé par SameSite=Lax (prod)
+                // + CookieAuthMutationGuardFilter (X-Requested-With) + CORS allowlist.
                 .csrf(AbstractHttpConfigurer::disable)
                 // Empêche la popup navigateur « Se connecter » (WWW-Authenticate: Basic).
                 .httpBasic(AbstractHttpConfigurer::disable)
@@ -94,7 +97,9 @@ public class SecurityConfig {
                             "camera=(), microphone=(), geolocation=()"
                     ));
                     headers.contentSecurityPolicy(csp -> csp.policyDirectives(
-                            "frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+                            // 'self' : aperçu PDF en iframe same-origin (proxy Vite / ngrok).
+                            // Les origines cross-site restent bloquées ; le front prod utilise un blob.
+                            "frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
                     ));
                     headers.httpStrictTransportSecurity(hsts -> hsts
                             .includeSubDomains(true)
@@ -112,7 +117,9 @@ public class SecurityConfig {
                         // Swagger : jamais en production (même si springdoc était réactivé par erreur).
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html")
                         .access(swaggerAccess())
-                        .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/prometheus").permitAll()
+                        // Santé publique uniquement — Prometheus authentifié (SUPER_ADMIN)
+                        .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        .requestMatchers("/actuator/**").hasRole("SUPER_ADMIN")
                         .requestMatchers("/error", "/login", "/login.html", "/health-ui", "/health.html", "/assets/**", "/").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
@@ -127,6 +134,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/paiements/quote/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/paiements/checkout/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/paiements/retour/resoudre").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/paiements/reconcile/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/webhooks/fedapay").permitAll()
 
                         // Catalogue public : DTO slim uniquement (pas de RIB sur /paroisses)
@@ -139,6 +147,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/horaires/public/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/type-paiement", "/type-paiement/*").permitAll()
                         .requestMatchers(HttpMethod.POST, "/demandes/suivi/par-telephone").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/demandes/suivi/par-telephone/verifier").permitAll()
                         // Dates par demandePublicId : trop permissif — retiré du permitAll
 
                         // Gestion des utilisateurs : aucun rôle métier inférieur ne doit accéder aux routes admin.
@@ -222,6 +231,7 @@ public class SecurityConfig {
                 )
                 .authenticationProvider(authenticationProvider)
                 .addFilterBefore(publicRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(cookieAuthMutationGuardFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(authTokenFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

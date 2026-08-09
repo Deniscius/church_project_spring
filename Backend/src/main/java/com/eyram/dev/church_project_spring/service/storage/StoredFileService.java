@@ -12,18 +12,16 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 
 /**
  * Stockage local sécurisé : chemins relatifs sous {@code app.storage.root},
- * validation MIME / taille, noms de fichiers opaques.
+ * validation MIME réelle (magic bytes), optimisation logos, noms opaques.
  */
 @Service
 @RequiredArgsConstructor
@@ -55,13 +53,36 @@ public class StoredFileService {
     }
 
     public String storeInscriptionDocument(MultipartFile file, String kind) {
-        validateDocument(file);
-        return store(file, "inscriptions/" + sanitizeKind(kind));
+        byte[] bytes = readBytes(file);
+        validateDocument(file, bytes);
+        String sniffed = sniffContentType(bytes);
+        if (!DOCUMENT_CONTENT_TYPES.contains(sniffed) && !"image/jpg".equals(sniffed)) {
+            throw new BusinessRuleException(
+                    "Documents acceptés : PDF, JPEG ou PNG (scan du mandat / de la pièce d'identité)"
+            );
+        }
+        String extension = extensionForContentType(sniffed);
+        return storeBytes(bytes, "inscriptions/" + sanitizeKind(kind), extension);
     }
 
     public String storeParishLogo(MultipartFile file, UUID paroissePublicId) {
-        validateLogo(file);
-        return store(file, "logos/" + paroissePublicId);
+        byte[] bytes = readBytes(file);
+        validateLogo(file, bytes);
+        String sniffed = sniffContentType(bytes);
+        if (!LOGO_CONTENT_TYPES.contains(sniffed) && !"image/jpg".equals(sniffed)) {
+            throw new BusinessRuleException("Logo accepté : JPEG, PNG ou WebP");
+        }
+        ImageOptimizer.OptimizedImage optimized = ImageOptimizer.optimizeLogo(
+                bytes,
+                sniffed,
+                storageProperties.getLogoMaxSidePx(),
+                storageProperties.getLogoJpegQuality()
+        );
+        return storeBytes(
+                optimized.bytes(),
+                "logos/" + paroissePublicId,
+                optimized.extension()
+        );
     }
 
     public void deleteQuietly(String relativePath) {
@@ -95,11 +116,20 @@ public class StoredFileService {
 
     public String detectContentType(String relativePath) {
         try {
-            String probed = Files.probeContentType(resolveSafe(relativePath));
+            Path file = resolveSafe(relativePath);
+            byte[] header;
+            try (var in = Files.newInputStream(file)) {
+                header = in.readNBytes(16);
+            }
+            String sniffed = sniffContentType(header);
+            if (StringUtils.hasText(sniffed)) {
+                return sniffed.equals("image/jpg") ? MediaType.IMAGE_JPEG_VALUE : sniffed;
+            }
+            String probed = Files.probeContentType(file);
             if (StringUtils.hasText(probed)) {
                 return probed;
             }
-        } catch (IOException ignored) {
+        } catch (IOException | BusinessRuleException ignored) {
             // fallback below
         }
         String lower = relativePath.toLowerCase(Locale.ROOT);
@@ -118,11 +148,7 @@ public class StoredFileService {
         return MediaType.APPLICATION_OCTET_STREAM_VALUE;
     }
 
-    private String store(MultipartFile file, String subdir) {
-        String original = StringUtils.cleanPath(
-                file.getOriginalFilename() == null ? "file" : file.getOriginalFilename()
-        );
-        String extension = extensionOf(original, file.getContentType());
+    private String storeBytes(byte[] bytes, String subdir, String extension) {
         String filename = UUID.randomUUID() + extension;
         try {
             Path dir = root.resolve(subdir).normalize();
@@ -131,9 +157,7 @@ public class StoredFileService {
             if (!target.startsWith(root)) {
                 throw new BusinessRuleException("Chemin de stockage invalide");
             }
-            try (InputStream in = file.getInputStream()) {
-                Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
-            }
+            Files.write(target, bytes);
             return root.relativize(target).toString().replace('\\', '/');
         } catch (IOException e) {
             throw new BusinessRuleException("Impossible d'enregistrer le fichier");
@@ -151,98 +175,89 @@ public class StoredFileService {
         return resolved;
     }
 
-    private void validateDocument(MultipartFile file) {
-        validateCommon(file);
-        String contentType = normalizeContentType(file.getContentType());
-        if (!DOCUMENT_CONTENT_TYPES.contains(contentType)) {
+    private void validateDocument(MultipartFile file, byte[] bytes) {
+        validateCommon(file, bytes.length, storageProperties.getMaxFileBytes());
+        String declared = normalizeContentType(file.getContentType());
+        if (StringUtils.hasText(declared)
+                && !declared.equals(MediaType.APPLICATION_OCTET_STREAM_VALUE)
+                && !DOCUMENT_CONTENT_TYPES.contains(declared)) {
             throw new BusinessRuleException(
                     "Documents acceptés : PDF, JPEG ou PNG (scan du mandat / de la pièce d'identité)"
             );
         }
     }
 
-    private void validateLogo(MultipartFile file) {
-        validateCommon(file);
-        String contentType = resolveLogoContentType(file);
-        if (!LOGO_CONTENT_TYPES.contains(contentType)) {
-            throw new BusinessRuleException("Logo accepté : JPEG, PNG ou WebP");
+    private void validateLogo(MultipartFile file, byte[] bytes) {
+        validateCommon(file, bytes.length, storageProperties.getMaxLogoBytes());
+        String declared = normalizeContentType(file.getContentType());
+        if (StringUtils.hasText(declared)
+                && !declared.equals(MediaType.APPLICATION_OCTET_STREAM_VALUE)
+                && !LOGO_CONTENT_TYPES.contains(declared)) {
+            // Certains OS envoient un MIME incorrect : on laisse le sniff décider.
+            String sniffed = sniffContentType(bytes);
+            if (!LOGO_CONTENT_TYPES.contains(sniffed) && !"image/jpg".equals(sniffed)) {
+                throw new BusinessRuleException("Logo accepté : JPEG, PNG ou WebP");
+            }
         }
     }
 
-    /**
-     * Certains navigateurs / OS envoient {@code application/octet-stream} ou aucun MIME.
-     * On s'appuie alors sur l'extension, puis sur la signature binaire du fichier.
-     */
-    private String resolveLogoContentType(MultipartFile file) {
-        String contentType = normalizeContentType(file.getContentType());
-        if (LOGO_CONTENT_TYPES.contains(contentType)) {
-            return contentType;
-        }
-        if (StringUtils.hasText(contentType)
-                && !contentType.equals(MediaType.APPLICATION_OCTET_STREAM_VALUE)) {
-            return contentType;
-        }
-
-        String original = file.getOriginalFilename() == null ? "" : file.getOriginalFilename();
-        String lower = original.toLowerCase(Locale.ROOT);
-        if (lower.endsWith(".png")) {
-            return MediaType.IMAGE_PNG_VALUE;
-        }
-        if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) {
-            return MediaType.IMAGE_JPEG_VALUE;
-        }
-        if (lower.endsWith(".webp")) {
-            return "image/webp";
-        }
-
-        return sniffImageContentType(file);
-    }
-
-    private static String sniffImageContentType(MultipartFile file) {
-        try (InputStream in = file.getInputStream()) {
-            byte[] header = in.readNBytes(12);
-            if (header.length >= 3
-                    && (header[0] & 0xFF) == 0xFF
-                    && (header[1] & 0xFF) == 0xD8
-                    && (header[2] & 0xFF) == 0xFF) {
-                return MediaType.IMAGE_JPEG_VALUE;
-            }
-            if (header.length >= 8
-                    && header[0] == (byte) 0x89
-                    && header[1] == 0x50
-                    && header[2] == 0x4E
-                    && header[3] == 0x47) {
-                return MediaType.IMAGE_PNG_VALUE;
-            }
-            if (header.length >= 12
-                    && header[0] == 'R'
-                    && header[1] == 'I'
-                    && header[2] == 'F'
-                    && header[3] == 'F'
-                    && header[8] == 'W'
-                    && header[9] == 'E'
-                    && header[10] == 'B'
-                    && header[11] == 'P') {
-                return "image/webp";
-            }
-        } catch (IOException ignored) {
-            // fall through
-        }
-        return "";
-    }
-
-    private void validateCommon(MultipartFile file) {
-        if (file == null || file.isEmpty()) {
+    private void validateCommon(MultipartFile file, long size, long maxBytes) {
+        if (file == null || file.isEmpty() || size <= 0) {
             throw new BusinessRuleException("Fichier obligatoire");
         }
-        if (file.getSize() > storageProperties.getMaxFileBytes()) {
-            long mb = storageProperties.getMaxFileBytes() / (1024 * 1024);
+        if (size > maxBytes) {
+            long mb = Math.max(1, maxBytes / (1024 * 1024));
             throw new BusinessRuleException("Fichier trop volumineux (max " + mb + " Mo)");
         }
         String name = file.getOriginalFilename();
         if (name != null && (name.contains("..") || name.contains("/") || name.contains("\\"))) {
             throw new BusinessRuleException("Nom de fichier invalide");
         }
+    }
+
+    private static byte[] readBytes(MultipartFile file) {
+        try {
+            return file.getBytes();
+        } catch (IOException e) {
+            throw new BusinessRuleException("Impossible de lire le fichier");
+        }
+    }
+
+    /**
+     * Détection réelle du type (PDF / JPEG / PNG / WebP) via signature binaire.
+     */
+    static String sniffContentType(byte[] header) {
+        if (header == null || header.length < 4) {
+            return "";
+        }
+        if (header[0] == '%' && header[1] == 'P' && header[2] == 'D' && header[3] == 'F') {
+            return MediaType.APPLICATION_PDF_VALUE;
+        }
+        if (header.length >= 3
+                && (header[0] & 0xFF) == 0xFF
+                && (header[1] & 0xFF) == 0xD8
+                && (header[2] & 0xFF) == 0xFF) {
+            return MediaType.IMAGE_JPEG_VALUE;
+        }
+        if (header.length >= 8
+                && header[0] == (byte) 0x89
+                && header[1] == 0x50
+                && header[2] == 0x4E
+                && header[3] == 0x47) {
+            return MediaType.IMAGE_PNG_VALUE;
+        }
+        if (header.length >= 12
+                && header[0] == 'R'
+                && header[1] == 'I'
+                && header[2] == 'F'
+                && header[3] == 'F'
+                && header[8] == 'W'
+                && header[9] == 'E'
+                && header[10] == 'B'
+                && header[11] == 'P') {
+            return "image/webp";
+        }
+        return "";
     }
 
     private static String normalizeContentType(String contentType) {
@@ -259,16 +274,8 @@ public class StoredFileService {
         return kind.replaceAll("[^a-zA-Z0-9_-]", "").toLowerCase(Locale.ROOT);
     }
 
-    private static String extensionOf(String filename, String contentType) {
-        int dot = filename.lastIndexOf('.');
-        if (dot >= 0 && dot < filename.length() - 1) {
-            String ext = filename.substring(dot).toLowerCase(Locale.ROOT);
-            if (ext.matches("\\.(pdf|jpe?g|png|webp)")) {
-                return ext.equals(".jpeg") ? ".jpg" : ext;
-            }
-        }
-        String ct = normalizeContentType(contentType);
-        return switch (ct) {
+    private static String extensionForContentType(String contentType) {
+        return switch (normalizeContentType(contentType)) {
             case MediaType.APPLICATION_PDF_VALUE -> ".pdf";
             case MediaType.IMAGE_PNG_VALUE -> ".png";
             case "image/webp" -> ".webp";

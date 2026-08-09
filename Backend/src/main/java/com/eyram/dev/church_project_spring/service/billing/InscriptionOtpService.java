@@ -1,5 +1,6 @@
 package com.eyram.dev.church_project_spring.service.billing;
 
+import com.eyram.dev.church_project_spring.DTO.response.InscriptionOtpVerifyResponse;
 import com.eyram.dev.church_project_spring.repositories.ParoisseInscriptionRepository;
 import com.eyram.dev.church_project_spring.repositories.UserRepository;
 import com.eyram.dev.church_project_spring.service.ProfessionalEmailService;
@@ -20,8 +21,9 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * OTP e-mail personnel pour l'inscription admin paroisse, puis génération
- * d'identifiants communiqués une fois le code validé.
+ * OTP e-mail personnel pour l'inscription admin paroisse.
+ * Après validation : preuve opaque ({@code otpProof}) + identifiant en JSON ;
+ * le mot de passe n'est jamais renvoyé au client (e-mail uniquement).
  */
 @Slf4j
 @Service
@@ -46,7 +48,7 @@ public class InscriptionOtpService {
         String code = String.format("%06d", random.nextInt(1_000_000));
         otps.put(email, new OtpEntry(code, Instant.now().plusSeconds(OTP_TTL_SECONDS), 0));
 
-        mailService.sendTextAsync(
+        mailService.sendText(
                 email,
                 "Code de vérification — Missanye",
                 """
@@ -67,7 +69,7 @@ public class InscriptionOtpService {
         );
     }
 
-    public Map<String, Object> verifyOtp(
+    public InscriptionOtpVerifyResponse verifyOtp(
             String emailRaw,
             String codeRaw,
             String prenom,
@@ -94,9 +96,10 @@ public class InscriptionOtpService {
         String username = uniqueUsername(prenom, nom, nomParoisse);
         String password = generatePassword();
         String proof = UUID.randomUUID().toString();
+        // Mot de passe uniquement en mémoire serveur + e-mail — jamais dans la réponse HTTP.
         proofs.put(proof, new ProofEntry(email, username, password, Instant.now().plusSeconds(PROOF_TTL_SECONDS)));
 
-        mailService.sendTextAsync(
+        mailService.sendText(
                 email,
                 "Vos identifiants — Missanye",
                 """
@@ -107,7 +110,8 @@ public class InscriptionOtpService {
                         Identifiant : %s
                         Mot de passe temporaire : %s
 
-                        Conservez-les précieusement. Après validation de votre dossier et activation de l'abonnement, vous pourrez aussi vous connecter avec votre e-mail professionnel paroisse (généré automatiquement).
+                        Ce mot de passe n'apparaît que dans cet e-mail (jamais dans l'application web).
+                        Conservez-le précieusement. Après validation de votre dossier et activation de l'abonnement, vous pourrez aussi vous connecter avec votre e-mail professionnel paroisse (généré automatiquement).
 
                         — Missanye · www.missanye.com
                         """.formatted(
@@ -118,13 +122,12 @@ public class InscriptionOtpService {
                 )
         );
 
-        return Map.of(
-                "email", email,
-                "otpProof", proof,
-                "adminUsername", username,
-                "adminPassword", password,
-                "expiresInSeconds", PROOF_TTL_SECONDS,
-                "message", "E-mail vérifié. Identifiants générés et envoyés à votre adresse personnelle."
+        return new InscriptionOtpVerifyResponse(
+                email,
+                proof,
+                username,
+                PROOF_TTL_SECONDS,
+                "E-mail vérifié. Le mot de passe temporaire a été envoyé uniquement à votre adresse personnelle."
         );
     }
 

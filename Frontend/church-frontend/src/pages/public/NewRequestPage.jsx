@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useMutation } from '@tanstack/react-query';
 import PageHeader from '../../components/ui/PageHeader';
 import FormStepper from '../../components/ui/FormStepper';
 import FormError from '../../components/ui/FormError';
@@ -9,20 +10,30 @@ import RequestSummaryCard from '../../components/public/RequestSummaryCard';
 import ScheduleSelector from '../../components/public/ScheduleSelector';
 import DatesSelector from '../../components/public/DatesSelector';
 import PaymentTypeSelector from '../../components/public/PaymentTypeSelector';
+import DemandeUserGuide from '../../components/public/DemandeUserGuide';
+import TrackingSuccessDialog from '../../components/public/TrackingSuccessDialog';
 import AppButton from '../../components/ui/AppButton';
 import { usePublicDemandeDraft } from '../../contexts/publicDemandeDraft.context';
 import { useToast } from '../../contexts/toast.context';
 import { useScrollToError } from '../../hooks/useScrollToError';
-import { validatePublicDemandeStep } from '../../utils/publicDemandeValidation';
-import { isMultiCelebrationForfait } from '../../constants/enums';
+import {
+  buildDemandeRequestBody,
+  persistDemandeCreationResult,
+  validatePublicDemandeDraft,
+  validatePublicDemandeStep,
+} from '../../utils/publicDemandeValidation';
+import { isMultiCelebrationForfait, WEEK_DAY_LABELS } from '../../constants/enums';
 import { formatCurrency } from '../../utils/formatCurrency';
 import { useHorairesByParishQuery, useParoissesPublicQuery } from '../../hooks/queries/usePublicReferentiel';
 import { formatTime } from '../../utils/formatTime';
+import { formatDateShort } from '../../utils/formatDate';
+import { suggestCelebrationDateFromWeekday } from '../../utils/demandePrefill';
+import { requestService } from '../../services/request.service';
+import { normalizeFormErrors } from '../../utils/formErrors';
 
 const STEPS = [
   { id: 'identity', label: 'Intention' },
-  { id: 'parish', label: 'Paroisse' },
-  { id: 'schedule', label: 'Date' },
+  { id: 'place', label: 'Lieu & date' },
   { id: 'payment', label: 'Paiement' },
 ];
 
@@ -34,6 +45,7 @@ export default function NewRequestPage() {
   const multi = isMultiCelebrationForfait(draft.forfaitNombreCelebration);
   const [step, setStep] = useState(1);
   const [errors, setErrors] = useState([]);
+  const [successResult, setSuccessResult] = useState(null);
   const errorRef = useScrollToError(errors.length ? errors.join('|') : null);
   const urlPrefillDone = useRef(false);
 
@@ -44,7 +56,7 @@ export default function NewRequestPage() {
     urlParoisse || draft.paroissePublicId || undefined
   );
 
-  // Deep-link /demande?paroisse=&horaire= (et rattrapage si sessionStorage vide).
+  // Deep-link /demande?paroisse=&horaire= (et rattrapage si sessionStorage incomplet).
   useEffect(() => {
     if (urlPrefillDone.current) return;
     const paroisseId = urlParoisse || draft.paroissePublicId;
@@ -78,7 +90,20 @@ export default function NewRequestPage() {
         slot.libelle,
       ].filter(Boolean).join(' · ');
       next.horaireHeureCelebration = formatTime(slot.heureCelebration) || '';
-      next.horaireJourSemaine = slot.jourSemaine || '';
+      next.horaireJourSemaine = slot.jourSemaine || draft.horaireJourSemaine || '';
+      next.prefillNatureHonoraire = slot.natureHonoraire || draft.prefillNatureHonoraire || '';
+      next.prefillFromSchedule = true;
+      if (!draft.dateDebut && next.horaireJourSemaine) {
+        next.dateDebut = suggestCelebrationDateFromWeekday(
+          next.horaireJourSemaine,
+          draft.typeDemandeDelaiMinimumHeures ?? 24
+        );
+      }
+    } else if (draft.prefillFromSchedule && !draft.dateDebut && draft.horaireJourSemaine) {
+      next.dateDebut = suggestCelebrationDateFromWeekday(
+        draft.horaireJourSemaine,
+        draft.typeDemandeDelaiMinimumHeures ?? 24
+      );
     }
 
     patch(next);
@@ -94,11 +119,55 @@ export default function NewRequestPage() {
     draft.horairePublicId,
     draft.paroisseNom,
     draft.horaireLibelle,
+    draft.horaireJourSemaine,
+    draft.dateDebut,
+    draft.prefillFromSchedule,
+    draft.prefillNatureHonoraire,
+    draft.typeDemandeDelaiMinimumHeures,
     patch,
     setSearchParams,
   ]);
 
+  const goToConfirmation = (result) => {
+    reset();
+    navigate('/demande/confirmation', { replace: true, state: result });
+  };
+
+  const mutation = useMutation({
+    mutationFn: (body) => requestService.create(body),
+    onSuccess: (data) => {
+      const result = {
+        codeSuivie: data.codeSuivie,
+        statutDemande: data.statutDemande,
+        statutPaiement: data.statutPaiement,
+        statutValidation: data.statutValidation,
+        refFacture: data.refFacture,
+        montant: data.montant,
+      };
+      persistDemandeCreationResult(result);
+      setSuccessResult(result);
+      toast.success('Demande enregistrée. Conservez votre code de suivi.');
+    },
+    onError: (err) => {
+      const messages = normalizeFormErrors(err);
+      setErrors(messages);
+      toast.error(messages.length === 1 ? messages[0] : `${messages.length} points à corriger.`);
+    },
+  });
+
+  const submitDemande = () => {
+    const { ok, errors: v } = validatePublicDemandeDraft(draft);
+    if (!ok) {
+      setErrors(v);
+      toast.error(v.length === 1 ? v[0] : `${v.length} points à corriger avant envoi.`);
+      return;
+    }
+    setErrors([]);
+    mutation.mutate(buildDemandeRequestBody(draft));
+  };
+
   const goNext = () => {
+    if (mutation.isPending || successResult) return;
     const { ok, errors: v } = validatePublicDemandeStep(step, draft);
     if (!ok) {
       setErrors(v);
@@ -111,19 +180,22 @@ export default function NewRequestPage() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
-    navigate('/demande/recapitulatif');
+    submitDemande();
   };
 
   const goPrev = () => {
+    if (mutation.isPending || successResult) return;
     setErrors([]);
     setStep((s) => Math.max(1, s - 1));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const resetForm = () => {
+    if (mutation.isPending) return;
     reset();
     setStep(1);
     setErrors([]);
+    setSuccessResult(null);
     toast.info('Formulaire réinitialisé.');
   };
 
@@ -131,17 +203,42 @@ export default function NewRequestPage() {
     ? formatCurrency(Number(draft.forfaitMontant))
     : null;
 
+  const prefillBanner = draft.prefillFromSchedule
+    ? [
+      draft.paroisseNom,
+      draft.horaireLibelle || draft.horaireHeureCelebration,
+      draft.horaireJourSemaine
+        ? (WEEK_DAY_LABELS[draft.horaireJourSemaine] || draft.horaireJourSemaine)
+        : null,
+      formatDateShort(draft.dateDebut),
+      draft.typeDemandeLibelle,
+      draft.forfaitLabel,
+    ].filter(Boolean).join(' · ')
+    : '';
+
   return (
     <div className="stack public-page demande-page">
       <PageHeader
         title="Déposer une intention de messe"
-        subtitle="Simple, sans compte — 4 étapes courtes."
+        subtitle="Simple, sans compte — 3 étapes."
       />
+
+      {prefillBanner ? (
+        <div className="demande-schedule-prefill" role="status">
+          <strong>Créneau repris depuis les horaires (figé)</strong>
+          <p>{prefillBanner}</p>
+          <small className="muted">
+            Paroisse, formule, date et heure sont figées pour ce créneau. Pour un triduum, une neuvaine
+            ou un autre jour, repassez par les horaires.
+          </small>
+        </div>
+      ) : null}
 
       <FormStepper
         steps={STEPS}
         currentStep={step}
         onStepClick={(n) => {
+          if (mutation.isPending || successResult) return;
           if (n <= step) {
             setErrors([]);
             setStep(n);
@@ -149,23 +246,34 @@ export default function NewRequestPage() {
         }}
       />
 
+      <DemandeUserGuide step={step} />
+
       <FormError error={errors} errorRef={errorRef} />
 
       <div className="grid-2 public-demande-layout">
         <div className="stack public-demande-main">
           {step === 1 ? <ApplicantForm /> : null}
-          {step === 2 ? <CelebrationChoiceForm /> : null}
-          {step === 3 ? (
-            multi ? (
-              <DatesSelector />
-            ) : (
-              <>
+          {step === 2 ? (
+            <>
+              <CelebrationChoiceForm />
+              {multi ? (
                 <DatesSelector />
-                <ScheduleSelector />
-              </>
-            )
+              ) : (
+                <>
+                  <DatesSelector />
+                  <ScheduleSelector />
+                </>
+              )}
+            </>
           ) : null}
-          {step === 4 ? <PaymentTypeSelector /> : null}
+          {step === 3 ? (
+            <>
+              <PaymentTypeSelector />
+              <p className="muted" style={{ margin: 0 }}>
+                Vérifiez le résumé à droite, puis confirmez pour obtenir votre code de suivi.
+              </p>
+            </>
+          ) : null}
         </div>
 
         <aside className="stack public-demande-aside">
@@ -185,20 +293,45 @@ export default function NewRequestPage() {
             </div>
             <div className="button-row public-step-actions">
               {step > 1 ? (
-                <AppButton type="button" variant="secondary" onClick={goPrev}>
+                <AppButton
+                  type="button"
+                  variant="secondary"
+                  onClick={goPrev}
+                  disabled={mutation.isPending || Boolean(successResult)}
+                >
                   Retour
                 </AppButton>
               ) : null}
-              <AppButton type="button" onClick={goNext}>
-                {step < STEPS.length ? 'Continuer' : 'Voir le récapitulatif'}
+              <AppButton
+                type="button"
+                onClick={goNext}
+                loading={mutation.isPending}
+                disabled={Boolean(successResult)}
+              >
+                {step < STEPS.length
+                  ? 'Continuer'
+                  : (mutation.isPending ? 'Envoi…' : 'Confirmer la demande')}
               </AppButton>
             </div>
-            <button type="button" className="demande-reset-link" onClick={resetForm}>
+            <button
+              type="button"
+              className="demande-reset-link"
+              onClick={resetForm}
+              disabled={mutation.isPending}
+            >
               Recommencer
             </button>
           </div>
         </aside>
       </div>
+
+      <TrackingSuccessDialog
+        open={Boolean(successResult?.codeSuivie)}
+        codeSuivie={successResult?.codeSuivie}
+        onClose={() => successResult && goToConfirmation(successResult)}
+        onContinue={() => successResult && goToConfirmation(successResult)}
+        onLeave={() => reset()}
+      />
     </div>
   );
 }

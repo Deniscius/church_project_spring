@@ -12,6 +12,17 @@ export function suggestCelebrationDateFromWeekday(jourSemaine, delaiMinimumHeure
   return findNextAllowedDate(minIso, [jourSemaine]) || '';
 }
 
+/**
+ * @param {object} params
+ * @param {string} [params.paroissePublicId]
+ * @param {string} [params.paroisseNom]
+ * @param {string} [params.horairePublicId]
+ * @param {string} [params.horaireLibelle]
+ * @param {string} [params.heureCelebration]
+ * @param {string} [params.jourSemaine]
+ * @param {string} [params.natureHonoraire] NORMALE | DOMINICALE | SPECIALE
+ * @param {number} [params.delaiMinimumHeures]
+ */
 export function seedDemandeDraftFromSchedule({
   paroissePublicId,
   paroisseNom,
@@ -19,6 +30,7 @@ export function seedDemandeDraftFromSchedule({
   horaireLibelle,
   heureCelebration,
   jourSemaine,
+  natureHonoraire,
   delaiMinimumHeures = 24,
 } = {}) {
   if (!paroissePublicId) return;
@@ -34,13 +46,19 @@ export function seedDemandeDraftFromSchedule({
       ...current,
       paroissePublicId,
       paroisseNom: paroisseNom || current.paroisseNom || '',
-      // Reset type/forfait when changing parish context from home
+      // Nouveau créneau : on repart sur une formule compatible (auto-appliquée ensuite).
       typeDemandePublicId: '',
       typeDemandeLibelle: '',
+      typeDemandeDelaiMinimumHeures: delaiMinimumHeures ?? 24,
+      typeDemandeJoursCelebrationAutorises: [],
       forfaitTarifPublicId: '',
       forfaitLabel: '',
       forfaitNature: '',
+      forfaitHeurePersonnalise: false,
       forfaitNombreCelebration: null,
+      forfaitNombreJour: null,
+      forfaitMontant: null,
+      forfaitJoursCelebrationAutorises: [],
       datesCelebration: [],
       dateSchedules: {},
       horairePublicId: horairePublicId || '',
@@ -49,7 +67,8 @@ export function seedDemandeDraftFromSchedule({
       horaireJourSemaine: jourSemaine || '',
       heurePersonnalisee: '',
       dateDebut: dateDebut || '',
-      prefillFromSchedule: Boolean(horairePublicId || jourSemaine),
+      prefillNatureHonoraire: natureHonoraire || '',
+      prefillFromSchedule: Boolean(horairePublicId || jourSemaine || natureHonoraire),
     };
     sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(next));
   } catch {
@@ -62,8 +81,77 @@ export function buildDemandePrefillPath() {
   return '/demande';
 }
 
-/** Seed + URL — à appeler uniquement sur interaction (click), pas au render. */
+/** Seed + chemin — à appeler uniquement sur interaction (click), pas au render. */
 export function navigateDemandePrefillPath(params = {}) {
   seedDemandeDraftFromSchedule(params);
   return '/demande';
+}
+
+/**
+ * Choisit un type « messe unique » plutôt qu’un triduum/neuvaine/trentaine.
+ */
+export function pickPreferredTypeDemande(types = []) {
+  if (!types?.length) return null;
+  const scored = types.map((t) => {
+    const lib = String(t.libelle || '').toLowerCase();
+    let score = 0;
+    if (lib.includes('trentaine')) score -= 30;
+    else if (lib.includes('neuvaine')) score -= 20;
+    else if (lib.includes('triduum')) score -= 10;
+    if (lib.includes('messe') || lib.includes('intention') || lib.includes('eucharist')) score += 5;
+    return { t, score };
+  });
+  scored.sort((a, b) => b.score - a.score);
+  return scored[0]?.t || types[0];
+}
+
+/**
+ * Nature de tarif attendue pour un jour / créneau de célébration.
+ * SPECIALE explicite (choix fidèle) est conservée sauf créneau imposé autrement.
+ */
+export function resolveNatureForCelebrationDay({
+  jourSemaine,
+  natureHonoraire,
+  currentNature,
+} = {}) {
+  if (natureHonoraire === 'SPECIALE' || natureHonoraire === 'DOMINICALE' || natureHonoraire === 'NORMALE') {
+    return natureHonoraire;
+  }
+  if (currentNature === 'SPECIALE') return 'SPECIALE';
+  if (jourSemaine === 'DIMANCHE') return 'DOMINICALE';
+  if (jourSemaine) return 'NORMALE';
+  return currentNature || 'NORMALE';
+}
+
+/**
+ * Choisit le forfait (nature) le plus cohérent avec le créneau / jour cliqué.
+ */
+export function pickPreferredForfait(forfaits = [], {
+  natureHonoraire,
+  jourSemaine,
+  currentNature,
+  nombreCelebration,
+} = {}) {
+  if (!forfaits?.length) return null;
+
+  const targetN = nombreCelebration != null ? Number(nombreCelebration) : null;
+  const pool = forfaits.filter((f) => {
+    const n = f.nombreCelebration != null ? Number(f.nombreCelebration) : 1;
+    if (targetN != null && Number.isFinite(targetN)) {
+      return n === targetN;
+    }
+    return !Number.isFinite(n) || n <= 1;
+  });
+  const list = pool.length ? pool : forfaits;
+
+  const nature = resolveNatureForCelebrationDay({
+    jourSemaine,
+    natureHonoraire,
+    currentNature,
+  });
+  const byNature = (value) => list.find((f) => f.natureForfait === value);
+  if (nature && byNature(nature)) return byNature(nature);
+  if (jourSemaine === 'DIMANCHE' && byNature('DOMINICALE')) return byNature('DOMINICALE');
+  if (byNature('NORMALE')) return byNature('NORMALE');
+  return list[0];
 }

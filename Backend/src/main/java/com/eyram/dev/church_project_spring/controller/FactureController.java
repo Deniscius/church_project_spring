@@ -1,8 +1,10 @@
 package com.eyram.dev.church_project_spring.controller;
 
 import com.eyram.dev.church_project_spring.DTO.request.FactureRequest;
+import com.eyram.dev.church_project_spring.DTO.response.FacturePublicResponse;
 import com.eyram.dev.church_project_spring.DTO.response.FactureResponse;
 import com.eyram.dev.church_project_spring.service.FactureService;
+import com.eyram.dev.church_project_spring.service.PublicDemandeViewService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -16,6 +18,7 @@ import java.util.UUID;
 public class FactureController {
 
     private final FactureService factureService;
+    private final PublicDemandeViewService publicDemandeViewService;
 
     @PostMapping
     public FactureResponse create(@Valid @RequestBody FactureRequest request) {
@@ -33,8 +36,8 @@ public class FactureController {
     }
 
     @GetMapping("/code-suivie/{codeSuivie}")
-    public FactureResponse getByCodeSuivie(@PathVariable String codeSuivie) {
-        return factureService.getByCodeSuivie(codeSuivie);
+    public FacturePublicResponse getByCodeSuivie(@PathVariable String codeSuivie) {
+        return publicDemandeViewService.toPublic(factureService.getByCodeSuivie(codeSuivie));
     }
 
     @GetMapping("/{publicId}")

@@ -6,11 +6,12 @@ import AppLoading from '../../components/ui/AppLoading';
 import AppAlert from '../../components/ui/AppAlert';
 import { useHorairesPublicActivesQuery } from '../../hooks/queries/usePublicReferentiel';
 import { formatParishTimeInUserZone, formatTime, getUserTimeZone, PARISH_TIME_ZONE } from '../../utils/formatTime';
-import { WEEK_DAYS, WEEK_DAY_LABELS } from '../../constants/enums';
+import { WEEK_DAYS, WEEK_DAY_LABELS, WEEK_DAY_SHORT } from '../../constants/enums';
 import { buildDemandePrefillPath, seedDemandeDraftFromSchedule } from '../../utils/demandePrefill';
+import { daysFromParishToday, parishTodayEnum } from '../../utils/parishCalendar';
 
 function shortDay(day) {
-  return (WEEK_DAY_LABELS[day] || day || '').slice(0, 3);
+  return WEEK_DAY_SHORT[day] || WEEK_DAY_LABELS[day] || day || '';
 }
 
 function groupByDoyenne(parishes) {
@@ -37,6 +38,7 @@ function slotsByDay(horaires) {
       libelle: slot.libelle || '',
       publicId: slot.publicId,
       jourSemaine: day,
+      natureHonoraire: slot.natureHonoraire || '',
     });
   }
   for (const day of WEEK_DAYS) {
@@ -81,40 +83,62 @@ function ParishCard({ parish, dayFilter }) {
         </p>
       ) : (
         <div className={`schedules-week${dayFilter ? ' is-day-focus' : ' is-full-week'}`}>
-          {daysToShow.map((day) => (
-            <div key={`${parish.paroissePublicId}-${day}`} className="schedules-day-col">
-              <h4 className="schedules-day-label">{WEEK_DAY_LABELS[day] || day}</h4>
-              {(byDay[day] || []).length === 0 ? (
-                <p className="muted schedules-day-empty">—</p>
-              ) : (
-                <ul className="schedules-slot-list">
-                  {(byDay[day] || []).map((slot, i) => {
-                    const prefill = {
-                      paroissePublicId: parish.paroissePublicId,
-                      paroisseNom: parish.paroisseNom,
-                      horairePublicId: slot.publicId,
-                      horaireLibelle: [slot.heureRaw, slot.libelle].filter(Boolean).join(' · '),
-                      heureCelebration: slot.heureRaw,
-                      jourSemaine: slot.jourSemaine,
-                    };
-                    return (
-                      <li key={`${day}-${slot.publicId || slot.heure}-${i}`}>
-                        <Link
-                          to={buildDemandePrefillPath()}
-                          className="schedules-slot-link"
-                          title={`Demander — ${parish.paroisseNom} ${slot.heure || ''}`}
-                          onClick={() => seedDemandeDraftFromSchedule(prefill)}
-                        >
-                          <time className="schedules-slot-time">{slot.heure || '—'}</time>
-                          <span className="schedules-slot-libelle">{slot.libelle || 'Célébration'}</span>
-                        </Link>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
-          ))}
+          {daysToShow.map((day) => {
+            const slots = byDay[day] || [];
+            const dayLabel = dayFilter
+              ? (WEEK_DAY_LABELS[day] || day)
+              : shortDay(day);
+            return (
+              <div
+                key={`${parish.paroissePublicId}-${day}`}
+                className={`schedules-day-col${slots.length === 0 ? ' is-empty' : ''}`}
+              >
+                <h4
+                  className="schedules-day-label"
+                  title={dayFilter ? undefined : (WEEK_DAY_LABELS[day] || day)}
+                >
+                  {dayFilter ? (
+                    dayLabel
+                  ) : (
+                    <>
+                      <span className="sr-only">{WEEK_DAY_LABELS[day] || day}</span>
+                      <span aria-hidden="true">{dayLabel}</span>
+                    </>
+                  )}
+                </h4>
+                {slots.length === 0 ? (
+                  <p className="muted schedules-day-empty">—</p>
+                ) : (
+                  <ul className="schedules-slot-list">
+                    {slots.map((slot, i) => {
+                      const prefill = {
+                        paroissePublicId: parish.paroissePublicId,
+                        paroisseNom: parish.paroisseNom,
+                        horairePublicId: slot.publicId,
+                        horaireLibelle: [slot.heureRaw, slot.libelle].filter(Boolean).join(' · '),
+                        heureCelebration: slot.heureRaw,
+                        jourSemaine: slot.jourSemaine,
+                        natureHonoraire: slot.natureHonoraire || '',
+                      };
+                      return (
+                        <li key={`${day}-${slot.publicId || slot.heure}-${i}`}>
+                          <Link
+                            to={buildDemandePrefillPath()}
+                            className="schedules-slot-link"
+                            title={`Demander — ${parish.paroisseNom} ${slot.heure || ''}`}
+                            onClick={() => seedDemandeDraftFromSchedule(prefill)}
+                          >
+                            <time className="schedules-slot-time">{slot.heure || '—'}</time>
+                            <span className="schedules-slot-libelle">{slot.libelle || 'Célébration'}</span>
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </article>
@@ -133,23 +157,11 @@ function sampleRandom(items, count) {
 
 const SAMPLE_PARISH_COUNT = 8;
 
-function todayEnum() {
-  const map = ['DIMANCHE', 'LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI'];
-  return map[new Date().getDay()];
-}
-
-function daysFromToday() {
-  const today = todayEnum();
-  const index = WEEK_DAYS.indexOf(today);
-  if (index < 0) return WEEK_DAYS;
-  return [...WEEK_DAYS.slice(index), ...WEEK_DAYS.slice(0, index)];
-}
-
 export default function PublicSchedulesPage() {
   const { data, isLoading, isError } = useHorairesPublicActivesQuery();
   const parishes = Array.isArray(data) ? data : [];
-  const today = todayEnum();
-  const orderedDays = useMemo(() => daysFromToday(), []);
+  const today = parishTodayEnum();
+  const orderedDays = useMemo(() => daysFromParishToday(today), [today]);
 
   const [query, setQuery] = useState('');
   const [dayFilter, setDayFilter] = useState(today);

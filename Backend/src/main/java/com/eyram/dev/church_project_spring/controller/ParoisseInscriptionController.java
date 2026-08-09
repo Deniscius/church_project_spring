@@ -3,6 +3,7 @@ package com.eyram.dev.church_project_spring.controller;
 import com.eyram.dev.church_project_spring.DTO.request.InscriptionOtpSendRequest;
 import com.eyram.dev.church_project_spring.DTO.request.InscriptionOtpVerifyRequest;
 import com.eyram.dev.church_project_spring.DTO.request.ParoisseInscriptionRequest;
+import com.eyram.dev.church_project_spring.DTO.response.InscriptionOtpVerifyResponse;
 import com.eyram.dev.church_project_spring.DTO.response.ParoisseInscriptionResponse;
 import com.eyram.dev.church_project_spring.service.billing.InscriptionOtpService;
 import com.eyram.dev.church_project_spring.service.billing.ParoisseInscriptionService;
@@ -35,7 +36,9 @@ public class ParoisseInscriptionController {
     }
 
     @PostMapping("/otp/verifier")
-    public ResponseEntity<Map<String, Object>> verifierOtp(@Valid @RequestBody InscriptionOtpVerifyRequest request) {
+    public ResponseEntity<InscriptionOtpVerifyResponse> verifierOtp(
+            @Valid @RequestBody InscriptionOtpVerifyRequest request
+    ) {
         return ResponseEntity.ok(inscriptionOtpService.verifyOtp(
                 request.email(),
                 request.code(),
@@ -75,6 +78,7 @@ public class ParoisseInscriptionController {
         String contentType = inscriptionService.documentContentType(publicId, type);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + type + "\"")
+                .header(HttpHeaders.CACHE_CONTROL, "private, no-store")
                 .contentType(MediaType.parseMediaType(contentType))
                 .body(resource);
     }

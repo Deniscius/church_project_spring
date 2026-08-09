@@ -9,7 +9,7 @@ import jakarta.validation.constraints.Size;
  */
 public record DemandeIntentionRequest(
         @NotBlank(message = "L'intention est obligatoire")
-        @Size(max = 500, message = "L'intention ne doit pas dépasser 500 caractères")
+        @Size(min = 10, max = 500, message = "L'intention doit contenir entre 10 et 500 caractères")
         String intention
 ) {
 }

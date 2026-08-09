@@ -32,4 +32,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     long countByStatusDelFalse();
 
     long countByStatusDelFalseAndIsActiveTrueAndIsGlobalTrueAndRole(UserRole role);
+
+    List<User> findByStatusDelFalseAndIsActiveTrueAndIsGlobalTrueAndRole(UserRole role);
 }

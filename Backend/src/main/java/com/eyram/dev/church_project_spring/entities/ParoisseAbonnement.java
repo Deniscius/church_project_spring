@@ -6,6 +6,8 @@ import com.eyram.dev.church_project_spring.utils.BaseEntity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.Filter;
+import org.hibernate.annotations.SqlFragmentAlias;
 import org.hibernate.annotations.UuidGenerator;
 
 import java.time.LocalDateTime;
@@ -15,6 +17,12 @@ import java.util.UUID;
 @Table(name = "paroisse_abonnement")
 @Getter
 @Setter
+@Filter(
+        name = "tenantFilter",
+        condition = "{abo}.paroisse_id = :tenantId",
+        deduceAliasInjectionPoints = false,
+        aliases = @SqlFragmentAlias(alias = "abo", table = "paroisse_abonnement")
+)
 public class ParoisseAbonnement extends BaseEntity {
 
     @Id

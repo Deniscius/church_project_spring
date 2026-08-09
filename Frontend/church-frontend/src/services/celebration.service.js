@@ -1,7 +1,4 @@
-import { getApiBaseUrl } from '../config/apiBaseUrl';
 import { apiClient } from './http/apiClient';
-
-const API_BASE_URL = getApiBaseUrl();
 
 function buildQuery({ date, inclureNonPayees, heures }) {
   const params = new URLSearchParams();
@@ -22,27 +19,22 @@ export const celebrationService = {
 
   downloadFeuillePdf: async (paroissePublicId, { date, inclureNonPayees = false, heures = [] }) => {
     const query = buildQuery({ date, inclureNonPayees, heures });
-    const response = await fetch(
-      `${API_BASE_URL}/celebrations/paroisse/${paroissePublicId}/feuille.pdf?${query}`,
-      {
-        credentials: 'include',
-        headers: {
-          Accept: 'application/pdf',
-          'ngrok-skip-browser-warning': '1',
-          'X-Requested-With': 'XMLHttpRequest',
-        },
+    const headers = { Accept: 'application/pdf' };
+    try {
+      return await apiClient(
+        `/celebrations/paroisse/${paroissePublicId}/feuille?${query}`,
+        { headers },
+        { auth: true, parse: 'blob' }
+      );
+    } catch (err) {
+      if (err?.status === 404) {
+        return apiClient(
+          `/celebrations/paroisse/${paroissePublicId}/feuille.pdf?${query}`,
+          { headers },
+          { auth: true, parse: 'blob' }
+        );
       }
-    );
-    if (!response.ok) {
-      let message = `Erreur HTTP ${response.status}`;
-      try {
-        const err = await response.json();
-        if (err?.message) message = err.message;
-      } catch {
-        /* ignore */
-      }
-      throw new Error(message);
+      throw err;
     }
-    return response.blob();
   },
 };

@@ -57,7 +57,7 @@ public class FeuilleCelebrationService {
     private static final DateTimeFormatter DATE_LONG =
             DateTimeFormatter.ofPattern("EEEE d MMMM yyyy", Locale.FRENCH);
     private static final DateTimeFormatter DATE_SHORT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-    private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm");
+    private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH' h 'mm");
     private static final Set<StatutDemandeEnum> STATUTS_FEUILLE = Set.of(
             StatutDemandeEnum.VALIDEE,
             StatutDemandeEnum.TERMINEE

@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
 public class DemandeSchedulingPolicy {
 
     private static final DateTimeFormatter DEADLINE_FORMAT =
-            DateTimeFormatter.ofPattern("dd/MM/yyyy 'à' HH:mm");
+            DateTimeFormatter.ofPattern("dd/MM/yyyy 'à' HH' h 'mm");
 
     private final Clock clock;
 

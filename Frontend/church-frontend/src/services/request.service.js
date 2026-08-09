@@ -25,11 +25,40 @@ export const requestService = {
   getByTrackingCode: (code, options = {}) =>
     apiClient(`/demandes/code/${encodeURIComponent(code)}`, {}, { auth: false, signal: options.signal }),
 
-  /** Recherche publique : codes de suivi liés à un téléphone (E.164). */
+  /** Public : reçu PDF. `/recu` d’abord, `/recu.pdf` si l’API n’a pas encore l’alias. */
+  fetchReceiptPdf: async (code) => {
+    const headers = { Accept: 'application/pdf' };
+    try {
+      return await apiClient(
+        `/demandes/code/${encodeURIComponent(code)}/recu`,
+        { headers },
+        { auth: false, parse: 'blob' }
+      );
+    } catch (err) {
+      if (err?.status === 404) {
+        return apiClient(
+          `/demandes/code/${encodeURIComponent(code)}/recu.pdf`,
+          { headers },
+          { auth: false, parse: 'blob' }
+        );
+      }
+      throw err;
+    }
+  },
+
+  /** Étape 1 : téléphone (E.164) → codes directs, ou OTP e-mail si adresse liée. */
   lookupByPhone: (telephone) =>
     apiClient(
       '/demandes/suivi/par-telephone',
       { method: 'POST', body: JSON.stringify({ telephone }) },
+      { auth: false }
+    ),
+
+  /** Étape 2 (si OTP e-mail) : renvoie les codes de suivi. */
+  verifyPhoneLookup: (telephone, code) =>
+    apiClient(
+      '/demandes/suivi/par-telephone/verifier',
+      { method: 'POST', body: JSON.stringify({ telephone, code }) },
       { auth: false }
     ),
 

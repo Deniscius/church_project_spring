@@ -5,10 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:share": "vite --host 0.0.0.0",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "prod:share": "vite build --mode share && vite preview --host 0.0.0.0 --port 4173"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.95.2",

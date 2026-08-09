@@ -3,9 +3,10 @@ package com.eyram.dev.church_project_spring.controller;
 import com.eyram.dev.church_project_spring.DTO.request.DetailsPaiementRequest;
 import com.eyram.dev.church_project_spring.DTO.response.CaisseResumeResponse;
 import com.eyram.dev.church_project_spring.DTO.response.DetailsPaiementResponse;
-import com.eyram.dev.church_project_spring.DTO.response.FactureResponse;
+import com.eyram.dev.church_project_spring.DTO.response.FacturePublicResponse;
 import com.eyram.dev.church_project_spring.service.DetailsPaiementService;
 import com.eyram.dev.church_project_spring.service.FactureService;
+import com.eyram.dev.church_project_spring.service.PublicDemandeViewService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -20,6 +21,7 @@ public class DetailsPaiementController {
 
     private final DetailsPaiementService detailsPaiementService;
     private final FactureService factureService;
+    private final PublicDemandeViewService publicDemandeViewService;
 
     @PostMapping
     public DetailsPaiementResponse create(@Valid @RequestBody DetailsPaiementRequest request) {
@@ -62,7 +64,7 @@ public class DetailsPaiementController {
 
 
     @GetMapping("/code-suivie/{codeSuivie}")
-    public FactureResponse getByCodeSuivie(@PathVariable String codeSuivie) {
-        return factureService.getByCodeSuivie(codeSuivie);
+    public FacturePublicResponse getByCodeSuivie(@PathVariable String codeSuivie) {
+        return publicDemandeViewService.toPublic(factureService.getByCodeSuivie(codeSuivie));
     }
 }

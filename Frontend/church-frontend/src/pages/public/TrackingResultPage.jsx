@@ -6,6 +6,7 @@ import AppBadge from '../../components/ui/AppBadge';
 import AppButton from '../../components/ui/AppButton';
 import { useToast } from '../../contexts/toast.context';
 import { requestService } from '../../services/request.service';
+import { paymentService } from '../../services/payment.service';
 import { formatCurrency } from '../../utils/formatCurrency';
 import { formatDate } from '../../utils/formatDate';
 import { copyText } from '../../utils/clipboard';
@@ -33,6 +34,8 @@ export default function TrackingResultPage() {
   const [loading, setLoading] = useState(Boolean(getTrackingCode()));
   const [error, setError] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [quote, setQuote] = useState(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
 
   // Compat ancienne URL ?code=… : récupère puis nettoie immédiatement la barre d’adresse.
   useEffect(() => {
@@ -74,7 +77,35 @@ export default function TrackingResultPage() {
 
   const offerPayment = canOfferPayment(demande);
   const alreadyPaid = String(demande?.statutPaiement || '').toUpperCase() === 'PAYE';
-  const amountLabel = formatCurrency(demande?.montant != null ? Number(demande.montant) : 0);
+  const mode = String(demande?.modePaiement || '').toUpperCase();
+  const isOnline = mode === 'TMONEY' || mode === 'FLOOZ' || mode === 'CARTE';
+
+  useEffect(() => {
+    if (!offerPayment || !demande?.codeSuivie || !isOnline) {
+      setQuote(null);
+      return undefined;
+    }
+    let cancelled = false;
+    (async () => {
+      setQuoteLoading(true);
+      try {
+        const data = await paymentService.quoteByTrackingCode(demande.codeSuivie);
+        if (!cancelled) setQuote(data);
+      } catch {
+        if (!cancelled) setQuote(null);
+      } finally {
+        if (!cancelled) setQuoteLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [offerPayment, demande?.codeSuivie, isOnline, demande?.typePaiementPublicId]);
+
+  const baseAmount = formatCurrency(demande?.montant != null ? Number(demande.montant) : 0);
+  const totalAmount = quote?.montantCharge != null
+    ? formatCurrency(quote.montantCharge)
+    : null;
 
   return (
     <div className="stack public-page">
@@ -123,7 +154,7 @@ export default function TrackingResultPage() {
               </div>
               <div className="info-row">
                 <span>Montant</span>
-                <strong>{amountLabel}</strong>
+                <strong>{baseAmount}</strong>
               </div>
               <div className="info-row">
                 <span>Statut demande</span>
@@ -171,12 +202,41 @@ export default function TrackingResultPage() {
           >
             {offerPayment ? (
               <div className="stack" style={{ gap: 12 }}>
-                <p style={{ margin: 0 }}>
-                  Montant à régler : <strong>{amountLabel}</strong>
-                </p>
+                {quoteLoading && !quote ? (
+                  <p className="muted" style={{ margin: 0 }}>Calcul du total…</p>
+                ) : null}
+                {quote ? (
+                  <div className="payment-fee-breakdown">
+                    <div className="info-list">
+                      <div className="info-row">
+                        <span>Prix de l’intention</span>
+                        <span>{formatCurrency(quote.montantFacture)}</span>
+                      </div>
+                      <div className="info-row">
+                        <span>Frais de service</span>
+                        <span>{formatCurrency(quote.montantFraisPlateforme ?? 0)}</span>
+                      </div>
+                      <div className="info-row">
+                        <span>Frais de paiement</span>
+                        <span>{formatCurrency(quote.montantFraisAgregeateur ?? 0)}</span>
+                      </div>
+                      <div className="info-row info-row-total payment-fee-total">
+                        <span>Total à payer</span>
+                        <strong>{totalAmount}</strong>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <p style={{ margin: 0 }}>
+                    Montant intention : <strong>{baseAmount}</strong>
+                    {!isOnline ? (
+                      <span className="muted"> — choisissez un mode en ligne pour voir le total avec frais.</span>
+                    ) : null}
+                  </p>
+                )}
                 <div className="button-row">
                   <AppButton type="button" onClick={() => goToPayment(navigate, demande.codeSuivie)}>
-                    Payer maintenant
+                    {totalAmount ? `Payer ${totalAmount}` : 'Payer maintenant'}
                   </AppButton>
                   <ReceiptPreviewButton codeSuivie={demande.codeSuivie} />
                   <AppButton
@@ -188,7 +248,7 @@ export default function TrackingResultPage() {
                   </AppButton>
                 </div>
                 <p className="muted" style={{ margin: 0, fontSize: '0.9rem' }}>
-                  Paiement en ligne uniquement depuis le suivi. Vous pourrez revenir plus tard avec ce code.
+                  Le total inclut les frais. Paiement en ligne uniquement depuis le suivi.
                 </p>
               </div>
             ) : (

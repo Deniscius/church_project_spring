@@ -4,6 +4,7 @@
  */
 import { getForfaitDureeLabel, isMultiCelebrationForfait } from '../constants/enums';
 import { personNameError } from './personName';
+import { intentionError, normalizeIntention } from './intentionText';
 import {
   computeCelebrationDates,
   formatAllowedDays,
@@ -46,7 +47,9 @@ function collect(fn) {
 /** Étape 1 — identité & intention */
 export function validatePublicDemandeStep1(draft) {
   return collect((req, errors) => {
-    req(draft.intention?.trim(), 'L’intention est obligatoire.');
+    const intentErr = intentionError(draft.intention);
+    if (intentErr) errors.push(intentErr);
+
     const prenomErr = personNameError(draft.prenomFidele, 'Le prénom');
     const nomErr = personNameError(draft.nomFidele, 'Le nom');
     const mailErr = emailError(draft.emailFidele);
@@ -225,15 +228,22 @@ export function validatePublicDemandeStep4(draft) {
   });
 }
 
+/**
+ * Wizard public en 3 étapes :
+ * 1 intention · 2 lieu & date (paroisse + créneau) · 3 paiement.
+ * Les validateurs métier step2/step3/step4 restent séparés pour le POST.
+ */
 export function validatePublicDemandeStep(step, draft) {
   switch (step) {
     case 1:
       return validatePublicDemandeStep1(draft);
-    case 2:
-      return validatePublicDemandeStep2(draft);
+    case 2: {
+      const parish = validatePublicDemandeStep2(draft);
+      const schedule = validatePublicDemandeStep3(draft);
+      const errors = [...parish.errors, ...schedule.errors];
+      return { ok: errors.length === 0, errors };
+    }
     case 3:
-      return validatePublicDemandeStep3(draft);
-    case 4:
       return validatePublicDemandeStep4(draft);
     default:
       return validatePublicDemandeDraft(draft);
@@ -298,7 +308,7 @@ export function buildDemandeRequestBody(draft) {
     : null;
 
   return {
-    intention: draft.intention.trim(),
+    intention: normalizeIntention(draft.intention),
     // Vide → null : le backend applique « Un(e) chrétien(ne) » si les deux sont vides
     nomFidele: draft.nomFidele?.trim() || null,
     prenomFidele: draft.prenomFidele?.trim() || null,

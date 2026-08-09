@@ -2,22 +2,16 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useHorairesPublicActivesQuery } from '../../hooks/queries/usePublicReferentiel';
 import { formatParishTimeInUserZone, formatTime } from '../../utils/formatTime';
-import { WEEK_DAYS, WEEK_DAY_LABELS } from '../../constants/enums';
+import { WEEK_DAYS, WEEK_DAY_LABELS, WEEK_DAY_SHORT } from '../../constants/enums';
 import { seedDemandeDraftFromSchedule } from '../../utils/demandePrefill';
+import {
+  msUntilParishMidnight,
+  parishTodayEnum,
+  parishUpcomingWeek,
+} from '../../utils/parishCalendar';
 
 const SAMPLE_SIZE = 6;
 const RESAMPLE_MS = 12000;
-
-function todayEnum() {
-  const map = ['DIMANCHE', 'LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI'];
-  return map[new Date().getDay()];
-}
-
-function daysFromToday(today) {
-  const index = WEEK_DAYS.indexOf(today);
-  if (index < 0) return WEEK_DAYS;
-  return [...WEEK_DAYS.slice(index), ...WEEK_DAYS.slice(0, index)];
-}
 
 function sampleRandom(items, count) {
   if (!items.length) return [];
@@ -38,6 +32,7 @@ function slotsForDay(parish, day) {
       heureRaw: formatTime(slot.heureCelebration) || '',
       libelle: slot.libelle || '',
       jourSemaine: slot.jourSemaine,
+      natureHonoraire: slot.natureHonoraire || '',
     }))
     .sort((a, b) => String(a.heureRaw || '').localeCompare(String(b.heureRaw || '')));
 }
@@ -51,10 +46,28 @@ export default function HomeWeekSchedules() {
   const { data, isLoading, isError } = useHorairesPublicActivesQuery({
     enabled: sectionVisible,
   });
-  const today = todayEnum();
-  const orderedDays = useMemo(() => daysFromToday(today), [today]);
+  const [weekTick, setWeekTick] = useState(0);
+  const weekDays = useMemo(() => parishUpcomingWeek(), [weekTick]);
+  const today = weekDays[0]?.day || parishTodayEnum();
   const [selectedDay, setSelectedDay] = useState(today);
   const [sampleSeed, setSampleSeed] = useState(0);
+
+  // Recalcule la semaine calendaire (Lomé) à chaque minuit paroissial.
+  useEffect(() => {
+    let timer;
+    let prevToday = parishTodayEnum();
+    const tick = () => {
+      const next = parishTodayEnum();
+      setWeekTick((n) => n + 1);
+      if (next !== prevToday) {
+        setSelectedDay((sel) => (sel === prevToday ? next : sel));
+        prevToday = next;
+      }
+      timer = window.setTimeout(tick, msUntilParishMidnight());
+    };
+    timer = window.setTimeout(tick, msUntilParishMidnight());
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     const el = document.getElementById('home-schedules-anchor');
@@ -105,6 +118,8 @@ export default function HomeWeekSchedules() {
     });
   }, [allParishes, selectedDay, sampleSeed]);
 
+  const selectedMeta = weekDays.find((w) => w.day === selectedDay);
+
   useEffect(() => {
     if (programmes.length <= 1) return undefined;
     const id = window.setInterval(() => {
@@ -130,27 +145,33 @@ export default function HomeWeekSchedules() {
         {!sectionVisible || isLoading ? <p className="muted">Chargement des horaires…</p> : null}
         {isError ? (
           <p className="muted">
-            Impossible de charger les horaires pour le moment. Vérifiez que l’API est démarrée (port 8081).
+            Impossible de charger les horaires pour le moment. Réessayez dans un instant.
           </p>
         ) : null}
 
         {sectionVisible && !isLoading && !isError ? (
           <>
             <div className="home-day-tabs" role="tablist" aria-label="Jours de la semaine">
-              {orderedDays.map((day) => {
+              {weekDays.map(({ day, dayNum, monthLabel, iso }) => {
                 const count = dayCounts[day] || 0;
                 const isToday = day === today;
+                const short = WEEK_DAY_SHORT[day] || WEEK_DAY_LABELS[day] || day;
                 return (
                   <button
-                    key={day}
+                    key={iso}
                     type="button"
                     role="tab"
                     aria-selected={selectedDay === day}
+                    aria-label={`${WEEK_DAY_LABELS[day] || day} ${dayNum} ${monthLabel}${count ? `, ${count} paroisse${count > 1 ? 's' : ''}` : ''}`}
+                    title={count ? `${count} paroisse${count > 1 ? 's' : ''} avec créneau` : 'Aucun créneau'}
                     className={`home-day-tab${selectedDay === day ? ' is-selected' : ''}${isToday ? ' is-today' : ''}`}
                     onClick={() => setSelectedDay(day)}
                   >
-                    <span className="home-day-tab-label">{(WEEK_DAY_LABELS[day] || day).slice(0, 3)}</span>
-                    <span className="home-day-tab-count">{count}</span>
+                    <span className="home-day-tab-label">{short}</span>
+                    <span className="home-day-tab-date">
+                      <strong>{dayNum}</strong>
+                      <span className="home-day-tab-month">{monthLabel}</span>
+                    </span>
                   </button>
                 );
               })}
@@ -160,6 +181,11 @@ export default function HomeWeekSchedules() {
               <header className="home-day-panel-head">
                 <h3>
                   {WEEK_DAY_LABELS[selectedDay] || selectedDay}
+                  {selectedMeta ? (
+                    <span className="home-day-panel-date">
+                      {selectedMeta.dayNum} {selectedMeta.monthLabel}
+                    </span>
+                  ) : null}
                   {selectedDay === today ? <span className="home-day-badge">Aujourd’hui</span> : null}
                 </h3>
                 <button
@@ -199,6 +225,7 @@ export default function HomeWeekSchedules() {
                                   horaireLibelle: [slot.heureRaw, slot.libelle].filter(Boolean).join(' · '),
                                   heureCelebration: slot.heureRaw,
                                   jourSemaine: slot.jourSemaine || selectedDay,
+                                  natureHonoraire: slot.natureHonoraire || '',
                                 })}
                               >
                                 <time className="home-day-time" dateTime={slot.heureRaw || undefined}>

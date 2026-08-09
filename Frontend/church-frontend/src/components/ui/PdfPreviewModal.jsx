@@ -2,19 +2,22 @@ import React, { useEffect, useId } from 'react';
 import AppButton from './AppButton';
 
 /**
- * Aperçu PDF avant téléchargement (iframe + actions).
+ * Aperçu PDF (iframe URL ou blob) + actions.
  */
 export default function PdfPreviewModal({
   open,
   title = 'Aperçu du PDF',
   blobUrl,
+  pdfUrl,
   fileName = 'document.pdf',
   loading = false,
   error = null,
   onClose,
   onDownload,
+  onOpenInTab,
 }) {
   const titleId = useId();
+  const frameSrc = blobUrl || pdfUrl || '';
 
   useEffect(() => {
     if (!open) return undefined;
@@ -44,11 +47,16 @@ export default function PdfPreviewModal({
         <header className="pdf-preview-head">
           <h2 id={titleId}>{title}</h2>
           <div className="button-row">
+            {typeof onOpenInTab === 'function' ? (
+              <AppButton type="button" variant="secondary" size="sm" onClick={onOpenInTab}>
+                Ouvrir dans un onglet
+              </AppButton>
+            ) : null}
             <AppButton
               type="button"
               variant="primary"
               size="sm"
-              disabled={!blobUrl || loading}
+              disabled={loading || (!frameSrc && !onDownload)}
               onClick={onDownload}
             >
               Télécharger
@@ -62,8 +70,15 @@ export default function PdfPreviewModal({
         <div className="pdf-preview-body">
           {loading ? <p className="muted">Préparation de l’aperçu…</p> : null}
           {error ? <p className="text-red-600" role="alert">{error}</p> : null}
-          {!loading && !error && blobUrl ? (
-            <iframe title={fileName} src={blobUrl} className="pdf-preview-frame" />
+          {!loading && !error && frameSrc ? (
+            <iframe
+              title={fileName}
+              src={blobUrl ? `${frameSrc}#view=FitH` : frameSrc}
+              className="pdf-preview-frame"
+            />
+          ) : null}
+          {!loading && !error && !frameSrc ? (
+            <p className="muted">Aucun document à afficher.</p>
           ) : null}
         </div>
       </div>

@@ -36,7 +36,7 @@ export default function ConfirmationCard({ result }) {
   return (
     <AppCard
       title="Demande enregistrée"
-      subtitle="Conservez le code de suivi : il sert pour le suivi, la facture et le paiement."
+      subtitle="Conservez le code de suivi — et le téléphone utilisé au dépôt."
     >
       <div className="tracking-code-box">
         <span className="tracking-code-label">Code de suivi</span>
@@ -45,6 +45,20 @@ export default function ConfirmationCard({ result }) {
           {copied ? 'Code copié' : 'Copier le code'}
         </AppButton>
       </div>
+
+      <div className="demande-confirm-tips" role="note">
+        <p>
+          <strong>Deux façons de retrouver votre demande</strong>
+        </p>
+        <ul>
+          <li>avec ce <strong>code de suivi</strong> ;</li>
+          <li>
+            avec le <strong>numéro de téléphone</strong> saisi lors du dépôt, sur la page{' '}
+            <Link to="/suivi">Suivi</Link>.
+          </li>
+        </ul>
+      </div>
+
       <p className="muted" style={{ margin: '12px 0 0' }}>
         Consultez d’abord l’aperçu du reçu PDF (une page A4), puis téléchargez-le.
         Les statuts (demande, validation, paiement) y figurent.

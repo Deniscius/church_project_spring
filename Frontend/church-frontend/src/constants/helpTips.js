@@ -12,17 +12,24 @@ export const HELP = {
       'Choisissez la date, puis l’heure proposée par la paroisse.',
     step4:
       'Choisissez comment vous réglerez. Le code de suivi permettra de payer ensuite.',
-    prenom: 'Optionnel.',
-    nom: 'Optionnel.',
+    prenom: `Optionnel. Sans prénom ni nom, le dossier affiche « Un(e) chrétien(ne) ».`,
+    nom: `Optionnel. Sans prénom ni nom, le dossier affiche « Un(e) chrétien(ne) ».`,
     email: 'Optionnel — utile pour recevoir des infos sur la demande.',
-    telephone: 'Choisissez le pays, puis le numéro sans l’indicatif.',
-    intention: 'Ex. « Pour le repos de l’âme de… » ou « Action de grâce ».',
+    telephone:
+      'Obligatoire. Choisissez le pays, puis le numéro sans l’indicatif. Ce même numéro permet ensuite de retrouver vos demandes sur la page Suivi.',
+    intention:
+      'Formulez clairement pour qui ou pour quoi (min. 10 caractères). Les suggestions ci-dessous aident à démarrer.',
     paroisse: 'Tapez le nom pour filtrer les paroisses actives.',
     typeDemande: 'Détermine les tarifs et le délai avant la célébration.',
     nature: 'Le montant s’affiche dans la liste (normale, dominicale, spéciale…).',
     date: 'Choisissez parmi les jours autorisés pour ce tarif.',
     paiement: 'Le paiement se finalise ensuite avec le code de suivi.',
-    codeSuivi: 'Saisissez le code reçu lors du dépôt.',
+    codeSuivi:
+      'Saisissez le code reçu lors du dépôt, ou utilisez le téléphone du dépôt pour retrouver vos demandes.',
+    guideNom:
+      'Si vous ne renseignez pas de nom, le demandeur apparaîtra comme « Un(e) chrétien(ne) » sur le reçu et la feuille d’intentions.',
+    guideTelephone:
+      'Avec le numéro utilisé au dépôt, vous pouvez retrouver vos demandes sur Suivi, même sans le code sous la main.',
   },
   inscription: {
     doyenne: 'Sélectionnez le doyenné de l’archidiocèse pour charger l’annuaire des paroisses.',

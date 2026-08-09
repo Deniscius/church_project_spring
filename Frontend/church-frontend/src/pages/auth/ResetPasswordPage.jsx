@@ -75,28 +75,31 @@ export default function ResetPasswordPage() {
       ) : null}
 
       <div className="form-field">
-        <div className="auth-label-row">
-          <label htmlFor="reset-password">Nouveau mot de passe</label>
+        <label htmlFor="reset-password">Nouveau mot de passe</label>
+        <div className="auth-password-field">
+          <AppInput
+            id="reset-password"
+            name="password"
+            className="auth-password-input"
+            type={showPassword ? 'text' : 'password'}
+            autoComplete="new-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            disabled={loading || !token}
+            minLength={8}
+          />
           <button
             type="button"
-            className="auth-text-btn"
+            className="auth-password-toggle"
             onClick={() => setShowPassword((v) => !v)}
             aria-pressed={showPassword}
+            aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+            disabled={loading || !token}
           >
-            {showPassword ? 'Masquer' : 'Afficher'}
+            {showPassword ? 'Masquer' : 'Voir'}
           </button>
         </div>
-        <AppInput
-          id="reset-password"
-          name="password"
-          type={showPassword ? 'text' : 'password'}
-          autoComplete="new-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          disabled={loading || !token}
-          minLength={8}
-        />
       </div>
 
       <div className="form-field">

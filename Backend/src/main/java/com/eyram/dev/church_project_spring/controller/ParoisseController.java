@@ -118,6 +118,7 @@ public class ParoisseController {
         Resource resource = paroisseService.loadLogo(publicId);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"logo\"")
+                .header(HttpHeaders.CACHE_CONTROL, "private, max-age=86400")
                 .contentType(MediaType.parseMediaType(paroisseService.logoContentType(publicId)))
                 .body(resource);
     }
@@ -125,7 +126,8 @@ public class ParoisseController {
     /**
      * Aperçu PDF du reçu (demi-A4) avec logo / en-tête paroisse — sans demande réelle.
      */
-    @GetMapping(value = "/{publicId}/recu-modele.pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+    @GetMapping(value = { "/{publicId}/recu-modele", "/{publicId}/recu-modele.pdf" },
+            produces = MediaType.APPLICATION_PDF_VALUE)
     @PreAuthorize("hasAnyRole('ADMIN', 'SECRETAIRE', 'CURE', 'COMPTABLE_LOCAL', 'SUPER_ADMIN')")
     public ResponseEntity<byte[]> previewReceiptSample(@PathVariable UUID publicId) {
         byte[] pdf = demandeReceiptService.generateSampleForParoisse(publicId);

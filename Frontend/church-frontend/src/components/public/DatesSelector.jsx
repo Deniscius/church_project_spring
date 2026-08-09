@@ -4,9 +4,18 @@ import AppInput from '../ui/AppInput';
 import AppSelect from '../ui/AppSelect';
 import AppButton from '../ui/AppButton';
 import MultiScheduleModal, { emptySchedule } from './MultiScheduleModal';
-import { getForfaitDureeLabel, isMultiCelebrationForfait, WEEK_DAY_LABELS, WEEK_DAYS } from '../../constants/enums';
+import {
+  getForfaitDureeLabel,
+  isMultiCelebrationForfait,
+  NATURE_FORFAIT_OPTIONS,
+  WEEK_DAY_LABELS,
+  WEEK_DAYS,
+} from '../../constants/enums';
 import { usePublicDemandeDraft } from '../../contexts/publicDemandeDraft.context';
-import { useHorairesByParishQuery } from '../../hooks/queries/usePublicReferentiel';
+import {
+  useForfaitsActifsQuery,
+  useHorairesByParishQuery,
+} from '../../hooks/queries/usePublicReferentiel';
 import {
   computeCelebrationDates,
   formatAllowedDays,
@@ -19,6 +28,8 @@ import {
   resolveHorairesForDate,
 } from '../../utils/schedulingUtils';
 import { formatParishTimeInUserZone, formatTime } from '../../utils/formatTime';
+import { pickPreferredForfait } from '../../utils/demandePrefill';
+import { formatCurrency } from '../../utils/formatCurrency';
 
 function formatFrDate(iso) {
   return new Date(`${iso}T12:00:00`).toLocaleDateString('fr-FR', {
@@ -44,7 +55,7 @@ function pickDefaultSchedule(horaires, iso) {
 }
 
 export default function DatesSelector() {
-  const { draft, patch } = usePublicDemandeDraft();
+  const { draft, patch, dispatch } = usePublicDemandeDraft();
   const [slotError, setSlotError] = useState('');
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
   const n = Number(draft.forfaitNombreCelebration) || 0;
@@ -58,25 +69,57 @@ export default function DatesSelector() {
   const { data: horaires = [], isLoading, error, isFetching } = useHorairesByParishQuery(
     draft.paroissePublicId
   );
+  const { data: forfaits = [] } = useForfaitsActifsQuery(draft.typeDemandePublicId);
   const loadingHoraires = isLoading || isFetching;
 
-  const effectiveAllowedDays = useMemo(
-    () => (trentaine
-      ? WEEK_DAYS
-      : getEffectiveAllowedDays(
-        draft.typeDemandeJoursCelebrationAutorises,
-        draft.forfaitJoursCelebrationAutorises,
-        multi ? null : draft.horaireJourSemaine
-      )),
-    [
-      trentaine,
+  const effectiveAllowedDays = useMemo(() => {
+    if (trentaine) return WEEK_DAYS;
+    // Messe unique : union des jours des forfaits actifs → le tarif suit le jour choisi.
+    if (!multi && forfaits.length) {
+      const singles = forfaits.filter((f) => {
+        const count = f.nombreCelebration != null ? Number(f.nombreCelebration) : 1;
+        return !Number.isFinite(count) || count <= 1;
+      });
+      const union = new Set();
+      for (const f of (singles.length ? singles : forfaits)) {
+        for (const day of (f.joursCelebrationAutorises || [])) union.add(day);
+      }
+      if (union.size) {
+        const typeDays = draft.typeDemandeJoursCelebrationAutorises || [];
+        const merged = typeDays.length
+          ? [...union].filter((day) => typeDays.includes(day))
+          : [...union];
+        if (merged.length) {
+          // Préremplissage créneau : garder le jour du créneau tant qu’il est valide.
+          if (
+            draft.prefillFromSchedule
+            && draft.horaireJourSemaine
+            && merged.includes(draft.horaireJourSemaine)
+          ) {
+            return [draft.horaireJourSemaine];
+          }
+          return WEEK_DAYS.filter((day) => merged.includes(day));
+        }
+      }
+    }
+    return getEffectiveAllowedDays(
       draft.typeDemandeJoursCelebrationAutorises,
       draft.forfaitJoursCelebrationAutorises,
-      draft.horaireJourSemaine,
-      multi,
-    ]
-  );
+      multi ? null : draft.horaireJourSemaine
+    );
+  }, [
+    trentaine,
+    multi,
+    forfaits,
+    draft.typeDemandeJoursCelebrationAutorises,
+    draft.forfaitJoursCelebrationAutorises,
+    draft.horaireJourSemaine,
+    draft.prefillFromSchedule,
+  ]);
   const allowedDaysLabel = formatAllowedDays(effectiveAllowedDays);
+  const lockedFromSchedule = Boolean(
+    !multi && draft.prefillFromSchedule && (draft.horairePublicId || draft.horaireJourSemaine)
+  );
   const disabled = !draft.forfaitTarifPublicId;
   const startDate = draft.dateDebut || '';
   const dateSchedules = draft.dateSchedules || {};
@@ -101,10 +144,13 @@ export default function DatesSelector() {
     });
   }, [disabled, minimumDate, effectiveAllowedDays, multi, n]);
 
-  const dateOptions = useMemo(
-    () => suggestedDates.map((iso) => ({ value: iso, label: formatFrDate(iso) })),
-    [suggestedDates]
-  );
+  const dateOptions = useMemo(() => {
+    const opts = suggestedDates.map((iso) => ({ value: iso, label: formatFrDate(iso) }));
+    if (startDate && !opts.some((o) => o.value === startDate)) {
+      opts.unshift({ value: startDate, label: formatFrDate(startDate) });
+    }
+    return opts;
+  }, [suggestedDates, startDate]);
 
   const filledCount = useMemo(() => {
     if (!generatedDates.length) return 0;
@@ -118,6 +164,49 @@ export default function DatesSelector() {
     () => generatedDates.filter((iso) => getDayEnumFromDateString(iso) === 'DIMANCHE').length,
     [generatedDates]
   );
+
+  // Messe unique : aligne NORMALE / DOMINICALE / SPECIALE sur le jour (et le créneau).
+  useEffect(() => {
+    if (multi || !draft.dateDebut || !forfaits.length || !draft.forfaitTarifPublicId) return;
+    const day = getDayEnumFromDateString(draft.dateDebut);
+    if (!day) return;
+    const slot = resolveHorairesForDate(horaires, draft.dateDebut)
+      .find((h) => h.publicId === draft.horairePublicId);
+    const natureHonoraire = slot?.natureHonoraire || draft.prefillNatureHonoraire || '';
+    const preferred = pickPreferredForfait(forfaits, {
+      jourSemaine: day,
+      natureHonoraire,
+      currentNature: draft.forfaitNature,
+      nombreCelebration: draft.forfaitNombreCelebration ?? 1,
+    });
+    if (!preferred || preferred.publicId === draft.forfaitTarifPublicId) return;
+    const natureLabel = NATURE_FORFAIT_OPTIONS.find((o) => o.value === preferred.natureForfait)?.label
+      || preferred.nomForfait;
+    dispatch({
+      type: 'SYNC_FORFAIT',
+      payload: {
+        publicId: preferred.publicId,
+        label: natureLabel,
+        natureForfait: preferred.natureForfait,
+        heurePersonnalise: preferred.heurePersonnalise,
+        nombreCelebration: preferred.nombreCelebration,
+        nombreJour: preferred.nombreJour ?? preferred.nombreCelebration,
+        montantForfait: preferred.montantForfait,
+        joursCelebrationAutorises: preferred.joursCelebrationAutorises || [],
+      },
+    });
+  }, [
+    multi,
+    draft.dateDebut,
+    draft.horairePublicId,
+    draft.forfaitTarifPublicId,
+    draft.forfaitNature,
+    draft.forfaitNombreCelebration,
+    draft.prefillNatureHonoraire,
+    forfaits,
+    horaires,
+    dispatch,
+  ]);
 
   // Trentaine : auto-remplir les horaires dès que les dates + programme sont prêts.
   useEffect(() => {
@@ -224,17 +313,23 @@ export default function DatesSelector() {
   const title = multi ? `Date de début du ${dureeLabel.toLowerCase()}` : 'Date de célébration';
   const subtitle = disabled
     ? 'Sélectionnez d’abord la nature de la messe.'
-    : multi
-      ? trentaine
-        ? 'Choisissez le premier jour : les 30 jours suivants sont calculés, les horaires sont préremplis. Ajustez les dimanches si besoin.'
-        : `Choisissez la date de début, puis les horaires des ${n} célébrations dans le panneau.`
-      : 'Choisissez la date, puis l’heure de célébration à l’étape suivante.';
+    : lockedFromSchedule
+      ? 'Date figée par le créneau choisi (ex. messe du dimanche).'
+      : multi
+        ? trentaine
+          ? 'Choisissez le premier jour : les 30 jours suivants sont calculés, les horaires sont préremplis. Ajustez les dimanches si besoin.'
+          : `Choisissez la date de début, puis les horaires des ${n} célébrations dans le panneau.`
+        : 'Choisissez la date, puis l’heure de célébration ci-dessous.';
 
   const dayHint = trentaine
     ? 'Trentaine : 30 jours calendaires successifs à partir de la date de début.'
     : effectiveAllowedDays?.length === 1
       ? `Uniquement les ${WEEK_DAY_LABELS[effectiveAllowedDays[0]] || effectiveAllowedDays[0]}s.`
       : `Jours autorisés pour cette nature : ${allowedDaysLabel}.`;
+
+  const tariffHint = !multi && draft.forfaitMontant != null
+    ? `Tarif appliqué : ${draft.forfaitLabel || draft.forfaitNature || '—'} · ${formatCurrency(Number(draft.forfaitMontant))} (selon le jour de célébration).`
+    : '';
 
   return (
     <AppCard title={title} subtitle={subtitle}>
@@ -245,6 +340,7 @@ export default function DatesSelector() {
         <small className="muted" style={{ display: 'block', marginBottom: 12 }}>
           {dayHint} Délai minimum : {draft.typeDemandeDelaiMinimumHeures ?? 24} heure(s).
           {multi ? ` Période du ${dureeLabel.toLowerCase()} : ${windowDays} jour(s) consécutifs.` : ''}
+          {tariffHint ? ` ${tariffHint}` : ''}
         </small>
       ) : null}
 
@@ -256,11 +352,14 @@ export default function DatesSelector() {
           <AppSelect
             id="public-date-start"
             value={startDate}
-            disabled={disabled}
+            disabled={disabled || lockedFromSchedule}
             required
             placeholder="— Choisir une date —"
             options={dateOptions}
-            onChange={(iso) => commitStart(iso)}
+            onChange={(iso) => {
+              if (lockedFromSchedule) return;
+              commitStart(iso);
+            }}
           />
         ) : (
           <AppInput
@@ -268,11 +367,17 @@ export default function DatesSelector() {
             type="date"
             min={minimumDate}
             value={startDate}
-            disabled={disabled}
-            onChange={(e) => commitStart(e.target.value)}
+            disabled={disabled || lockedFromSchedule}
+            onChange={(e) => {
+              if (lockedFromSchedule) return;
+              commitStart(e.target.value);
+            }}
             required
           />
         )}
+        {lockedFromSchedule ? (
+          <small className="muted">Date figée — changez de créneau depuis les horaires pour une autre date.</small>
+        ) : null}
         {slotError ? <small className="text-red-600">{slotError}</small> : null}
       </div>
 

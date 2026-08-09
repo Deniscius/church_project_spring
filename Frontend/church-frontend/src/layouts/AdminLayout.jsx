@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import Sidebar from '../components/admin/Sidebar';
 import Topbar from '../components/admin/Topbar';
 import SubscriptionBanner from '../components/admin/SubscriptionBanner';
+import TenantInterventionBanner from '../components/admin/TenantInterventionBanner';
 
 export default function AdminLayout() {
   return (
@@ -11,6 +12,7 @@ export default function AdminLayout() {
       <div className="admin-main">
         <Topbar />
         <div className="page-section">
+          <TenantInterventionBanner />
           <SubscriptionBanner />
           <Outlet />
         </div>

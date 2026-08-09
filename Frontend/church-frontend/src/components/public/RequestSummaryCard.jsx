@@ -3,41 +3,41 @@ import AppCard from '../ui/AppCard';
 import { getForfaitDureeLabel, isMultiCelebrationForfait } from '../../constants/enums';
 import { usePublicDemandeDraft } from '../../contexts/publicDemandeDraft.context';
 import { formatCurrency } from '../../utils/formatCurrency';
-import { DEFAULT_FIDELE_NAME } from '../../utils/personName';
+import { formatDateShort } from '../../utils/formatDate';
+import { DEFAULT_FIDELE_NAME, formatFideleName } from '../../utils/personName';
 
 /**
  * Résumé limité à l'étape courante (et aux étapes déjà validées).
  * Les champs des étapes à venir ne sont pas affichés.
  */
-export default function RequestSummaryCard({ step = 4, mode = 'wizard' }) {
+export default function RequestSummaryCard({ step = 3, mode = 'wizard' }) {
   const { draft } = usePublicDemandeDraft();
   const multi = isMultiCelebrationForfait(draft.forfaitNombreCelebration);
   const dates = multi
     ? (draft.datesCelebration || []).filter(Boolean).sort()
     : (draft.dateDebut ? [draft.dateDebut] : []);
 
-  const showThrough = mode === 'full' ? 4 : step;
+  // Wizard 3 étapes : 1 intention · 2 lieu+date · 3 paiement
+  const showThrough = mode === 'full' ? 3 : step;
   const rows = [];
+  const demandeur = formatFideleName(draft.prenomFidele, draft.nomFidele);
+  const anonymousDemandeur = demandeur === DEFAULT_FIDELE_NAME;
 
-  if (draft.prefillFromSchedule && showThrough >= 2) {
+  if (draft.prefillFromSchedule && showThrough >= 1) {
     rows.push([
-      'Prérempli',
+      'Créneau',
       [
         draft.paroisseNom,
         draft.horaireLibelle || draft.horaireHeureCelebration,
-        draft.dateDebut,
-      ].filter(Boolean).join(' · ') || 'Créneau depuis l’accueil',
+        formatDateShort(draft.dateDebut),
+      ].filter(Boolean).join(' · ') || 'Depuis les horaires',
     ]);
   }
 
   if (showThrough >= 1) {
     rows.push(
       ['Intention de messe', draft.intention?.trim() || '—'],
-      [
-        'Demandeur',
-        [draft.prenomFidele, draft.nomFidele].filter(Boolean).join(' ')
-          || `${DEFAULT_FIDELE_NAME} (si non renseigné)`,
-      ],
+      ['Demandeur', demandeur],
     );
   }
 
@@ -52,11 +52,6 @@ export default function RequestSummaryCard({ step = 4, mode = 'wizard' }) {
           ? formatCurrency(Number(draft.forfaitMontant))
           : '—',
       ],
-    );
-  }
-
-  if (showThrough >= 3) {
-    rows.push(
       [
         multi
           ? `Dates (${getForfaitDureeLabel(draft.forfaitNombreCelebration)})`
@@ -64,8 +59,8 @@ export default function RequestSummaryCard({ step = 4, mode = 'wizard' }) {
         dates.length === 0
           ? '—'
           : multi
-            ? `${dates[0]} → ${dates[dates.length - 1]} (${dates.length} jours)`
-            : dates[0],
+            ? `${formatDateShort(dates[0])} → ${formatDateShort(dates[dates.length - 1])} (${dates.length} jours)`
+            : formatDateShort(dates[0]),
       ],
       [
         'Horaire',
@@ -76,7 +71,7 @@ export default function RequestSummaryCard({ step = 4, mode = 'wizard' }) {
               .map((iso) => {
                 const s = schedules[iso] || {};
                 const h = s.heurePersonnalisee || s.heureCelebration?.slice?.(0, 5) || s.horaireLibelle;
-                return h ? `${iso.slice(5)} ${String(h).slice(0, 5)}` : null;
+                return h ? `${formatDateShort(iso)} ${String(h).slice(0, 5)}` : null;
               })
               .filter(Boolean);
             return bits.length ? bits.join(' · ') : '—';
@@ -90,7 +85,7 @@ export default function RequestSummaryCard({ step = 4, mode = 'wizard' }) {
     );
   }
 
-  if (showThrough >= 4) {
+  if (showThrough >= 3) {
     rows.push(['Paiement', draft.typePaiementLibelle || '—']);
   }
 
@@ -111,6 +106,11 @@ export default function RequestSummaryCard({ step = 4, mode = 'wizard' }) {
           </div>
         ))}
       </div>
+      {showThrough >= 1 && anonymousDemandeur ? (
+        <p className="muted demande-summary-hint">
+          Sans nom saisi, le dossier porte « {DEFAULT_FIDELE_NAME} ».
+        </p>
+      ) : null}
     </AppCard>
   );
 }

@@ -44,8 +44,9 @@ export default function TrackingSuccessDialog({
       onCancel={onClose}
     >
       <p className="dialog-lead">
-        Conservez précieusement ce numéro de suivi. Utilisez « Copier le code de suivi »
-        pour ne pas le perdre.
+        Conservez précieusement ce numéro de suivi. Vous pourrez aussi retrouver
+        votre demande avec le <strong>téléphone</strong> utilisé lors du dépôt
+        (page Suivi).
       </p>
       <div className="tracking-code-box" role="status">
         <span className="tracking-code-label">Numéro de suivi</span>
@@ -54,6 +55,10 @@ export default function TrackingSuccessDialog({
           {copied ? 'Code copié' : 'Copier le code de suivi'}
         </AppButton>
       </div>
+      <p className="muted" style={{ marginTop: 12 }}>
+        Astuce : notez le code <em>et</em> gardez le même numéro de téléphone pour
+        retrouver facilement vos intentions plus tard.
+      </p>
       <div className="button-row tracking-code-links">
         <AppButton
           type="button"

@@ -45,7 +45,7 @@ export default function HomePage() {
             <span className="home-step-num" aria-hidden="true">1</span>
             <div>
               <h3>Déposer</h3>
-              <p>Paroisse, célébration, dates et paiement.</p>
+              <p>Intention, lieu & date, puis paiement — 3 étapes.</p>
             </div>
           </li>
           <li>

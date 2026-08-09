@@ -78,23 +78,23 @@ public final class PdfDocumentStyles {
     }
 
     public static Font compactHeadingFont() {
-        return FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, ACCENT);
+        return FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10, ACCENT);
     }
 
     public static Font compactLabelFont() {
-        return FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8, MUTED);
+        return FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, MUTED);
     }
 
     public static Font compactBodyFont() {
-        return FontFactory.getFont(FontFactory.HELVETICA, 8, HEADER_BG);
+        return FontFactory.getFont(FontFactory.HELVETICA, 10, HEADER_BG);
     }
 
     public static Font compactIntentionFont() {
-        return FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, HEADER_BG);
+        return FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11, HEADER_BG);
     }
 
     public static Font cutLineFont() {
-        return FontFactory.getFont(FontFactory.HELVETICA, 8, MUTED);
+        return FontFactory.getFont(FontFactory.HELVETICA, 9, MUTED);
     }
 
     /**
@@ -375,9 +375,9 @@ public final class PdfDocumentStyles {
 
     public static void styleCompactMetaCell(PdfPCell cell) {
         cell.setBorderColor(BORDER);
-        cell.setPadding(4);
-        cell.setPaddingTop(3);
-        cell.setPaddingBottom(3);
+        cell.setPadding(5);
+        cell.setPaddingTop(4);
+        cell.setPaddingBottom(4);
     }
 
     public static PdfPCell compactIntentionCell(String intentionText) {
@@ -387,7 +387,7 @@ public final class PdfDocumentStyles {
         PdfPCell label = new PdfPCell(new Phrase("INTENTION DE MESSE", compactLabelFont()));
         label.setBorder(0);
         label.setPadding(0);
-        label.setPaddingBottom(2);
+        label.setPaddingBottom(3);
         inner.addCell(label);
 
         PdfPCell value = new PdfPCell(new Phrase(
@@ -401,13 +401,13 @@ public final class PdfDocumentStyles {
         PdfPCell wrap = new PdfPCell(inner);
         wrap.setBackgroundColor(INTENTION_BG);
         wrap.setBorderColor(BORDER);
-        wrap.setPadding(7);
+        wrap.setPadding(8);
         wrap.setColspan(2);
         return wrap;
     }
 
     /**
-     * En-tête compact pour un demi-reçu (logo plus petit, titre court).
+     * En-tête compact pour un demi-reçu (logo + titre) — tailles lisibles, volet A4.
      */
     public static PdfPTable parishBrandedHeaderCompact(
             Paroisse paroisse,
@@ -416,22 +416,22 @@ public final class PdfDocumentStyles {
     ) {
         PdfPTable wrap = new PdfPTable(1);
         wrap.setWidthPercentage(100);
-        wrap.setSpacingAfter(3);
+        wrap.setSpacingAfter(4);
 
         PdfPCell identity = new PdfPCell();
         identity.setBorderColor(BORDER);
         identity.setBorderWidth(1f);
-        identity.setPadding(8);
+        identity.setPadding(9);
         identity.setBackgroundColor(SECTION_BG);
 
         boolean hasLogo = logoAbsolutePath != null && Files.isRegularFile(logoAbsolutePath);
         try {
             if (hasLogo) {
-                PdfPTable row = new PdfPTable(new float[]{1f, 5.2f});
+                PdfPTable row = new PdfPTable(new float[]{1.1f, 5.1f});
                 row.setWidthPercentage(100);
 
                 Image logo = Image.getInstance(logoAbsolutePath.toAbsolutePath().toString());
-                logo.scaleToFit(34, 34);
+                logo.scaleToFit(42, 42);
                 PdfPCell logoCell = new PdfPCell(logo, false);
                 logoCell.setBorder(0);
                 logoCell.setHorizontalAlignment(Element.ALIGN_CENTER);
@@ -453,7 +453,7 @@ public final class PdfDocumentStyles {
             identity = new PdfPCell();
             identity.setBorderColor(BORDER);
             identity.setBorderWidth(1f);
-            identity.setPadding(8);
+            identity.setPadding(9);
             identity.setBackgroundColor(SECTION_BG);
             addCompactIdentityLines(identity, paroisse);
         }
@@ -464,11 +464,11 @@ public final class PdfDocumentStyles {
             PdfPCell titleCell = new PdfPCell();
             titleCell.setBackgroundColor(HEADER_BG);
             titleCell.setBorderColor(HEADER_BG);
-            titleCell.setPadding(6);
+            titleCell.setPadding(7);
             titleCell.setHorizontalAlignment(Element.ALIGN_CENTER);
             Paragraph t = new Paragraph(
                     documentTitle,
-                    FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11, WHITE)
+                    FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12, WHITE)
             );
             t.setAlignment(Element.ALIGN_CENTER);
             titleCell.addElement(t);
@@ -481,7 +481,7 @@ public final class PdfDocumentStyles {
     private static void addCompactIdentityLines(PdfPCell cell, Paroisse paroisse) {
         Paragraph org = new Paragraph(
                 ARCHIDIOCESE_LABEL,
-                FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, HEADER_BG)
+                FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10, HEADER_BG)
         );
         org.setAlignment(Element.ALIGN_CENTER);
         cell.addElement(org);
@@ -491,7 +491,7 @@ public final class PdfDocumentStyles {
                 : "Paroisse";
         Paragraph name = new Paragraph(
                 parishName,
-                FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10, ACCENT)
+                FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12, ACCENT)
         );
         name.setAlignment(Element.ALIGN_CENTER);
         name.setSpacingBefore(2);
@@ -501,7 +501,7 @@ public final class PdfDocumentStyles {
         if (StringUtils.hasText(contact)) {
             Paragraph detail = new Paragraph(
                     contact,
-                    FontFactory.getFont(FontFactory.HELVETICA, 8, MUTED)
+                    FontFactory.getFont(FontFactory.HELVETICA, 9, MUTED)
             );
             detail.setAlignment(Element.ALIGN_CENTER);
             detail.setSpacingBefore(2);

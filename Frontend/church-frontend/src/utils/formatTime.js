@@ -1,6 +1,5 @@
 /**
- * Normalise une heure renvoyée par l'API (`LocalTime` sérialisé « HH:mm:ss »)
- * en libellé court « HH:mm ».
+ * Normalise une heure API (`LocalTime` « HH:mm:ss ») en « HH:mm » (stockage / API).
  */
 
 /** Fuseau métier des paroisses (horaires stockés sans offset). */
@@ -14,6 +13,15 @@ export function formatTime(value) {
   return `${match[1].padStart(2, '0')}:${match[2]}`;
 }
 
+/** Affichage français : « 14 h 30 ». */
+export function formatTimeFr(value) {
+  const hm = formatTime(value);
+  if (!hm) return null;
+  const match = hm.match(/^(\d{2}):(\d{2})$/);
+  if (!match) return hm;
+  return `${match[1]} h ${match[2]}`;
+}
+
 export function getUserTimeZone() {
   try {
     return Intl.DateTimeFormat().resolvedOptions().timeZone || PARISH_TIME_ZONE;
@@ -24,13 +32,14 @@ export function getUserTimeZone() {
 
 /**
  * Convertit une heure paroissiale (Africa/Lome) vers le fuseau du navigateur.
- * Retourne { parish, local, sameZone, label }.
+ * Retourne { parish, local, sameZone, label } avec libellés français.
  */
 export function convertParishTimeToUser(value, referenceDate = new Date()) {
-  const parish = formatTime(value);
-  if (!parish) {
+  const parishHm = formatTime(value);
+  if (!parishHm) {
     return { parish: null, local: null, sameZone: true, label: null };
   }
+  const parish = formatTimeFr(parishHm);
 
   const userTz = getUserTimeZone();
   const sameZone = userTz === PARISH_TIME_ZONE;
@@ -40,17 +49,20 @@ export function convertParishTimeToUser(value, referenceDate = new Date()) {
 
   const dateIso = referenceDate.toLocaleDateString('en-CA', { timeZone: PARISH_TIME_ZONE });
   // Africa/Lome = UTC+0 toute l'année.
-  const instant = new Date(`${dateIso}T${parish}:00+00:00`);
+  const instant = new Date(`${dateIso}T${parishHm}:00+00:00`);
   if (Number.isNaN(instant.getTime())) {
     return { parish, local: parish, sameZone: true, label: parish };
   }
 
-  const local = instant.toLocaleTimeString('fr-FR', {
+  const parts = new Intl.DateTimeFormat('en-GB', {
     timeZone: userTz,
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
-  });
+  }).formatToParts(instant);
+  const hh = parts.find((p) => p.type === 'hour')?.value || '00';
+  const mm = parts.find((p) => p.type === 'minute')?.value || '00';
+  const local = formatTimeFr(`${hh}:${mm}`);
 
   return {
     parish,
@@ -60,7 +72,7 @@ export function convertParishTimeToUser(value, referenceDate = new Date()) {
   };
 }
 
-/** Affiche l'heure paroissiale adaptée au fuseau de l'utilisateur. */
+/** Affiche l'heure paroissiale adaptée au fuseau de l'utilisateur (format FR). */
 export function formatParishTimeInUserZone(value, referenceDate = new Date()) {
   return convertParishTimeToUser(value, referenceDate).label;
 }

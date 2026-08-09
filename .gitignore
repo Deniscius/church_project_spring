@@ -1,0 +1,21 @@
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.iml
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+!.env.production.example
+
+# Uploads / PII
+uploads/
+**/uploads/
+
+# Build
+**/target/
+**/node_modules/
+**/dist/

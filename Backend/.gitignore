@@ -36,4 +36,8 @@ build/
 .env
 .env.*
 !.env.example
+!.env.production.example
 
+### Uploads locaux (logos, scans inscription — PII) ###
+uploads/
+**/uploads/

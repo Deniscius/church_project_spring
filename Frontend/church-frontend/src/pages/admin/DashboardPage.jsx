@@ -73,12 +73,29 @@ export default function DashboardPage() {
       {isLoading ? <p className="muted">Chargement…</p> : null}
 
       {stats.impayeesProches > 0 ? (
-        <div className="alert-warning" role="alert">
-          <strong>{stats.impayeesProches} demande{stats.impayeesProches > 1 ? 's' : ''} non payée{stats.impayeesProches > 1 ? 's' : ''}</strong>
-          {' '}avec célébration dans les 3 jours — rappel e-mail toutes les 6 h, annulation automatique 6 h avant la célébration.
-          {' '}
-          <Link to="/admin/demandes">Voir les demandes</Link>
-        </div>
+        <aside className="unpaid-alert" role="alert">
+          <div className="unpaid-alert-icon" aria-hidden="true">!</div>
+          <div className="unpaid-alert-body">
+            <strong>
+              {stats.impayeesProches} célébration{stats.impayeesProches > 1 ? 's' : ''} non payée
+              {stats.impayeesProches > 1 ? 's' : ''} à venir
+            </strong>
+            <p>
+              Première célébration dans les 3 jours. Un rappel e-mail part toutes les 6 h ;
+              annulation automatique 6 h avant la messe si le paiement manque.
+            </p>
+            <div className="unpaid-alert-actions">
+              <Link className="btn btn-primary btn-sm" to="/admin/demandes">
+                Traiter les demandes
+              </Link>
+              {unpaidAlert[0]?.id ? (
+                <Link className="btn btn-secondary btn-sm" to={`/admin/demandes/${unpaidAlert[0].id}`}>
+                  Voir la plus urgente
+                </Link>
+              ) : null}
+            </div>
+          </div>
+        </aside>
       ) : null}
 
       <div className="card-grid">
@@ -110,8 +127,8 @@ export default function DashboardPage() {
 
       {unpaidAlert.length > 0 ? (
         <AppCard
-          title="Alertes — paiements manquants"
-          subtitle="Demandes non réglées dont la première célébration approche."
+          title="Célébrations non payées"
+          subtitle="Priorité : régulariser avant la première date de célébration."
         >
           <div className="table-card">
             <table className="app-table">
@@ -125,14 +142,16 @@ export default function DashboardPage() {
               </thead>
               <tbody>
                 {unpaidAlert.map((item) => (
-                  <tr key={item.id}>
+                  <tr key={item.id} className="unpaid-alert-row">
                     <td data-label="Code">
                       <Link to={`/admin/demandes/${item.id}`}>{item.trackingCode}</Link>
                     </td>
                     <td data-label="Demandeur">{item.applicant}</td>
                     <td data-label="Type">{item.requestType}</td>
                     <td data-label="1ère célébration">
-                      {item.firstDate ? formatProgrammeDate(item.firstDate) : '—'}
+                      <span className="unpaid-alert-date">
+                        {item.firstDate ? formatProgrammeDate(item.firstDate) : '—'}
+                      </span>
                     </td>
                   </tr>
                 ))}

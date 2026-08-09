@@ -19,6 +19,22 @@ export const paymentService = {
       method: 'POST',
     }),
 
+  /**
+   * Retour navigateur FedaPay : résout le jeton opaque et réconcilie via GET transaction.
+   * body: { token, providerTransactionId? }
+   */
+  resolveReturn: (body) =>
+    apiClient('/paiements/retour/resoudre', {
+      method: 'POST',
+      body: JSON.stringify(body || {}),
+    }),
+
+  /** Synchronise le statut local avec FedaPay pour un code de suivi. */
+  reconcileByTrackingCode: (codeSuivie) =>
+    apiClient(`/paiements/reconcile/${encodeURIComponent(codeSuivie)}`, {
+      method: 'POST',
+    }),
+
   /** Encaissement espèces au secrétariat — hors solde de reversement. */
   encaisserCaisse: (demandePublicId) =>
     apiClient(`/details-paiement/caisse/${demandePublicId}`, { method: 'POST' }, { auth: true }),

@@ -1,5 +1,7 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
+import ThemeToggle from '../ui/ThemeToggle';
+import BrandLogo from '../ui/BrandLogo';
 
 const FIDELE_LINKS = [
   { to: '/demande', label: 'Faire une demande' },
@@ -12,11 +14,45 @@ const PARISH_LINKS = [
   { to: '/admin/login', label: 'Espace paroisse' },
 ];
 
-function NavDropdown({ label, links, open, onToggle, onNavigate, active }) {
+function NavDropdown({
+  label,
+  links,
+  open,
+  onToggle,
+  onNavigate,
+  onClose,
+  active,
+}) {
   const panelId = useId();
+  const leaveTimer = useRef(null);
+
+  const canHoverClose = () =>
+    typeof window !== 'undefined'
+    && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+
+  const clearLeave = () => {
+    if (leaveTimer.current) {
+      window.clearTimeout(leaveTimer.current);
+      leaveTimer.current = null;
+    }
+  };
+
+  const scheduleClose = () => {
+    if (!canHoverClose()) return;
+    clearLeave();
+    leaveTimer.current = window.setTimeout(() => {
+      onClose?.();
+    }, 140);
+  };
+
+  useEffect(() => () => clearLeave(), []);
 
   return (
-    <div className={`nav-dropdown${open ? ' is-open' : ''}${active ? ' has-active' : ''}`}>
+    <div
+      className={`nav-dropdown${open ? ' is-open' : ''}${active ? ' has-active' : ''}`}
+      onMouseEnter={clearLeave}
+      onMouseLeave={scheduleClose}
+    >
       <button
         type="button"
         className="nav-link nav-dropdown-trigger"
@@ -24,6 +60,12 @@ function NavDropdown({ label, links, open, onToggle, onNavigate, active }) {
         aria-haspopup="true"
         aria-controls={panelId}
         onClick={onToggle}
+        onBlur={(e) => {
+          // Ferme si le focus quitte le menu (évite état « hover » figé au clavier / tactile).
+          if (!e.currentTarget.parentElement?.contains(e.relatedTarget)) {
+            onClose?.();
+          }
+        }}
       >
         {label}
         <span className="nav-dropdown-chevron" aria-hidden="true" />
@@ -50,6 +92,7 @@ export default function PublicHeader() {
   const navRef = useRef(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [openMenu, setOpenMenu] = useState(null);
+  const isHome = pathname === '/';
 
   const closeAll = () => {
     setMenuOpen(false);
@@ -87,10 +130,10 @@ export default function PublicHeader() {
   const parishActive = PARISH_LINKS.some((l) => pathname === l.to || pathname.startsWith(`${l.to}/`));
 
   return (
-    <header className="public-header">
+    <header className={`public-header${isHome ? ' public-header--home' : ''}`}>
       <div className="container public-bar">
         <Link to="/" className="brand" onClick={closeAll}>
-          <span className="brand-mark" aria-hidden="true" />
+          <BrandLogo size={34} className="public-brand-logo" alt="" />
           <span className="brand-text">
             <span className="brand-name">Missanye</span>
             <span className="brand-tag">Intentions &amp; célébrations</span>
@@ -121,6 +164,7 @@ export default function PublicHeader() {
             open={openMenu === 'fideles'}
             active={fideleActive}
             onToggle={() => setOpenMenu((m) => (m === 'fideles' ? null : 'fideles'))}
+            onClose={() => setOpenMenu((m) => (m === 'fideles' ? null : m))}
             onNavigate={closeAll}
           />
           <NavDropdown
@@ -129,8 +173,10 @@ export default function PublicHeader() {
             open={openMenu === 'paroisses'}
             active={parishActive}
             onToggle={() => setOpenMenu((m) => (m === 'paroisses' ? null : 'paroisses'))}
+            onClose={() => setOpenMenu((m) => (m === 'paroisses' ? null : m))}
             onNavigate={closeAll}
           />
+          <ThemeToggle compact className="public-theme-toggle" />
         </nav>
       </div>
     </header>

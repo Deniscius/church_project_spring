@@ -6,6 +6,7 @@ import { usePublicDemandeDraft } from '../../contexts/publicDemandeDraft.context
 import { useHorairesByParishQuery } from '../../hooks/queries/usePublicReferentiel';
 import {
   formatAllowedDays,
+  getDayEnumFromDateString,
   resolveAllowedDays,
   resolveHorairesForDate,
 } from '../../utils/schedulingUtils';
@@ -18,6 +19,9 @@ export default function ScheduleSelector() {
     draft.paroissePublicId
   );
 
+  const lockedFromSchedule = Boolean(
+    draft.prefillFromSchedule && (draft.horairePublicId || draft.horaireJourSemaine)
+  );
   const disabled = !draft.paroissePublicId || !draft.forfaitTarifPublicId || !draft.dateDebut;
   const hp = draft.forfaitHeurePersonnalise;
   const loading = isLoading || isFetching;
@@ -38,7 +42,6 @@ export default function ScheduleSelector() {
 
     const byProgramme = resolveHorairesForDate(horaires, draft.dateDebut);
     const messeUnique = byProgramme.some((h) => h.uniqueSurParoisse);
-    // Messe unique : uniquement son heure.
     if (messeUnique) return byProgramme;
 
     if (!allowedDays?.length) return byProgramme;
@@ -52,7 +55,24 @@ export default function ScheduleSelector() {
   );
   const uniqueSlot = messeUnique ? filteredHoraires[0] : null;
 
-  // Figé sur l'heure de la messe unique dès qu'une date est connue.
+  const horaireOptions = useMemo(() => {
+    const opts = filteredHoraires.map((h) => ({
+      value: h.publicId,
+      label: [formatParishTimeInUserZone(h.heureCelebration), h.libelle].filter(Boolean).join(' · '),
+    }));
+    if (
+      draft.horairePublicId
+      && !opts.some((o) => o.value === draft.horairePublicId)
+      && draft.horaireLibelle
+    ) {
+      opts.unshift({
+        value: draft.horairePublicId,
+        label: draft.horaireLibelle,
+      });
+    }
+    return opts;
+  }, [filteredHoraires, draft.horairePublicId, draft.horaireLibelle]);
+
   useEffect(() => {
     if (!uniqueSlot?.publicId) return;
     if (draft.horairePublicId === uniqueSlot.publicId && !draft.heurePersonnalisee) return;
@@ -80,23 +100,33 @@ export default function ScheduleSelector() {
     patch,
   ]);
 
-  // Changement de date : invalider un horaire qui n'est plus au programme.
   useEffect(() => {
     if (!draft.dateDebut || !draft.horairePublicId || messeUnique) return;
     const stillValid = filteredHoraires.some((h) => h.publicId === draft.horairePublicId);
-    if (!stillValid) {
-      dispatch({
-        type: 'SELECT_HORAIRE',
-        payload: {
-          publicId: '',
-          libelle: '',
-          heureCelebration: '',
-          jourSemaine: '',
-          preserveDate: true,
-        },
-      });
+    if (stillValid) return;
+    if (draft.prefillFromSchedule && draft.horaireJourSemaine) {
+      const day = getDayEnumFromDateString(draft.dateDebut);
+      if (day === draft.horaireJourSemaine) return;
     }
-  }, [draft.dateDebut, draft.horairePublicId, filteredHoraires, messeUnique, dispatch]);
+    dispatch({
+      type: 'SELECT_HORAIRE',
+      payload: {
+        publicId: '',
+        libelle: '',
+        heureCelebration: '',
+        jourSemaine: '',
+        preserveDate: true,
+      },
+    });
+  }, [
+    draft.dateDebut,
+    draft.horairePublicId,
+    draft.prefillFromSchedule,
+    draft.horaireJourSemaine,
+    filteredHoraires,
+    messeUnique,
+    dispatch,
+  ]);
 
   const noHoraire = !disabled && !loading && !error && filteredHoraires.length === 0;
   const filteredOutAll = !disabled && !loading && horaires.length > 0 && filteredHoraires.length === 0;
@@ -106,17 +136,26 @@ export default function ScheduleSelector() {
     ? [formatParishTimeInUserZone(uniqueSlot.heureCelebration), uniqueSlot.libelle].filter(Boolean).join(' · ')
     : '';
 
+  const lockedHeureLabel = [
+    formatParishTimeInUserZone(draft.horaireHeureCelebration),
+    draft.horaireLibelle,
+  ].filter(Boolean).join(' · ')
+    || draft.horaireLibelle
+    || '—';
+
   return (
     <AppCard
       title="Heure de célébration"
       subtitle={
-        !draft.dateDebut
-          ? 'Choisissez d’abord la date de célébration.'
-          : messeUnique
-            ? 'Messe unique ce jour-là : l’heure est imposée. Changez de date ci-dessus pour un autre créneau.'
-            : allowHeurePerso
-              ? 'Choisissez un créneau de paroisse et/ou une heure personnalisée (au moins l’un des deux).'
-              : 'Un horaire de la paroisse est obligatoire pour ce forfait.'
+        lockedFromSchedule
+          ? 'Heure figée par le créneau choisi.'
+          : !draft.dateDebut
+            ? 'Choisissez d’abord la date de célébration.'
+            : messeUnique
+              ? 'Messe unique ce jour-là : l’heure est imposée. Changez de date ci-dessus pour un autre créneau.'
+              : allowHeurePerso
+                ? 'Choisissez un créneau de paroisse et/ou une heure personnalisée (au moins l’un des deux).'
+                : 'Un horaire de la paroisse est obligatoire pour ce forfait.'
       }
     >
       {disabled && !draft.dateDebut ? (
@@ -125,7 +164,17 @@ export default function ScheduleSelector() {
       {error ? <p className="text-red-600">{error.message}</p> : null}
       {loading ? <p className="muted">Chargement des horaires…</p> : null}
 
-      {noHoraire ? (
+      {lockedFromSchedule && draft.dateDebut ? (
+        <div className="form-field">
+          <label htmlFor="public-horaire-locked">Horaire (figé)</label>
+          <AppInput id="public-horaire-locked" value={lockedHeureLabel} readOnly disabled />
+          <small className="muted">
+            Pour une autre heure, choisissez un autre créneau depuis les horaires.
+          </small>
+        </div>
+      ) : null}
+
+      {!lockedFromSchedule && noHoraire ? (
         <p className={allowHeurePerso ? 'muted' : 'text-red-600'}>
           {filteredOutAll
             ? `Aucun horaire paroissial ne correspond aux jours autorisés (${formatAllowedDays(allowedDays)}).`
@@ -136,7 +185,7 @@ export default function ScheduleSelector() {
         </p>
       ) : null}
 
-      {messeUnique && uniqueSlot ? (
+      {!lockedFromSchedule && messeUnique && uniqueSlot ? (
         <div className="form-field">
           <label htmlFor="public-horaire-unique">Heure de la messe unique</label>
           <AppInput id="public-horaire-unique" value={uniqueHeureLabel} readOnly disabled />
@@ -146,7 +195,7 @@ export default function ScheduleSelector() {
         </div>
       ) : null}
 
-      {!noHoraire && !messeUnique && draft.dateDebut ? (
+      {!lockedFromSchedule && !noHoraire && !messeUnique && draft.dateDebut ? (
         <div className="form-field">
           <label htmlFor="public-horaire">Horaire de paroisse{allowHeurePerso ? '' : ' *'}</label>
           <AppSelect
@@ -156,14 +205,11 @@ export default function ScheduleSelector() {
             disabled={disabled}
             placeholder="— Aucun / à préciser —"
             value={
-              filteredHoraires.some((h) => h.publicId === draft.horairePublicId)
+              horaireOptions.some((o) => o.value === draft.horairePublicId)
                 ? draft.horairePublicId
                 : ''
             }
-            options={filteredHoraires.map((h) => ({
-              value: h.publicId,
-              label: [formatParishTimeInUserZone(h.heureCelebration), h.libelle].filter(Boolean).join(' · '),
-            }))}
+            options={horaireOptions}
             onChange={(id) => {
               const h = filteredHoraires.find((x) => x.publicId === id);
               dispatch({
@@ -172,9 +218,9 @@ export default function ScheduleSelector() {
                   publicId: id,
                   libelle: h
                     ? `${h.jourSemaine || ''} ${h.heureCelebration || ''} ${h.libelle || ''}`.trim()
-                    : '',
-                  heureCelebration: h?.heureCelebration || '',
-                  jourSemaine: h?.jourSemaine || '',
+                    : draft.horaireLibelle || '',
+                  heureCelebration: h?.heureCelebration || draft.horaireHeureCelebration || '',
+                  jourSemaine: h?.jourSemaine || draft.horaireJourSemaine || '',
                   preserveDate: true,
                 },
               });
@@ -187,7 +233,7 @@ export default function ScheduleSelector() {
         </div>
       ) : null}
 
-      {allowHeurePerso && draft.dateDebut ? (
+      {!lockedFromSchedule && allowHeurePerso && draft.dateDebut ? (
         <div className="form-field">
           <label htmlFor="public-heure-perso">Heure personnalisée</label>
           <AppInput

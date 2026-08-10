@@ -1,34 +1,35 @@
-# Missanye — Blueprint Render
+# Missanye — Blueprint Render (Togo)
 # Docs: docs/RENDER.md
 # Dashboard: New → Blueprint → sélectionner ce dépôt
 #
-# Après le premier apply, renseigner les secrets sync:false dans le Dashboard
-# (JWT, FedaPay, URLs CORS / front), puis redéployer.
+# Région Frankfurt = latence optimale depuis le Togo (pas Oregon).
+# Après le premier apply, renseigner les secrets sync:false, puis redéployer.
 
 databases:
   - name: missanye-db
     plan: basic-256mb
+    region: frankfurt
     databaseName: missanye
     user: missanye
     postgresMajorVersion: "16"
 
 services:
   # ---------------------------------------------------------------------------
-  # API Spring Boot (Docker)
+  # API Spring Boot (Docker) — context Backend/
   # ---------------------------------------------------------------------------
   - type: web
     name: missanye-api
     runtime: docker
     plan: starter
-    region: oregon
+    region: frankfurt
+    branch: master
+    autoDeploy: true
     dockerfilePath: ./Backend/Dockerfile
     dockerContext: ./Backend
     healthCheckPath: /actuator/health
-    # Disque persistant (logos / scans). Nécessite un plan compatible.
-    # Sans disque : retirer ce bloc et accepter un stockage éphémère.
     disk:
       name: missanye-uploads
-      mountPath: /var/data/uploads
+      mountPath: /app/uploads
       sizeGB: 1
     envVars:
       - key: SPRING_PROFILES_ACTIVE
@@ -38,7 +39,7 @@ services:
           name: missanye-db
           property: connectionString
       - key: APP_STORAGE_ROOT
-        value: /var/data/uploads
+        value: /app/uploads
       - key: HIKARI_MAX_POOL_SIZE
         value: "5"
       - key: HIKARI_MIN_IDLE
@@ -47,20 +48,33 @@ services:
         value: "40"
       - key: JWT_COOKIE_SECURE
         value: "true"
+      # *.onrender.com est un public suffix → front et API sont cross-site
       - key: JWT_COOKIE_SAME_SITE
-        value: Lax
+        value: None
       - key: JWT_COOKIE_ENCRYPT
         value: "true"
       - key: APP_MAIL_FAIL_CLOSED
         value: "true"
+      - key: APP_MAIL_FROM
+        value: noreply@missanye.com
+      - key: SPRING_MAIL_PORT
+        value: "587"
       - key: FEDAPAY_ENABLED
         value: "false"
       - key: FEDAPAY_ENVIRONMENT
         value: live
-      # Secrets / URLs — à saisir dans le Dashboard après le 1er apply
+      - key: FEDAPAY_CUSTOMER_COUNTRY
+        value: tg
+      # Secrets / URLs — Dashboard après le 1er apply
       - key: JWT_SECRET
         sync: false
       - key: APP_CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: SPRING_MAIL_HOST
+        sync: false
+      - key: SPRING_MAIL_USERNAME
+        sync: false
+      - key: SPRING_MAIL_PASSWORD
         sync: false
       - key: FEDAPAY_SECRET_KEY
         sync: false
@@ -75,6 +89,8 @@ services:
   - type: web
     name: missanye-web
     runtime: static
+    branch: master
+    autoDeploy: true
     buildCommand: npm ci && npm run build
     staticPublishPath: dist
     rootDir: Frontend/church-frontend
@@ -102,7 +118,6 @@ services:
         name: Cache-Control
         value: public, max-age=31536000, immutable
     envVars:
-      # Injectées au build Vite — URLs absolues https://… (sans slash final)
       - key: VITE_API_BASE_URL
         sync: false
       - key: VITE_PUBLIC_SITE_URL

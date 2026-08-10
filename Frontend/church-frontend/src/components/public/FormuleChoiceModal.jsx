@@ -12,7 +12,12 @@ import { formatAllowedDays } from '../../utils/schedulingUtils';
 /**
  * Modal de choix de formule (messe unique / triduum / neuvaine…) — cartes visuelles.
  */
-export default function FormuleChoiceModal({
+export default function FormuleChoiceModal({ open, ...props }) {
+  if (!open) return null;
+  return <FormuleChoiceModalContent open={open} {...props} />;
+}
+
+function FormuleChoiceModalContent({
   open,
   onClose,
   types = [],
@@ -24,12 +29,7 @@ export default function FormuleChoiceModal({
   onSelectType,
   onSelectForfait,
 }) {
-  const [step, setStep] = useState('type'); // type | forfait
-
-  useEffect(() => {
-    if (!open) return;
-    setStep(selectedTypeId ? 'forfait' : 'type');
-  }, [open, selectedTypeId]);
+  const [step, setStep] = useState(selectedTypeId ? 'forfait' : 'type');
 
   useEffect(() => {
     if (!open) return undefined;

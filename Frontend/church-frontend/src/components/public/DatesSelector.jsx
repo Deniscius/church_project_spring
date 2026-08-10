@@ -3,7 +3,7 @@ import AppCard from '../ui/AppCard';
 import AppInput from '../ui/AppInput';
 import AppSelect from '../ui/AppSelect';
 import AppButton from '../ui/AppButton';
-import MultiScheduleModal, { emptySchedule } from './MultiScheduleModal';
+import MultiScheduleModal from './MultiScheduleModal';
 import {
   getForfaitDureeLabel,
   isMultiCelebrationForfait,
@@ -18,6 +18,7 @@ import {
 } from '../../hooks/queries/usePublicReferentiel';
 import {
   computeCelebrationDates,
+  emptySchedule,
   formatAllowedDays,
   getDayEnumFromDateString,
   getEffectiveAllowedDays,
@@ -122,7 +123,10 @@ export default function DatesSelector() {
   );
   const disabled = !draft.forfaitTarifPublicId;
   const startDate = draft.dateDebut || '';
-  const dateSchedules = draft.dateSchedules || {};
+  const dateSchedules = useMemo(
+    () => draft.dateSchedules || {},
+    [draft.dateSchedules]
+  );
 
   const generatedDates = useMemo(() => {
     if (!multi || !startDate) return [];

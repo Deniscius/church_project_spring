@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import PageHeader from '../../../components/ui/PageHeader';
 import AppBadge from '../../../components/ui/AppBadge';
 import AppDialog from '../../../components/ui/AppDialog';
@@ -17,6 +17,7 @@ import { PERMISSIONS } from '../../../constants/roles';
 import { HELP } from '../../../constants/helpTips';
 
 const EMPTY_BANK = { nomBanque: '', titulaireCompte: '', ibanOrRib: '', email: '', telephone: '' };
+const EMPTY_CASH_LINES = [];
 
 const STATUS_FILTERS = [
   { id: 'ALL', label: 'Tous' },
@@ -90,7 +91,7 @@ export default function ParishTreasuryPage() {
   const [reversementPage, setReversementPage] = useState(0);
   const [reversementSearch, setReversementSearch] = useState('');
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!paroisseId) return;
     try {
       setError(null);
@@ -118,7 +119,7 @@ export default function ParishTreasuryPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [paroisseId]);
 
   async function saveBank() {
     if (!paroisseId) return;
@@ -161,7 +162,7 @@ export default function ParishTreasuryPage() {
 
   useEffect(() => {
     load();
-  }, [paroisseId]);
+  }, [load]);
 
   useEffect(() => {
     setCaissePage(0);
@@ -181,7 +182,7 @@ export default function ParishTreasuryPage() {
   const cashToday = caisse?.totalDuJour || 0;
   const cashMonth = caisse?.totalDuMois || 0;
   const cashCount = caisse?.nombreEncaissements || 0;
-  const cashLines = caisse?.encaissements || [];
+  const cashLines = caisse?.encaissements || EMPTY_CASH_LINES;
 
   const filteredCash = useMemo(() => {
     const needle = caisseSearch.trim().toLowerCase();

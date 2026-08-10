@@ -47,7 +47,10 @@ export default function HomeWeekSchedules() {
     enabled: sectionVisible,
   });
   const [weekTick, setWeekTick] = useState(0);
-  const weekDays = useMemo(() => parishUpcomingWeek(), [weekTick]);
+  const weekDays = useMemo(() => {
+    void weekTick;
+    return parishUpcomingWeek();
+  }, [weekTick]);
   const today = weekDays[0]?.day || parishTodayEnum();
   const [selectedDay, setSelectedDay] = useState(today);
   const [sampleSeed, setSampleSeed] = useState(0);
@@ -70,10 +73,14 @@ export default function HomeWeekSchedules() {
   }, []);
 
   useEffect(() => {
+    if (typeof IntersectionObserver === 'undefined') {
+      const t = window.setTimeout(() => setSectionVisible(true), 0);
+      return () => window.clearTimeout(t);
+    }
     const el = document.getElementById('home-schedules-anchor');
-    if (!el || typeof IntersectionObserver === 'undefined') {
-      setSectionVisible(true);
-      return undefined;
+    if (!el) {
+      const t = window.setTimeout(() => setSectionVisible(true), 0);
+      return () => window.clearTimeout(t);
     }
     const obs = new IntersectionObserver(
       ([entry]) => {

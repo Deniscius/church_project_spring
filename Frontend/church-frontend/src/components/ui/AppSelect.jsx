@@ -61,7 +61,8 @@ export default function AppSelect({
     if (disabled) return;
     setHasOpened(true);
     setOpen(true);
-  }, [disabled]);
+    setHighlight(options.findIndex((o) => String(o.value) === String(value)));
+  }, [disabled, options, value]);
 
   const toggle = () => {
     if (open) close();
@@ -98,14 +99,10 @@ export default function AppSelect({
   }, [open, close]);
 
   useEffect(() => {
-    if (!open) return undefined;
-    setHighlight(filtered.findIndex((o) => String(o.value) === String(value)));
-    if (searchable) {
-      const t = window.setTimeout(() => searchRef.current?.focus(), 0);
-      return () => window.clearTimeout(t);
-    }
-    return undefined;
-  }, [open, filtered, value, searchable]);
+    if (!open || !searchable) return undefined;
+    const t = window.setTimeout(() => searchRef.current?.focus(), 0);
+    return () => window.clearTimeout(t);
+  }, [open, searchable]);
 
   const onTriggerKeyDown = (event) => {
     if (disabled) return;

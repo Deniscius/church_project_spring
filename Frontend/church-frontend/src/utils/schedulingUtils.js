@@ -77,7 +77,6 @@ export function getMinimumCelebrationDateIso(delaiMinimumHeures = 24) {
  * (l’admin peut programmer une solennité n’importe quel jour).
  */
 export function resolveReferencedCelebrationDate({
-  allowedDays,
   delaiMinimumHeures = 24,
   horaires = [],
 } = {}) {
@@ -258,6 +257,16 @@ export function horairesForDate(horaires, dateIso) {
   const day = getDayEnumFromDateString(dateIso);
   if (!day) return [];
   return horaires.filter((h) => !h.jourSemaine || h.jourSemaine === day);
+}
+
+export function emptySchedule() {
+  return {
+    horairePublicId: '',
+    horaireLibelle: '',
+    heureCelebration: '',
+    jourSemaine: '',
+    heurePersonnalisee: '',
+  };
 }
 
 export function emptyCelebrationSlot() {

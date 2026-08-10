@@ -8,7 +8,7 @@ async function proxyReceiptPdf(code) {
   if (upstream.status === 404) {
     upstream = await fetch(`http://127.0.0.1:8081/demandes/code/${encoded}/recu.pdf`, { headers });
   }
-  const buffer = Buffer.from(await upstream.arrayBuffer());
+  const buffer = new Uint8Array(await upstream.arrayBuffer());
   return { upstream, buffer };
 }
 

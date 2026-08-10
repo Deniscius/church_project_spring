@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import AppSelect from './AppSelect';
 import {
   BANQUE_AUTRE_VALUE,
@@ -26,17 +26,17 @@ export default function BankNameField({
   disabled = false,
   required = false,
 }) {
-  const initialSelect = useMemo(() => resolveBanqueSelectValue(value), [value]);
-  const [selectValue, setSelectValue] = useState(initialSelect);
+  const [selectValue, setSelectValue] = useState(() => resolveBanqueSelectValue(value));
   const [customName, setCustomName] = useState(
-    initialSelect === BANQUE_AUTRE_VALUE ? (value || '') : ''
+    () => (resolveBanqueSelectValue(value) === BANQUE_AUTRE_VALUE ? (value || '') : '')
   );
-
-  useEffect(() => {
+  const [prevValue, setPrevValue] = useState(value);
+  if (value !== prevValue) {
+    setPrevValue(value);
     const next = resolveBanqueSelectValue(value);
     setSelectValue(next);
     setCustomName(next === BANQUE_AUTRE_VALUE ? (value || '') : '');
-  }, [value]);
+  }
 
   const isOther = selectValue === BANQUE_AUTRE_VALUE;
   const selectedCode = BANQUES_TOGO.find((b) => b.value === selectValue)?.code;

@@ -8,7 +8,27 @@ Architecture cible :
 | `missanye-api` | Web (Docker) | Spring Boot 3 / Java 17 |
 | `missanye-web` | Static Site | React (Vite) |
 
+Région : **Frankfurt (EU Central)** — plus proche du Togo que Oregon.  
 Le blueprint IaC est à la racine : [`render.yaml`](../render.yaml).
+
+## Formulaire Dashboard (1 service Docker = API seulement)
+
+Si tu crées **missanye-api** à la main (pas le Blueprint) :
+
+| Champ | Valeur |
+|-------|--------|
+| Name | `missanye-api` |
+| Runtime | `Docker` |
+| Branch | `master` |
+| Region | `Frankfurt (EU Central)` — sinon Oregon |
+| Root Directory | `Backend` |
+| Dockerfile Path | `./Dockerfile` |
+| Health check | `/actuator/health` |
+| Disk (optionnel) | mount `/app/uploads` |
+
+Ne laisse pas Root Directory vide : le Dockerfile est dans `Backend/`, pas à la racine.
+
+Il reste à créer **Postgres** (`missanye-db`, même région) et le **static site** `missanye-web` (root `Frontend/church-frontend`). Le Blueprint fait les 3 d’un coup.
 
 ## Prérequis
 
@@ -33,6 +53,9 @@ Le blueprint IaC est à la racine : [`render.yaml`](../render.yaml).
    |----------|---------|
    | `JWT_SECRET` | `(openssl rand -base64 32)` |
    | `APP_CORS_ALLOWED_ORIGINS` | `https://missanye-web.onrender.com` |
+   | `SPRING_MAIL_HOST` | SMTP (ex. `in-v3.mailjet.com`) |
+   | `SPRING_MAIL_USERNAME` | identifiant SMTP |
+   | `SPRING_MAIL_PASSWORD` | mot de passe SMTP |
    | `FEDAPAY_CALLBACK_BASE_URL` | `https://missanye-web.onrender.com/paiement` |
    | `FEDAPAY_ENABLED` | `true` (si go-live paiement) |
    | `FEDAPAY_SECRET_KEY` | `sk_live_…` |
@@ -56,14 +79,14 @@ Render injecte `postgres://…`. Au démarrage, `DatabaseUrlBootstrap` le conver
 
 ### Auth cookie / CSRF
 
-Sur Render (`*.onrender.com`), front et API sont **same-site** → défaut prod :
+`onrender.com` est un **public suffix** : `missanye-web` et `missanye-api` sont **cross-site**.
 
 - `JWT_COOKIE_SECURE=true`
-- `JWT_COOKIE_SAME_SITE=Lax`
+- `JWT_COOKIE_SAME_SITE=None`
 - CORS = URL exacte du front (sans slash final)
 - Mutations cookie : header `X-Requested-With: XMLHttpRequest` (envoyé par `apiClient`)
 
-Si domaines réellement cross-site (eTLD+1 différents), passer `JWT_COOKIE_SAME_SITE=None`.
+Avec domaines custom sur le même eTLD+1 (`www.missanye.com` + `api.missanye.com`), repasser `JWT_COOKIE_SAME_SITE=Lax`.
 
 Le profil `prod` active aussi `server.forward-headers-strategy=framework` et `app.mail.fail-closed=true` (SMTP obligatoire).
 
@@ -73,7 +96,7 @@ Le profil `prod` active aussi `server.forward-headers-strategy=framework` et `ap
 
 ### Stockage fichiers
 
-Sans disque monté, logos / scans sont **perdus** à chaque redeploy. Le blueprint monte `/var/data/uploads` (`APP_STORAGE_ROOT`). Pour multi-instances, prévoir S3/MinIO plus tard (voir `docs/SCALING.md`).
+Sans disque monté, logos / scans sont **perdus** à chaque redeploy. Le blueprint monte `/app/uploads` (`APP_STORAGE_ROOT`, user non-root du Dockerfile). Pour multi-instances, prévoir S3/MinIO plus tard (voir `docs/SCALING.md`).
 
 ### Cold start (free / starter)
 
@@ -88,9 +111,12 @@ Au premier boot sur base vide, Flyway applique les migrations. Ne pas activer `d
 ### API
 
 - Runtime : Docker  
-- Dockerfile path : `Backend/Dockerfile`  
+- Region : Frankfurt (même que la DB)  
+- Root Directory : `Backend`  
+- Dockerfile path : `./Dockerfile` (ou `Backend/Dockerfile` si Root est vide)  
 - Context : `Backend`  
 - Health : `/actuator/health`  
+- Disk : `/app/uploads`  
 - Env : `SPRING_PROFILES_ACTIVE=prod` + `DATABASE_URL` (Internal Database URL) + secrets ci-dessus.
 
 ### Front
@@ -125,7 +151,7 @@ Healthcheck image : `GET /actuator/health`.
 
 - [ ] `/actuator/health` → UP  
 - [ ] Front charge et appelle l’API (pas d’erreur CORS)  
-- [ ] Login admin : cookie `Secure` + `SameSite=None`  
+- [ ] Login admin : cookie `Secure` + `SameSite=None` (hébergement `*.onrender.com`)  
 - [ ] Création demande publique + suivi  
 - [ ] Webhook FedaPay (si enabled)  
 - [ ] Upload logo paroisse survit à un redeploy (disque)  

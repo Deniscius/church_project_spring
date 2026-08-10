@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import PageHeader from '../../components/ui/PageHeader';
 import AppInput from '../../components/ui/AppInput';
@@ -156,10 +156,11 @@ function sampleRandom(items, count) {
 }
 
 const SAMPLE_PARISH_COUNT = 8;
+const EMPTY_PARISHES = [];
 
 export default function PublicSchedulesPage() {
   const { data, isLoading, isError } = useHorairesPublicActivesQuery();
-  const parishes = Array.isArray(data) ? data : [];
+  const parishes = Array.isArray(data) ? data : EMPTY_PARISHES;
   const today = parishTodayEnum();
   const orderedDays = useMemo(() => daysFromParishToday(today), [today]);
 
@@ -200,16 +201,16 @@ export default function PublicSchedulesPage() {
   const searching = query.trim().length > 0;
   const samplingActive = !searching && !dayFilter && !showAll && parishes.length > SAMPLE_PARISH_COUNT;
 
-  useEffect(() => {
+  const filteredKey = filtered.map(([name]) => name).join('|');
+  const [openDoyenneKey, setOpenDoyenneKey] = useState(null);
+  if (filteredKey !== openDoyenneKey) {
+    setOpenDoyenneKey(filteredKey);
     if (!filtered.length) {
       setOpenDoyenne(null);
-      return;
+    } else if (!(openDoyenne && filtered.some(([name]) => name === openDoyenne))) {
+      setOpenDoyenne(filtered[0][0]);
     }
-    setOpenDoyenne((cur) => {
-      if (cur && filtered.some(([name]) => name === cur)) return cur;
-      return filtered[0][0];
-    });
-  }, [filtered]);
+  }
 
   const parishCount = filtered.reduce((n, [, list]) => n + list.length, 0);
 

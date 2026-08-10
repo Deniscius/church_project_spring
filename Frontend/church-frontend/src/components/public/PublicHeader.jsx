@@ -94,14 +94,17 @@ export default function PublicHeader() {
   const [openMenu, setOpenMenu] = useState(null);
   const isHome = pathname === '/';
 
+  const [navPathname, setNavPathname] = useState(pathname);
+  if (pathname !== navPathname) {
+    setNavPathname(pathname);
+    setMenuOpen(false);
+    setOpenMenu(null);
+  }
+
   const closeAll = () => {
     setMenuOpen(false);
     setOpenMenu(null);
   };
-
-  useEffect(() => {
-    closeAll();
-  }, [pathname]);
 
   useEffect(() => {
     if (!openMenu && !menuOpen) return undefined;

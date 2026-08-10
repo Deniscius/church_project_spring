@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import PageHeader from '../../../components/ui/PageHeader';
@@ -40,6 +40,12 @@ export default function InvoicesPage() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 30;
+  const filterKey = `${status}|${search}|${activeParish?.id || ''}`;
+  const [pageFilterKey, setPageFilterKey] = useState(filterKey);
+  if (filterKey !== pageFilterKey) {
+    setPageFilterKey(filterKey);
+    setPage(0);
+  }
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['factures', 'paroisse', activeParish?.id],
@@ -79,10 +85,6 @@ export default function InvoicesPage() {
         .some((field) => String(field).toLowerCase().includes(needle));
     });
   }, [rows, status, search]);
-
-  useEffect(() => {
-    setPage(0);
-  }, [status, search, activeParish?.id]);
 
   const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);

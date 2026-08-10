@@ -4,7 +4,7 @@ import AppButton from '../ui/AppButton';
 import AppSelect from '../ui/AppSelect';
 import AppInput from '../ui/AppInput';
 import { WEEK_DAY_LABELS } from '../../constants/enums';
-import { getDayEnumFromDateString, resolveHorairesForDate } from '../../utils/schedulingUtils';
+import { emptySchedule, getDayEnumFromDateString, resolveHorairesForDate } from '../../utils/schedulingUtils';
 import { formatParishTimeInUserZone } from '../../utils/formatTime';
 
 function formatFrDate(iso) {
@@ -13,16 +13,6 @@ function formatFrDate(iso) {
     day: '2-digit',
     month: 'short',
   });
-}
-
-function emptySchedule() {
-  return {
-    horairePublicId: '',
-    horaireLibelle: '',
-    heureCelebration: '',
-    jourSemaine: '',
-    heurePersonnalisee: '',
-  };
 }
 
 /**
@@ -89,7 +79,7 @@ export default function MultiScheduleModal({
         ) : null}
 
         <div className="multi-schedule-grid">
-          {visibleDates.map((iso, index) => {
+          {visibleDates.map((iso) => {
             const day = getDayEnumFromDateString(iso);
             const dayHoraires = resolveHorairesForDate(horaires, iso);
             const schedule = dateSchedules[iso] || emptySchedule();
@@ -169,5 +159,3 @@ export default function MultiScheduleModal({
 
   return createPortal(panel, document.body);
 }
-
-export { emptySchedule };

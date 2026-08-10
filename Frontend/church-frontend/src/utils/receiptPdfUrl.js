@@ -1,7 +1,7 @@
 import { getApiBaseUrl } from '../config/apiBaseUrl';
 
 /** Proxy Vite (/__receipt) disponible en dev et en preview (prod:share / ngrok). */
-function useViteReceiptProxy() {
+function shouldUseViteReceiptProxy() {
   if (import.meta.env.DEV || import.meta.env.MODE === 'share') return true;
   try {
     return getApiBaseUrl() === '/api';
@@ -21,7 +21,7 @@ function apiReceiptPath(code, { downloadable } = {}) {
 export function getReceiptPreviewUrl(codeSuivie) {
   const code = (codeSuivie || '').trim();
   if (!code) return '';
-  if (useViteReceiptProxy()) {
+  if (shouldUseViteReceiptProxy()) {
     return `/__receipt/${encodeURIComponent(code)}`;
   }
   return apiReceiptPath(code);
@@ -33,7 +33,7 @@ export function getReceiptPreviewUrl(codeSuivie) {
 export function getReceiptPdfUrl(codeSuivie) {
   const code = (codeSuivie || '').trim();
   if (!code) return '';
-  if (useViteReceiptProxy()) {
+  if (shouldUseViteReceiptProxy()) {
     return `/__receipt/${encodeURIComponent(code)}`;
   }
   return apiReceiptPath(code, { downloadable: true });

@@ -7,14 +7,14 @@ export function normalizeApostrophes(value) {
 export const DEFAULT_FIDELE_NAME = 'Un(e) chrétien(ne)';
 
 /** Lettres (accents inclus), espaces, tirets et apostrophes. */
-const PERSON_NAME_PATTERN = /^[\p{L}]+(?:[\s'\-]+[\p{L}]+)*$/u;
+const PERSON_NAME_PATTERN = /^[\p{L}]+(?:[\s'-]+[\p{L}]+)*$/u;
 
 /**
  * Filtre la saisie en temps réel (chiffres exclus ; apostrophes conservées).
  */
 export function sanitizePersonNameInput(value) {
   return normalizeApostrophes(value)
-    .replace(/[^\p{L}\s'\-]/gu, '')
+    .replace(/[^\p{L}\s'-]/gu, '')
     .replace(/\s+/g, ' ');
 }
 

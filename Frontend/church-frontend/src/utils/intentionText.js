@@ -60,6 +60,7 @@ export function normalizeIntention(value) {
 /** Filtre doux à la saisie : pas de contrôle caractères, longueur max. */
 export function sanitizeIntentionInput(value) {
   return String(value ?? '')
+    // eslint-disable-next-line no-control-regex -- strip C0 controls except TAB/LF/CR
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
     .slice(0, INTENTION_MAX_LENGTH);
 }

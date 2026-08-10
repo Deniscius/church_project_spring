@@ -157,3 +157,11 @@ export function validatePhoneForCountry(iso, national) {
     e164: parsed.format('E.164'),
   };
 }
+
+/** Valide un téléphone optionnel (vide = OK). */
+export function validateOptionalPhone(countryIso, national) {
+  if (!digitsOnly(national)) {
+    return { ok: true, message: null, e164: '' };
+  }
+  return validatePhoneForCountry(countryIso || DEFAULT_PHONE_COUNTRY_ISO, national);
+}

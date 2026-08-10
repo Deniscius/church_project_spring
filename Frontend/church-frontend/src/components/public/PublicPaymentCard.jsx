@@ -82,7 +82,7 @@ export default function PublicPaymentCard({ demande, onStatusMaybeChanged }) {
       setPendingModeId('');
       setInfo('Le paiement au comptant n’est pas proposé en ligne. Choisissez TMoney, Flooz ou carte.');
     }
-  }, [demande?.codeSuivie, isCash, status]);
+  }, [demande, isCash, status]);
 
   // Affiche le total TTC dès l’arrivée (mode en ligne).
   useEffect(() => {

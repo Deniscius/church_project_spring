@@ -10,6 +10,7 @@ import com.eyram.dev.church_project_spring.repositories.ForfaitTarifRepository;
 import com.eyram.dev.church_project_spring.repositories.TypeDemandeRepository;
 import com.eyram.dev.church_project_spring.security.TenantAccessService;
 import com.eyram.dev.church_project_spring.service.ForfaitTarifService;
+import com.eyram.dev.church_project_spring.utils.BusinessCodeGenerator;
 import com.eyram.dev.church_project_spring.utils.exception.AlreadyExistException;
 import com.eyram.dev.church_project_spring.utils.exception.BusinessRuleException;
 import com.eyram.dev.church_project_spring.utils.exception.ResourceNotFoundException;
@@ -38,7 +39,8 @@ public class ForfaitTarifServiceImpl implements ForfaitTarifService {
                 .orElseThrow(() -> new ResourceNotFoundException("Type de demande introuvable"));
         tenantAccessService.checkParoisseAccess(typeDemande.getParoisse());
 
-        if (forfaitTarifRepository.existsByCodeForfaitAndStatusDelFalse(request.codeForfait())) {
+        String codeForfait = resolveCreateCode(request, typeDemande);
+        if (forfaitTarifRepository.existsByCodeForfaitAndStatusDelFalse(codeForfait)) {
             throw new AlreadyExistException("Un forfait avec ce code existe déjà");
         }
 
@@ -50,7 +52,7 @@ public class ForfaitTarifServiceImpl implements ForfaitTarifService {
         validateJoursCelebration(typeDemande, request.joursCelebrationAutorises());
 
         ForfaitTarif forfaitTarif = forfaitTarifMapper.dtoToModel(request);
-        forfaitTarif.setCodeForfait(normalizeCode(request.codeForfait()));
+        forfaitTarif.setCodeForfait(codeForfait);
         forfaitTarif.setNomForfait(normalizeText(request.nomForfait()));
         forfaitTarif.setLibelle(normalizeOptionalText(request.libelle()));
         forfaitTarif.setTypeDemande(typeDemande);
@@ -71,8 +73,9 @@ public class ForfaitTarifServiceImpl implements ForfaitTarifService {
                 .orElseThrow(() -> new ResourceNotFoundException("Type de demande introuvable"));
         tenantAccessService.checkParoisseAccess(typeDemande.getParoisse());
 
-        if (!existingForfaitTarif.getCodeForfait().equals(request.codeForfait())
-                && forfaitTarifRepository.existsByCodeForfaitAndStatusDelFalse(request.codeForfait())) {
+        String nextCode = resolveUpdateCode(existingForfaitTarif, request.codeForfait());
+        if (!existingForfaitTarif.getCodeForfait().equals(nextCode)
+                && forfaitTarifRepository.existsByCodeForfaitAndStatusDelFalse(nextCode)) {
             throw new AlreadyExistException("Un forfait avec ce code existe déjà");
         }
 
@@ -88,7 +91,7 @@ public class ForfaitTarifServiceImpl implements ForfaitTarifService {
         validateJoursCelebration(typeDemande, request.joursCelebrationAutorises());
 
         forfaitTarifMapper.updateEntityFromDto(request, existingForfaitTarif);
-        existingForfaitTarif.setCodeForfait(normalizeCode(request.codeForfait()));
+        existingForfaitTarif.setCodeForfait(nextCode);
         existingForfaitTarif.setNomForfait(normalizeText(request.nomForfait()));
         existingForfaitTarif.setLibelle(normalizeOptionalText(request.libelle()));
         existingForfaitTarif.setTypeDemande(typeDemande);
@@ -169,8 +172,32 @@ public class ForfaitTarifServiceImpl implements ForfaitTarifService {
         forfaitTarif.getJoursCelebrationAutorises().addAll(joursCelebrationAutorises);
     }
 
+    private String resolveCreateCode(ForfaitTarifRequest request, TypeDemande typeDemande) {
+        String provided = normalizeCode(request.codeForfait());
+        if (provided != null) {
+            return provided;
+        }
+        String parishName = typeDemande.getParoisse() != null ? typeDemande.getParoisse().getNom() : null;
+        return BusinessCodeGenerator.unique(
+                BusinessCodeGenerator.forfaitCode(
+                        parishName,
+                        typeDemande.getTypeDemandeEnum(),
+                        request.natureForfait(),
+                        request.nombreCelebration(),
+                        request.nombreJour()
+                ),
+                forfaitTarifRepository::existsByCodeForfaitAndStatusDelFalse
+        );
+    }
+
+    /** Conservé si le client n’envoie pas de code (formulaire admin en lecture seule). */
+    private String resolveUpdateCode(ForfaitTarif existing, String requestedCode) {
+        String provided = normalizeCode(requestedCode);
+        return provided != null ? provided : existing.getCodeForfait();
+    }
+
     private String normalizeCode(String value) {
-        if (value == null) {
+        if (value == null || value.isBlank()) {
             return null;
         }
         return value.trim().toUpperCase();

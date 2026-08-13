@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useHorairesPublicActivesQuery } from '../../hooks/queries/usePublicReferentiel';
-import { formatParishTimeInUserZone, formatTime } from '../../utils/formatTime';
+import { formatParishTimeInUserZone, formatTime, compareTimeAsc } from '../../utils/formatTime';
 import { WEEK_DAYS, WEEK_DAY_LABELS, WEEK_DAY_SHORT } from '../../constants/enums';
 import { seedDemandeDraftFromSchedule } from '../../utils/demandePrefill';
 import {
@@ -34,7 +34,7 @@ function slotsForDay(parish, day) {
       jourSemaine: slot.jourSemaine,
       natureHonoraire: slot.natureHonoraire || '',
     }))
-    .sort((a, b) => String(a.heureRaw || '').localeCompare(String(b.heureRaw || '')));
+    .sort((a, b) => compareTimeAsc(a.heureRaw, b.heureRaw));
 }
 
 /**
@@ -114,15 +114,13 @@ export default function HomeWeekSchedules() {
     void sampleSeed;
     const withDay = allParishes.filter((p) => slotsForDay(p, selectedDay).length > 0);
     const sampled = sampleRandom(withDay, SAMPLE_SIZE);
-    return sampled.map((parish) => {
-      const slots = slotsForDay(parish, selectedDay);
-      return {
-        paroissePublicId: parish.paroissePublicId,
-        paroisseNom: parish.paroisseNom,
-        doyenneNom: parish.doyenneNom || '',
-        slots: sampleRandom(slots, Math.min(4, slots.length)),
-      };
-    });
+    return sampled.map((parish) => ({
+      paroissePublicId: parish.paroissePublicId,
+      paroisseNom: parish.paroisseNom,
+      doyenneNom: parish.doyenneNom || '',
+      // Tous les créneaux du jour pour cette paroisse, dans l’ordre chronologique.
+      slots: slotsForDay(parish, selectedDay),
+    }));
   }, [allParishes, selectedDay, sampleSeed]);
 
   const selectedMeta = weekDays.find((w) => w.day === selectedDay);
@@ -145,7 +143,8 @@ export default function HomeWeekSchedules() {
         <div className="home-schedules-head home-section-head">
           <h2 id="home-schedules-title">Horaires en ce moment</h2>
           <p className="muted">
-            Parcourez les jours : des paroisses s’affichent au hasard. Un clic préremplit votre demande.
+            Parcourez les jours : des paroisses s’affichent au hasard, avec leurs horaires du jour
+            dans l’ordre. Un clic préremplit votre demande.
           </p>
         </div>
 

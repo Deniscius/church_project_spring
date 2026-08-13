@@ -13,6 +13,19 @@ export function formatTime(value) {
   return `${match[1].padStart(2, '0')}:${match[2]}`;
 }
 
+/** Minutes depuis minuit — pour un tri chronologique stable. */
+export function timeToMinutes(value) {
+  const hm = formatTime(value);
+  if (!hm) return Number.POSITIVE_INFINITY;
+  const match = hm.match(/^(\d{2}):(\d{2})$/);
+  if (!match) return Number.POSITIVE_INFINITY;
+  return Number(match[1]) * 60 + Number(match[2]);
+}
+
+export function compareTimeAsc(a, b) {
+  return timeToMinutes(a) - timeToMinutes(b);
+}
+
 /** Affichage français : « 14 h 30 ». */
 export function formatTimeFr(value) {
   const hm = formatTime(value);

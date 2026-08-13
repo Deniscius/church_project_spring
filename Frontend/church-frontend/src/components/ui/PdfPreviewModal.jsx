@@ -3,12 +3,15 @@ import AppButton from './AppButton';
 import PdfCanvasViewer from './PdfCanvasViewer';
 
 /**
- * Aperçu PDF (canvas PDF.js) + actions — fiable sur toute la plateforme
- * (prod Render, mobile, sans plugin iframe).
+ * Aperçu PDF (canvas PDF.js) + actions — fiable sur toute la plateforme.
+ *
+ * `pdfBlob` est privilégié : PDF.js lit directement les octets déjà récupérés
+ * par apiClient, sans second fetch réseau et sans URL blob: intermédiaire.
  */
 export default function PdfPreviewModal({
   open,
   title = 'Aperçu du PDF',
+  pdfBlob,
   blobUrl,
   pdfUrl,
   fileName = 'document.pdf',
@@ -19,7 +22,7 @@ export default function PdfPreviewModal({
   onOpenInTab,
 }) {
   const titleId = useId();
-  const source = blobUrl || pdfUrl || '';
+  const source = pdfBlob || blobUrl || pdfUrl || '';
 
   useEffect(() => {
     if (!open) return undefined;

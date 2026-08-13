@@ -90,6 +90,15 @@ Avec domaines custom sur le même eTLD+1 (`www.missanye.com` + `api.missanye.com
 
 Le profil `prod` active aussi `server.forward-headers-strategy=framework` et `app.mail.fail-closed=true` (SMTP obligatoire).
 
+### Aperçu PDF (reçus / feuilles)
+
+L’aperçu utilise **PDF.js** (canvas) : plus d’iframe PDF native (souvent vide sur Render / Safari).
+
+CSP du static site (`missanye-web`) doit autoriser au minimum :
+`worker-src 'self' blob:; frame-src 'self' blob: data:; object-src 'self' blob: data:;`
+
+Si le service a été créé **hors Blueprint**, recopier ces directives dans Dashboard → **Headers** (sinon l’ancien CSP reste actif même après un push `render.yaml`).
+
 ### Health check
 
 `GET /actuator/health` est `permitAll` — utilisé pour le health check Render.

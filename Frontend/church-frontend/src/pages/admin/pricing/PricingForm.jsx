@@ -124,6 +124,8 @@ export default function PricingForm({ pricingId = null }) {
       setLoading(true);
       setError(null);
       const payload = {
+        // En modification : renvoyer le code existant. En création : omis → généré côté API.
+        ...(pricingId && form.codeForfait ? { codeForfait: form.codeForfait } : {}),
         nomForfait: form.nomForfait,
         libelle: form.libelle,
         natureForfait: form.natureForfait,

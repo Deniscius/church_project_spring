@@ -59,7 +59,7 @@ export default function PublicInvoicePage() {
         </p>
       ) : null}
       <div className="grid-2">
-        <PublicInvoiceCard />
+        <PublicInvoiceCard codeSuivie={facture?.codeSuivieDemande || codeSuivie} />
         <AppCard title="Données facture">
           {loading ? <p className="muted">Chargement…</p> : null}
           {error ? <p className="text-red-600">{error}</p> : null}

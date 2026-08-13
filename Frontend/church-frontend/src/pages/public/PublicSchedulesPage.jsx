@@ -6,7 +6,7 @@ import AppSelect from '../../components/ui/AppSelect';
 import AppLoading from '../../components/ui/AppLoading';
 import AppAlert from '../../components/ui/AppAlert';
 import { useHorairesPublicActivesQuery } from '../../hooks/queries/usePublicReferentiel';
-import { formatParishTimeInUserZone, formatTime, getUserTimeZone, PARISH_TIME_ZONE } from '../../utils/formatTime';
+import { formatParishTimeInUserZone, formatTime, compareTimeAsc, getUserTimeZone, PARISH_TIME_ZONE } from '../../utils/formatTime';
 import { WEEK_DAYS, WEEK_DAY_LABELS, WEEK_DAY_SHORT } from '../../constants/enums';
 import { buildDemandePrefillPath, seedDemandeDraftFromSchedule } from '../../utils/demandePrefill';
 import { daysFromParishToday, parishTodayEnum } from '../../utils/parishCalendar';
@@ -38,7 +38,7 @@ function slotsForDay(parish, day) {
       jourSemaine: slot.jourSemaine,
       natureHonoraire: slot.natureHonoraire || '',
     }))
-    .sort((a, b) => String(a.heureRaw || '').localeCompare(String(b.heureRaw || '')));
+    .sort((a, b) => compareTimeAsc(a.heureRaw, b.heureRaw));
 }
 
 function slotsByDay(horaires) {
@@ -56,7 +56,7 @@ function slotsByDay(horaires) {
     });
   }
   for (const day of WEEK_DAYS) {
-    buckets[day].sort((a, b) => String(a.heureRaw || '').localeCompare(String(b.heureRaw || '')));
+    buckets[day].sort((a, b) => compareTimeAsc(a.heureRaw, b.heureRaw));
   }
   return buckets;
 }

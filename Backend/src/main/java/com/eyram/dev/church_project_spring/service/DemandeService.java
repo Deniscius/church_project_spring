@@ -40,9 +40,25 @@ public interface DemandeService {
 
     List<DemandeResponse> getAll();
 
+    /**
+     * Audit plateforme (COMPTABLE / SUPER_ADMIN) : liste paginée globale.
+     * @param includeDeleted inclure les soft-supprimées
+     */
+    PageResponse<DemandeResponse> getAllPaged(int page, int size, boolean includeDeleted);
+
     List<DemandeResponse> getByParoisse(UUID paroissePublicId);
 
     PageResponse<DemandeResponse> getByParoissePaged(UUID paroissePublicId, int page, int size);
+
+    /**
+     * @param includeDeleted si true (rôles comptable / admin), inclut les soft-supprimées
+     */
+    PageResponse<DemandeResponse> getByParoissePaged(
+            UUID paroissePublicId,
+            int page,
+            int size,
+            boolean includeDeleted
+    );
 
     DemandeParoisseStatsResponse getParoisseStats(UUID paroissePublicId);
 

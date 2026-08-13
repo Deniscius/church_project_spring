@@ -112,7 +112,8 @@ export const mockSchedules = [
 
 export const mockRequestTypes = [
   { id: 1, label: 'Messe d’action de grâce', category: 'EUCHARISTIE', active: 'ACTIVE' },
-  { id: 2, label: 'Messe de requiem', category: 'SACRAMENTAL', active: 'ACTIVE' },
+  { id: 2, label: 'Baptême', category: 'SACRAMENT', active: 'ACTIVE' },
+  { id: 3, label: 'Bénédiction', category: 'SACRAMENTAUX', active: 'ACTIVE' },
 ];
 
 export const mockPricing = [

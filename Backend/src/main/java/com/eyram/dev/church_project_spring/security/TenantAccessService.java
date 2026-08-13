@@ -139,6 +139,24 @@ public class TenantAccessService {
         }
     }
 
+    /**
+     * Audit : voir les demandes soft-supprimées (comptable local / plateforme / admin).
+     */
+    public boolean canIncludeDeletedDemandes() {
+        return hasAuthority("ROLE_" + UserRole.COMPTABLE_LOCAL.name())
+                || hasAuthority("ROLE_" + UserRole.COMPTABLE.name())
+                || hasAuthority("ROLE_" + UserRole.ADMIN.name())
+                || hasAuthority("ROLE_" + UserRole.SUPER_ADMIN.name());
+    }
+
+    public void requireIncludeDeletedDemandes() {
+        if (!canIncludeDeletedDemandes()) {
+            throw new AccessDeniedException(
+                    "Seuls les comptes comptables et administrateurs peuvent consulter les demandes archivées dans la liste complète"
+            );
+        }
+    }
+
     public boolean isGlobalUser() {
         if (!isAuthenticated()) {
             return false;

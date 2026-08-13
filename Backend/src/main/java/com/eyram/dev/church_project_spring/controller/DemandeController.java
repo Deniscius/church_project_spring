@@ -123,9 +123,13 @@ public class DemandeController {
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
-    public ResponseEntity<List<DemandeResponse>> getAll() {
-        return ResponseEntity.ok(demandeService.getAll());
+    @PreAuthorize("hasAnyRole('COMPTABLE', 'SUPER_ADMIN')")
+    public ResponseEntity<PageResponse<DemandeResponse>> getAllPaged(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "true") boolean includeDeleted
+    ) {
+        return ResponseEntity.ok(demandeService.getAllPaged(page, size, includeDeleted));
     }
 
     @GetMapping("/paroisse/{paroissePublicId}/stats")
@@ -138,17 +142,19 @@ public class DemandeController {
     /**
      * Liste paroisse toujours paginée (évite les dumps mémoire sous charge).
      * Sans {@code page}, renvoie la page 0 (taille 20).
+     * {@code includeDeleted=true} : actives + archivées (comptable / admin uniquement).
      */
     @GetMapping("/paroisse/{paroissePublicId}")
     public ResponseEntity<PageResponse<DemandeResponse>> getByParoisse(
             @PathVariable UUID paroissePublicId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "false") boolean includeDeleted
     ) {
         int safeSize = Math.min(Math.max(size, 1), 100);
         int safePage = Math.max(page, 0);
         return ResponseEntity.ok(
-                demandeService.getByParoissePaged(paroissePublicId, safePage, safeSize)
+                demandeService.getByParoissePaged(paroissePublicId, safePage, safeSize, includeDeleted)
         );
     }
 

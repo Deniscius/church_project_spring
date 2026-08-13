@@ -443,6 +443,32 @@ public class DemandeServiceImpl implements DemandeService {
 
     @Override
     @Transactional(readOnly = true)
+    public PageResponse<DemandeResponse> getAllPaged(int page, int size, boolean includeDeleted) {
+        if (!tenantAccessService.isGlobalUser()) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Réservé à l’équipe plateforme (comptable / super admin)"
+            );
+        }
+        if (includeDeleted) {
+            tenantAccessService.requireIncludeDeletedDemandes();
+        }
+
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 100);
+        PageRequest pageable = PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<Demande> demandePage = includeDeleted
+                ? demandeRepository.findAllForPlatformAudit(pageable)
+                : demandeRepository.findActiveForPlatformAudit(pageable);
+        return PageResponse.of(
+                buildDemandeResponses(demandePage.getContent()),
+                safePage,
+                safeSize,
+                demandePage.getTotalElements()
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<DemandeResponse> getByParoisse(UUID paroissePublicId) {
         Paroisse paroisse = paroisseRepository.findByPublicIdAndStatusDelFalse(paroissePublicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Paroisse introuvable"));
@@ -455,14 +481,31 @@ public class DemandeServiceImpl implements DemandeService {
     @Override
     @Transactional(readOnly = true)
     public PageResponse<DemandeResponse> getByParoissePaged(UUID paroissePublicId, int page, int size) {
+        return getByParoissePaged(paroissePublicId, page, size, false);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<DemandeResponse> getByParoissePaged(
+            UUID paroissePublicId,
+            int page,
+            int size,
+            boolean includeDeleted
+    ) {
         Paroisse paroisse = paroisseRepository.findByPublicIdAndStatusDelFalse(paroissePublicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Paroisse introuvable"));
         tenantAccessService.checkParoisseAccess(paroisse);
 
+        if (includeDeleted) {
+            tenantAccessService.requireIncludeDeletedDemandes();
+        }
+
         int safePage = Math.max(page, 0);
         int safeSize = Math.min(Math.max(size, 1), 100);
         PageRequest pageable = PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<Demande> demandePage = demandeRepository.findByParoisseAndStatusDelFalse(paroisse, pageable);
+        Page<Demande> demandePage = includeDeleted
+                ? demandeRepository.findByParoisse(paroisse, pageable)
+                : demandeRepository.findByParoisseAndStatusDelFalse(paroisse, pageable);
         List<DemandeResponse> content = buildDemandeResponses(demandePage.getContent());
         return PageResponse.of(content, safePage, safeSize, demandePage.getTotalElements());
     }

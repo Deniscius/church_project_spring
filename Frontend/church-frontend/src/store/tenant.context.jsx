@@ -30,6 +30,9 @@ export function TenantProvider({ children }) {
   const selectedParishId = selectedParoisse?.publicId || selectedParoisse?.id || null;
   const currentUserId = user?.id ?? null;
   const isSuperAdmin = user?.isGlobal === true && user?.role === 'SUPER_ADMIN';
+  /** Super Admin + Comptable plateforme : intervention / audit multi-tenant. */
+  const isPlatformStaff = user?.isGlobal === true
+    && (user?.role === 'SUPER_ADMIN' || user?.role === 'COMPTABLE');
   const awaitingBootstrap = Boolean(
     isAuthenticated && currentUserId && bootstrappedUserId !== currentUserId
   );
@@ -56,8 +59,8 @@ export function TenantProvider({ children }) {
           .map(mapParoisseToTenant)
           .filter((p) => Boolean(p?.id));
 
-        // Super Admin : catalogue complet de tous les tenants (hors modèle système).
-        if (isSuperAdmin) {
+        // Équipe plateforme : catalogue complet des tenants (hors modèle système).
+        if (isPlatformStaff) {
           try {
             const all = await parishService.getAll();
             mapped = sortTenants(
@@ -81,7 +84,7 @@ export function TenantProvider({ children }) {
           || null;
 
         // Locaux : une seule paroisse → sélection auto.
-        if (!pick && !isSuperAdmin && mapped.length === 1) {
+        if (!pick && !isPlatformStaff && mapped.length === 1) {
           pick = mapped[0];
         }
 
@@ -95,8 +98,8 @@ export function TenantProvider({ children }) {
           }
         }
 
-        // Super Admin : conserver le modèle catalogue si c’était le contexte sauvegardé.
-        if (!pick && isSuperAdmin && savedId) {
+        // Plateforme : conserver le modèle catalogue si c’était le contexte sauvegardé.
+        if (!pick && isPlatformStaff && savedId) {
           const fromList = mapped.find((p) => p.id === savedId);
           if (fromList) {
             pick = fromList;
@@ -132,7 +135,7 @@ export function TenantProvider({ children }) {
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated, currentUserId, user?.isGlobal, isSuperAdmin, paroisses, selectedParishId]);
+  }, [isAuthenticated, currentUserId, user?.isGlobal, isSuperAdmin, isPlatformStaff, paroisses, selectedParishId]);
 
   const setActiveParish = useCallback((tenant) => {
     const nextId = tenant?.id || null;
@@ -149,7 +152,7 @@ export function TenantProvider({ children }) {
   }, [setSelectedParoisse]);
 
   const intervening = Boolean(
-    isSuperAdmin && activeParish?.id && !activeParish?.isSystem
+    isPlatformStaff && activeParish?.id && !activeParish?.isSystem
   );
 
   const value = useMemo(
@@ -160,8 +163,8 @@ export function TenantProvider({ children }) {
       loading: loading || awaitingBootstrap,
       error,
       /**
-       * Super Admin en contrôle administratif d’un tenant réel
-       * (intervention support — pas le catalogue modèle).
+       * Équipe plateforme en contrôle / audit d’un tenant réel
+       * (pas le catalogue modèle).
        */
       isIntervening: intervening,
       /** @deprecated préférer isIntervening */

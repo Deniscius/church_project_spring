@@ -1,8 +1,10 @@
 import React, { useEffect, useId } from 'react';
 import AppButton from './AppButton';
+import PdfCanvasViewer from './PdfCanvasViewer';
 
 /**
- * Aperçu PDF (iframe URL ou blob) + actions.
+ * Aperçu PDF (canvas PDF.js) + actions — fiable sur toute la plateforme
+ * (prod Render, mobile, sans plugin iframe).
  */
 export default function PdfPreviewModal({
   open,
@@ -17,7 +19,7 @@ export default function PdfPreviewModal({
   onOpenInTab,
 }) {
   const titleId = useId();
-  const frameSrc = blobUrl || pdfUrl || '';
+  const source = blobUrl || pdfUrl || '';
 
   useEffect(() => {
     if (!open) return undefined;
@@ -56,7 +58,7 @@ export default function PdfPreviewModal({
               type="button"
               variant="primary"
               size="sm"
-              disabled={loading || (!frameSrc && !onDownload)}
+              disabled={loading || (!source && !onDownload)}
               onClick={onDownload}
             >
               Télécharger
@@ -68,23 +70,13 @@ export default function PdfPreviewModal({
         </header>
 
         <div className="pdf-preview-body">
-          {loading ? <p className="muted">Préparation de l’aperçu…</p> : null}
+          {loading ? <p className="muted">Chargement du document…</p> : null}
           {error ? <p className="text-red-600" role="alert">{error}</p> : null}
-          {!loading && !error && frameSrc ? (
-            <iframe
-              title={fileName}
-              src={blobUrl ? `${frameSrc}#view=FitH` : frameSrc}
-              className="pdf-preview-frame"
-              // PDF blob same-origin ; frame-src blob: requis côté hébergeur (CSP).
-            />
+          {!loading && !error && source ? (
+            <PdfCanvasViewer source={source} fileName={fileName} />
           ) : null}
-          {!loading && !error && !frameSrc ? (
+          {!loading && !error && !source ? (
             <p className="muted">Aucun document à afficher.</p>
-          ) : null}
-          {!loading && !error && frameSrc ? (
-            <p className="muted pdf-preview-fallback-hint">
-              Si l’aperçu reste vide, utilisez « Ouvrir dans un onglet ».
-            </p>
           ) : null}
         </div>
       </div>

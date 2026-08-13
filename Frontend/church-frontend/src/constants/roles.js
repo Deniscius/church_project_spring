@@ -120,6 +120,10 @@ export const ROLE_PERMISSIONS = {
   COMPTABLE: [
     PERMISSIONS.FINANCE_READ,
     PERMISSIONS.FINANCE_MANAGE,
+    // Lecture des demandes (y compris archivées) en intervention / audit.
+    PERMISSIONS.DEMAND_READ,
+    PERMISSIONS.PAYMENT_READ,
+    PERMISSIONS.DASHBOARD_VIEW,
     // Catalogue plateforme : grille clonée vers les nouvelles paroisses.
     PERMISSIONS.SCHEDULE_READ,
     PERMISSIONS.SCHEDULE_MANAGE,

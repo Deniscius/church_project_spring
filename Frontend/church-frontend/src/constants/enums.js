@@ -1,4 +1,16 @@
-export const PRIMARY_REQUEST_TYPES = ['EUCHARISTIE', 'SACRAMENTAL', 'SACREMENT'];
+export const PRIMARY_REQUEST_TYPES = ['EUCHARISTIE', 'SACRAMENT', 'SACRAMENTAUX'];
+
+export const PRIMARY_REQUEST_TYPE_LABELS = {
+  EUCHARISTIE: 'Eucharistie',
+  SACRAMENT: 'Sacrement',
+  SACRAMENTAUX: 'Sacramentaux',
+};
+
+export const PRIMARY_REQUEST_TYPE_OPTIONS = PRIMARY_REQUEST_TYPES.map((value) => ({
+  value,
+  label: PRIMARY_REQUEST_TYPE_LABELS[value] || value,
+}));
+
 export const PAYMENT_TYPES = ['TMONEY', 'FLOOZ', 'ESPECES', 'CARTE'];
 export const WEEK_DAYS = ['DIMANCHE', 'LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI'];
 

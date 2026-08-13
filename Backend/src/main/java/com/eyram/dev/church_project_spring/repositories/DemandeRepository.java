@@ -48,6 +48,12 @@ public interface DemandeRepository extends JpaRepository<Demande, Long> {
     })
     Page<Demande> findByParoisseAndStatusDelFalse(Paroisse paroisse, Pageable pageable);
 
+    /** Liste complète (actives + soft-supprimées) — audit comptable. */
+    @EntityGraph(attributePaths = {
+            "paroisse", "typeDemande", "forfaitTarif", "horaire", "user", "typePaiement"
+    })
+    Page<Demande> findByParoisse(Paroisse paroisse, Pageable pageable);
+
     List<Demande> findByTypePaiementPublicIdAndStatusDelFalse(UUID typePaiementPublicId);
 
     List<Demande> findByParoisseAndStatutDemandeAndStatusDelFalse(Paroisse paroisse, StatutDemandeEnum statutDemande);
@@ -107,6 +113,19 @@ public interface DemandeRepository extends JpaRepository<Demande, Long> {
             WHERE d.statusDel = false
             """)
     List<Demande> findAllActiveWithAssociations();
+
+    /** Audit plateforme : toutes les demandes (actives + soft-supprimées). */
+    @EntityGraph(attributePaths = {
+            "paroisse", "typeDemande", "forfaitTarif", "horaire", "user", "typePaiement"
+    })
+    @Query("SELECT d FROM Demande d")
+    Page<Demande> findAllForPlatformAudit(Pageable pageable);
+
+    @EntityGraph(attributePaths = {
+            "paroisse", "typeDemande", "forfaitTarif", "horaire", "user", "typePaiement"
+    })
+    @Query("SELECT d FROM Demande d WHERE d.statusDel = false")
+    Page<Demande> findActiveForPlatformAudit(Pageable pageable);
 
     @Query("""
             SELECT DISTINCT d FROM Demande d

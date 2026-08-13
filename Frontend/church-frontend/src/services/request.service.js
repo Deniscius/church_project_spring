@@ -1,19 +1,42 @@
 import { apiClient } from './http/apiClient';
 
-function parishQuery(paroissePublicId, { page = 0, size = 20 } = {}) {
+function parishQuery(paroissePublicId, { page = 0, size = 20, includeDeleted = false } = {}) {
   const params = new URLSearchParams();
   params.set('page', String(page));
   params.set('size', String(size));
+  if (includeDeleted) params.set('includeDeleted', 'true');
   return `/demandes/paroisse/${paroissePublicId}?${params.toString()}`;
 }
 
 export const requestService = {
   getAll: (options = {}) => apiClient('/demandes', {}, { auth: true, ...options }),
 
+  /**
+   * Audit plateforme (COMPTABLE / SUPER_ADMIN) : toutes les paroisses, paginé.
+   * includeDeleted=true par défaut côté API.
+   */
+  getAllPlatform: (options = {}) => {
+    const {
+      page = 0,
+      size = 20,
+      includeDeleted = true,
+      signal,
+    } = options;
+    const params = new URLSearchParams();
+    params.set('page', String(page));
+    params.set('size', String(size));
+    params.set('includeDeleted', includeDeleted ? 'true' : 'false');
+    return apiClient(`/demandes?${params.toString()}`, {}, { auth: true, signal });
+  },
+
   /** Toujours paginé côté API (PageResponse). */
   getByParish: (paroissePublicId, options = {}) => {
-    const { page = 0, size = 20, signal } = options;
-    return apiClient(parishQuery(paroissePublicId, { page, size }), {}, { auth: true, signal });
+    const { page = 0, size = 20, includeDeleted = false, signal } = options;
+    return apiClient(
+      parishQuery(paroissePublicId, { page, size, includeDeleted }),
+      {},
+      { auth: true, signal }
+    );
   },
 
   getParishStats: (paroissePublicId, options = {}) =>

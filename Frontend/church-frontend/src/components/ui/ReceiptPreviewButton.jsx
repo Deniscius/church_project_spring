@@ -20,8 +20,8 @@ function humanizeReceiptError(err) {
 
 /**
  * Aperçu reçu :
- * 1) blob via apiClient (prod cross-origin + CSP)
- * 2) iframe same-origin /__receipt (dev, prod:share, ngrok) — sans fetch JS
+ * 1) fetch PDF → blob → rendu canvas (PDF.js) — prod Render / mobile
+ * 2) fallback iframe same-origin /__receipt seulement si le fetch échoue (dev)
  */
 export default function ReceiptPreviewButton({
   codeSuivie,

@@ -3,15 +3,26 @@ import { requestService } from '../../services/request.service';
 
 export const parishDemandeKeys = {
   all: (parishId) => ['demandes', 'paroisse', parishId],
-  page: (parishId, page, size) => [...parishDemandeKeys.all(parishId), 'page', page, size],
+  page: (parishId, page, size, includeDeleted = false) => [
+    ...parishDemandeKeys.all(parishId),
+    'page',
+    page,
+    size,
+    includeDeleted ? 'with-deleted' : 'active',
+  ],
   stats: (parishId) => [...parishDemandeKeys.all(parishId), 'stats'],
 };
 
 /** Liste paginée — seul mode supporté (montée en charge). */
-export function useParishDemandesPage(parishId, page = 0, size = 20) {
+export function useParishDemandesPage(parishId, page = 0, size = 20, includeDeleted = false) {
   return useQuery({
-    queryKey: parishDemandeKeys.page(parishId, page, size),
-    queryFn: ({ signal }) => requestService.getByParish(parishId, { page, size, signal }),
+    queryKey: parishDemandeKeys.page(parishId, page, size, includeDeleted),
+    queryFn: ({ signal }) => requestService.getByParish(parishId, {
+      page,
+      size,
+      includeDeleted,
+      signal,
+    }),
     enabled: Boolean(parishId),
     staleTime: 60_000,
     placeholderData: keepPreviousData,

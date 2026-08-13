@@ -23,7 +23,10 @@ RUN --mount=type=cache,target=/root/.m2 \
 FROM eclipse-temurin:17-jre-jammy AS extract
 WORKDIR /extract
 COPY --from=build /workspace/application.jar application.jar
-RUN java -Djarmode=tools -jar application.jar extract --layers --destination extracted
+RUN java -Djarmode=tools -jar application.jar extract \
+    --layers \
+    --destination extracted \
+    --application-filename application.jar
 
 # ---------------------------------------------------------------------------
 # 3) Runtime minimal
@@ -65,5 +68,5 @@ ENV SPRING_PROFILES_ACTIVE=prod \
 HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=3 \
     CMD curl -fsS "http://127.0.0.1:${PORT:-8080}/actuator/health" || exit 1
 
-# Forme exec (PID 1 = JVM). Couches extraites → JarLauncher (pas java -jar).
-ENTRYPOINT ["java", "org.springframework.boot.loader.launch.JarLauncher"]
+# Forme exec (PID 1 = JVM). extract --layers (Boot 3.3+) → thin application.jar + libs.
+ENTRYPOINT ["java", "-jar", "application.jar"]

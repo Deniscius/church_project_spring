@@ -16,9 +16,11 @@ export function UnauthorizedPage() {
   const handleGoHome = () => {
     if (user?.role === 'SUPER_ADMIN' && user?.isGlobal === true) {
       navigate('/admin/paroisses');
+    } else if (user?.role === 'COMPTABLE' && user?.isGlobal === true) {
+      navigate('/admin/demandes-plateforme');
     } else if (user?.role === 'ADMIN') {
       navigate('/admin/dashboard');
-    } else if (user?.role === 'SECRETAIRE' || user?.role === 'CURE') {
+    } else if (user?.role === 'SECRETAIRE' || user?.role === 'CURE' || user?.role === 'COMPTABLE_LOCAL') {
       navigate('/admin/demandes');
     } else {
       navigate('/');

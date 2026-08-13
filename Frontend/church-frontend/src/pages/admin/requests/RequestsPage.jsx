@@ -5,6 +5,7 @@ import AppTable from '../../../components/ui/AppTable';
 import AppBadge from '../../../components/ui/AppBadge';
 import AppDialog from '../../../components/ui/AppDialog';
 import { useTenant } from '../../../hooks/useTenant';
+import { useAuth } from '../../../hooks/useAuth';
 import { requestService } from '../../../services/request.service';
 import { formatDate } from '../../../utils/formatDate';
 import { mapDemandeToRequestRow } from '../../../utils/apiMappers';
@@ -17,36 +18,31 @@ import {
 
 const PAGE_SIZE = 20;
 
-const activeColumns = [
+const columns = [
   { key: 'trackingCode', label: 'Code' },
   { key: 'applicant', label: 'Demandeur' },
   { key: 'requestType', label: 'Type' },
   { key: 'requestStatus', label: 'Statut demande' },
   { key: 'validationStatus', label: 'Validation' },
   { key: 'paymentStatus', label: 'Statut paiement' },
+  { key: 'archive', label: 'Archive' },
   { key: 'createdAt', label: 'Date de dépôt' },
   { key: 'celebrationDates', label: 'Célébration' },
   { key: 'actions', label: 'Actions' },
 ];
 
-const deletedColumns = [
-  { key: 'trackingCode', label: 'Code' },
-  { key: 'applicant', label: 'Demandeur' },
-  { key: 'requestType', label: 'Type' },
-  { key: 'requestStatus', label: 'Statut' },
-  { key: 'deletedAt', label: 'Supprimée le' },
-  { key: 'deletedByNom', label: 'Par' },
-  { key: 'actions', label: 'Actions' },
-];
-
 export default function RequestsPage() {
+  const { user } = useAuth();
   const { activeParish } = useTenant();
   const { has } = usePermissions();
+  const isAccountant = user?.role === 'COMPTABLE_LOCAL' || user?.role === 'COMPTABLE';
+
   const [page, setPage] = useState(0);
   const [statusFilter, setStatusFilter] = useState('');
   const [paymentFilter, setPaymentFilter] = useState('');
   const [search, setSearch] = useState('');
-  const [showDeleted, setShowDeleted] = useState(false);
+  // Comptable : toutes les demandes (actives + archivées) par défaut.
+  const [listScope, setListScope] = useState(isAccountant ? 'ALL' : 'ACTIVE');
   const [deletedRows, setDeletedRows] = useState([]);
   const [deletedLoading, setDeletedLoading] = useState(false);
   const [deletedError, setDeletedError] = useState(null);
@@ -54,14 +50,18 @@ export default function RequestsPage() {
   const [deleting, setDeleting] = useState(false);
   const invalidate = useInvalidateParishDemandes();
 
+  const includeDeleted = listScope === 'ALL';
+  const showDeletedOnly = listScope === 'DELETED';
+
   const { data, isLoading, error, isFetching } = useParishDemandesPage(
-    showDeleted ? null : activeParish?.id,
+    showDeletedOnly ? null : activeParish?.id,
     page,
-    PAGE_SIZE
+    PAGE_SIZE,
+    includeDeleted
   );
 
   useEffect(() => {
-    if (!showDeleted || !activeParish?.id) {
+    if (!showDeletedOnly || !activeParish?.id) {
       setDeletedRows([]);
       return undefined;
     }
@@ -74,8 +74,6 @@ export default function RequestsPage() {
         if (!cancelled) {
           setDeletedRows((raw || []).map((d) => ({
             ...mapDemandeToRequestRow(d),
-            deletedAt: d.deletedAt,
-            deletedByNom: d.deletedByNom || '—',
             statusDel: true,
           })));
         }
@@ -86,7 +84,7 @@ export default function RequestsPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [showDeleted, activeParish?.id]);
+  }, [showDeletedOnly, activeParish?.id]);
 
   const rows = useMemo(
     () => (data?.content || []).map(mapDemandeToRequestRow),
@@ -94,18 +92,18 @@ export default function RequestsPage() {
   );
 
   const filteredRows = useMemo(() => {
-    const source = showDeleted ? deletedRows : rows;
+    const source = showDeletedOnly ? deletedRows : rows;
     return source.filter((row) => {
       const term = search.trim().toLocaleLowerCase('fr');
       const matchesSearch = !term
         || row.trackingCode?.toLocaleLowerCase('fr').includes(term)
         || row.applicant?.toLocaleLowerCase('fr').includes(term);
-      if (showDeleted) return matchesSearch;
+      if (showDeletedOnly) return matchesSearch;
       return matchesSearch
         && (!statusFilter || row.requestStatus === statusFilter)
         && (!paymentFilter || row.paymentStatus === paymentFilter);
     });
-  }, [rows, deletedRows, showDeleted, search, statusFilter, paymentFilter]);
+  }, [rows, deletedRows, showDeletedOnly, search, statusFilter, paymentFilter]);
 
   const confirmRemove = async () => {
     if (!pendingDelete) return;
@@ -114,7 +112,7 @@ export default function RequestsPage() {
       await requestService.remove(pendingDelete.id);
       setPendingDelete(null);
       invalidate(activeParish?.id);
-      if (showDeleted) {
+      if (showDeletedOnly) {
         setDeletedRows((current) => current.filter((r) => r.id !== pendingDelete.id));
       }
     } finally {
@@ -123,35 +121,42 @@ export default function RequestsPage() {
   };
 
   const totalPages = data?.totalPages ?? 0;
-  const totalElements = showDeleted ? filteredRows.length : (data?.totalElements ?? 0);
-  const columns = showDeleted ? deletedColumns : activeColumns;
+  const totalElements = showDeletedOnly ? filteredRows.length : (data?.totalElements ?? 0);
 
   return (
     <div className="stack">
       <PageHeader
         title="Demandes"
-        subtitle="Liste paginée des demandes de la paroisse active. La suppression est un archivage (soft delete) avec trace."
+        subtitle={
+          isAccountant
+            ? 'Vue comptable : actives et archivées (soft delete) avec trace.'
+            : 'Liste paginée des demandes de la paroisse active. La suppression est un archivage (soft delete) avec trace.'
+        }
       />
       {error || deletedError ? (
         <p className="text-red-600">
           {(error && (error.message || String(error))) || deletedError}
         </p>
       ) : null}
-      {(isLoading && !showDeleted) || (deletedLoading && showDeleted) ? <p className="muted">Chargement…</p> : null}
+      {(isLoading && !showDeletedOnly) || (deletedLoading && showDeletedOnly) ? (
+        <p className="muted">Chargement…</p>
+      ) : null}
       <div className="card filters">
         <select
           className="select"
-          value={showDeleted ? 'DELETED' : 'ACTIVE'}
+          value={listScope}
           onChange={(e) => {
-            const deleted = e.target.value === 'DELETED';
-            setShowDeleted(deleted);
+            setListScope(e.target.value);
             setPage(0);
           }}
         >
+          {isAccountant || has(PERMISSIONS.DEMAND_DELETE) || has(PERMISSIONS.TREASURY_READ) ? (
+            <option value="ALL">Toutes (actives + archivées)</option>
+          ) : null}
           <option value="ACTIVE">Demandes actives</option>
           <option value="DELETED">Demandes supprimées (trace)</option>
         </select>
-        {!showDeleted ? (
+        {!showDeletedOnly ? (
           <>
             <select className="select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
               <option value="">Tous les statuts</option>
@@ -168,8 +173,12 @@ export default function RequestsPage() {
             </select>
           </>
         ) : null}
-        <input className="input" placeholder="Rechercher (code ou demandeur)" value={search}
-          onChange={(e) => setSearch(e.target.value)} />
+        <input
+          className="input"
+          placeholder="Rechercher (code ou demandeur)"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
       </div>
       <AppTable
         columns={columns}
@@ -183,6 +192,19 @@ export default function RequestsPage() {
           if (column.key === 'requestStatus' || column.key === 'validationStatus' || column.key === 'paymentStatus') {
             return <AppBadge value={row[column.key]} />;
           }
+          if (column.key === 'archive') {
+            if (row.statusDel) {
+              return (
+                <span title={row.deletedByNom ? `Par ${row.deletedByNom}` : undefined}>
+                  <AppBadge value="SUPPRIMEE" />
+                  {row.deletedAt ? (
+                    <small className="muted" style={{ display: 'block' }}>{formatDate(row.deletedAt)}</small>
+                  ) : null}
+                </span>
+              );
+            }
+            return <span className="muted">—</span>;
+          }
           if (column.key === 'createdAt' || column.key === 'deletedAt') {
             return formatDate(row[column.key]);
           }
@@ -193,7 +215,7 @@ export default function RequestsPage() {
             return (
               <div className="button-row">
                 <Link className="btn btn-secondary" to={`/admin/demandes/${row.id}`}>Voir</Link>
-                {!showDeleted && has(PERMISSIONS.DEMAND_DELETE) ? (
+                {!row.statusDel && has(PERMISSIONS.DEMAND_DELETE) ? (
                   <button type="button" className="btn btn-danger" onClick={() => setPendingDelete(row)}>
                     Supprimer
                   </button>
@@ -204,10 +226,11 @@ export default function RequestsPage() {
           return row[column.key];
         }}
       />
-      {!showDeleted ? (
+      {!showDeletedOnly ? (
         <div className="button-row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
           <p className="muted" style={{ margin: 0 }}>
             {totalElements} demande{totalElements > 1 ? 's' : ''}
+            {includeDeleted ? ' (actives + archivées)' : ''}
             {isFetching && !isLoading ? ' · actualisation…' : ''}
           </p>
           <div className="button-row">
@@ -233,7 +256,9 @@ export default function RequestsPage() {
           </div>
         </div>
       ) : (
-        <p className="muted">{totalElements} demande{totalElements > 1 ? 's' : ''} archivée{totalElements > 1 ? 's' : ''}</p>
+        <p className="muted">
+          {totalElements} demande{totalElements > 1 ? 's' : ''} archivée{totalElements > 1 ? 's' : ''}
+        </p>
       )}
 
       <AppDialog
@@ -249,7 +274,7 @@ export default function RequestsPage() {
         {pendingDelete ? (
           <p style={{ margin: 0 }}>
             Soft delete de « {pendingDelete.trackingCode} » : la demande disparaît des listes actives
-            mais reste consultable dans « Demandes supprimées » avec votre identité et l’heure.
+            mais reste consultable (vue comptable / demandes archivées) avec votre identité et l’heure.
           </p>
         ) : null}
       </AppDialog>

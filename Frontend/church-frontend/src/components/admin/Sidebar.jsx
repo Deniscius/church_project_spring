@@ -4,6 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useTenant } from '../../hooks/useTenant';
 import { PERMISSIONS } from '../../constants/roles';
+import { ROUTES } from '../../constants/routes';
 import { formatRole } from '../../utils/roleMapper';
 import { useUIStore } from '../../store/ui.context';
 import AppIcon from '../ui/AppIcon';
@@ -40,16 +41,17 @@ const interventionMenu = [
 
 /** Menu plateforme (Super Admin / Comptable SaaS). */
 const platformMenu = [
-  { to: '/admin/paroisses', label: 'Paroisses', icon: 'parishes', permission: PERMISSIONS.PARISH_MANAGE },
-  { to: '/admin/inscriptions-paroisse', label: 'Inscriptions', icon: 'parishes', permission: PERMISSIONS.FINANCE_READ },
-  { to: '/admin/abonnements', label: 'Abonnements', icon: 'invoices', permission: PERMISSIONS.FINANCE_READ },
-  { to: '/admin/reversements', label: 'Reversements', icon: 'payments', permission: PERMISSIONS.FINANCE_READ },
-  { to: '/admin/catalogue-modele', label: 'Catalogue', icon: 'pricing', permission: PERMISSIONS.REQUEST_TYPE_READ },
-  { to: '/admin/utilisateurs', label: 'Utilisateurs', icon: 'users', permission: PERMISSIONS.USER_MANAGE },
-  { to: '/admin/acces-paroisses', label: 'Accès paroisses', icon: 'access', permission: PERMISSIONS.PARISH_ACCESS_MANAGE },
-  { to: '/admin/doyennes', label: 'Doyennés', icon: 'deaneries', permission: PERMISSIONS.DEANERY_MANAGE },
-  { to: '/admin/types-paiement', label: 'Types de paiement', icon: 'paymentTypes', permission: PERMISSIONS.PAYMENT_TYPE_MANAGE },
-  { to: '/admin/profil', label: 'Mon profil', icon: 'profile', permission: PERMISSIONS.PROFILE_READ },
+  { to: ROUTES.PARISHES, label: 'Paroisses', icon: 'parishes', permission: PERMISSIONS.PARISH_MANAGE },
+  { to: ROUTES.PARISH_INSCRIPTIONS, label: 'Inscriptions', icon: 'parishes', permission: PERMISSIONS.FINANCE_READ },
+  { to: ROUTES.SUBSCRIPTIONS, label: 'Abonnements', icon: 'invoices', permission: PERMISSIONS.FINANCE_READ },
+  { to: ROUTES.REVERSEMENTS, label: 'Reversements', icon: 'payments', permission: PERMISSIONS.FINANCE_READ },
+  { to: ROUTES.PLATFORM_DEMANDES, label: 'Audit demandes', icon: 'requests', permission: PERMISSIONS.DEMAND_READ },
+  { to: ROUTES.CATALOGUE_MODELE, label: 'Catalogue', icon: 'pricing', permission: PERMISSIONS.REQUEST_TYPE_READ },
+  { to: ROUTES.USERS, label: 'Utilisateurs', icon: 'users', permission: PERMISSIONS.USER_MANAGE },
+  { to: ROUTES.PARISH_ACCESS, label: 'Accès paroisses', icon: 'access', permission: PERMISSIONS.PARISH_ACCESS_MANAGE },
+  { to: ROUTES.DEANERIES, label: 'Doyennés', icon: 'deaneries', permission: PERMISSIONS.DEANERY_MANAGE },
+  { to: ROUTES.PAYMENT_TYPES, label: 'Types de paiement', icon: 'paymentTypes', permission: PERMISSIONS.PAYMENT_TYPE_MANAGE },
+  { to: ROUTES.PROFILE, label: 'Mon profil', icon: 'profile', permission: PERMISSIONS.PROFILE_READ },
 ];
 
 function NavItems({ items, onNavigate }) {
@@ -75,18 +77,17 @@ export default function Sidebar() {
 
   const isPlatformUser = user?.isGlobal === true
     && (user?.role === 'SUPER_ADMIN' || user?.role === 'COMPTABLE');
-  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
 
   const visiblePlatform = isPlatformUser
     ? platformMenu.filter((item) => has(item.permission))
     : [];
 
   let visibleParish = [];
-  if (isSuperAdmin) {
+  if (isPlatformUser) {
     if (isIntervening) {
       visibleParish = interventionMenu.filter((item) => has(item.permission));
     }
-  } else if (!isPlatformUser) {
+  } else {
     visibleParish = parishMenu.filter((item) => has(item.permission));
   }
 
@@ -98,7 +99,7 @@ export default function Sidebar() {
 
   const modeLabel = isIntervening
     ? parishLabel
-    : isSuperAdmin
+    : isPlatformUser
       ? 'Espace plateforme'
       : parishLabel;
 

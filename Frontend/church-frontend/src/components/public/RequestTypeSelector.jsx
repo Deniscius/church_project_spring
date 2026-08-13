@@ -6,6 +6,7 @@ import { usePublicDemandeDraft } from '../../contexts/publicDemandeDraft.context
 import { useTypeDemandesByParishQuery } from '../../hooks/queries/usePublicReferentiel';
 import { formatAllowedDays } from '../../utils/schedulingUtils';
 import { HELP } from '../../constants/helpTips';
+import { PRIMARY_REQUEST_TYPE_LABELS } from '../../constants/enums';
 
 export default function RequestTypeSelector() {
   const { draft, dispatch } = usePublicDemandeDraft();
@@ -18,10 +19,13 @@ export default function RequestTypeSelector() {
   const noType = !disabled && !loading && !error && types.length === 0;
 
   const options = useMemo(
-    () => types.map((t) => ({
-      value: t.publicId,
-      label: t.libelle,
-    })),
+    () => types.map((t) => {
+      const category = PRIMARY_REQUEST_TYPE_LABELS[t.typeDemandeEnum] || t.typeDemandeEnum;
+      return {
+        value: t.publicId,
+        label: category ? `${t.libelle} (${category})` : t.libelle,
+      };
+    }),
     [types]
   );
 

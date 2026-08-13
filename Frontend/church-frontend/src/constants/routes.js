@@ -52,6 +52,8 @@ export const ROUTES = {
   SUBSCRIPTIONS: '/admin/abonnements',
   REVERSEMENTS: '/admin/reversements',
   CATALOGUE_MODELE: '/admin/catalogue-modele',
+  /** Audit global des demandes (toutes paroisses, y compris archivées). */
+  PLATFORM_DEMANDES: '/admin/demandes-plateforme',
   PARISHES: '/admin/paroisses',
   PARISH_CREATE: '/admin/paroisses/nouvelle',
   PARISH_EDIT: '/admin/paroisses/:id/modifier',

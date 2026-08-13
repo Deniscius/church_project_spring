@@ -45,6 +45,9 @@ export function mapDemandeToRequestRow(d) {
     amount: d.montant != null ? Number(d.montant) : null,
     createdAt: d.createdAt,
     celebrationDates,
+    statusDel: Boolean(d.statusDel),
+    deletedAt: d.deletedAt || null,
+    deletedByNom: d.deletedByNom || null,
     _raw: d,
   };
 }
@@ -152,13 +155,18 @@ export function mapTypePaiementToRow(t) {
 import { formatAllowedDays } from './schedulingUtils';
 import { formatFideleName } from './personName';
 import { formatDateShort } from './formatDate';
-import { NATURE_FORFAIT_LABELS, WEEK_DAY_LABELS, getForfaitDureeLabel } from '../constants/enums';
+import {
+  NATURE_FORFAIT_LABELS,
+  PRIMARY_REQUEST_TYPE_LABELS,
+  WEEK_DAY_LABELS,
+  getForfaitDureeLabel,
+} from '../constants/enums';
 
 export function mapTypeDemandeToRow(t) {
   return {
     id: t.publicId,
     label: t.libelle,
-    category: t.typeDemandeEnum,
+    category: PRIMARY_REQUEST_TYPE_LABELS[t.typeDemandeEnum] || t.typeDemandeEnum,
     allowedDays: formatAllowedDays(t.joursCelebrationAutorises),
     leadTime: `${t.delaiMinimumHeures ?? 24} h`,
     active: t.isActive ? 'ACTIVE' : 'INACTIVE',

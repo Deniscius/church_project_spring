@@ -5,13 +5,12 @@ import AppCard from '../../../components/ui/AppCard';
 import AppInput from '../../../components/ui/AppInput';
 import AppTextarea from '../../../components/ui/AppTextarea';
 import WeekDaySelector from '../../../components/ui/WeekDaySelector';
-import { WEEK_DAYS } from '../../../constants/enums';
+import { WEEK_DAYS, PRIMARY_REQUEST_TYPE_OPTIONS } from '../../../constants/enums';
 import { useTenant } from '../../../hooks/useTenant';
 import { useScrollToError } from '../../../hooks/useScrollToError';
 import { requestTypeService } from '../../../services/requestType.service';
 import FormError from '../../../components/ui/FormError';
 
-const CATEGORIES = ['EUCHARISTIE', 'SACRAMENT', 'SACRAMENTAUX'];
 const INITIAL_VALUE = {
   libelle: '',
   description: '',
@@ -92,7 +91,9 @@ export default function RequestTypeForm({ requestTypeId = null }) {
             <label htmlFor="type-category">Catégorie *</label>
             <select id="type-category" className="select" value={form.typeDemandeEnum}
               onChange={(e) => setForm({ ...form, typeDemandeEnum: e.target.value })}>
-              {CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}
+              {PRIMARY_REQUEST_TYPE_OPTIONS.map((category) => (
+                <option key={category.value} value={category.value}>{category.label}</option>
+              ))}
             </select>
           </div>
           <div className="form-field full">

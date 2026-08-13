@@ -37,7 +37,7 @@ export function getBadgeClass(status) {
   if (['VALIDEE', 'PAYE', 'TRAITEE', 'TERMINEE', 'ACTIVE', 'APPROUVEE'].includes(normalized)) return 'badge success';
   if (
     ['REJETEE', 'ECHEC', 'ECHOUE', 'INACTIVE', 'EXPIRED', 'ABONNEMENT EXPIRE',
-      'SUSPENDUE', 'RESILIEE'].includes(normalized)
+      'SUSPENDUE', 'RESILIEE', 'SUPPRIMEE', 'ANNULEE'].includes(normalized)
   ) {
     return 'badge danger';
   }

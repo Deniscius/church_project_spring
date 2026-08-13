@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import AppButton from '../../../components/ui/AppButton';
 import AppCard from '../../../components/ui/AppCard';
 import AppInput from '../../../components/ui/AppInput';
@@ -9,6 +10,7 @@ import { scheduleService } from '../../../services/schedule.service';
 import { NATURE_FORFAIT_OPTIONS, WEEK_DAYS, WEEK_DAY_LABELS } from '../../../constants/enums';
 import { getDayEnumFromDateString } from '../../../utils/schedulingUtils';
 import FormError from '../../../components/ui/FormError';
+import { qk } from '../../../hooks/queries/usePublicReferentiel';
 
 const INITIAL_VALUE = {
   mode: 'hebdo', // hebdo | solennel
@@ -27,6 +29,7 @@ function suggestedNatureForDay(dayEnum) {
 
 export default function ScheduleForm({ scheduleId = null }) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { activeParish } = useTenant();
   const [form, setForm] = useState(INITIAL_VALUE);
   const [loading, setLoading] = useState(Boolean(scheduleId));
@@ -132,6 +135,10 @@ export default function ScheduleForm({ scheduleId = null }) {
       };
       if (scheduleId) await scheduleService.update(scheduleId, payload);
       else await scheduleService.create(payload);
+      await queryClient.invalidateQueries({ queryKey: qk.horairesPublicActives });
+      if (activeParish?.id) {
+        await queryClient.invalidateQueries({ queryKey: qk.horairesParish(activeParish.id) });
+      }
       navigate('/admin/horaires');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Enregistrement impossible');

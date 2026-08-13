@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import PageHeader from '../../../components/ui/PageHeader';
 import AppTable from '../../../components/ui/AppTable';
 import AppBadge from '../../../components/ui/AppBadge';
@@ -9,6 +10,7 @@ import { scheduleService } from '../../../services/schedule.service';
 import { mapHoraireToRow } from '../../../utils/apiMappers';
 import { usePermissions } from '../../../hooks/usePermissions';
 import { PERMISSIONS } from '../../../constants/roles';
+import { qk } from '../../../hooks/queries/usePublicReferentiel';
 
 const columns = [
   { key: 'label', label: 'Libellé' },
@@ -21,6 +23,7 @@ const columns = [
 
 export default function SchedulesPage() {
   const { activeParish } = useTenant();
+  const queryClient = useQueryClient();
   const { has } = usePermissions();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -37,6 +40,10 @@ export default function SchedulesPage() {
       await scheduleService.remove(pendingDelete);
       setRows((current) => current.filter((row) => row.id !== pendingDelete));
       setPendingDelete(null);
+      await queryClient.invalidateQueries({ queryKey: qk.horairesPublicActives });
+      if (activeParish?.id) {
+        await queryClient.invalidateQueries({ queryKey: qk.horairesParish(activeParish.id) });
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Suppression impossible');
     } finally {

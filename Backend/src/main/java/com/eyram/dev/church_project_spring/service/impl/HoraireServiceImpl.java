@@ -4,6 +4,7 @@ import com.eyram.dev.church_project_spring.DTO.request.HoraireRequest;
 import com.eyram.dev.church_project_spring.DTO.response.HoraireResponse;
 import com.eyram.dev.church_project_spring.DTO.response.ParoisseHorairesPublicResponse;
 import com.eyram.dev.church_project_spring.DTO.response.ProgrammeJourResponse;
+import com.eyram.dev.church_project_spring.config.ApplicationTimeConfig;
 import com.eyram.dev.church_project_spring.config.CacheConfig;
 import com.eyram.dev.church_project_spring.entities.Horaire;
 import com.eyram.dev.church_project_spring.entities.Paroisse;
@@ -139,65 +140,90 @@ public class HoraireServiceImpl implements HoraireService {
     @Transactional(readOnly = true)
     @Cacheable(cacheNames = CacheConfig.HORAIRES_PUBLIC_ACTIVES)
     public List<ParoisseHorairesPublicResponse> listPublicHorairesForActiveParishes() {
-        List<Horaire> horaires = horaireRepository.findActiveHorairesForActiveParishes();
-        Map<UUID, ParoisseHorairesPublicResponse> byParish = new LinkedHashMap<>();
+        LocalDate start = LocalDate.now(ApplicationTimeConfig.BUSINESS_ZONE);
+        LocalDate end = start.plusDays(6);
 
-        for (Horaire horaire : horaires) {
+        List<Horaire> weeklyAll = horaireRepository.findActiveHorairesForActiveParishes();
+        List<Horaire> oneOffsAll = horaireRepository
+                .findActiveOneOffHorairesForActiveParishesBetween(start, end);
+
+        Map<UUID, ParishWeekBucket> byParish = new LinkedHashMap<>();
+
+        for (Horaire horaire : weeklyAll) {
             Paroisse paroisse = horaire.getParoisse();
             if (paroisse == null || paroisse.getPublicId() == null) {
                 continue;
             }
-            JourSemaine jour = horaire.getJourSemaine();
-            ParoisseHorairesPublicResponse.Creneau creneau = new ParoisseHorairesPublicResponse.Creneau(
-                    horaire.getPublicId(),
-                    jour != null ? jour.name() : null,
-                    jour != null ? jour.getLibelle() : null,
-                    horaire.getHeureCelebration(),
-                    horaire.getLibelle(),
-                    horaire.getNatureHonoraire() != null ? horaire.getNatureHonoraire().name() : null
-            );
-
-            byParish.compute(paroisse.getPublicId(), (id, existing) -> {
-                if (existing == null) {
-                    String doyenneNom = paroisse.getDoyenne() != null ? paroisse.getDoyenne().getNom() : null;
-                    List<ParoisseHorairesPublicResponse.Creneau> slots = new ArrayList<>();
-                    slots.add(creneau);
-                    return new ParoisseHorairesPublicResponse(
-                            paroisse.getPublicId(),
-                            paroisse.getNom(),
-                            doyenneNom,
-                            slots
-                    );
-                }
-                existing.horaires().add(creneau);
-                return existing;
-            });
+            byParish.computeIfAbsent(paroisse.getPublicId(), id -> new ParishWeekBucket(paroisse))
+                    .weekly.add(horaire);
+        }
+        for (Horaire horaire : oneOffsAll) {
+            Paroisse paroisse = horaire.getParoisse();
+            if (paroisse == null || paroisse.getPublicId() == null) {
+                continue;
+            }
+            byParish.computeIfAbsent(paroisse.getPublicId(), id -> new ParishWeekBucket(paroisse))
+                    .oneOffs.add(horaire);
         }
 
-        return byParish.values().stream()
-                .map(group -> {
-                    List<ParoisseHorairesPublicResponse.Creneau> sorted = group.horaires().stream()
-                            .sorted(Comparator
-                                    .comparingInt((ParoisseHorairesPublicResponse.Creneau c) -> {
-                                        if (c.jourSemaine() == null) return 99;
-                                        try {
-                                            return JourSemaine.valueOf(c.jourSemaine()).getOrdre();
-                                        } catch (IllegalArgumentException ex) {
-                                            return 99;
-                                        }
-                                    })
-                                    .thenComparing(c -> c.heureCelebration() != null
-                                            ? c.heureCelebration()
-                                            : LocalTime.MIDNIGHT))
-                            .toList();
-                    return new ParoisseHorairesPublicResponse(
-                            group.paroissePublicId(),
-                            group.paroisseNom(),
-                            group.doyenneNom(),
-                            new ArrayList<>(sorted)
-                    );
-                })
-                .toList();
+        List<ParoisseHorairesPublicResponse> result = new ArrayList<>(byParish.size());
+        for (ParishWeekBucket bucket : byParish.values()) {
+            Map<LocalDate, List<Horaire>> oneOffsByDate = new LinkedHashMap<>();
+            for (Horaire h : bucket.oneOffs) {
+                oneOffsByDate.computeIfAbsent(h.getDateSpecifique(), d -> new ArrayList<>()).add(h);
+            }
+
+            List<ParoisseHorairesPublicResponse.Creneau> slots = new ArrayList<>();
+            for (LocalDate day = start; !day.isAfter(end); day = day.plusDays(1)) {
+                ProgrammeJourResponse programme = buildProgrammeDay(
+                        day,
+                        bucket.weekly,
+                        oneOffsByDate.getOrDefault(day, List.of())
+                );
+                for (ProgrammeJourResponse.Creneau c : programme.creneaux()) {
+                    slots.add(new ParoisseHorairesPublicResponse.Creneau(
+                            c.horairePublicId(),
+                            day,
+                            programme.jourSemaine(),
+                            programme.jourLibelle(),
+                            c.heureCelebration(),
+                            c.libelle(),
+                            c.natureHonoraire(),
+                            c.dateSpecifique(),
+                            c.uniqueSurParoisse()
+                    ));
+                }
+            }
+
+            if (slots.isEmpty()) {
+                continue;
+            }
+            String doyenneNom = bucket.paroisse.getDoyenne() != null
+                    ? bucket.paroisse.getDoyenne().getNom()
+                    : null;
+            result.add(new ParoisseHorairesPublicResponse(
+                    bucket.paroisse.getPublicId(),
+                    bucket.paroisse.getNom(),
+                    doyenneNom,
+                    slots
+            ));
+        }
+
+        result.sort(Comparator.comparing(
+                ParoisseHorairesPublicResponse::paroisseNom,
+                Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)
+        ));
+        return result;
+    }
+
+    private static final class ParishWeekBucket {
+        private final Paroisse paroisse;
+        private final List<Horaire> weekly = new ArrayList<>();
+        private final List<Horaire> oneOffs = new ArrayList<>();
+
+        private ParishWeekBucket(Paroisse paroisse) {
+            this.paroisse = paroisse;
+        }
     }
 
     @Override

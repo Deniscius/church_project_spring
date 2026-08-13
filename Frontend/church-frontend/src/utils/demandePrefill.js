@@ -20,6 +20,7 @@ export function suggestCelebrationDateFromWeekday(jourSemaine, delaiMinimumHeure
  * @param {string} [params.horaireLibelle]
  * @param {string} [params.heureCelebration]
  * @param {string} [params.jourSemaine]
+ * @param {string} [params.dateIso] Date calendaire exacte (yyyy-mm-dd) si connue
  * @param {string} [params.natureHonoraire] NORMALE | DOMINICALE | SPECIALE
  * @param {number} [params.delaiMinimumHeures]
  */
@@ -30,6 +31,7 @@ export function seedDemandeDraftFromSchedule({
   horaireLibelle,
   heureCelebration,
   jourSemaine,
+  dateIso,
   natureHonoraire,
   delaiMinimumHeures = 24,
 } = {}) {
@@ -41,7 +43,10 @@ export function seedDemandeDraftFromSchedule({
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed === 'object') current = parsed;
     }
-    const dateDebut = suggestCelebrationDateFromWeekday(jourSemaine, delaiMinimumHeures);
+    const exactDate = dateIso && /^\d{4}-\d{2}-\d{2}$/.test(String(dateIso).slice(0, 10))
+      ? String(dateIso).slice(0, 10)
+      : '';
+    const dateDebut = exactDate || suggestCelebrationDateFromWeekday(jourSemaine, delaiMinimumHeures);
     const next = {
       ...current,
       paroissePublicId,

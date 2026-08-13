@@ -29,16 +29,26 @@ function listDoyennes(parishes) {
 
 function slotsForDay(parish, day) {
   return (parish.horaires || [])
-    .filter((slot) => !day || slot.jourSemaine === day)
+    .filter((slot) => {
+      if (!day) return true;
+      // Si l’API fournit la date calendaire, un même jour de semaine peut différer
+      // (messe ponctuelle / unique). On agrège tous les créneaux de ce jour-semaine.
+      return slot.jourSemaine === day;
+    })
     .map((slot) => ({
       heure: formatParishTimeInUserZone(slot.heureCelebration),
       heureRaw: formatTime(slot.heureCelebration) || '',
       libelle: slot.libelle || '',
       publicId: slot.publicId,
       jourSemaine: slot.jourSemaine,
+      date: slot.date ? String(slot.date).slice(0, 10) : '',
       natureHonoraire: slot.natureHonoraire || '',
     }))
-    .sort((a, b) => compareTimeAsc(a.heureRaw, b.heureRaw));
+    .sort((a, b) => {
+      const byDate = String(a.date || '').localeCompare(String(b.date || ''));
+      if (byDate !== 0) return byDate;
+      return compareTimeAsc(a.heureRaw, b.heureRaw);
+    });
 }
 
 function slotsByDay(horaires) {
@@ -52,11 +62,16 @@ function slotsByDay(horaires) {
       libelle: slot.libelle || '',
       publicId: slot.publicId,
       jourSemaine: day,
+      date: slot.date ? String(slot.date).slice(0, 10) : '',
       natureHonoraire: slot.natureHonoraire || '',
     });
   }
   for (const day of WEEK_DAYS) {
-    buckets[day].sort((a, b) => compareTimeAsc(a.heureRaw, b.heureRaw));
+    buckets[day].sort((a, b) => {
+      const byDate = String(a.date || '').localeCompare(String(b.date || ''));
+      if (byDate !== 0) return byDate;
+      return compareTimeAsc(a.heureRaw, b.heureRaw);
+    });
   }
   return buckets;
 }
@@ -97,6 +112,7 @@ function CompactParishRow({ parish, dayFilter, expanded, onToggle }) {
                 horaireLibelle: [slot.heureRaw, slot.libelle].filter(Boolean).join(' · '),
                 heureCelebration: slot.heureRaw,
                 jourSemaine: slot.jourSemaine || dayFilter,
+                dateIso: slot.date || '',
                 natureHonoraire: slot.natureHonoraire || '',
               };
               return (
@@ -173,6 +189,7 @@ function CompactParishRow({ parish, dayFilter, expanded, onToggle }) {
                             horaireLibelle: [slot.heureRaw, slot.libelle].filter(Boolean).join(' · '),
                             heureCelebration: slot.heureRaw,
                             jourSemaine: day,
+                            dateIso: slot.date || '',
                             natureHonoraire: slot.natureHonoraire || '',
                           })}
                         >
@@ -202,6 +219,7 @@ function CompactParishRow({ parish, dayFilter, expanded, onToggle }) {
                   horaireLibelle: [slot.heureRaw, slot.libelle].filter(Boolean).join(' · '),
                   heureCelebration: slot.heureRaw,
                   jourSemaine: slot.jourSemaine || dayFilter,
+                  dateIso: slot.date || '',
                   natureHonoraire: slot.natureHonoraire || '',
                 })}
               >
@@ -272,7 +290,7 @@ export default function PublicSchedulesPage() {
         <p className="onboard-kicker">Missanye</p>
         <PageHeader
           title="Horaires des messes"
-          subtitle="Cherchez votre paroisse, choisissez un jour, puis cliquez une heure pour démarrer une demande."
+          subtitle="Programme de la semaine en cours (créneaux habituels et messes ponctuelles). Cherchez votre paroisse, choisissez un jour, puis cliquez une heure pour démarrer une demande."
         />
       </header>
 

@@ -30,6 +30,8 @@ public record CelebrationIntentionResponse(
         String demandeurTelephone,
         String demandeurEmail,
         String statutDemande,
-        String statutPaiement
+        String statutPaiement,
+        boolean celebre,
+        LocalDateTime celebreAt
 ) {
 }

@@ -138,4 +138,47 @@ public interface DemandeDateRepository extends JpaRepository<DemandeDate, Long> 
             @Param("statutPaye") StatutPaiementEnum statutPaye,
             @Param("statutsDemande") Collection<StatutDemandeEnum> statutsDemande
     );
+
+    /**
+     * Créneaux payés / validés non encore célébrés, dans une fenêtre de dates
+     * (rappels J-1 / H-2 ou auto-complétion après l'heure).
+     */
+    @Query("""
+            SELECT dd FROM DemandeDate dd
+            JOIN FETCH dd.demande d
+            LEFT JOIN FETCH d.horaire
+            LEFT JOIN FETCH dd.horaire
+            LEFT JOIN FETCH d.paroisse
+            LEFT JOIN FETCH d.typeDemande
+            LEFT JOIN FETCH d.forfaitTarif
+            WHERE dd.statusDel = false
+              AND d.statusDel = false
+              AND dd.celebre = false
+              AND dd.dateCelebration >= :minDate
+              AND dd.dateCelebration <= :maxDate
+              AND d.statutDemande IN :statutsDemande
+              AND d.statutPaiement = :statutPaye
+            """)
+    List<DemandeDate> findPendingCelebrationsInDateWindow(
+            @Param("minDate") LocalDate minDate,
+            @Param("maxDate") LocalDate maxDate,
+            @Param("statutPaye") StatutPaiementEnum statutPaye,
+            @Param("statutsDemande") Collection<StatutDemandeEnum> statutsDemande
+    );
+
+    @Query("""
+            SELECT COUNT(dd) FROM DemandeDate dd
+            WHERE dd.statusDel = false
+              AND dd.demande.id = :demandeId
+              AND dd.celebre = false
+            """)
+    long countPendingCelebrationsByDemandeId(@Param("demandeId") Long demandeId);
+
+    @Query("""
+            SELECT COUNT(dd) FROM DemandeDate dd
+            WHERE dd.statusDel = false
+              AND dd.demande.id = :demandeId
+              AND dd.celebre = true
+            """)
+    long countCelebratedByDemandeId(@Param("demandeId") Long demandeId);
 }

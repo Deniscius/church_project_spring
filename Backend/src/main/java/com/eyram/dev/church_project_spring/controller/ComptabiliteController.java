@@ -120,10 +120,11 @@ public class ComptabiliteController {
 
     /**
      * Confirme le paiement d'abonnement (hors ligne / FedaPay déjà reçu) et active la paroisse.
-     * L'admin local peut ensuite se connecter.
+     * L'admin local peut ensuite se connecter. Accessible au SUPER_ADMIN (onboarding
+     * depuis l'annuaire) et au COMPTABLE (circuit financier).
      */
     @PostMapping("/abonnements/{paroissePublicId}/activer")
-    @PreAuthorize("hasRole('COMPTABLE')")
+    @PreAuthorize("hasAnyRole('COMPTABLE', 'SUPER_ADMIN')")
     public ResponseEntity<Map<String, Object>> activerAbonnement(
             @PathVariable UUID paroissePublicId,
             @RequestParam(required = false) PlanAbonnement plan

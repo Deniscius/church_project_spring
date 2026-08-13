@@ -431,6 +431,14 @@ button, input, select, textarea {
   background: var(--surface-alt);
 }
 
+.app-table tr.is-celebrated td {
+  opacity: 0.82;
+}
+
+.app-table tr.is-celebrated {
+  background: color-mix(in srgb, var(--success, #1b7f4e) 10%, transparent);
+}
+
 .table-card {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -1291,7 +1299,6 @@ a.btn-ghost-light:focus {
 }
 
 .nav-dropdown.is-open > .nav-dropdown-trigger .nav-dropdown-chevron,
-.schedules-doyenne-acc.is-open > .schedules-doyenne-trigger .nav-dropdown-chevron,
 .schedule-parish.is-open > .schedule-parish-trigger .nav-dropdown-chevron {
   transform: rotate(-135deg);
   margin-top: 2px;
@@ -4919,6 +4926,7 @@ button.form-stepper-button:hover .form-stepper-circle {
   border: 0;
 }
 
+
 .schedules-page {
   gap: 18px;
 }
@@ -4927,23 +4935,36 @@ button.form-stepper-button:hover .form-stepper-circle {
   margin-bottom: 0;
 }
 
-.schedules-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 12px;
-  justify-content: space-between;
+.schedules-find {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto;
+  gap: 12px 16px;
+  align-items: end;
 }
 
-.schedules-search {
-  flex: 1 1 240px;
+.schedules-filter-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: var(--muted);
+}
+
+.schedules-search,
+.schedules-doyenne-filter {
   margin: 0;
-  max-width: 420px;
+  min-width: 0;
 }
 
 .schedules-search .input,
 .schedules-search input {
   width: 100%;
+}
+
+.schedules-find-cta {
+  display: flex;
+  align-items: flex-end;
+  padding-bottom: 1px;
 }
 
 .schedules-day-filters {
@@ -4979,104 +5000,155 @@ button.form-stepper-button:hover .form-stepper-circle {
   font-size: 0.9rem;
 }
 
-.schedules-doyennes {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.schedules-doyenne-acc {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-}
-
-.schedules-doyenne-trigger {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-  text-align: left;
-  font: inherit;
-  color: inherit;
-  padding: 16px 18px;
-}
-
-.schedules-doyenne-trigger:hover {
-  background: var(--surface-alt);
-}
-
-.schedules-doyenne-label {
-  display: block;
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 1.08rem;
-  color: var(--primary);
-}
-
-.schedules-doyenne-count {
-  display: block;
-  font-size: 0.85rem;
-  margin-top: 2px;
-}
-
-.schedules-parish-grid {
-  border-top: 1px solid var(--border);
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr));
-  gap: 16px;
-  padding: 16px;
-  background: color-mix(in srgb, var(--bg) 55%, var(--surface));
-  justify-content: center;
-  align-items: stretch;
-}
-
-.schedules-parish-card {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  min-height: 11rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 14px 16px 16px;
-  overflow: hidden;
-}
-
-.schedules-parish-card-head {
+.schedules-empty {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px 14px;
-  margin-bottom: 12px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--border);
+  align-items: center;
+  gap: 12px;
+  padding: 16px 18px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
 }
 
-.schedules-parish-card-title {
+.schedules-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.schedules-row {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.schedules-row.is-expanded {
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
+  box-shadow: var(--shadow-sm);
+}
+
+.schedules-row-main {
+  display: grid;
+  grid-template-columns: minmax(140px, 1.1fr) minmax(0, 1.6fr) auto;
+  gap: 12px 16px;
+  align-items: center;
+}
+
+.schedules-row-title {
   margin: 0;
   font-family: var(--font-display);
   font-size: 1.05rem;
-  font-weight: 650;
-  line-height: 1.3;
+  font-weight: 700;
+  line-height: 1.25;
 }
 
-.schedules-parish-card-sub {
+.schedules-row-doyenne {
   margin: 4px 0 0;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
 }
 
-.schedules-empty-slots {
-  margin: 0;
+.schedules-row-times {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
 }
 
-/* Vue « un jour » : pile de créneaux */
+.schedules-time-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-alt, var(--bg));
+  color: inherit;
+  text-decoration: none;
+  font-weight: 650;
+  font-size: 0.88rem;
+  transition: border-color 140ms ease, background 140ms ease, color 140ms ease;
+}
+
+.schedules-time-chip:hover,
+.schedules-time-chip:focus-visible {
+  border-color: var(--primary);
+  color: var(--primary);
+  outline: none;
+}
+
+.schedules-time-day {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.schedules-more-times {
+  border: 0;
+  background: transparent;
+  color: var(--primary);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 6px;
+}
+
+.schedules-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.schedules-row-week {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.schedules-detail-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 12px 0 0;
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 8px;
+}
+
+.schedules-detail-link {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  text-decoration: none;
+  color: inherit;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  background: var(--surface-alt, var(--bg));
+}
+
+.schedules-detail-link:hover {
+  color: var(--primary);
+}
+
+.schedules-detail-link time {
+  font-weight: 700;
+  min-width: 4.5rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--primary);
+}
+
+.schedules-load-more {
+  display: flex;
+  justify-content: center;
+  padding-top: 4px;
+}
+
 .schedules-week {
   display: flex;
   flex-direction: column;
@@ -5084,11 +5156,6 @@ button.form-stepper-button:hover .form-stepper-circle {
   min-width: 0;
 }
 
-.schedules-week.is-day-focus {
-  gap: 8px;
-}
-
-/* Vue « toute la semaine » : une ligne par jour (jamais 7 colonnes écrasées) */
 .schedules-week.is-full-week {
   gap: 0;
 }
@@ -5144,8 +5211,7 @@ button.form-stepper-button:hover .form-stepper-circle {
 }
 
 .schedules-week.is-full-week .schedules-slot-libelle {
-  font-size: 0.8rem;
-  overflow-wrap: anywhere;
+  display: none;
 }
 
 .schedules-week.is-full-week .schedules-day-empty {
@@ -5154,8 +5220,6 @@ button.form-stepper-button:hover .form-stepper-circle {
   min-height: 2rem;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  text-align: left;
   border-style: solid;
   border-color: transparent;
   background: transparent;
@@ -5184,10 +5248,6 @@ button.form-stepper-button:hover .form-stepper-circle {
   color: var(--muted);
 }
 
-.schedules-week.is-day-focus .schedules-day-label {
-  margin-bottom: 8px;
-}
-
 .schedules-slot-list {
   list-style: none;
   margin: 0;
@@ -5199,13 +5259,7 @@ button.form-stepper-button:hover .form-stepper-circle {
 }
 
 .schedules-slot-list li {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 0;
-  border-radius: 10px;
-  background: transparent;
-  border: none;
+  margin: 0;
   min-width: 0;
 }
 
@@ -5246,26 +5300,31 @@ button.form-stepper-button:hover .form-stepper-circle {
   line-height: 1.35;
 }
 
-@media (max-width: 720px) {
-  .schedules-toolbar {
-    flex-direction: column;
-    align-items: stretch;
+@media (max-width: 900px) {
+  .schedules-find {
+    grid-template-columns: 1fr;
   }
 
-  .schedules-search {
-    max-width: none;
+  .schedules-find-cta {
+    justify-content: stretch;
   }
 
-  .schedules-toolbar .btn {
+  .schedules-find-cta .btn {
     width: 100%;
     justify-content: center;
   }
 
-  .schedules-parish-grid {
+  .schedules-row-main {
     grid-template-columns: 1fr;
-    padding: 12px;
+    align-items: start;
   }
 
+  .schedules-row-actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 720px) {
   .schedules-week.is-full-week .schedules-day-col {
     grid-template-columns: 3rem minmax(0, 1fr);
     column-gap: 8px;

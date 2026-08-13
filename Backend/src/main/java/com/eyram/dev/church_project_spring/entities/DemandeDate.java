@@ -11,6 +11,7 @@ import org.hibernate.annotations.UuidGenerator;
 
 import java.io.Serializable;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.UUID;
 
@@ -55,6 +56,21 @@ public class DemandeDate extends BaseEntity implements Serializable {
     /** Heure personnalisée propre à cette date (si le forfait l'autorise). */
     @Column(name = "heure_personnalisee")
     private LocalTime heurePersonnalisee;
+
+    /** True dès que la célébration de ce créneau est confirmée (manuel ou auto après l'heure). */
+    @Column(name = "celebre", nullable = false)
+    private Boolean celebre = Boolean.FALSE;
+
+    @Column(name = "celebre_at")
+    private LocalDateTime celebreAt;
+
+    /** Dernier rappel J-1 (fidèle + paroisse). */
+    @Column(name = "last_reminder_j1_at")
+    private LocalDateTime lastReminderJ1At;
+
+    /** Dernier rappel H-2 (fidèle). */
+    @Column(name = "last_reminder_h2_at")
+    private LocalDateTime lastReminderH2At;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "demande_id", nullable = false)

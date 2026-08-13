@@ -200,6 +200,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/demandes/**")
                         .hasAnyRole("ADMIN", "SUPER_ADMIN")
 
+                        // Feuille d'intentions : confirmation de célébration
+                        .requestMatchers(HttpMethod.POST, "/celebrations/dates/*/marquer-celebree")
+                        .hasAnyRole("SECRETAIRE", "CURE", "ADMIN", "SUPER_ADMIN")
+
                         // Paiements : saisie par le secrétariat, suppression par un administrateur.
                         // La caisse locale (espèces) est encaissée ici, hors solde de reversement.
                         .requestMatchers(HttpMethod.POST, "/details-paiement", "/details-paiement/caisse/**")

@@ -17,6 +17,13 @@ export const celebrationService = {
       { auth: true }
     ),
 
+  markCelebrated: (demandeDatePublicId) =>
+    apiClient(
+      `/celebrations/dates/${demandeDatePublicId}/marquer-celebree`,
+      { method: 'POST' },
+      { auth: true }
+    ),
+
   downloadFeuillePdf: async (paroissePublicId, { date, inclureNonPayees = false, heures = [] }) => {
     const query = buildQuery({ date, inclureNonPayees, heures });
     const headers = { Accept: 'application/pdf' };

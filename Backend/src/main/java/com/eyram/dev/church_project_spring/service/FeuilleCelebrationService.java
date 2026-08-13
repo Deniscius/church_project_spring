@@ -340,6 +340,9 @@ public class FeuilleCelebrationService {
         if (info.progressionLabel() != null && !info.progressionLabel().isBlank()) {
             PdfDocumentStyles.addMetaRow(table, "Progression", info.progressionLabel());
         }
+        if (info.celebre()) {
+            PdfDocumentStyles.addMetaRow(table, "Statut", "Célébrée");
+        }
         return table;
     }
 
@@ -349,6 +352,8 @@ public class FeuilleCelebrationService {
         Integer nombre = forfait != null ? forfait.getNombreCelebration() : null;
         String duree = ForfaitDureeLabels.labelFor(nombre);
         String horaireLibelle = demande.getHoraire() != null ? demande.getHoraire().getLibelle() : null;
+        boolean celebre = Boolean.TRUE.equals(dd.getCelebre());
+        long dejaCelebrees = demandeDateRepository.countCelebratedByDemandeId(demande.getId());
 
         return new CelebrationIntentionResponse(
                 dd.getPublicId(),
@@ -359,7 +364,7 @@ public class FeuilleCelebrationService {
                 dd.getOrdre(),
                 nombre,
                 duree,
-                buildProgressionLabel(dd.getOrdre(), nombre, duree),
+                buildProgressionLabel(dd.getOrdre(), nombre, duree, (int) dejaCelebrees, celebre),
                 resolveTime(dd),
                 horaireLibelle,
                 demande.getIntention(),
@@ -371,19 +376,34 @@ public class FeuilleCelebrationService {
                 demande.getTelFidele(),
                 demande.getEmailFidele(),
                 demande.getStatutDemande() != null ? demande.getStatutDemande().name() : null,
-                demande.getStatutPaiement() != null ? demande.getStatutPaiement().name() : null
+                demande.getStatutPaiement() != null ? demande.getStatutPaiement().name() : null,
+                celebre,
+                dd.getCelebreAt()
         );
     }
 
-    static String buildProgressionLabel(Integer ordre, Integer nombreCelebration, String dureeLabel) {
+    static String buildProgressionLabel(
+            Integer ordre,
+            Integer nombreCelebration,
+            String dureeLabel,
+            int dejaCelebrees,
+            boolean currentCelebre
+    ) {
         if (!ForfaitDureeLabels.isMultiCelebration(nombreCelebration) || ordre == null) {
-            return null;
+            return currentCelebre ? "Célébrée" : null;
         }
-        int deja = Math.max(0, ordre - 1);
+        int deja = Math.max(0, dejaCelebrees);
         String ordinal = ordre == 1 ? "1ère" : ordre + "e";
         String label = dureeLabel != null ? capitalize(dureeLabel) : "Série";
+        String status = currentCelebre ? " — terminée" : "";
         return label + " — " + ordinal + " célébration sur " + nombreCelebration
-                + " (" + deja + " déjà célébrée" + (deja > 1 ? "s" : "") + ")";
+                + " (" + deja + " déjà célébrée" + (deja > 1 ? "s" : "") + ")" + status;
+    }
+
+    /** @deprecated conservé pour compatibilité des tests éventuels */
+    static String buildProgressionLabel(Integer ordre, Integer nombreCelebration, String dureeLabel) {
+        int deja = ordre == null ? 0 : Math.max(0, ordre - 1);
+        return buildProgressionLabel(ordre, nombreCelebration, dureeLabel, deja, false);
     }
 
     private LocalTime resolveTime(DemandeDate dd) {

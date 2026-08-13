@@ -65,5 +65,5 @@ ENV SPRING_PROFILES_ACTIVE=prod \
 HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=3 \
     CMD curl -fsS "http://127.0.0.1:${PORT:-8080}/actuator/health" || exit 1
 
-# Forme exec (PID 1 = JVM) — options via JAVA_TOOL_OPTIONS
-ENTRYPOINT ["java", "-jar", "application.jar"]
+# Forme exec (PID 1 = JVM). Couches extraites → JarLauncher (pas java -jar).
+ENTRYPOINT ["java", "org.springframework.boot.loader.launch.JarLauncher"]

@@ -1,6 +1,8 @@
 package com.eyram.dev.church_project_spring.controller;
 
+import com.eyram.dev.church_project_spring.DTO.response.CelebrationIntentionResponse;
 import com.eyram.dev.church_project_spring.DTO.response.CelebrationMesseGroupResponse;
+import com.eyram.dev.church_project_spring.service.DemandeCelebrationLifecycleService;
 import com.eyram.dev.church_project_spring.service.FeuilleCelebrationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -9,6 +11,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -24,6 +27,7 @@ import java.util.UUID;
 public class CelebrationController {
 
     private final FeuilleCelebrationService feuilleCelebrationService;
+    private final DemandeCelebrationLifecycleService celebrationLifecycleService;
 
     /**
      * @param heures heures de messe retenues (« HH:mm »), vide = toute la journée
@@ -56,5 +60,11 @@ public class CelebrationController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
                 .contentType(MediaType.APPLICATION_PDF)
                 .body(pdf);
+    }
+
+    /** Confirmation manuelle (sacristain / admin) qu'une intention a été célébrée. */
+    @PostMapping("/dates/{demandeDatePublicId}/marquer-celebree")
+    public CelebrationIntentionResponse markCelebrated(@PathVariable UUID demandeDatePublicId) {
+        return celebrationLifecycleService.markCelebrated(demandeDatePublicId);
     }
 }

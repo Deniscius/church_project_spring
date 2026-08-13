@@ -7,16 +7,20 @@ import AppCard from '../../../components/ui/AppCard';
 import AppInput from '../../../components/ui/AppInput';
 import AppButton from '../../../components/ui/AppButton';
 import AppDialog from '../../../components/ui/AppDialog';
+import AppSelect from '../../../components/ui/AppSelect';
 import BankNameField from '../../../components/ui/BankNameField';
 import { validateRibTogo } from '../../../utils/ribTogo';
 import { parishService } from '../../../services/parish.service';
 import { deaneryService } from '../../../services/deanery.service';
+import { comptabiliteService } from '../../../services/inscription.service';
 import { mapParoisseToTableRow, mapParoisseToTenant } from '../../../utils/apiMappers';
 import { tenantStatusLabel } from '../../../utils/statusMapper';
 import { formatDate } from '../../../utils/formatDate';
 import { getDoyenneFilter, setDoyenneFilter } from '../../../utils/sensitiveNav';
 import { useTenant } from '../../../hooks/useTenant';
 import { useToast } from '../../../contexts/toast.context';
+import { usePermissions } from '../../../hooks/usePermissions';
+import { PERMISSIONS } from '../../../constants/roles';
 
 const columns = [
   { key: 'name', label: 'Paroisse' },
@@ -39,6 +43,14 @@ const EMPTY_FORM = {
   ibanOrRib: '',
 };
 
+const PLAN_OPTIONS = [
+  { value: 'MENSUEL', label: 'Mensuel — 5 000 FCFA' },
+  { value: 'SEMESTRIEL', label: 'Semestriel — 8 000 FCFA' },
+  { value: 'ANNUEL', label: 'Annuel — 12 000 FCFA' },
+];
+
+const ACTIVABLE = new Set(['PROSPECT', 'EN_ATTENTE_PAIEMENT']);
+
 // « Annuaire » et « Abonnées » sont les deux extrémités du tunnel commercial :
 // les filtres suivent cet ordre pour se lire comme un entonnoir.
 const FILTERS = [
@@ -55,12 +67,17 @@ export default function ParishesPage() {
   const location = useLocation();
   const toast = useToast();
   const { setActiveParish } = useTenant();
+  const { has } = usePermissions();
+  const canActivate = has(PERMISSIONS.FINANCE_MANAGE);
   const [rows, setRows] = useState([]);
   const [doyennes, setDoyennes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [pendingDelete, setPendingDelete] = useState(null);
+  const [pendingActivate, setPendingActivate] = useState(null);
+  const [activatePlan, setActivatePlan] = useState('MENSUEL');
+  const [activating, setActivating] = useState(false);
   const [error, setError] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -185,6 +202,29 @@ export default function ParishesPage() {
     setShowForm(true);
   };
 
+  const openActivate = (row) => {
+    setPendingActivate(row);
+    setActivatePlan('MENSUEL');
+    setError(null);
+  };
+
+  const confirmActivate = async () => {
+    if (!pendingActivate?.id) return;
+    setActivating(true);
+    setError(null);
+    try {
+      const res = await comptabiliteService.activerAbonnement(pendingActivate.id, activatePlan);
+      toast.success(res?.message || `« ${pendingActivate.name} » activée.`);
+      setPendingActivate(null);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Activation impossible');
+      toast.error(e instanceof Error ? e.message : 'Activation impossible');
+    } finally {
+      setActivating(false);
+    }
+  };
+
   const submit = async (event) => {
     event.preventDefault();
     try {
@@ -226,8 +266,8 @@ export default function ParishesPage() {
       setDeletingId(pendingDelete.id);
       setError(null);
       await parishService.delete(pendingDelete.id);
-      setRows((current) => current.filter((item) => item.id !== pendingDelete.id));
       setPendingDelete(null);
+      await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Désactivation impossible');
     } finally {
@@ -239,7 +279,7 @@ export default function ParishesPage() {
     <div className="stack">
       <PageHeader
         title="Paroisses"
-        subtitle="Annuaire des tenants. Intervenez uniquement en cas de souci — le quotidien reste à l’équipe locale."
+        subtitle="Annuaire des tenants. Activez une fiche sans inscription, ou intervenez en support."
         actions={
           <div className="button-row">
             <Link className="btn btn-secondary" to="/admin/inscriptions-paroisse" style={{ textDecoration: 'none' }}>
@@ -319,8 +359,8 @@ export default function ParishesPage() {
       {showForm ? (
         <AppCard title={editingId ? 'Modifier la paroisse' : 'Ajouter une paroisse à l’annuaire'}>
           <p className="muted" style={{ marginTop: 0 }}>
-            La fiche apparaît dans le doyenné comme prospect. Elle n’ouvre l’accès plateforme
-            qu’après inscription et paiement de l’abonnement.
+            La fiche apparaît comme prospect dans le doyenné. Vous pourrez ensuite
+            l’activer depuis la liste (sans inscription publique).
           </p>
           <form onSubmit={submit}>
             <div className="form-grid">
@@ -437,11 +477,21 @@ export default function ParishesPage() {
               : <span className="muted">—</span>;
           }
           if (column.key === 'actions') {
+            const showActivate = canActivate && ACTIVABLE.has(row.active);
             return (
               <div className="button-row">
+                {showActivate ? (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => openActivate(row)}
+                  >
+                    Activer
+                  </button>
+                ) : null}
                 <button
                   type="button"
-                  className="btn btn-primary"
+                  className={`btn ${showActivate ? 'btn-secondary' : 'btn-primary'}`}
                   onClick={async () => {
                     try {
                       const full = await parishService.getById(row.id);
@@ -475,6 +525,39 @@ export default function ParishesPage() {
           return row[column.key];
         }} />
       )}
+
+      <AppDialog
+        open={Boolean(pendingActivate)}
+        title="Activer la paroisse"
+        confirmLabel="Activer l’accès"
+        cancelLabel="Annuler"
+        busy={activating}
+        onCancel={() => {
+          if (!activating) setPendingActivate(null);
+        }}
+        onConfirm={confirmActivate}
+      >
+        {pendingActivate ? (
+          <div className="stack" style={{ gap: 12 }}>
+            <p style={{ margin: 0 }}>
+              Activer « <strong>{pendingActivate.name}</strong> » sans inscription publique ?
+              Le catalogue modèle sera cloné et l’abonnement démarrera immédiatement.
+            </p>
+            <div className="form-field" style={{ margin: 0 }}>
+              <label htmlFor="activate-plan">Plan d’abonnement</label>
+              <AppSelect
+                id="activate-plan"
+                value={activatePlan}
+                options={PLAN_OPTIONS}
+                onChange={(value) => setActivatePlan(value || 'MENSUEL')}
+              />
+            </div>
+            <p className="muted" style={{ margin: 0, fontSize: '0.85rem' }}>
+              Pensez à créer un compte ADMIN local pour cette paroisse si ce n’est pas déjà fait.
+            </p>
+          </div>
+        ) : null}
+      </AppDialog>
 
       <AppDialog
         open={Boolean(pendingDelete)}

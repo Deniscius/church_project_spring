@@ -48,21 +48,30 @@ export const requestService = {
   getByTrackingCode: (code, options = {}) =>
     apiClient(`/demandes/code/${encodeURIComponent(code)}`, {}, { auth: false, signal: options.signal }),
 
-  /** Public : reçu PDF. `/recu` d’abord, `/recu.pdf` si l’API n’a pas encore l’alias. */
+  /**
+   * Public : reçu PDF.
+   * Requête GET CORS simple, sans cookie ni header CSRF inutile.
+   */
   fetchReceiptPdf: async (code) => {
     const headers = { Accept: 'application/pdf' };
+    const clientOptions = {
+      auth: false,
+      parse: 'blob',
+      credentials: 'omit',
+    };
+
     try {
       return await apiClient(
         `/demandes/code/${encodeURIComponent(code)}/recu`,
         { headers },
-        { auth: false, parse: 'blob' }
+        clientOptions
       );
     } catch (err) {
       if (err?.status === 404) {
         return apiClient(
           `/demandes/code/${encodeURIComponent(code)}/recu.pdf`,
           { headers },
-          { auth: false, parse: 'blob' }
+          clientOptions
         );
       }
       throw err;

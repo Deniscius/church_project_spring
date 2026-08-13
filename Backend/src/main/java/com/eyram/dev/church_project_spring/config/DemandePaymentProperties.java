@@ -48,4 +48,19 @@ public class DemandePaymentProperties {
      * Ex. https://www.missanye.com
      */
     private String publicBaseUrl = "http://localhost:5173";
+
+    /** Rappels avant célébration (demandes payées / validées) : J-1 et H-2. */
+    private boolean celebrationReminderEnabled = true;
+
+    /** Cron des rappels de célébration (défaut : toutes les 15 minutes). */
+    private String celebrationReminderCron = "0 */15 * * * *";
+
+    /**
+     * Passage automatique en « célébrée » une fois l'heure de messe passée
+     * (et TERMINEE quand toutes les dates le sont).
+     */
+    private boolean celebrationAutoCompleteEnabled = true;
+
+    /** Cron du balayage auto-célébration (défaut : toutes les 5 minutes). */
+    private String celebrationAutoCompleteCron = "0 */5 * * * *";
 }

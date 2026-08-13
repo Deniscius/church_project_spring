@@ -6,11 +6,11 @@
 # Après le premier apply, renseigner les secrets sync:false, puis redéployer.
 
 databases:
-  - name: missanye-db
+  - name: church_projetct_db
     plan: basic-256mb
     region: frankfurt
-    databaseName: missanye
-    user: missanye
+    databaseName: church_projetct_db
+    user: postgres
     postgresMajorVersion: "16"
 
 services:

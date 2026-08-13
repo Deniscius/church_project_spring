@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import PageHeader from '../../components/ui/PageHeader';
 import AppInput from '../../components/ui/AppInput';
+import AppSelect from '../../components/ui/AppSelect';
 import AppLoading from '../../components/ui/AppLoading';
 import AppAlert from '../../components/ui/AppAlert';
 import { useHorairesPublicActivesQuery } from '../../hooks/queries/usePublicReferentiel';
@@ -10,21 +11,34 @@ import { WEEK_DAYS, WEEK_DAY_LABELS, WEEK_DAY_SHORT } from '../../constants/enum
 import { buildDemandePrefillPath, seedDemandeDraftFromSchedule } from '../../utils/demandePrefill';
 import { daysFromParishToday, parishTodayEnum } from '../../utils/parishCalendar';
 
+const PAGE_SIZE = 10;
+const EMPTY_PARISHES = [];
+
 function shortDay(day) {
   return WEEK_DAY_SHORT[day] || WEEK_DAY_LABELS[day] || day || '';
 }
 
-function groupByDoyenne(parishes) {
-  const map = new Map();
+function listDoyennes(parishes) {
+  const names = new Set();
   for (const p of parishes) {
-    const key = (p.doyenneNom || '').trim() || 'Autres paroisses';
-    if (!map.has(key)) map.set(key, []);
-    map.get(key).push(p);
+    const key = (p.doyenneNom || '').trim();
+    if (key) names.add(key);
   }
-  for (const list of map.values()) {
-    list.sort((a, b) => (a.paroisseNom || '').localeCompare(b.paroisseNom || '', 'fr'));
-  }
-  return [...map.entries()].sort(([a], [b]) => a.localeCompare(b, 'fr'));
+  return [...names].sort((a, b) => a.localeCompare(b, 'fr'));
+}
+
+function slotsForDay(parish, day) {
+  return (parish.horaires || [])
+    .filter((slot) => !day || slot.jourSemaine === day)
+    .map((slot) => ({
+      heure: formatParishTimeInUserZone(slot.heureCelebration),
+      heureRaw: formatTime(slot.heureCelebration) || '',
+      libelle: slot.libelle || '',
+      publicId: slot.publicId,
+      jourSemaine: slot.jourSemaine,
+      natureHonoraire: slot.natureHonoraire || '',
+    }))
+    .sort((a, b) => String(a.heureRaw || '').localeCompare(String(b.heureRaw || '')));
 }
 
 function slotsByDay(horaires) {
@@ -42,177 +56,215 @@ function slotsByDay(horaires) {
     });
   }
   for (const day of WEEK_DAYS) {
-    buckets[day].sort((a, b) => String(a.heure || '').localeCompare(String(b.heure || '')));
+    buckets[day].sort((a, b) => String(a.heureRaw || '').localeCompare(String(b.heureRaw || '')));
   }
   return buckets;
 }
 
-function ParishCard({ parish, dayFilter }) {
-  const byDay = useMemo(() => slotsByDay(parish.horaires), [parish.horaires]);
-  // Toute la semaine : grille fixe 7 jours (cases vides si pas de créneau).
-  const daysToShow = dayFilter ? WEEK_DAYS.filter((d) => d === dayFilter) : WEEK_DAYS;
+function CompactParishRow({ parish, dayFilter, expanded, onToggle }) {
+  const daySlots = useMemo(
+    () => slotsForDay(parish, dayFilter || null),
+    [parish, dayFilter]
+  );
+  const byDay = useMemo(
+    () => (expanded && !dayFilter ? slotsByDay(parish.horaires) : null),
+    [expanded, dayFilter, parish.horaires]
+  );
 
-  const total = daysToShow.reduce((n, d) => n + (byDay[d]?.length || 0), 0);
+  const visibleSlots = dayFilter
+    ? daySlots
+    : daySlots.slice(0, expanded ? daySlots.length : 4);
 
   return (
-    <article className="schedules-parish-card">
-      <header className="schedules-parish-card-head">
-        <div>
-          <h3 className="schedules-parish-card-title">{parish.paroisseNom}</h3>
+    <article className={`schedules-row${expanded ? ' is-expanded' : ''}`}>
+      <div className="schedules-row-main">
+        <div className="schedules-row-identity">
+          <h3 className="schedules-row-title">{parish.paroisseNom}</h3>
           {parish.doyenneNom ? (
-            <p className="muted schedules-parish-card-sub">{parish.doyenneNom}</p>
+            <p className="muted schedules-row-doyenne">{parish.doyenneNom}</p>
           ) : null}
         </div>
-        <Link
-          className="btn btn-secondary btn-sm"
-          to={buildDemandePrefillPath()}
-          onClick={() => seedDemandeDraftFromSchedule({
-            paroissePublicId: parish.paroissePublicId,
-            paroisseNom: parish.paroisseNom,
-          })}
-        >
-          Demander
-        </Link>
-      </header>
 
-      {total === 0 ? (
-        <p className="muted schedules-empty-slots">
-          {dayFilter
-            ? `Aucun créneau le ${(WEEK_DAY_LABELS[dayFilter] || dayFilter).toLowerCase()}.`
-            : 'Aucun créneau publié.'}
-        </p>
-      ) : (
-        <div className={`schedules-week${dayFilter ? ' is-day-focus' : ' is-full-week'}`}>
-          {daysToShow.map((day) => {
+        <div className="schedules-row-times" aria-label="Horaires">
+          {visibleSlots.length === 0 ? (
+            <span className="muted">Aucun créneau</span>
+          ) : (
+            visibleSlots.map((slot, i) => {
+              const prefill = {
+                paroissePublicId: parish.paroissePublicId,
+                paroisseNom: parish.paroisseNom,
+                horairePublicId: slot.publicId,
+                horaireLibelle: [slot.heureRaw, slot.libelle].filter(Boolean).join(' · '),
+                heureCelebration: slot.heureRaw,
+                jourSemaine: slot.jourSemaine || dayFilter,
+                natureHonoraire: slot.natureHonoraire || '',
+              };
+              return (
+                <Link
+                  key={`${slot.publicId || slot.heureRaw}-${i}`}
+                  to={buildDemandePrefillPath()}
+                  className="schedules-time-chip"
+                  title={`${slot.libelle || 'Messe'} — demander`}
+                  onClick={() => seedDemandeDraftFromSchedule(prefill)}
+                >
+                  <time>{slot.heure || '—'}</time>
+                  {!dayFilter && slot.jourSemaine ? (
+                    <span className="schedules-time-day">{shortDay(slot.jourSemaine)}</span>
+                  ) : null}
+                </Link>
+              );
+            })
+          )}
+          {!dayFilter && !expanded && daySlots.length > 4 ? (
+            <button type="button" className="schedules-more-times" onClick={onToggle}>
+              +{daySlots.length - 4}
+            </button>
+          ) : null}
+        </div>
+
+        <div className="schedules-row-actions">
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            aria-expanded={expanded}
+            onClick={onToggle}
+          >
+            {expanded ? 'Réduire' : (dayFilter ? 'Détail' : 'Semaine')}
+          </button>
+          <Link
+            className="btn btn-primary btn-sm"
+            to={buildDemandePrefillPath()}
+            onClick={() => seedDemandeDraftFromSchedule({
+              paroissePublicId: parish.paroissePublicId,
+              paroisseNom: parish.paroisseNom,
+            })}
+          >
+            Demander
+          </Link>
+        </div>
+      </div>
+
+      {expanded && !dayFilter && byDay ? (
+        <div className="schedules-week is-full-week schedules-row-week">
+          {WEEK_DAYS.map((day) => {
             const slots = byDay[day] || [];
-            const dayLabel = dayFilter
-              ? (WEEK_DAY_LABELS[day] || day)
-              : shortDay(day);
             return (
               <div
                 key={`${parish.paroissePublicId}-${day}`}
                 className={`schedules-day-col${slots.length === 0 ? ' is-empty' : ''}`}
               >
-                <h4
-                  className="schedules-day-label"
-                  title={dayFilter ? undefined : (WEEK_DAY_LABELS[day] || day)}
-                >
-                  {dayFilter ? (
-                    dayLabel
-                  ) : (
-                    <>
-                      <span className="sr-only">{WEEK_DAY_LABELS[day] || day}</span>
-                      <span aria-hidden="true">{dayLabel}</span>
-                    </>
-                  )}
+                <h4 className="schedules-day-label">
+                  <span className="sr-only">{WEEK_DAY_LABELS[day]}</span>
+                  <span aria-hidden="true">{shortDay(day)}</span>
                 </h4>
                 {slots.length === 0 ? (
                   <p className="muted schedules-day-empty">—</p>
                 ) : (
                   <ul className="schedules-slot-list">
-                    {slots.map((slot, i) => {
-                      const prefill = {
-                        paroissePublicId: parish.paroissePublicId,
-                        paroisseNom: parish.paroisseNom,
-                        horairePublicId: slot.publicId,
-                        horaireLibelle: [slot.heureRaw, slot.libelle].filter(Boolean).join(' · '),
-                        heureCelebration: slot.heureRaw,
-                        jourSemaine: slot.jourSemaine,
-                        natureHonoraire: slot.natureHonoraire || '',
-                      };
-                      return (
-                        <li key={`${day}-${slot.publicId || slot.heure}-${i}`}>
-                          <Link
-                            to={buildDemandePrefillPath()}
-                            className="schedules-slot-link"
-                            title={`Demander — ${parish.paroisseNom} ${slot.heure || ''}`}
-                            onClick={() => seedDemandeDraftFromSchedule(prefill)}
-                          >
-                            <time className="schedules-slot-time">{slot.heure || '—'}</time>
-                            <span className="schedules-slot-libelle">{slot.libelle || 'Célébration'}</span>
-                          </Link>
-                        </li>
-                      );
-                    })}
+                    {slots.map((slot, i) => (
+                      <li key={`${day}-${slot.publicId || i}`}>
+                        <Link
+                          to={buildDemandePrefillPath()}
+                          className="schedules-slot-link"
+                          onClick={() => seedDemandeDraftFromSchedule({
+                            paroissePublicId: parish.paroissePublicId,
+                            paroisseNom: parish.paroisseNom,
+                            horairePublicId: slot.publicId,
+                            horaireLibelle: [slot.heureRaw, slot.libelle].filter(Boolean).join(' · '),
+                            heureCelebration: slot.heureRaw,
+                            jourSemaine: day,
+                            natureHonoraire: slot.natureHonoraire || '',
+                          })}
+                        >
+                          <time className="schedules-slot-time">{slot.heure || '—'}</time>
+                        </Link>
+                      </li>
+                    ))}
                   </ul>
                 )}
               </div>
             );
           })}
         </div>
-      )}
+      ) : null}
+
+      {expanded && dayFilter && daySlots.length > 0 ? (
+        <ul className="schedules-detail-list">
+          {daySlots.map((slot, i) => (
+            <li key={`${slot.publicId || i}`}>
+              <Link
+                to={buildDemandePrefillPath()}
+                className="schedules-detail-link"
+                onClick={() => seedDemandeDraftFromSchedule({
+                  paroissePublicId: parish.paroissePublicId,
+                  paroisseNom: parish.paroisseNom,
+                  horairePublicId: slot.publicId,
+                  horaireLibelle: [slot.heureRaw, slot.libelle].filter(Boolean).join(' · '),
+                  heureCelebration: slot.heureRaw,
+                  jourSemaine: slot.jourSemaine || dayFilter,
+                  natureHonoraire: slot.natureHonoraire || '',
+                })}
+              >
+                <time>{slot.heure || '—'}</time>
+                <span>{slot.libelle || 'Célébration'}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </article>
   );
 }
-
-function sampleRandom(items, count) {
-  if (!items.length) return [];
-  const pool = [...items];
-  for (let i = pool.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [pool[i], pool[j]] = [pool[j], pool[i]];
-  }
-  return pool.slice(0, Math.min(count, pool.length));
-}
-
-const SAMPLE_PARISH_COUNT = 8;
-const EMPTY_PARISHES = [];
 
 export default function PublicSchedulesPage() {
   const { data, isLoading, isError } = useHorairesPublicActivesQuery();
   const parishes = Array.isArray(data) ? data : EMPTY_PARISHES;
   const today = parishTodayEnum();
   const orderedDays = useMemo(() => daysFromParishToday(today), [today]);
+  const doyennes = useMemo(() => listDoyennes(parishes), [parishes]);
 
   const [query, setQuery] = useState('');
   const [dayFilter, setDayFilter] = useState(today);
-  const [openDoyenne, setOpenDoyenne] = useState(null);
-  const [showAll, setShowAll] = useState(false);
-  const [sampleSeed, setSampleSeed] = useState(0);
+  const [doyenneFilter, setDoyenneFilter] = useState('');
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [expandedId, setExpandedId] = useState(null);
 
-  const sampledParishes = useMemo(() => {
-    if (showAll || parishes.length <= SAMPLE_PARISH_COUNT) return parishes;
-    // sampleSeed force un nouveau tirage sans casser le memo des données.
-    void sampleSeed;
-    return sampleRandom(parishes, SAMPLE_PARISH_COUNT);
-  }, [parishes, showAll, sampleSeed]);
+  const doyenneOptions = useMemo(
+    () => doyennes.map((name) => ({ value: name, label: name })),
+    [doyennes]
+  );
 
-  const browsingParishes = query.trim() || dayFilter || showAll ? parishes : sampledParishes;
-
-  const byDoyenne = useMemo(() => groupByDoyenne(browsingParishes), [browsingParishes]);
-
-  const filtered = useMemo(() => {
+  const filteredParishes = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return byDoyenne
-      .map(([doyenne, list]) => [
-        doyenne,
-        list.filter((p) => {
-          const matchText = !q
-            || (p.paroisseNom || '').toLowerCase().includes(q)
-            || doyenne.toLowerCase().includes(q);
-          if (!matchText) return false;
-          if (!dayFilter) return true;
+    return parishes
+      .filter((p) => {
+        if (doyenneFilter) {
+          const d = (p.doyenneNom || '').trim();
+          if (d !== doyenneFilter) return false;
+        }
+        if (q) {
+          const hay = `${p.paroisseNom || ''} ${p.doyenneNom || ''}`.toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        if (dayFilter) {
           return (p.horaires || []).some((h) => h.jourSemaine === dayFilter);
-        }),
-      ])
-      .filter(([, list]) => list.length > 0);
-  }, [byDoyenne, query, dayFilter]);
+        }
+        return (p.horaires || []).length > 0;
+      })
+      .sort((a, b) => (a.paroisseNom || '').localeCompare(b.paroisseNom || '', 'fr'));
+  }, [parishes, query, dayFilter, doyenneFilter]);
 
-  const searching = query.trim().length > 0;
-  const samplingActive = !searching && !dayFilter && !showAll && parishes.length > SAMPLE_PARISH_COUNT;
-
-  const filteredKey = filtered.map(([name]) => name).join('|');
-  const [openDoyenneKey, setOpenDoyenneKey] = useState(null);
-  if (filteredKey !== openDoyenneKey) {
-    setOpenDoyenneKey(filteredKey);
-    if (!filtered.length) {
-      setOpenDoyenne(null);
-    } else if (!(openDoyenne && filtered.some(([name]) => name === openDoyenne))) {
-      setOpenDoyenne(filtered[0][0]);
-    }
+  const filterKey = `${query}|${dayFilter}|${doyenneFilter}`;
+  const [pageKey, setPageKey] = useState(filterKey);
+  if (filterKey !== pageKey) {
+    setPageKey(filterKey);
+    setVisibleCount(PAGE_SIZE);
+    setExpandedId(null);
   }
 
-  const parishCount = filtered.reduce((n, [, list]) => n + list.length, 0);
+  const visibleParishes = filteredParishes.slice(0, visibleCount);
+  const hasMore = filteredParishes.length > visibleCount;
+  const remaining = filteredParishes.length - visibleCount;
 
   return (
     <div className="stack public-page schedules-page">
@@ -220,68 +272,50 @@ export default function PublicSchedulesPage() {
         <p className="onboard-kicker">Missanye</p>
         <PageHeader
           title="Horaires des messes"
-          subtitle={
-            samplingActive
-              ? `Sélection aléatoire de ${SAMPLE_PARISH_COUNT} paroisses — recherchez ou affichez tout le catalogue.`
-              : 'Programmation des paroisses actives, par doyenné. Les heures s’affichent dans votre fuseau horaire.'
-          }
+          subtitle="Cherchez votre paroisse, choisissez un jour, puis cliquez une heure pour démarrer une demande."
         />
       </header>
 
       {getUserTimeZone() !== PARISH_TIME_ZONE ? (
         <p className="muted schedules-tz-note" style={{ marginTop: 0 }}>
-          Horaires paroissiaux (Afrique/Lomé) convertis dans votre fuseau : {getUserTimeZone()}.
+          Horaires convertis dans votre fuseau : {getUserTimeZone()}.
         </p>
       ) : null}
 
-      <div className="schedules-toolbar">
+      <div className="schedules-find">
         <label className="form-field schedules-search" htmlFor="schedules-search">
-          <span className="sr-only">Rechercher un doyenné ou une paroisse</span>
+          <span className="schedules-filter-label">Paroisse</span>
           <AppInput
             id="schedules-search"
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Rechercher un doyenné ou une paroisse…"
+            placeholder="Ex. Maria Goretti, Adidogomé…"
             autoComplete="off"
           />
         </label>
-        {parishes.length > SAMPLE_PARISH_COUNT ? (
-          <div className="button-row">
-            {samplingActive ? (
-              <>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setSampleSeed((s) => s + 1)}
-                >
-                  Autres paroisses
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setShowAll(true)}
-                >
-                  Tout afficher ({parishes.length})
-                </button>
-              </>
-            ) : (
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => {
-                  setShowAll(false);
-                  setSampleSeed((s) => s + 1);
-                }}
-              >
-                Vue aléatoire
-              </button>
-            )}
+
+        {doyennes.length > 1 ? (
+          <div className="form-field schedules-doyenne-filter">
+            <span className="schedules-filter-label" id="schedules-doyenne-label">Doyenné</span>
+            <AppSelect
+              id="schedules-doyenne"
+              aria-labelledby="schedules-doyenne-label"
+              value={doyenneFilter}
+              options={doyenneOptions}
+              placeholder="Tous les doyennés"
+              searchable={doyennes.length > 6}
+              searchPlaceholder="Filtrer un doyenné…"
+              onChange={(value) => setDoyenneFilter(value || '')}
+            />
           </div>
         ) : null}
-        <Link className="btn btn-primary" to="/demande">
-          Faire une demande
-        </Link>
+
+        <div className="schedules-find-cta">
+          <Link className="btn btn-primary" to="/demande">
+            Faire une demande
+          </Link>
+        </div>
       </div>
 
       <div className="schedules-day-filters" role="toolbar" aria-label="Filtrer par jour">
@@ -290,7 +324,7 @@ export default function PublicSchedulesPage() {
           className={`schedules-day-chip${!dayFilter ? ' is-active' : ''}`}
           onClick={() => setDayFilter('')}
         >
-          Toute la semaine
+          Semaine
         </button>
         {orderedDays.map((day) => (
           <button
@@ -299,8 +333,7 @@ export default function PublicSchedulesPage() {
             className={`schedules-day-chip${dayFilter === day ? ' is-active' : ''}${day === today ? ' is-today' : ''}`}
             onClick={() => setDayFilter(day)}
           >
-            {shortDay(day)}
-            {day === today ? ' · auj.' : ''}
+            {day === today ? 'Aujourd’hui' : shortDay(day)}
           </button>
         ))}
       </div>
@@ -315,59 +348,65 @@ export default function PublicSchedulesPage() {
         <p className="muted">Aucune paroisse active pour le moment.</p>
       ) : null}
 
-      {!isLoading && !isError && parishes.length > 0 && filtered.length === 0 ? (
-        <p className="muted">
-          Aucun résultat
-          {query.trim() ? <> pour « {query.trim()} »</> : null}
-          {dayFilter ? <> le {(WEEK_DAY_LABELS[dayFilter] || dayFilter).toLowerCase()}</> : null}.
-        </p>
+      {!isLoading && !isError && parishes.length > 0 && filteredParishes.length === 0 ? (
+        <div className="schedules-empty">
+          <p className="muted" style={{ margin: 0 }}>
+            Aucune paroisse ne correspond
+            {query.trim() ? <> à « {query.trim()} »</> : null}
+            {doyenneFilter ? <> dans {doyenneFilter}</> : null}
+            {dayFilter ? <> pour {(WEEK_DAY_LABELS[dayFilter] || dayFilter).toLowerCase()}</> : null}.
+          </p>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => {
+              setQuery('');
+              setDoyenneFilter('');
+              setDayFilter(today);
+            }}
+          >
+            Réinitialiser les filtres
+          </button>
+        </div>
       ) : null}
 
-      {!isLoading && filtered.length > 0 ? (
+      {!isLoading && filteredParishes.length > 0 ? (
         <>
           <p className="muted schedules-summary">
-            {parishCount} paroisse{parishCount > 1 ? 's' : ''}
-            {dayFilter ? ` · ${WEEK_DAY_LABELS[dayFilter]}` : ''}
-            {searching ? ' · résultats filtrés' : ''}
+            {filteredParishes.length} paroisse{filteredParishes.length > 1 ? 's' : ''}
+            {dayFilter ? ` · ${dayFilter === today ? 'aujourd’hui' : WEEK_DAY_LABELS[dayFilter]}` : ' · semaine'}
+            {doyenneFilter ? ` · ${doyenneFilter}` : ''}
+            {visibleParishes.length < filteredParishes.length
+              ? ` · affichage de ${visibleParishes.length}`
+              : ''}
           </p>
 
-          <div className="schedules-doyennes">
-            {filtered.map(([doyenne, list]) => {
-              const isOpen = searching || openDoyenne === doyenne;
-              return (
-                <section key={doyenne} className={`schedules-doyenne-acc${isOpen ? ' is-open' : ''}`}>
-                  <button
-                    type="button"
-                    className="schedules-doyenne-trigger"
-                    aria-expanded={isOpen}
-                    onClick={() =>
-                      setOpenDoyenne((cur) => (cur === doyenne && !searching ? null : doyenne))
-                    }
-                  >
-                    <span>
-                      <span className="schedules-doyenne-label">{doyenne}</span>
-                      <span className="muted schedules-doyenne-count">
-                        {list.length} paroisse{list.length > 1 ? 's' : ''}
-                      </span>
-                    </span>
-                    <span className="nav-dropdown-chevron" aria-hidden="true" />
-                  </button>
-
-                  {isOpen ? (
-                    <div className="schedules-parish-grid">
-                      {list.map((parish) => (
-                        <ParishCard
-                          key={parish.paroissePublicId}
-                          parish={parish}
-                          dayFilter={dayFilter}
-                        />
-                      ))}
-                    </div>
-                  ) : null}
-                </section>
-              );
-            })}
+          <div className="schedules-list" role="list">
+            {visibleParishes.map((parish) => (
+              <div key={parish.paroissePublicId} role="listitem">
+                <CompactParishRow
+                  parish={parish}
+                  dayFilter={dayFilter}
+                  expanded={expandedId === parish.paroissePublicId}
+                  onToggle={() => setExpandedId((cur) => (
+                    cur === parish.paroissePublicId ? null : parish.paroissePublicId
+                  ))}
+                />
+              </div>
+            ))}
           </div>
+
+          {hasMore ? (
+            <div className="schedules-load-more">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}
+              >
+                Voir plus ({remaining} restante{remaining > 1 ? 's' : ''})
+              </button>
+            </div>
+          ) : null}
         </>
       ) : null}
     </div>

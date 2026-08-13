@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import PageHeader from '../../../components/ui/PageHeader';
 import AppTable from '../../../components/ui/AppTable';
 import AppButton from '../../../components/ui/AppButton';
+import AppBadge from '../../../components/ui/AppBadge';
 import AppDialog from '../../../components/ui/AppDialog';
 import PdfPreviewModal from '../../../components/ui/PdfPreviewModal';
 import { useTenant } from '../../../hooks/useTenant';
@@ -12,10 +13,14 @@ import { formatParishTimeInUserZone, formatTime } from '../../../utils/formatTim
 import { formatFideleName } from '../../../utils/personName';
 import { useToast } from '../../../contexts/toast.context';
 
+const POLL_MS = 20_000;
+
 const columns = [
   { key: 'intention', label: 'Intention' },
   { key: 'demandeur', label: 'Demandeur' },
   { key: 'progression', label: 'Progression' },
+  { key: 'statut', label: 'Statut' },
+  { key: 'actions', label: 'Actions' },
 ];
 
 const NO_TIME_KEY = 'SANS_HEURE';
@@ -38,6 +43,7 @@ function groupTitle(group) {
 }
 
 function mapIntentionRow(item) {
+  const celebre = Boolean(item.celebre);
   return {
     id: item.demandeDatePublicId,
     demandePublicId: item.demandePublicId,
@@ -46,6 +52,9 @@ function mapIntentionRow(item) {
     demandeur: formatFideleName(item.demandeurPrenom, item.demandeurNom),
     progression: item.progressionLabel || '—',
     rawIntention: item.intention || '',
+    celebre,
+    statutDemande: item.statutDemande || '',
+    statutLabel: celebre || item.statutDemande === 'TERMINEE' ? 'Terminée' : 'À célébrer',
   };
 }
 
@@ -63,60 +72,49 @@ export default function CelebrationSheetPage() {
   const [previewUrl, setPreviewUrl] = useState(null);
   const [previewError, setPreviewError] = useState(null);
   const [previewName, setPreviewName] = useState('feuille-intentions.pdf');
+  const [markingId, setMarkingId] = useState(null);
 
   const [editRow, setEditRow] = useState(null);
   const [editText, setEditText] = useState('');
   const [editBusy, setEditBusy] = useState(false);
 
-  const reload = async () => {
+  const loadGroups = useCallback(async ({ silent = false } = {}) => {
     if (!activeParish?.id || !date) {
       setGroups([]);
       return;
     }
     try {
-      setLoading(true);
-      setError(null);
+      if (!silent) {
+        setLoading(true);
+        setError(null);
+      }
       const data = await celebrationService.listByParishAndDate(activeParish.id, {
         date,
         inclureNonPayees,
       });
       setGroups(Array.isArray(data) ? data : []);
     } catch (e) {
-      setGroups([]);
-      setError(e instanceof Error ? e.message : 'Impossible de charger les intentions');
+      if (!silent) {
+        setGroups([]);
+        setError(e instanceof Error ? e.message : 'Impossible de charger les intentions');
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
-  };
+  }, [activeParish?.id, date, inclureNonPayees]);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      if (!activeParish?.id || !date) {
-        setGroups([]);
-        return;
-      }
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await celebrationService.listByParishAndDate(activeParish.id, {
-          date,
-          inclureNonPayees,
-        });
-        if (!cancelled) setGroups(Array.isArray(data) ? data : []);
-      } catch (e) {
-        if (!cancelled) {
-          setGroups([]);
-          setError(e instanceof Error ? e.message : 'Impossible de charger les intentions');
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [activeParish?.id, date, inclureNonPayees]);
+    loadGroups();
+  }, [loadGroups]);
+
+  // Rafraîchissement périodique : auto-célébration + actions d'un autre onglet.
+  useEffect(() => {
+    if (!activeParish?.id || !date) return undefined;
+    const id = window.setInterval(() => {
+      loadGroups({ silent: true });
+    }, POLL_MS);
+    return () => window.clearInterval(id);
+  }, [activeParish?.id, date, loadGroups]);
 
   useEffect(() => {
     setSelectedHeures([]);
@@ -136,6 +134,13 @@ export default function CelebrationSheetPage() {
 
   const totalIntentions = useMemo(() => countIntentions(groups), [groups]);
   const visibleIntentions = useMemo(() => countIntentions(visibleGroups), [visibleGroups]);
+  const celebratedCount = useMemo(
+    () => groups.reduce(
+      (sum, group) => sum + (group.intentions || []).filter((item) => item.celebre).length,
+      0
+    ),
+    [groups]
+  );
 
   const toggleHeure = (key) => {
     setSelectedHeures((current) =>
@@ -144,7 +149,7 @@ export default function CelebrationSheetPage() {
   };
 
   const openEdit = (row) => {
-    if (!row?.demandePublicId) return;
+    if (!row?.demandePublicId || row.celebre) return;
     setEditRow(row);
     setEditText(row.rawIntention || '');
   };
@@ -165,11 +170,25 @@ export default function CelebrationSheetPage() {
       await requestService.updateIntention(editRow.demandePublicId, text);
       toast.success('Intention mise à jour.');
       setEditRow(null);
-      await reload();
+      await loadGroups({ silent: true });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Modification impossible');
     } finally {
       setEditBusy(false);
+    }
+  };
+
+  const markCelebrated = async (row) => {
+    if (!row?.id || row.celebre) return;
+    setMarkingId(row.id);
+    try {
+      await celebrationService.markCelebrated(row.id);
+      toast.success('Intention marquée célébrée.');
+      await loadGroups({ silent: true });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Confirmation impossible');
+    } finally {
+      setMarkingId(null);
     }
   };
 
@@ -217,7 +236,7 @@ export default function CelebrationSheetPage() {
     <div className="stack">
       <PageHeader
         title="Feuille d'intentions"
-        subtitle="Vue légère pour le célébrant : cliquez une ligne pour modifier l’intention."
+        subtitle="Cliquez une ligne pour modifier l’intention. Marquez célébrée après la messe (ou laissez l’auto-confirmation après l’heure)."
         actions={(
           <AppButton
             variant="primary"
@@ -247,7 +266,9 @@ export default function CelebrationSheetPage() {
         <p className="muted" style={{ margin: 0, paddingBottom: '0.4rem' }}>
           {formatDate(date)} · {visibleGroups.length} messe{visibleGroups.length > 1 ? 's' : ''} ·{' '}
           {visibleIntentions} intention{visibleIntentions > 1 ? 's' : ''}
+          {celebratedCount ? ` · ${celebratedCount} terminée${celebratedCount > 1 ? 's' : ''}` : ''}
           {selectedHeures.length ? ` (sur ${groups.length} · ${totalIntentions})` : ''}
+          {' · '}rafraîchi ~20 s
         </p>
       </div>
 
@@ -317,6 +338,38 @@ export default function CelebrationSheetPage() {
               emptyMessage="Aucune intention pour cette messe."
               ariaLabel={`Intentions ${title}`}
               onRowClick={openEdit}
+              rowClassName={(row) => (row.celebre ? 'is-celebrated' : undefined)}
+              renderCell={(row, column) => {
+                if (column.key === 'statut') {
+                  return (
+                    <AppBadge
+                      value={row.celebre ? 'TERMINEE' : 'VALIDEE'}
+                      label={row.statutLabel}
+                    />
+                  );
+                }
+                if (column.key === 'actions') {
+                  if (row.celebre) {
+                    return <span className="muted">Célébrée</span>;
+                  }
+                  return (
+                    <AppButton
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      loading={markingId === row.id}
+                      disabled={markingId === row.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        markCelebrated(row);
+                      }}
+                    >
+                      Marquer célébrée
+                    </AppButton>
+                  );
+                }
+                return row[column.key];
+              }}
             />
           </section>
         );

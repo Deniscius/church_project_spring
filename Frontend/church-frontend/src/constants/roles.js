@@ -98,6 +98,8 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.DEANERY_MANAGE,
     PERMISSIONS.PAYMENT_TYPE_MANAGE,
     PERMISSIONS.FINANCE_READ,
+    // Activation manuelle depuis l’annuaire (prospect → abonnée).
+    PERMISSIONS.FINANCE_MANAGE,
     // Intervention multi-tenant : outils paroissiaux pour contrôle / support.
     ...PARISH_READ_PERMISSIONS,
     PERMISSIONS.DEMAND_EDIT,

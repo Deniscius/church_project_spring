@@ -34,7 +34,7 @@ export function getBadgeClass(status) {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '');
   if (normalized === 'PROSPECT') return 'badge';
-  if (['VALIDEE', 'PAYE', 'TRAITEE', 'ACTIVE', 'APPROUVEE'].includes(normalized)) return 'badge success';
+  if (['VALIDEE', 'PAYE', 'TRAITEE', 'TERMINEE', 'ACTIVE', 'APPROUVEE'].includes(normalized)) return 'badge success';
   if (
     ['REJETEE', 'ECHEC', 'ECHOUE', 'INACTIVE', 'EXPIRED', 'ABONNEMENT EXPIRE',
       'SUSPENDUE', 'RESILIEE'].includes(normalized)

@@ -46,6 +46,26 @@ public interface HoraireRepository extends JpaRepository<Horaire, Long> {
             """)
     List<Horaire> findActiveHorairesForActiveParishes();
 
+    /**
+     * Créneaux ponctuels (date précise) des paroisses actives, dans une fenêtre calendaire.
+     */
+    @Query("""
+            SELECT h FROM Horaire h
+            JOIN FETCH h.paroisse p
+            LEFT JOIN FETCH p.doyenne
+            WHERE h.statusDel = false
+              AND h.isActive = true
+              AND h.dateSpecifique IS NOT NULL
+              AND h.dateSpecifique BETWEEN :debut AND :fin
+              AND p.statusDel = false
+              AND p.isActive = true
+              AND (p.isSystem = false OR p.isSystem IS NULL)
+            ORDER BY p.nom ASC, h.dateSpecifique ASC, h.heureCelebration ASC
+            """)
+    List<Horaire> findActiveOneOffHorairesForActiveParishesBetween(
+            @Param("debut") LocalDate debut,
+            @Param("fin") LocalDate fin
+    );
     boolean existsByJourSemaineAndHeureCelebrationAndParoisseAndDateSpecifiqueIsNullAndStatusDelFalse(
             JourSemaine jourSemaine,
             LocalTime heureCelebration,

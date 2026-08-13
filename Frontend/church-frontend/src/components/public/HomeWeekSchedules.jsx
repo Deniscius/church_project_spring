@@ -23,16 +23,26 @@ function sampleRandom(items, count) {
   return pool.slice(0, Math.min(count, pool.length));
 }
 
-function slotsForDay(parish, day) {
+function slotsForDay(parish, day, iso) {
+  const dayIso = iso ? String(iso).slice(0, 10) : '';
   return (parish.horaires || [])
-    .filter((slot) => slot.jourSemaine === day)
+    .filter((slot) => {
+      // Programme résolu de la semaine : filtre sur la date calendaire.
+      if (slot.date && dayIso) {
+        return String(slot.date).slice(0, 10) === dayIso;
+      }
+      return slot.jourSemaine === day;
+    })
     .map((slot) => ({
       publicId: slot.publicId || '',
       heure: formatParishTimeInUserZone(slot.heureCelebration),
       heureRaw: formatTime(slot.heureCelebration) || '',
       libelle: slot.libelle || '',
       jourSemaine: slot.jourSemaine,
+      date: slot.date ? String(slot.date).slice(0, 10) : dayIso,
       natureHonoraire: slot.natureHonoraire || '',
+      dateSpecifique: Boolean(slot.dateSpecifique),
+      uniqueSurParoisse: Boolean(slot.uniqueSurParoisse),
     }))
     .sort((a, b) => compareTimeAsc(a.heureRaw, b.heureRaw));
 }
@@ -103,25 +113,26 @@ export default function HomeWeekSchedules() {
   const dayCounts = useMemo(() => {
     const counts = Object.fromEntries(WEEK_DAYS.map((d) => [d, 0]));
     for (const parish of allParishes) {
-      for (const day of WEEK_DAYS) {
-        if (slotsForDay(parish, day).length) counts[day] += 1;
+      for (const { day, iso } of weekDays) {
+        if (slotsForDay(parish, day, iso).length) counts[day] += 1;
       }
     }
     return counts;
-  }, [allParishes]);
+  }, [allParishes, weekDays]);
 
   const programmes = useMemo(() => {
     void sampleSeed;
-    const withDay = allParishes.filter((p) => slotsForDay(p, selectedDay).length > 0);
+    const selectedIso = weekDays.find((w) => w.day === selectedDay)?.iso || '';
+    const withDay = allParishes.filter((p) => slotsForDay(p, selectedDay, selectedIso).length > 0);
     const sampled = sampleRandom(withDay, SAMPLE_SIZE);
     return sampled.map((parish) => ({
       paroissePublicId: parish.paroissePublicId,
       paroisseNom: parish.paroisseNom,
       doyenneNom: parish.doyenneNom || '',
-      // Tous les créneaux du jour pour cette paroisse, dans l’ordre chronologique.
-      slots: slotsForDay(parish, selectedDay),
+      // Programme réel du jour pour cette paroisse (hebdo + ponctuels), ordre chrono.
+      slots: slotsForDay(parish, selectedDay, selectedIso),
     }));
-  }, [allParishes, selectedDay, sampleSeed]);
+  }, [allParishes, selectedDay, sampleSeed, weekDays]);
 
   const selectedMeta = weekDays.find((w) => w.day === selectedDay);
 
@@ -143,8 +154,9 @@ export default function HomeWeekSchedules() {
         <div className="home-schedules-head home-section-head">
           <h2 id="home-schedules-title">Horaires en ce moment</h2>
           <p className="muted">
-            Parcourez les jours : des paroisses s’affichent au hasard, avec leurs horaires du jour
-            dans l’ordre. Un clic préremplit votre demande.
+            Programme de la semaine en cours : des paroisses s’affichent au hasard, avec leurs
+            horaires du jour (y compris les messes ponctuelles), dans l’ordre. Un clic préremplit
+            votre demande.
           </p>
         </div>
 
@@ -231,6 +243,7 @@ export default function HomeWeekSchedules() {
                                   horaireLibelle: [slot.heureRaw, slot.libelle].filter(Boolean).join(' · '),
                                   heureCelebration: slot.heureRaw,
                                   jourSemaine: slot.jourSemaine || selectedDay,
+                                  dateIso: slot.date || selectedMeta?.iso || '',
                                   natureHonoraire: slot.natureHonoraire || '',
                                 })}
                               >

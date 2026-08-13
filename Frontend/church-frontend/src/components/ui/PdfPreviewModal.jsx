@@ -75,10 +75,16 @@ export default function PdfPreviewModal({
               title={fileName}
               src={blobUrl ? `${frameSrc}#view=FitH` : frameSrc}
               className="pdf-preview-frame"
+              // PDF blob same-origin ; frame-src blob: requis côté hébergeur (CSP).
             />
           ) : null}
           {!loading && !error && !frameSrc ? (
             <p className="muted">Aucun document à afficher.</p>
+          ) : null}
+          {!loading && !error && frameSrc ? (
+            <p className="muted pdf-preview-fallback-hint">
+              Si l’aperçu reste vide, utilisez « Ouvrir dans un onglet ».
+            </p>
           ) : null}
         </div>
       </div>

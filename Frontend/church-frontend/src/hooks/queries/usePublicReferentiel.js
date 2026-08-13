@@ -14,12 +14,14 @@ export const qk = {
   typePaiementsPublic: ['type-paiement', 'public'],
 };
 
-/** Accueil / page horaires : listes chargées uniquement quand le hook est monté. */
+/** Accueil / page horaires : programme de la semaine courante. */
 export function useHorairesPublicActivesQuery(options = {}) {
   return useQuery({
     queryKey: qk.horairesPublicActives,
     queryFn: () => scheduleService.listPublicForActiveParishes(),
-    staleTime: 15 * 60_000,
+    // Court : un nouvel horaire admin doit apparaître rapidement.
+    staleTime: 60_000,
+    refetchOnWindowFocus: true,
     enabled: options.enabled !== false,
   });
 }

@@ -11,7 +11,7 @@
     "prod:share": "vite build --mode share && vite preview --host 0.0.0.0 --port 4173"
   },
   "dependencies": {
-    "@tanstack/react-query": "^5.95.2",
+    "@tanstack/react-query": "^5.101.4",
     "libphonenumber-js": "^1.13.10",
     "pdfjs-dist": "^4.10.38",
     "react": "^19.2.4",

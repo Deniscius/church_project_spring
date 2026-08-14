@@ -1,6 +1,7 @@
 package com.eyram.dev.church_project_spring.entities;
 
 import com.eyram.dev.church_project_spring.enums.PhoneVerificationPurpose;
+import com.eyram.dev.church_project_spring.enums.PhoneVerificationStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -15,7 +16,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.UuidGenerator;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 /**
@@ -29,8 +30,8 @@ import java.util.UUID;
         name = "phone_verification",
         indexes = {
                 @Index(
-                        name = "idx_phone_verification_phone_purpose_created",
-                        columnList = "telephone_e164,purpose,created_at"
+                        name = "idx_phone_verification_phone_purpose_status_created",
+                        columnList = "telephone_e164,purpose,status,created_at"
                 ),
                 @Index(name = "idx_phone_verification_otp_expires", columnList = "otp_expires_at"),
                 @Index(name = "idx_phone_verification_token_expires", columnList = "verification_token_expires_at")
@@ -57,23 +58,36 @@ public class PhoneVerification {
     @Column(name = "purpose", nullable = false, length = 30)
     private PhoneVerificationPurpose purpose;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 20)
+    private PhoneVerificationStatus status = PhoneVerificationStatus.PENDING;
+
     /** Hash SHA-256 hexadécimal de l'OTP. */
     @Column(name = "otp_hash", nullable = false, length = 64)
     private String otpHash;
 
     @Column(name = "otp_expires_at", nullable = false)
-    private LocalDateTime otpExpiresAt;
+    private Instant otpExpiresAt;
 
+    /** Nombre total de tentatives de saisie sur ce challenge. */
     @Column(name = "attempts", nullable = false)
     private int attempts = 0;
 
-    /** Date du dernier envoi SMS, utilisée pour le cooldown de renvoi. */
+    /** Nombre total de SMS envoyés pour ce challenge. */
+    @Column(name = "send_count", nullable = false)
+    private int sendCount = 1;
+
+    /** Dernier envoi SMS réussi. */
     @Column(name = "last_sent_at", nullable = false)
-    private LocalDateTime lastSentAt = LocalDateTime.now();
+    private Instant lastSentAt = Instant.now();
+
+    /** Date avant laquelle un nouvel envoi est interdit. */
+    @Column(name = "next_send_allowed_at", nullable = false)
+    private Instant nextSendAllowedAt;
 
     /** Renseigné uniquement après validation correcte de l'OTP. */
     @Column(name = "verified_at")
-    private LocalDateTime verifiedAt;
+    private Instant verifiedAt;
 
     /**
      * Hash SHA-256 d'un jeton opaque remis au client après validation OTP.
@@ -83,78 +97,131 @@ public class PhoneVerification {
     private String verificationTokenHash;
 
     @Column(name = "verification_token_expires_at")
-    private LocalDateTime verificationTokenExpiresAt;
+    private Instant verificationTokenExpiresAt;
 
     /** Horodatage de consommation de la preuve par le flux métier. */
     @Column(name = "consumed_at")
-    private LocalDateTime consumedAt;
+    private Instant consumedAt;
 
     @Column(name = "request_ip", length = 64)
     private String requestIp;
 
     @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt = LocalDateTime.now();
+    private Instant createdAt = Instant.now();
 
     @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt = LocalDateTime.now();
+    private Instant updatedAt = Instant.now();
 
-    public boolean isOtpExpired(LocalDateTime now) {
+    public boolean isOtpExpired(Instant now) {
         return otpExpiresAt == null || !otpExpiresAt.isAfter(now);
     }
 
-    public boolean isVerified() {
-        return verifiedAt != null;
-    }
-
-    public boolean isConsumed() {
-        return consumedAt != null;
-    }
-
-    public boolean isVerificationTokenExpired(LocalDateTime now) {
+    public boolean isVerificationTokenExpired(Instant now) {
         return verificationTokenExpiresAt == null || !verificationTokenExpiresAt.isAfter(now);
     }
 
-    public boolean canVerify(int maxAttempts, LocalDateTime now) {
-        return !isVerified()
-                && !isConsumed()
+    public boolean isPending() {
+        return status == PhoneVerificationStatus.PENDING;
+    }
+
+    public boolean isVerified() {
+        return status == PhoneVerificationStatus.VERIFIED;
+    }
+
+    public boolean isConsumed() {
+        return status == PhoneVerificationStatus.CONSUMED;
+    }
+
+    public boolean canVerify(int maxAttempts, Instant now) {
+        return isPending()
                 && attempts < maxAttempts
                 && !isOtpExpired(now);
     }
 
-    public void registerFailedAttempt() {
-        attempts++;
-        touch();
+    public boolean canResend(int maxSendCount, Instant now) {
+        return isPending()
+                && sendCount < maxSendCount
+                && nextSendAllowedAt != null
+                && !nextSendAllowedAt.isAfter(now)
+                && !isOtpExpired(now);
     }
 
-    public void refreshOtp(String newOtpHash, LocalDateTime newOtpExpiresAt, LocalDateTime sentAt) {
+    public void registerFailedAttempt(int maxAttempts, Instant now) {
+        requireStatus(PhoneVerificationStatus.PENDING);
+        this.attempts++;
+        if (this.attempts >= maxAttempts) {
+            this.status = PhoneVerificationStatus.BLOCKED;
+        }
+        touch(now);
+    }
+
+    /**
+     * Réémission dans le même challenge : nouvel OTP, mais le nombre de tentatives
+     * n'est pas remis à zéro afin qu'un renvoi ne contourne pas la protection anti-bruteforce.
+     */
+    public void rotateOtp(
+            String newOtpHash,
+            Instant newOtpExpiresAt,
+            Instant sentAt,
+            Instant nextSendAllowedAt
+    ) {
+        requireStatus(PhoneVerificationStatus.PENDING);
         this.otpHash = newOtpHash;
         this.otpExpiresAt = newOtpExpiresAt;
         this.lastSentAt = sentAt;
-        this.attempts = 0;
-        this.verifiedAt = null;
-        this.verificationTokenHash = null;
-        this.verificationTokenExpiresAt = null;
-        this.consumedAt = null;
-        touch();
+        this.nextSendAllowedAt = nextSendAllowedAt;
+        this.sendCount++;
+        touch(sentAt);
     }
 
     public void markVerified(
-            LocalDateTime verifiedAt,
             String tokenHash,
-            LocalDateTime tokenExpiresAt
+            Instant tokenExpiresAt,
+            Instant now
     ) {
-        this.verifiedAt = verifiedAt;
+        requireStatus(PhoneVerificationStatus.PENDING);
+        this.status = PhoneVerificationStatus.VERIFIED;
+        this.verifiedAt = now;
         this.verificationTokenHash = tokenHash;
         this.verificationTokenExpiresAt = tokenExpiresAt;
-        touch();
+        touch(now);
     }
 
-    public void markConsumed(LocalDateTime consumedAt) {
-        this.consumedAt = consumedAt;
-        touch();
+    public void markConsumed(Instant now) {
+        requireStatus(PhoneVerificationStatus.VERIFIED);
+        this.status = PhoneVerificationStatus.CONSUMED;
+        this.consumedAt = now;
+        touch(now);
     }
 
-    private void touch() {
-        this.updatedAt = LocalDateTime.now();
+    public void markExpired(Instant now) {
+        if (status == PhoneVerificationStatus.CONSUMED
+                || status == PhoneVerificationStatus.BLOCKED
+                || status == PhoneVerificationStatus.EXPIRED) {
+            return;
+        }
+        this.status = PhoneVerificationStatus.EXPIRED;
+        touch(now);
+    }
+
+    public void markBlocked(Instant now) {
+        if (status == PhoneVerificationStatus.CONSUMED
+                || status == PhoneVerificationStatus.EXPIRED) {
+            return;
+        }
+        this.status = PhoneVerificationStatus.BLOCKED;
+        touch(now);
+    }
+
+    private void requireStatus(PhoneVerificationStatus expected) {
+        if (status != expected) {
+            throw new IllegalStateException(
+                    "Transition PhoneVerification invalide : statut=" + status + ", attendu=" + expected
+            );
+        }
+    }
+
+    private void touch(Instant now) {
+        this.updatedAt = now;
     }
 }

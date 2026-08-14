@@ -11,12 +11,13 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 import org.hibernate.annotations.UuidGenerator;
 
 import java.time.Instant;
+import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -38,8 +39,7 @@ import java.util.UUID;
         }
 )
 @Getter
-@Setter
-@NoArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class PhoneVerification {
 
     @Id
@@ -60,7 +60,7 @@ public class PhoneVerification {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
-    private PhoneVerificationStatus status = PhoneVerificationStatus.PENDING;
+    private PhoneVerificationStatus status;
 
     /** Hash SHA-256 hexadécimal de l'OTP. */
     @Column(name = "otp_hash", nullable = false, length = 64)
@@ -71,15 +71,15 @@ public class PhoneVerification {
 
     /** Nombre total de tentatives de saisie sur ce challenge. */
     @Column(name = "attempts", nullable = false)
-    private int attempts = 0;
+    private int attempts;
 
     /** Nombre total de SMS envoyés pour ce challenge. */
     @Column(name = "send_count", nullable = false)
-    private int sendCount = 1;
+    private int sendCount;
 
     /** Dernier envoi SMS réussi. */
     @Column(name = "last_sent_at", nullable = false)
-    private Instant lastSentAt = Instant.now();
+    private Instant lastSentAt;
 
     /** Date avant laquelle un nouvel envoi est interdit. */
     @Column(name = "next_send_allowed_at", nullable = false)
@@ -107,10 +107,35 @@ public class PhoneVerification {
     private String requestIp;
 
     @Column(name = "created_at", nullable = false, updatable = false)
-    private Instant createdAt = Instant.now();
+    private Instant createdAt;
 
     @Column(name = "updated_at", nullable = false)
-    private Instant updatedAt = Instant.now();
+    private Instant updatedAt;
+
+    public static PhoneVerification create(
+            String telephoneE164,
+            PhoneVerificationPurpose purpose,
+            String otpHash,
+            Instant otpExpiresAt,
+            Instant sentAt,
+            Instant nextSendAllowedAt,
+            String requestIp
+    ) {
+        PhoneVerification verification = new PhoneVerification();
+        verification.telephoneE164 = requireText(telephoneE164, "telephoneE164");
+        verification.purpose = Objects.requireNonNull(purpose, "purpose");
+        verification.otpHash = requireText(otpHash, "otpHash");
+        verification.otpExpiresAt = Objects.requireNonNull(otpExpiresAt, "otpExpiresAt");
+        verification.lastSentAt = Objects.requireNonNull(sentAt, "sentAt");
+        verification.nextSendAllowedAt = Objects.requireNonNull(nextSendAllowedAt, "nextSendAllowedAt");
+        verification.requestIp = requestIp;
+        verification.status = PhoneVerificationStatus.PENDING;
+        verification.attempts = 0;
+        verification.sendCount = 1;
+        verification.createdAt = sentAt;
+        verification.updatedAt = sentAt;
+        return verification;
+    }
 
     public boolean isOtpExpired(Instant now) {
         return otpExpiresAt == null || !otpExpiresAt.isAfter(now);
@@ -141,7 +166,6 @@ public class PhoneVerification {
     public boolean canResend(int maxSendCount, Instant now) {
         return isPending()
                 && sendCount < maxSendCount
-                && nextSendAllowedAt != null
                 && !nextSendAllowedAt.isAfter(now)
                 && !isOtpExpired(now);
     }
@@ -166,10 +190,10 @@ public class PhoneVerification {
             Instant nextSendAllowedAt
     ) {
         requireStatus(PhoneVerificationStatus.PENDING);
-        this.otpHash = newOtpHash;
-        this.otpExpiresAt = newOtpExpiresAt;
-        this.lastSentAt = sentAt;
-        this.nextSendAllowedAt = nextSendAllowedAt;
+        this.otpHash = requireText(newOtpHash, "newOtpHash");
+        this.otpExpiresAt = Objects.requireNonNull(newOtpExpiresAt, "newOtpExpiresAt");
+        this.lastSentAt = Objects.requireNonNull(sentAt, "sentAt");
+        this.nextSendAllowedAt = Objects.requireNonNull(nextSendAllowedAt, "nextSendAllowedAt");
         this.sendCount++;
         touch(sentAt);
     }
@@ -181,16 +205,16 @@ public class PhoneVerification {
     ) {
         requireStatus(PhoneVerificationStatus.PENDING);
         this.status = PhoneVerificationStatus.VERIFIED;
-        this.verifiedAt = now;
-        this.verificationTokenHash = tokenHash;
-        this.verificationTokenExpiresAt = tokenExpiresAt;
+        this.verifiedAt = Objects.requireNonNull(now, "now");
+        this.verificationTokenHash = requireText(tokenHash, "tokenHash");
+        this.verificationTokenExpiresAt = Objects.requireNonNull(tokenExpiresAt, "tokenExpiresAt");
         touch(now);
     }
 
     public void markConsumed(Instant now) {
         requireStatus(PhoneVerificationStatus.VERIFIED);
         this.status = PhoneVerificationStatus.CONSUMED;
-        this.consumedAt = now;
+        this.consumedAt = Objects.requireNonNull(now, "now");
         touch(now);
     }
 
@@ -222,6 +246,13 @@ public class PhoneVerification {
     }
 
     private void touch(Instant now) {
-        this.updatedAt = now;
+        this.updatedAt = Objects.requireNonNull(now, "now");
+    }
+
+    private static String requireText(String value, String fieldName) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(fieldName + " est obligatoire");
+        }
+        return value;
     }
 }

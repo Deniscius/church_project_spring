@@ -7,6 +7,7 @@ import com.eyram.dev.church_project_spring.config.PlatformBillingProperties;
 import com.eyram.dev.church_project_spring.entities.Paroisse;
 import com.eyram.dev.church_project_spring.entities.ParoisseAbonnement;
 import com.eyram.dev.church_project_spring.entities.ParoisseAccess;
+import com.eyram.dev.church_project_spring.entities.PlanSaas;
 import com.eyram.dev.church_project_spring.enums.PlanAbonnement;
 import com.eyram.dev.church_project_spring.enums.StatutAbonnement;
 import com.eyram.dev.church_project_spring.enums.StatutTenant;
@@ -15,6 +16,7 @@ import com.eyram.dev.church_project_spring.repositories.ParoisseAccessRepository
 import com.eyram.dev.church_project_spring.repositories.ParoisseRepository;
 import com.eyram.dev.church_project_spring.repositories.UserRepository;
 import com.eyram.dev.church_project_spring.security.TenantAccessService;
+import com.eyram.dev.church_project_spring.service.PlanSaasService;
 import com.eyram.dev.church_project_spring.service.ProfessionalEmailService;
 import com.eyram.dev.church_project_spring.service.payment.fedapay.FedaPayClient;
 import com.eyram.dev.church_project_spring.service.tenant.TenantCatalogBootstrapService;
@@ -48,6 +50,7 @@ public class SubscriptionBillingService {
     private final FedaPayClient fedaPayClient;
     private final FedaPayProperties fedaPayProperties;
     private final PlatformBillingProperties properties;
+    private final PlanSaasService planSaasService;
     private final TenantCatalogBootstrapService tenantCatalogBootstrapService;
     private final TenantAccessService tenantAccessService;
     private final ProfessionalEmailService professionalEmailService;
@@ -58,10 +61,13 @@ public class SubscriptionBillingService {
 
     @Transactional
     public ParoisseAbonnement createPending(Paroisse paroisse, PlanAbonnement plan) {
+        PlanSaas pricing = planSaasService.requireActive(plan);
+
         ParoisseAbonnement abonnement = new ParoisseAbonnement();
         abonnement.setParoisse(paroisse);
         abonnement.setPlan(plan);
-        abonnement.setMontant(plan.getMontantXof());
+        abonnement.setMontant(pricing.getMontantXof());
+        abonnement.setDureeMois(pricing.getDureeMois());
         abonnement.setStatut(StatutAbonnement.EN_ATTENTE);
         abonnement.setStatusDel(false);
         return abonnementRepository.save(abonnement);
@@ -108,7 +114,7 @@ public class SubscriptionBillingService {
             return SubscriptionCheckoutPrep.done(Map.of(
                     "abonnementPublicId", abonnement.getPublicId(),
                     "plan", effectivePlan.name(),
-                    "montant", effectivePlan.getMontantXof(),
+                    "montant", abonnement.getMontant(),
                     "paymentUrl", "",
                     "providerTransactionId", "",
                     "message", "FedaPay désactivé — activez le paiement d'abonnement plus tard"
@@ -133,7 +139,7 @@ public class SubscriptionBillingService {
                 abonnement.getPublicId(),
                 effectivePlan,
                 "Abonnement plateforme " + effectivePlan.name() + " — " + paroisse.getNom(),
-                effectivePlan.getMontantXof(),
+                abonnement.getMontant(),
                 fedaPayProperties.getCallbackBaseUrl(),
                 customer,
                 metadata
@@ -216,9 +222,11 @@ public class SubscriptionBillingService {
 
         if (abonnement == null) {
             abonnement = createPending(paroisse, resolvePlan(paroisse, plan));
-        } else if (plan != null) {
+        } else if (plan != null && plan != abonnement.getPlan()) {
+            PlanSaas pricing = planSaasService.requireActive(plan);
             abonnement.setPlan(plan);
-            abonnement.setMontant(plan.getMontantXof());
+            abonnement.setMontant(pricing.getMontantXof());
+            abonnement.setDureeMois(pricing.getDureeMois());
         }
 
         boolean renouvellement = Boolean.TRUE.equals(paroisse.getIsActive())
@@ -271,7 +279,7 @@ public class SubscriptionBillingService {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime enCours = paroisse != null ? paroisse.getSubscriptionExpiresAt() : null;
         LocalDateTime depart = (enCours != null && enCours.isAfter(now)) ? enCours : now;
-        LocalDateTime fin = depart.plusMonths(abonnement.getPlan().getDureeMois());
+        LocalDateTime fin = depart.plusMonths(abonnement.getDureeMois());
 
         abonnement.setStatut(StatutAbonnement.ACTIF);
         abonnement.setDebutAt(abonnement.getDebutAt() != null ? abonnement.getDebutAt() : now);

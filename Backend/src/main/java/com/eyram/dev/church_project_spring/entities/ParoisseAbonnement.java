@@ -41,8 +41,13 @@ public class ParoisseAbonnement extends BaseEntity {
     @Column(name = "plan", nullable = false, length = 30)
     private PlanAbonnement plan;
 
+    /** Montant contractuel figé au moment de la création de l'abonnement. */
     @Column(name = "montant", nullable = false)
     private Integer montant;
+
+    /** Durée contractuelle figée au moment de la création de l'abonnement. */
+    @Column(name = "duree_mois", nullable = false)
+    private Integer dureeMois;
 
     @Column(name = "debut_at")
     private LocalDateTime debutAt;

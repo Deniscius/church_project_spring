@@ -16,6 +16,8 @@ import AppButton from '../../../components/ui/AppButton';
 import AppDialog from '../../../components/ui/AppDialog';
 import ReceiptPreviewButton from '../../../components/ui/ReceiptPreviewButton';
 
+const REQUEST_POLL_MS = 20_000;
+
 export default function RequestDetailsPage() {
   const { id } = useParams();
   const { has } = usePermissions();
@@ -106,6 +108,36 @@ export default function RequestDetailsPage() {
       cancelled = true;
     };
   }, [id]);
+
+  // Une demande validée peut passer à TERMINEE par le job serveur après la
+  // dernière célébration. Rafraîchissement silencieux uniquement pendant cette
+  // phase ; le polling s'arrête automatiquement dès que le statut change.
+  useEffect(() => {
+    if (!id || request?.statutDemande !== 'VALIDEE') return undefined;
+
+    let cancelled = false;
+    const refresh = async () => {
+      try {
+        const data = await requestService.getById(id);
+        if (!cancelled) setRequest(data);
+      } catch {
+        // Le chargement initial gère les erreurs visibles. Un échec ponctuel de
+        // polling ne doit pas masquer l'écran ni provoquer une alerte répétitive.
+      }
+    };
+
+    const intervalId = window.setInterval(refresh, REQUEST_POLL_MS);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') refresh();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [id, request?.statutDemande]);
 
   const applicant = request
     ? formatFideleName(request.prenomFidele, request.nomFidele)

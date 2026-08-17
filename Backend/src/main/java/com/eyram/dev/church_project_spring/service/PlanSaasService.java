@@ -16,5 +16,7 @@ public interface PlanSaasService {
 
     PlanSaasResponse update(UUID publicId, PlanSaasRequest request);
 
+    PlanSaas require(PlanAbonnement code);
+
     PlanSaas requireActive(PlanAbonnement code);
 }

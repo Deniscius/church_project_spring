@@ -4,6 +4,7 @@ import AppCard from '../../../components/ui/AppCard';
 import AppBadge from '../../../components/ui/AppBadge';
 import AppDialog from '../../../components/ui/AppDialog';
 import { comptabiliteService } from '../../../services/inscription.service';
+import { planSaasService } from '../../../services/planSaas.service';
 import { formatCurrency } from '../../../utils/formatCurrency';
 import { usePermissions } from '../../../hooks/usePermissions';
 import { PERMISSIONS } from '../../../constants/roles';
@@ -20,12 +21,6 @@ const PLAN_LABELS = {
   SEMESTRIEL: 'Semestriel',
   ANNUEL: 'Annuel',
 };
-
-const PLAN_OPTIONS = [
-  { value: 'MENSUEL', label: 'Mensuel — 5 000 FCFA', price: 5000 },
-  { value: 'SEMESTRIEL', label: 'Semestriel — 8 000 FCFA', price: 8000 },
-  { value: 'ANNUEL', label: 'Annuel — 12 000 FCFA', price: 12000 },
-];
 
 const PROLONG_OPTIONS = [
   { value: 7, label: '7 jours' },
@@ -82,6 +77,7 @@ export default function AbonnementsPage() {
   const { has } = usePermissions();
   const canExecute = has(PERMISSIONS.FINANCE_MANAGE);
   const [rows, setRows] = useState([]);
+  const [planOptions, setPlanOptions] = useState([]);
   const [filter, setFilter] = useState('A_RELANCER');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -96,13 +92,27 @@ export default function AbonnementsPage() {
     try {
       setError(null);
       setLoading(true);
-      const data = await comptabiliteService.listAbonnements();
-      const list = Array.isArray(data) ? data : [];
+      const [abonnementsData, plansData] = await Promise.all([
+        comptabiliteService.listAbonnements(),
+        planSaasService.listPublic(),
+      ]);
+      const list = Array.isArray(abonnementsData) ? abonnementsData : [];
+      const options = (Array.isArray(plansData) ? plansData : []).map((plan) => ({
+        value: plan.code,
+        name: plan.nom,
+        label: `${plan.nom} — ${formatCurrency(plan.montantXof)} / ${plan.dureeMois} mois`,
+        price: Number(plan.montantXof) || 0,
+        duration: Number(plan.dureeMois) || 0,
+      }));
       setRows(list);
+      setPlanOptions(options);
       setPlansChoisis((prev) => {
         const next = { ...prev };
         list.forEach((r) => {
-          if (!next[r.publicId]) next[r.publicId] = r.plan || 'MENSUEL';
+          const currentStillActive = options.some((option) => option.value === r.plan);
+          if (!next[r.publicId] || !options.some((option) => option.value === next[r.publicId])) {
+            next[r.publicId] = currentStillActive ? r.plan : (options[0]?.value || r.plan || '');
+          }
         });
         return next;
       });
@@ -148,7 +158,8 @@ export default function AbonnementsPage() {
     });
   }, [rows, filter]);
 
-  const planFor = (row) => plansChoisis[row.publicId] || row.plan || 'MENSUEL';
+  const planFor = (row) => plansChoisis[row.publicId] || row.plan || '';
+  const planLabel = (code) => planOptions.find((p) => p.value === code)?.name || PLAN_LABELS[code] || code;
   const joursFor = (row) => prolongJours[row.publicId] || 30;
 
   async function runAction(row, action) {
@@ -163,7 +174,7 @@ export default function AbonnementsPage() {
         res = await comptabiliteService.checkoutAbonnement(row.paroissePublicId, planFor(row));
         if (res?.paymentUrl) {
           window.open(res.paymentUrl, '_blank', 'noopener,noreferrer');
-          setInfo(`Lien de paiement FedaPay ouvert pour « ${row.paroisseNom} » (${PLAN_LABELS[planFor(row)] || planFor(row)}).`);
+          setInfo(`Lien de paiement FedaPay ouvert pour « ${row.paroisseNom} » (${planLabel(planFor(row))}).`);
         } else {
           setInfo(res?.message || 'Agrégateur indisponible — utilisez l’activation manuelle si le paiement est déjà reçu.');
         }
@@ -189,7 +200,7 @@ export default function AbonnementsPage() {
   }
 
   const confirmPlan = confirmRow ? planFor(confirmRow) : null;
-  const confirmOption = PLAN_OPTIONS.find((p) => p.value === confirmPlan);
+  const confirmOption = planOptions.find((p) => p.value === confirmPlan);
 
   const dialogTitle = {
     checkout: 'Paiement via agrégateur',
@@ -317,9 +328,9 @@ export default function AbonnementsPage() {
                   </td>
                   <td data-label="Plan">
                     <div className="cell-stack">
-                      <span>{PLAN_LABELS[r.plan] || r.plan}</span>
+                      <span>{planLabel(r.plan)}</span>
                       <span className="muted">{formatCurrency(r.montant || 0)}</span>
-                      {canExecute && r.statut !== 'ANNULE' ? (
+                      {canExecute && r.statut !== 'ANNULE' && planOptions.length > 0 ? (
                         <label className="muted" style={{ display: 'grid', gap: 4, marginTop: 6 }}>
                           <span>Formule</span>
                           <select
@@ -331,7 +342,7 @@ export default function AbonnementsPage() {
                               [r.publicId]: e.target.value,
                             }))}
                           >
-                            {PLAN_OPTIONS.map((p) => (
+                            {planOptions.map((p) => (
                               <option key={p.value} value={p.value}>{p.label}</option>
                             ))}
                           </select>
@@ -394,7 +405,7 @@ export default function AbonnementsPage() {
                         <button
                           type="button"
                           className="btn btn-primary"
-                          disabled={busyId === r.publicId || !r.paroissePublicId}
+                          disabled={busyId === r.publicId || !r.paroissePublicId || !planOptions.length}
                           onClick={() => { setConfirmMode('checkout'); setConfirmRow(r); }}
                         >
                           {busyId === r.publicId ? 'Traitement…' : 'Payer (FedaPay)'}
@@ -402,7 +413,7 @@ export default function AbonnementsPage() {
                         <button
                           type="button"
                           className="btn btn-secondary"
-                          disabled={busyId === r.publicId || !r.paroissePublicId}
+                          disabled={busyId === r.publicId || !r.paroissePublicId || !planFor(r)}
                           onClick={() => { setConfirmMode('manuel'); setConfirmRow(r); }}
                         >
                           Activer
@@ -462,14 +473,14 @@ export default function AbonnementsPage() {
         {confirmRow ? (
           <p style={{ margin: 0 }}>
             {confirmMode === 'checkout' ? (
-              <>Générer le lien FedaPay pour « {confirmRow.paroisseNom} » — {PLAN_LABELS[confirmPlan] || confirmPlan}
-                {confirmOption ? ` (${formatCurrency(confirmOption.price)}).` : '.'}
+              <>Générer le lien FedaPay pour « {confirmRow.paroisseNom} » — {planLabel(confirmPlan)}
+                {confirmOption ? ` (${formatCurrency(confirmOption.price)} / ${confirmOption.duration} mois).` : '.'}
               </>
             ) : null}
             {confirmMode === 'manuel' ? (
               <>
                 Confirmer l’activation manuelle de « {confirmRow.paroisseNom} »
-                {confirmOption ? ` (${formatCurrency(confirmOption.price)}).` : '.'}
+                {confirmOption ? ` (${formatCurrency(confirmOption.price)} / ${confirmOption.duration} mois).` : '.'}
                 {' '}Réservé au cas où le paiement a déjà été reçu hors agrégateur.
               </>
             ) : null}

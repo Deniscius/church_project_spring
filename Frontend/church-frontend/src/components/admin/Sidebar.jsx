@@ -44,6 +44,7 @@ const platformMenu = [
   { to: ROUTES.PARISHES, label: 'Paroisses', icon: 'parishes', permission: PERMISSIONS.PARISH_MANAGE },
   { to: ROUTES.PARISH_INSCRIPTIONS, label: 'Inscriptions', icon: 'parishes', permission: PERMISSIONS.FINANCE_READ },
   { to: ROUTES.SUBSCRIPTIONS, label: 'Abonnements', icon: 'invoices', permission: PERMISSIONS.FINANCE_READ },
+  { to: ROUTES.SAAS_PRICING, label: 'Tarification SaaS', icon: 'pricing', permission: PERMISSIONS.PARISH_MANAGE },
   { to: ROUTES.REVERSEMENTS, label: 'Reversements', icon: 'payments', permission: PERMISSIONS.FINANCE_READ },
   { to: ROUTES.PLATFORM_DEMANDES, label: 'Audit demandes', icon: 'requests', permission: PERMISSIONS.DEMAND_READ },
   { to: ROUTES.CATALOGUE_MODELE, label: 'Catalogue', icon: 'pricing', permission: PERMISSIONS.REQUEST_TYPE_READ },

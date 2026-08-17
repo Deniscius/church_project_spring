@@ -2,12 +2,14 @@ package com.eyram.dev.church_project_spring.service.billing;
 
 import com.eyram.dev.church_project_spring.DTO.request.ParoisseInscriptionRequest;
 import com.eyram.dev.church_project_spring.DTO.response.ParoisseInscriptionResponse;
+import com.eyram.dev.church_project_spring.DTO.response.PlanSaasResponse;
 import com.eyram.dev.church_project_spring.entities.Doyenne;
 import com.eyram.dev.church_project_spring.entities.Paroisse;
 import com.eyram.dev.church_project_spring.entities.ParoisseAccess;
 import com.eyram.dev.church_project_spring.entities.ParoisseInscription;
 import com.eyram.dev.church_project_spring.entities.ParoisseInscriptionMembre;
 import com.eyram.dev.church_project_spring.entities.User;
+import com.eyram.dev.church_project_spring.enums.PlanAbonnement;
 import com.eyram.dev.church_project_spring.enums.RoleParoisse;
 import com.eyram.dev.church_project_spring.enums.StatutInscription;
 import com.eyram.dev.church_project_spring.enums.StatutTenant;
@@ -17,6 +19,7 @@ import com.eyram.dev.church_project_spring.repositories.ParoisseAccessRepository
 import com.eyram.dev.church_project_spring.repositories.ParoisseInscriptionRepository;
 import com.eyram.dev.church_project_spring.repositories.ParoisseRepository;
 import com.eyram.dev.church_project_spring.repositories.UserRepository;
+import com.eyram.dev.church_project_spring.service.PlanSaasService;
 import com.eyram.dev.church_project_spring.service.accounting.ParishLedgerService;
 import com.eyram.dev.church_project_spring.service.mail.AppMailService;
 import com.eyram.dev.church_project_spring.service.ProfessionalEmailService;
@@ -52,6 +55,7 @@ public class ParoisseInscriptionService {
     private final PasswordEncoder passwordEncoder;
     private final ParishLedgerService parishLedgerService;
     private final SubscriptionBillingService subscriptionBillingService;
+    private final PlanSaasService planSaasService;
     private final TenantCatalogBootstrapService tenantCatalogBootstrapService;
     private final ProfessionalEmailService professionalEmailService;
     private final InscriptionOtpService inscriptionOtpService;
@@ -69,6 +73,10 @@ public class ParoisseInscriptionService {
     ) {
         doyenneRepository.findByPublicIdAndStatusDelFalse(request.doyennePublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Doyenné introuvable"));
+
+        // Le front ne décide jamais seul du catalogue commercial : un code de
+        // plan désactivé ou falsifié est rejeté côté serveur.
+        planSaasService.requireActive(request.planAbonnement());
 
         var proof = inscriptionOtpService.requireValidProof(
                 request.adminEmail(),
@@ -147,8 +155,8 @@ public class ParoisseInscriptionService {
     }
 
     /**
-     * Les doyennés et les paroisses tiennent en deux requêtes : le dossier
-     * affiche ainsi le doyenné en clair et l'état d'activation sans N+1.
+     * Les doyennés, les paroisses et le petit catalogue SaaS sont préchargés
+     * afin d'éviter un N+1 lors de l'affichage des dossiers.
      */
     @Transactional(readOnly = true)
     public List<ParoisseInscriptionResponse> listAll() {
@@ -158,10 +166,13 @@ public class ParoisseInscriptionService {
         Map<UUID, Paroisse> paroisses = paroisseRepository.findAllByStatusDelFalseAndIsSystemFalseOrderByNomAsc()
                 .stream()
                 .collect(Collectors.toMap(Paroisse::getPublicId, p -> p, (a, b) -> a));
+        Map<PlanAbonnement, Integer> planAmounts = planSaasService.findAll()
+                .stream()
+                .collect(Collectors.toMap(PlanSaasResponse::code, PlanSaasResponse::montantXof, (a, b) -> a));
 
         return inscriptionRepository.findByStatusDelFalseOrderByCreatedAtDesc()
                 .stream()
-                .map(inscription -> toResponse(inscription, doyennes, paroisses))
+                .map(inscription -> toResponse(inscription, doyennes, paroisses, planAmounts))
                 .toList();
     }
 
@@ -367,13 +378,20 @@ public class ParoisseInscriptionService {
     }
 
     private ParoisseInscriptionResponse toResponse(ParoisseInscription inscription) {
-        return toResponse(inscription, Map.of(), Map.of());
+        int montant = planSaasService.require(inscription.getPlanAbonnement()).getMontantXof();
+        return toResponse(
+                inscription,
+                Map.of(),
+                Map.of(),
+                Map.of(inscription.getPlanAbonnement(), montant)
+        );
     }
 
     private ParoisseInscriptionResponse toResponse(
             ParoisseInscription inscription,
             Map<UUID, String> doyennes,
-            Map<UUID, Paroisse> paroisses
+            Map<UUID, Paroisse> paroisses,
+            Map<PlanAbonnement, Integer> planAmounts
     ) {
         List<ParoisseInscriptionResponse.MembreResponse> membres = new ArrayList<>();
         if (inscription.getMembres() != null) {
@@ -403,6 +421,11 @@ public class ParoisseInscriptionService {
             }
         }
 
+        Integer montantAbonnement = planAmounts.get(inscription.getPlanAbonnement());
+        if (montantAbonnement == null) {
+            montantAbonnement = planSaasService.require(inscription.getPlanAbonnement()).getMontantXof();
+        }
+
         return new ParoisseInscriptionResponse(
                 inscription.getPublicId(),
                 inscription.getNomParoisse(),
@@ -412,7 +435,7 @@ public class ParoisseInscriptionService {
                 inscription.getDoyennePublicId(),
                 doyenneNom,
                 inscription.getPlanAbonnement(),
-                inscription.getPlanAbonnement().getMontantXof(),
+                montantAbonnement,
                 inscription.getAdminNom(),
                 inscription.getAdminPrenom(),
                 inscription.getAdminEmail(),

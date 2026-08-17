@@ -50,6 +50,7 @@ export const ROUTES = {
   // Plateforme (super admin / comptable)
   PARISH_INSCRIPTIONS: '/admin/inscriptions-paroisse',
   SUBSCRIPTIONS: '/admin/abonnements',
+  SAAS_PRICING: '/admin/tarification-saas',
   REVERSEMENTS: '/admin/reversements',
   CATALOGUE_MODELE: '/admin/catalogue-modele',
   /** Audit global des demandes (toutes paroisses, y compris archivées). */

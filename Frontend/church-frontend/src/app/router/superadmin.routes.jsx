@@ -21,6 +21,7 @@ const ReversementsPage = lazy(() => import('../../pages/superadmin/comptabilite/
 const AbonnementsPage = lazy(() => import('../../pages/superadmin/comptabilite/AbonnementsPage'));
 const CatalogueModelePage = lazy(() => import('../../pages/superadmin/comptabilite/CatalogueModelePage'));
 const PlatformDemandesPage = lazy(() => import('../../pages/superadmin/comptabilite/PlatformDemandesPage'));
+const SaasPricingPage = lazy(() => import('../../pages/superadmin/settings/SaasPricingPage'));
 
 function LazyOutlet() {
   return (
@@ -45,6 +46,7 @@ export function SuperAdminRoutes() {
 
             {/* Configuration système : SUPER_ADMIN uniquement */}
             <Route element={<GlobalAdminGuard />}>
+              <Route path={ROUTES.SAAS_PRICING} element={<SaasPricingPage />} />
               <Route path={ROUTES.PARISHES} element={<ParishesPage />} />
               <Route path={ROUTES.PARISH_CREATE} element={<CreateParishPage />} />
               <Route path={ROUTES.PARISH_EDIT} element={<EditParishPage />} />

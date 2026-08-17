@@ -146,6 +146,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/horaires/paroisse/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/horaires/public/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/type-paiement", "/type-paiement/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/plans-saas/public").permitAll()
                         .requestMatchers(HttpMethod.POST, "/demandes/suivi/par-telephone").permitAll()
                         .requestMatchers(HttpMethod.POST, "/demandes/suivi/par-telephone/verifier").permitAll()
                         // Dates par demandePublicId : trop permissif — retiré du permitAll
@@ -160,6 +161,10 @@ public class SecurityConfig {
 
                         // Le référentiel brut des affectations permet de modifier les tenants.
                         .requestMatchers("/paroisse-access", "/paroisse-access/**")
+                        .access(globalSuperAdminAccess())
+                        .requestMatchers(HttpMethod.GET, "/plans-saas")
+                        .access(globalSuperAdminAccess())
+                        .requestMatchers(HttpMethod.PUT, "/plans-saas/**")
                         .access(globalSuperAdminAccess())
 
                         // Exception au référentiel global : une paroisse tient ses propres

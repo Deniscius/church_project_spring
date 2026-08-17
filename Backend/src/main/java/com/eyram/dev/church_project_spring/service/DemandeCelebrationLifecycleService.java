@@ -21,7 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.Clock;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -31,7 +30,7 @@ import java.util.UUID;
 
 /**
  * Rappels avant messe (J-1 / H-2) et passage en « célébrée »
- * (manuel sur la feuille, ou auto dès que l'heure est passée).
+ * (manuel sur la feuille, ou automatique après un délai de sécurité suivant l'heure prévue).
  */
 @Slf4j
 @Service
@@ -74,7 +73,7 @@ public class DemandeCelebrationLifecycleService {
     }
 
     /**
-     * Marque célébrées toutes les dates dont l'heure de messe est passée.
+     * Marque célébrées les dates dont l'heure prévue + délai de sécurité est passée.
      * @return nombre de créneaux passés en célébré
      */
     @Transactional
@@ -90,10 +89,12 @@ public class DemandeCelebrationLifecycleService {
                 EnumSet.of(StatutDemandeEnum.VALIDEE, StatutDemandeEnum.TERMINEE)
         );
 
+        int delayHours = Math.max(0, properties.getCelebrationAutoCompleteDelayHours());
         int marked = 0;
         for (DemandeDate slot : candidates) {
             LocalDateTime celebrationAt = resolveCelebrationAt(slot);
-            if (!celebrationAt.isAfter(now) && !Boolean.TRUE.equals(slot.getCelebre())) {
+            LocalDateTime autoCompleteAt = celebrationAt.plusHours(delayHours);
+            if (!autoCompleteAt.isAfter(now) && !Boolean.TRUE.equals(slot.getCelebre())) {
                 applyCelebrated(slot, now);
                 marked++;
             }

@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Rappels J-1 / H-2 avant célébration, et passage auto en « célébrée »
- * dès que l'heure de messe est passée.
+ * après le délai de sécurité configuré suivant l'heure prévue.
  */
 @Slf4j
 @Component

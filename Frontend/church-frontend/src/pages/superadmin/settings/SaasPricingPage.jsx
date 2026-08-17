@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import PageHeader from '../../../components/ui/PageHeader';
 import AppAlert from '../../../components/ui/AppAlert';
 import AppButton from '../../../components/ui/AppButton';
+import AppDialog from '../../../components/ui/AppDialog';
 import AppInput from '../../../components/ui/AppInput';
 import { planSaasService } from '../../../services/planSaas.service';
 import { formatCurrency } from '../../../utils/formatCurrency';
@@ -100,6 +101,7 @@ export default function SaasPricingPage() {
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState(null);
   const [editingId, setEditingId] = useState(null);
+  const [discardIntent, setDiscardIntent] = useState(null);
   const [error, setError] = useState(null);
   const [info, setInfo] = useState(null);
 
@@ -131,6 +133,18 @@ export default function SaasPricingPage() {
   const selectedForm = selectedPlan ? forms[selectedPlan.publicId] || toForm(selectedPlan) : null;
   const selectedDirty = hasUnsavedChanges(selectedPlan, selectedForm);
 
+  useEffect(() => {
+    if (!selectedDirty) return undefined;
+
+    const preventSilentUnload = (event) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', preventSilentUnload);
+    return () => window.removeEventListener('beforeunload', preventSilentUnload);
+  }, [selectedDirty]);
+
   const setField = (id, field, value) => {
     setForms((current) => ({
       ...current,
@@ -149,22 +163,71 @@ export default function SaasPricingPage() {
     }));
   };
 
-  const openEditor = (plan) => {
-    setEditingId(plan.publicId);
-    setError(null);
-    setInfo(null);
+  const scrollToEditor = () => {
     window.requestAnimationFrame(() => {
       document.getElementById('saas-pricing-editor')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
   };
 
-  const cancelEdit = () => {
-    if (selectedPlan) {
-      setForms((current) => ({
-        ...current,
-        [selectedPlan.publicId]: toForm(selectedPlan),
-      }));
+  const activateEditor = (plan) => {
+    setEditingId(plan.publicId);
+    setError(null);
+    setInfo(null);
+    scrollToEditor();
+  };
+
+  const openEditor = (plan) => {
+    if (plan.publicId === editingId) {
+      scrollToEditor();
+      return;
     }
+
+    if (selectedDirty) {
+      setDiscardIntent({ type: 'switch-plan', planId: plan.publicId });
+      return;
+    }
+
+    activateEditor(plan);
+  };
+
+  const requestRefresh = () => {
+    if (selectedDirty) {
+      setDiscardIntent({ type: 'refresh' });
+      return;
+    }
+    load();
+  };
+
+  const resetSelectedForm = () => {
+    if (!selectedPlan) return;
+    setForms((current) => ({
+      ...current,
+      [selectedPlan.publicId]: toForm(selectedPlan),
+    }));
+  };
+
+  const confirmDiscard = async () => {
+    const intent = discardIntent;
+    if (!intent) return;
+
+    resetSelectedForm();
+    setDiscardIntent(null);
+    setError(null);
+    setInfo(null);
+
+    if (intent.type === 'refresh') {
+      await load();
+      return;
+    }
+
+    if (intent.type === 'switch-plan') {
+      const nextPlan = plans.find((plan) => plan.publicId === intent.planId);
+      if (nextPlan) activateEditor(nextPlan);
+    }
+  };
+
+  const cancelEdit = () => {
+    resetSelectedForm();
     setEditingId(null);
     setError(null);
   };
@@ -230,7 +293,7 @@ export default function SaasPricingPage() {
         title="Tarification SaaS"
         subtitle="Pilotez les formules proposées aux paroisses depuis une source de vérité unique."
         actions={(
-          <AppButton variant="secondary" onClick={() => load()} disabled={loading || Boolean(savingId)}>
+          <AppButton variant="secondary" onClick={requestRefresh} disabled={loading || Boolean(savingId)}>
             {loading ? 'Actualisation…' : 'Actualiser'}
           </AppButton>
         )}
@@ -443,6 +506,19 @@ export default function SaasPricingPage() {
           </div>
         </form>
       ) : null}
+
+      <AppDialog
+        open={Boolean(discardIntent)}
+        title="Abandonner les modifications ?"
+        confirmLabel={discardIntent?.type === 'refresh' ? 'Actualiser quand même' : 'Changer de plan'}
+        cancelLabel="Continuer l’édition"
+        onConfirm={confirmDiscard}
+        onCancel={() => setDiscardIntent(null)}
+        danger
+      >
+        Vous avez des modifications non enregistrées sur le plan « {selectedPlan?.nom || 'en cours'} ».
+        Elles seront perdues si vous continuez.
+      </AppDialog>
     </div>
   );
 }

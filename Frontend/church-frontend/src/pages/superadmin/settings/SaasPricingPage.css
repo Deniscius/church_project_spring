@@ -1,5 +1,12 @@
 .saas-pricing-page {
   --pricing-card-min: 17rem;
+  --pricing-accent-text: #71570f;
+  --pricing-warning-text: #7a4a03;
+}
+
+[data-theme="dark"] .saas-pricing-page {
+  --pricing-accent-text: var(--accent-hover);
+  --pricing-warning-text: var(--warning);
 }
 
 .saas-pricing-hero {
@@ -113,7 +120,7 @@
 }
 
 .saas-pricing-summary-item.is-featured strong {
-  color: var(--accent-hover);
+  color: var(--pricing-accent-text);
 }
 
 .saas-pricing-loading {
@@ -174,12 +181,6 @@
   background: color-mix(in srgb, var(--surface) 88%, var(--surface-alt));
 }
 
-.saas-plan-card.is-inactive .saas-plan-heading,
-.saas-plan-card.is-inactive .saas-plan-price-block,
-.saas-plan-card.is-inactive .saas-plan-meta {
-  opacity: 0.7;
-}
-
 .saas-plan-card-topline,
 .saas-plan-card-footer,
 .saas-pricing-editor-head,
@@ -234,7 +235,7 @@
   padding: 0.3rem 0.58rem;
   border-radius: 999px;
   background: var(--accent-light);
-  color: var(--accent-hover);
+  color: var(--pricing-accent-text);
   font-size: 0.7rem;
   font-weight: 800;
 }
@@ -342,7 +343,7 @@
   padding: 0.3rem 0.56rem;
   border-radius: 999px;
   background: var(--warning-light);
-  color: var(--warning);
+  color: var(--pricing-warning-text);
   font-size: 0.7rem;
   font-weight: 800;
 }

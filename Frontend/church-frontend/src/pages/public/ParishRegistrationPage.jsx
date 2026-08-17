@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useTransition } from 'react';
+import React, { useEffect, useMemo, useState, useTransition } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import PageHeader from '../../components/ui/PageHeader';
@@ -11,36 +11,12 @@ import { validateOptionalPhone } from '../../utils/phone';
 import { FieldLabel } from '../../components/ui/HelpTip';
 import StepHelpBanner from '../../components/ui/StepHelpBanner';
 import { inscriptionService } from '../../services/inscription.service';
+import { planSaasService } from '../../services/planSaas.service';
 import { apiClient } from '../../services/http/apiClient';
 import { formatCurrency } from '../../utils/formatCurrency';
 import { HELP } from '../../constants/helpTips';
 import { sanitizePersonNameInput, personNameError } from '../../utils/personName';
 import { DEFAULT_PHONE_COUNTRY_ISO } from '../../utils/phone';
-
-const PLANS = [
-  {
-    value: 'MENSUEL',
-    name: 'Mensuel',
-    price: 5000,
-    period: '/ mois',
-    hint: 'Souplesse, sans engagement long',
-  },
-  {
-    value: 'SEMESTRIEL',
-    name: '6 mois',
-    price: 8000,
-    period: '/ 6 mois',
-    hint: 'Le meilleur équilibre prix / durée',
-    featured: true,
-  },
-  {
-    value: 'ANNUEL',
-    name: 'Annuel',
-    price: 12000,
-    period: '/ an',
-    hint: 'Tarif le plus avantageux',
-  },
-];
 
 const STEPS = [
   { id: 1, label: 'Paroisse', short: 'Paroisse' },
@@ -61,7 +37,7 @@ const emptyForm = {
   telephoneCountryIso: DEFAULT_PHONE_COUNTRY_ISO,
   telephoneNational: '',
   doyennePublicId: '',
-  planAbonnement: 'SEMESTRIEL',
+  planAbonnement: '',
   adminNom: '',
   adminPrenom: '',
   adminEmail: '',
@@ -151,6 +127,32 @@ export default function ParishRegistrationPage() {
     select: (data) => (Array.isArray(data) ? data : []),
   });
 
+  const {
+    data: plans = [],
+    isLoading: loadingPlans,
+    isError: plansError,
+  } = useQuery({
+    queryKey: ['plans-saas', 'public'],
+    queryFn: planSaasService.listPublic,
+    staleTime: 5 * 60_000,
+    select: (data) => (Array.isArray(data) ? data : []).map((plan) => ({
+      value: plan.code,
+      name: plan.nom,
+      price: Number(plan.montantXof) || 0,
+      period: Number(plan.dureeMois) === 1 ? '/ mois' : `/ ${plan.dureeMois} mois`,
+      hint: plan.description || '',
+      featured: Boolean(plan.featured),
+    })),
+  });
+
+  useEffect(() => {
+    if (!plans.length) return;
+    const currentAvailable = plans.some((plan) => plan.value === form.planAbonnement);
+    if (currentAvailable) return;
+    const recommended = plans.find((plan) => plan.featured) || plans[0];
+    setForm((prev) => ({ ...prev, planAbonnement: recommended.value }));
+  }, [plans, form.planAbonnement]);
+
   const doyenneOptions = useMemo(
     () => doyennes.map((d) => ({ value: d.publicId, label: d.nom })),
     [doyennes]
@@ -165,8 +167,8 @@ export default function ParishRegistrationPage() {
   );
 
   const selectedPlan = useMemo(
-    () => PLANS.find((p) => p.value === form.planAbonnement) || PLANS[1],
-    [form.planAbonnement]
+    () => plans.find((p) => p.value === form.planAbonnement) || plans[0] || null,
+    [plans, form.planAbonnement]
   );
 
   const doyenneNom = useMemo(
@@ -236,7 +238,11 @@ export default function ParishRegistrationPage() {
       const phone = validateOptionalPhone(form.telephoneCountryIso, form.telephoneNational);
       if (!phone.ok) return phone.message;
     }
-    if (current === 2 && !form.planAbonnement) return 'Choisissez une formule.';
+    if (current === 2) {
+      if (loadingPlans) return 'Chargement des formules en cours.';
+      if (plansError || !plans.length) return 'Aucune formule d’abonnement n’est disponible actuellement.';
+      if (!form.planAbonnement || !selectedPlan) return 'Choisissez une formule.';
+    }
     if (current === 3) {
       if (!form.adminNom.trim() || !form.adminPrenom.trim()) {
         return 'Nom et prénom de l’administrateur requis.';
@@ -330,8 +336,14 @@ export default function ParishRegistrationPage() {
 
   async function onSubmit(e) {
     e.preventDefault();
+    const planMsg = validateStep(2);
     const adminMsg = validateStep(3);
     const docsMsg = validateStep(4);
+    if (planMsg) {
+      setError(planMsg);
+      setStep(2);
+      return;
+    }
     if (adminMsg) {
       setError(adminMsg);
       setStep(3);
@@ -604,8 +616,15 @@ export default function ParishRegistrationPage() {
               title="Formule d’abonnement"
               subtitle="Choisissez la durée. Vous pourrez changer au renouvellement."
             />
+            {loadingPlans ? <p className="muted">Chargement des formules…</p> : null}
+            {plansError ? (
+              <AppAlert variant="danger">Impossible de charger les formules d’abonnement.</AppAlert>
+            ) : null}
+            {!loadingPlans && !plansError && !plans.length ? (
+              <AppAlert variant="danger">Aucune formule n’est disponible actuellement.</AppAlert>
+            ) : null}
             <div className="plan-grid" role="radiogroup" aria-label="Formules">
-              {PLANS.map((plan) => {
+              {plans.map((plan) => {
                 const selected = form.planAbonnement === plan.value;
                 return (
                   <button
@@ -825,7 +844,11 @@ export default function ParishRegistrationPage() {
                 <div className="info-list">
                   <div className="info-row">
                     <span>Abonnement</span>
-                    <strong>{selectedPlan.name} — {formatCurrency(selectedPlan.price)}</strong>
+                    <strong>
+                      {selectedPlan
+                        ? `${selectedPlan.name} — ${formatCurrency(selectedPlan.price)}`
+                        : 'Aucune formule disponible'}
+                    </strong>
                   </div>
                 </div>
               </div>
@@ -875,7 +898,9 @@ export default function ParishRegistrationPage() {
             <Link className="btn btn-secondary" to="/">Annuler</Link>
           )}
           {step < 5 ? (
-            <AppButton type="submit">Continuer</AppButton>
+            <AppButton type="submit" disabled={step === 2 && (loadingPlans || plansError || !plans.length)}>
+              Continuer
+            </AppButton>
           ) : (
             <AppButton type="submit" loading={busy}>
               Soumettre l’inscription

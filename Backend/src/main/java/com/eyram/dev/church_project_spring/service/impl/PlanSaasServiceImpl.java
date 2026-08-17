@@ -66,6 +66,16 @@ public class PlanSaasServiceImpl implements PlanSaasService {
 
     @Override
     @Transactional(readOnly = true)
+    public PlanSaas require(PlanAbonnement code) {
+        if (code == null) {
+            throw new BusinessRuleException("Le plan d'abonnement est obligatoire");
+        }
+        return repository.findByCodeAndStatusDelFalse(code)
+                .orElseThrow(() -> new ResourceNotFoundException("Plan SaaS introuvable : " + code.name()));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public PlanSaas requireActive(PlanAbonnement code) {
         if (code == null) {
             throw new BusinessRuleException("Le plan d'abonnement est obligatoire");

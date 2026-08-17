@@ -56,10 +56,16 @@ public class DemandePaymentProperties {
     private String celebrationReminderCron = "0 */15 * * * *";
 
     /**
-     * Passage automatique en « célébrée » une fois l'heure de messe passée
+     * Passage automatique en « célébrée » après la messe
      * (et TERMINEE quand toutes les dates le sont).
      */
     private boolean celebrationAutoCompleteEnabled = true;
+
+    /**
+     * Délai de sécurité après l'heure théorique de célébration avant de marquer
+     * automatiquement le créneau comme célébré. Par défaut : 5 heures.
+     */
+    private int celebrationAutoCompleteDelayHours = 5;
 
     /** Cron du balayage auto-célébration (défaut : toutes les 5 minutes). */
     private String celebrationAutoCompleteCron = "0 */5 * * * *";

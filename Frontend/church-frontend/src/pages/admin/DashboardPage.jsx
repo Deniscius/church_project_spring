@@ -7,13 +7,17 @@ import { useTenant } from '../../hooks/useTenant';
 import { formatParishTimeInUserZone } from '../../utils/formatTime';
 import { useParishDemandeStats } from '../../hooks/queries/useParishDemandes';
 import { useParishProgrammeQuery } from '../../hooks/queries/useParishProgramme';
-import { useParishUpcomingCelebrations } from '../../hooks/queries/useParishUpcomingCelebrations';
+import {
+  useParishPastCelebrations,
+  useParishUpcomingCelebrations,
+} from '../../hooks/queries/useParishUpcomingCelebrations';
 import { WEEK_DAY_LABELS } from '../../constants/enums';
-import { ROUTES } from '../../constants/routes';
+import { ROUTES, routePath } from '../../constants/routes';
 import { formatFideleName } from '../../utils/personName';
 import './DashboardPage.css';
 
 const UPCOMING_DAYS = 14;
+const PAST_DAYS = 14;
 
 function formatProgrammeDate(iso) {
   if (!iso) return '—';
@@ -26,6 +30,10 @@ function formatProgrammeDate(iso) {
   } catch {
     return iso;
   }
+}
+
+function dayProgrammeUrl(date) {
+  return routePath(ROUTES.DAILY_PROGRAMME, { date });
 }
 
 function DashboardKpiCard({ title, value, subtitle, to, action }) {
@@ -49,6 +57,18 @@ function DashboardKpiCard({ title, value, subtitle, to, action }) {
   );
 }
 
+function CelebrationStatusStack({ item, includeCelebrated = false }) {
+  return (
+    <div className="dashboard-upcoming-statuses">
+      <AppBadge value={item.statutDemande} />
+      <AppBadge value={item.statutPaiement} />
+      {includeCelebrated && item.celebre ? (
+        <span className="badge badge-success">Célébrée</span>
+      ) : null}
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const { activeParish } = useTenant();
   const { data, isLoading, error } = useParishDemandeStats(activeParish?.id);
@@ -62,6 +82,11 @@ export default function DashboardPage() {
     isLoading: upcomingLoading,
     error: upcomingError,
   } = useParishUpcomingCelebrations(activeParish?.id, UPCOMING_DAYS);
+  const {
+    data: pastCelebrations = [],
+    isLoading: pastLoading,
+    error: pastError,
+  } = useParishPastCelebrations(activeParish?.id, PAST_DAYS);
 
   const stats = {
     total: data?.total ?? 0,
@@ -163,7 +188,7 @@ export default function DashboardPage() {
 
       <AppCard
         title={`Célébrations programmées${upcomingCelebrations.length ? ` (${upcomingCelebrations.length})` : ''}`}
-        subtitle={`${UPCOMING_DAYS} prochains jours — intentions déjà enregistrées pour cette paroisse.`}
+        subtitle={`${UPCOMING_DAYS} prochains jours — cliquez sur une journée pour voir et ajuster ses programmations.`}
       >
         {upcomingError ? (
           <p className="text-red-600">{upcomingError.message || 'Erreur de chargement des programmations'}</p>
@@ -185,7 +210,16 @@ export default function DashboardPage() {
               <tbody>
                 {upcomingCelebrations.map((item) => (
                   <tr key={item.demandeDatePublicId || `${item.demandePublicId}-${item.dateCelebration}-${item.heureCelebration}`}>
-                    <td data-label="Date">{formatProgrammeDate(item.dateCelebration)}</td>
+                    <td data-label="Date">
+                      <Link
+                        className="dashboard-day-link"
+                        to={dayProgrammeUrl(item.dateCelebration)}
+                        title="Ouvrir les programmations de cette journée"
+                      >
+                        {formatProgrammeDate(item.dateCelebration)}
+                        <span aria-hidden="true">→</span>
+                      </Link>
+                    </td>
                     <td data-label="Heure">
                       <strong>{item.heureCelebration ? formatParishTimeInUserZone(item.heureCelebration) : '—'}</strong>
                       {item.horaireLibelle ? (
@@ -207,10 +241,7 @@ export default function DashboardPage() {
                     </td>
                     <td data-label="Fidèle">{item.fidele || '—'}</td>
                     <td data-label="Statuts">
-                      <div className="dashboard-upcoming-statuses">
-                        <AppBadge value={item.statutDemande} />
-                        <AppBadge value={item.statutPaiement} />
-                      </div>
+                      <CelebrationStatusStack item={item} />
                     </td>
                   </tr>
                 ))}
@@ -218,6 +249,70 @@ export default function DashboardPage() {
                   <tr>
                     <td colSpan={6} className="muted" data-label="">
                       Aucune célébration enregistrée sur les {UPCOMING_DAYS} prochains jours.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+      </AppCard>
+
+      <AppCard
+        title={`Célébrations passées${pastCelebrations.length ? ` (${pastCelebrations.length})` : ''}`}
+        subtitle={`${PAST_DAYS} derniers jours — historique des demandes dont l'heure de célébration est déjà passée.`}
+      >
+        {pastError ? (
+          <p className="text-red-600">{pastError.message || 'Erreur de chargement de l’historique'}</p>
+        ) : null}
+        {pastLoading ? <p className="muted">Chargement de l’historique…</p> : null}
+        {!pastLoading && !pastError ? (
+          <div className="table-card">
+            <table className="app-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Heure</th>
+                  <th>Demande</th>
+                  <th>Intention</th>
+                  <th>Fidèle</th>
+                  <th>Statuts</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pastCelebrations.map((item) => (
+                  <tr key={item.demandeDatePublicId || `${item.demandePublicId}-${item.dateCelebration}-${item.heureCelebration}`}>
+                    <td data-label="Date">
+                      <Link
+                        className="dashboard-day-link is-history"
+                        to={dayProgrammeUrl(item.dateCelebration)}
+                        title="Consulter l'historique de cette journée"
+                      >
+                        {formatProgrammeDate(item.dateCelebration)}
+                        <span aria-hidden="true">→</span>
+                      </Link>
+                    </td>
+                    <td data-label="Heure">
+                      {item.heureCelebration ? formatParishTimeInUserZone(item.heureCelebration) : '—'}
+                    </td>
+                    <td data-label="Demande">
+                      <Link to={`/admin/demandes/${item.demandePublicId}`}>
+                        {item.codeSuivie || 'Voir'}
+                      </Link>
+                    </td>
+                    <td data-label="Intention" className="dashboard-upcoming-intention">
+                      {item.intention || '—'}
+                    </td>
+                    <td data-label="Fidèle">{item.fidele || '—'}</td>
+                    <td data-label="Statuts">
+                      <CelebrationStatusStack item={item} includeCelebrated />
+                    </td>
+                  </tr>
+                ))}
+                {!pastCelebrations.length ? (
+                  <tr>
+                    <td colSpan={6} className="muted" data-label="">
+                      Aucune célébration passée sur les {PAST_DAYS} derniers jours.
                     </td>
                   </tr>
                 ) : null}
@@ -265,7 +360,7 @@ export default function DashboardPage() {
 
       <AppCard
         title="Programme des messes"
-        subtitle="14 prochains jours — créneaux disponibles ; une messe unique masque les autres créneaux du jour."
+        subtitle="14 prochains jours — cliquez sur une date pour ouvrir le pilotage de la journée."
       >
         {programmeError ? (
           <p className="text-red-600">{programmeError.message || 'Erreur programme'}</p>
@@ -285,7 +380,10 @@ export default function DashboardPage() {
                 {programmeRows.map((day) => (
                   <tr key={day.date}>
                     <td data-label="Date">
-                      {formatProgrammeDate(day.date)}
+                      <Link className="dashboard-day-link" to={dayProgrammeUrl(day.date)}>
+                        {formatProgrammeDate(day.date)}
+                        <span aria-hidden="true">→</span>
+                      </Link>
                       <span className="muted" style={{ display: 'block', fontSize: '0.85em' }}>
                         {WEEK_DAY_LABELS[day.jourSemaine] || day.jourLibelle || day.jourSemaine}
                       </span>

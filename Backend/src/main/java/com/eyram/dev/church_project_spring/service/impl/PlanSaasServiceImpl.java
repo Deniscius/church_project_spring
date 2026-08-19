@@ -72,6 +72,14 @@ public class PlanSaasServiceImpl implements PlanSaasService {
         PlanSaas entity = repository.findByPublicIdAndStatusDelFalse(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Plan SaaS introuvable"));
 
+        if (Boolean.TRUE.equals(entity.getActif())
+                && Boolean.FALSE.equals(request.actif())
+                && repository.countByActifTrueAndStatusDelFalse() <= 1) {
+            throw new BusinessRuleException(
+                    "Au moins une formule SaaS doit rester active pour les nouvelles souscriptions"
+            );
+        }
+
         mapper.updateEntityFromDto(request, entity);
         entity.setNom(request.nom().trim());
         entity.setDescription(clean(request.description()));

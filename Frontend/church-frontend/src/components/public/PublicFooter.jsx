@@ -25,6 +25,7 @@ export default function PublicFooter() {
         <div>
           <div className="footer-links-title">Paroisses</div>
           <div className="footer-links">
+            <Link to="/offres">Voir les offres</Link>
             <Link to="/inscription-paroisse">Inscrire ma paroisse</Link>
             <Link to="/admin/login">Connexion</Link>
             <Link to="/plan-du-site">Plan du site</Link>

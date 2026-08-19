@@ -35,7 +35,7 @@ export default function ReceiptSettingsPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [pdfOpen, setPdfOpen] = useState(false);
-  const [pdfUrl, setPdfUrl] = useState(null);
+  const [pdfBlob, setPdfBlob] = useState(null);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfError, setPdfError] = useState(null);
 
@@ -80,13 +80,12 @@ export default function ReceiptSettingsPage() {
   }
 
   useEffect(() => {
+    setPdfOpen(false);
+    setPdfBlob(null);
+    setPdfError(null);
     load();
     return () => {
       setLogoPreview((prev) => {
-        if (prev) URL.revokeObjectURL(prev);
-        return null;
-      });
-      setPdfUrl((prev) => {
         if (prev) URL.revokeObjectURL(prev);
         return null;
       });
@@ -98,24 +97,41 @@ export default function ReceiptSettingsPage() {
     if (!paroisseId) return;
     setPdfLoading(true);
     setPdfError(null);
+    setPdfBlob(null);
     setPdfOpen(true);
     try {
       const blob = await parishService.fetchReceiptSamplePdf(paroisseId);
-      setPdfUrl((prev) => {
-        if (prev) URL.revokeObjectURL(prev);
-        return URL.createObjectURL(blob);
-      });
+      setPdfBlob(blob);
     } catch (e) {
       const raw = e instanceof Error ? e.message : String(e || '');
       setPdfError(
         /failed to fetch|networkerror|load failed/i.test(raw)
-          ? 'Impossible de charger le reçu (réseau / tunnel). Réessayez ou téléchargez-le.'
+          ? 'Impossible de charger le reçu (réseau / API). Réessayez ou ouvrez-le dans un onglet.'
           : (raw || 'Aperçu PDF impossible')
       );
-      setPdfUrl(null);
+      setPdfBlob(null);
     } finally {
       setPdfLoading(false);
     }
+  }
+
+  function downloadPdfSample() {
+    if (!pdfBlob) return;
+    const url = URL.createObjectURL(pdfBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'recu-modele.pdf';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
+  function openPdfSampleInTab() {
+    if (!pdfBlob) return;
+    const url = URL.createObjectURL(pdfBlob);
+    window.open(url, '_blank', 'noopener,noreferrer');
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
   }
 
   async function saveContact(e) {
@@ -303,20 +319,13 @@ export default function ReceiptSettingsPage() {
       <PdfPreviewModal
         open={pdfOpen}
         title="Simulation du reçu PDF"
-        blobUrl={pdfUrl}
+        pdfBlob={pdfBlob}
         fileName="recu-modele.pdf"
         loading={pdfLoading}
         error={pdfError}
         onClose={() => setPdfOpen(false)}
-        onDownload={() => {
-          if (!pdfUrl) return;
-          const a = document.createElement('a');
-          a.href = pdfUrl;
-          a.download = 'recu-modele.pdf';
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-        }}
+        onDownload={downloadPdfSample}
+        onOpenInTab={openPdfSampleInTab}
       />
     </div>
   );

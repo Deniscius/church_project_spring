@@ -67,6 +67,33 @@ public interface DemandeDateRepository extends JpaRepository<DemandeDate, Long> 
     );
 
     /**
+     * Programmations à venir d'une paroisse pour le dashboard tenant.
+     * Une programmation est une date de demande réellement enregistrée, pas un
+     * simple créneau d'horaire disponible.
+     */
+    @Query("""
+            SELECT dd FROM DemandeDate dd
+            JOIN FETCH dd.demande d
+            LEFT JOIN FETCH d.horaire
+            LEFT JOIN FETCH dd.horaire
+            LEFT JOIN FETCH d.typeDemande
+            WHERE dd.statusDel = false
+              AND d.statusDel = false
+              AND d.paroisse = :paroisse
+              AND dd.celebre = false
+              AND dd.dateCelebration >= :debut
+              AND dd.dateCelebration <= :fin
+              AND d.statutDemande IN :statutsDemande
+            ORDER BY dd.dateCelebration ASC, dd.ordre ASC
+            """)
+    List<DemandeDate> findUpcomingByParoisse(
+            @Param("paroisse") Paroisse paroisse,
+            @Param("debut") LocalDate debut,
+            @Param("fin") LocalDate fin,
+            @Param("statutsDemande") Collection<StatutDemandeEnum> statutsDemande
+    );
+
+    /**
      * Premières célébrations (ordre = 1) de demandes actives non payées,
      * candidates à l'annulation automatique avant la messe.
      */

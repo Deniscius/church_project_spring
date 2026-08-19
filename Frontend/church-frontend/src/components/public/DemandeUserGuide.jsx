@@ -7,45 +7,42 @@ const GUIDE_STORAGE_KEY = 'demande_user_guide_open_v1';
 const STEPS = [
   {
     id: 1,
-    title: 'Intention',
+    title: 'Votre intention',
     points: [
-      'Indiquez pour qui ou pour quoi vous demandez la messe.',
-      `Sans prénom ni nom, le demandeur sera affiché comme « ${DEFAULT_FIDELE_NAME} ».`,
-      'Le téléphone est obligatoire pour retrouver vos demandes dans Suivi.',
+      'Écrivez simplement pour qui ou pour quoi la messe est demandée.',
+      'Indiquez un téléphone valide : il servira aussi à retrouver toutes vos demandes.',
+      `Le prénom et le nom restent facultatifs ; sans eux, le dossier affiche « ${DEFAULT_FIDELE_NAME} ».`,
     ],
   },
   {
     id: 2,
-    title: 'Lieu & date',
+    title: 'Célébration',
     points: [
-      'Choisissez la paroisse, la formule, puis la date et l’horaire.',
-      'Depuis un créneau des horaires, paroisse, formule, date et heure sont figées.',
+      'Choisissez la paroisse, la formule, la date puis l’horaire.',
+      'Si le tarif dépend du jour choisi, Missanye l’ajuste automatiquement et vous le signale avant de continuer.',
     ],
   },
   {
     id: 3,
     title: 'Paiement',
     points: [
-      'Choisissez le mode de paiement, puis confirmez pour obtenir votre code de suivi.',
-      'Mémorisez aussi le téléphone saisi pour le dépôt.',
+      'Choisissez votre mode de paiement et vérifiez le résumé.',
+      'Confirmez pour obtenir immédiatement votre code de suivi.',
     ],
   },
 ];
 
-/**
- * Guide collapsible du parcours « Déposer une intention ».
- * Ouvert par défaut à l’étape 1 ; l’état ouvert/fermé est mémorisé en session.
- */
+/** Guide d'aide facultatif : le parcours principal reste visible sans texte supplémentaire. */
 export default function DemandeUserGuide({ step = 1 }) {
   const [open, setOpen] = useState(() => {
     try {
       const raw = sessionStorage.getItem(GUIDE_STORAGE_KEY);
-      if (raw === '0') return false;
       if (raw === '1') return true;
+      if (raw === '0') return false;
     } catch {
       /* ignore */
     }
-    return step === 1;
+    return false;
   });
 
   useEffect(() => {
@@ -59,7 +56,7 @@ export default function DemandeUserGuide({ step = 1 }) {
   const current = STEPS.find((s) => s.id === step) || STEPS[0];
 
   return (
-    <aside className={`demande-user-guide${open ? ' is-open' : ''}`} aria-label="Guide de la demande">
+    <aside className={`demande-user-guide${open ? ' is-open' : ''}`} aria-label="Aide pour la demande">
       <button
         type="button"
         className="demande-user-guide-toggle"
@@ -67,7 +64,7 @@ export default function DemandeUserGuide({ step = 1 }) {
         onClick={() => setOpen((v) => !v)}
       >
         <span>
-          <strong>Guide</strong>
+          <strong>Besoin d’aide ?</strong>
           <span className="muted"> — étape {step}/3 · {current.title}</span>
         </span>
         <span className="demande-user-guide-chevron" aria-hidden="true">
@@ -105,9 +102,8 @@ export default function DemandeUserGuide({ step = 1 }) {
           </ol>
 
           <p className="demande-user-guide-foot muted">
-            Après dépôt, retrouvez vos demandes avec le{' '}
-            <strong>code de suivi</strong> ou le{' '}
-            <Link to="/suivi">numéro de téléphone</Link> saisi ici.
+            Après le dépôt, retrouvez toutes les demandes liées à votre{' '}
+            <Link to="/suivi">numéro de téléphone</Link> ou ouvrez directement une demande avec son code de suivi.
           </p>
         </div>
       ) : null}

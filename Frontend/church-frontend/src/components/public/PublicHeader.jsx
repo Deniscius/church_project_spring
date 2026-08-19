@@ -13,7 +13,7 @@ const FIDELE_LINKS = [
   {
     to: '/suivi',
     label: 'Suivre une demande',
-    description: 'Consulter son statut avec votre code de suivi.',
+    description: 'Consulter le statut avec votre code de suivi.',
   },
   {
     to: '/horaires',
@@ -98,11 +98,9 @@ function NavDropdown({
       return;
     }
 
-    if (event.currentTarget === event.target) return;
-
     if (
       event.target === triggerRef.current
-      && (event.key === 'ArrowDown' || event.key === 'Enter')
+      && event.key === 'ArrowDown'
       && !open
     ) {
       event.preventDefault();

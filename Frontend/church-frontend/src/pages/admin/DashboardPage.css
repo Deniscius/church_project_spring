@@ -62,6 +62,26 @@
   transition: transform var(--transition);
 }
 
+.dashboard-upcoming-intention {
+  min-width: 14rem;
+  max-width: 28rem;
+  line-height: 1.45;
+  white-space: normal;
+}
+
+.dashboard-upcoming-statuses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+@media (max-width: 720px) {
+  .dashboard-upcoming-intention {
+    min-width: 0;
+    max-width: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .dashboard-kpi-link .card,
   .dashboard-kpi-action span[aria-hidden="true"] {

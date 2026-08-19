@@ -22,6 +22,14 @@ public enum Permission {
     PAYMENT_DELETE("payment:delete"),
 
     TREASURY_READ("treasury:read"),
+    TREASURY_MANAGE("treasury:manage"),
+    PAYOUT_MANAGE("payout:manage"),
+
+    SUBSCRIPTION_READ("subscription:read"),
+    SUBSCRIPTION_CHECKOUT("subscription:checkout"),
+    SUBSCRIPTION_ACTIVATE("subscription:activate"),
+    SUBSCRIPTION_MANAGE("subscription:manage"),
+
     RECEIPT_MANAGE("receipt:manage"),
 
     INVOICE_READ("invoice:read"),

@@ -31,6 +31,7 @@ public final class RolePermissions {
                 Permission.SCHEDULE_READ,
                 Permission.REQUEST_TYPE_READ,
                 Permission.PRICING_READ,
+                Permission.PARISH_READ,
                 Permission.PROFILE_READ
         );
 
@@ -40,6 +41,8 @@ public final class RolePermissions {
                 Permission.PARISH_MANAGE,
                 Permission.PARISH_SETTINGS_MANAGE,
                 Permission.PARISH_ACCESS_MANAGE,
+                Permission.PARISH_REGISTRATION_READ,
+                Permission.PARISH_REGISTRATION_MANAGE,
                 Permission.DEANERY_MANAGE,
                 Permission.PAYMENT_TYPE_MANAGE,
                 Permission.FINANCE_READ,
@@ -67,7 +70,7 @@ public final class RolePermissions {
         superAdmin.addAll(parishRead);
         matrix.put(UserRole.SUPER_ADMIN, immutable(superAdmin));
 
-        matrix.put(UserRole.COMPTABLE, immutable(EnumSet.of(
+        EnumSet<Permission> platformAccountant = EnumSet.of(
                 Permission.FINANCE_READ,
                 Permission.FINANCE_MANAGE,
                 Permission.PAYOUT_MANAGE,
@@ -75,6 +78,9 @@ public final class RolePermissions {
                 Permission.SUBSCRIPTION_CHECKOUT,
                 Permission.SUBSCRIPTION_ACTIVATE,
                 Permission.SUBSCRIPTION_MANAGE,
+                Permission.PARISH_READ,
+                Permission.PARISH_REGISTRATION_READ,
+                Permission.PARISH_REGISTRATION_MANAGE,
                 Permission.DASHBOARD_VIEW,
                 Permission.DEMAND_READ,
                 Permission.DEMAND_AUDIT,
@@ -86,7 +92,8 @@ public final class RolePermissions {
                 Permission.PRICING_READ,
                 Permission.PRICING_MANAGE,
                 Permission.PROFILE_READ
-        )));
+        );
+        matrix.put(UserRole.COMPTABLE, immutable(platformAccountant));
 
         EnumSet<Permission> admin = EnumSet.of(
                 Permission.DEMAND_EDIT,
@@ -189,6 +196,7 @@ public final class RolePermissions {
         return isAdmin(role);
     }
 
+    /** Ordre d'affichage uniquement ; ne doit pas servir à autoriser une action. */
     public static UserRole[] getHierarchy() {
         return new UserRole[]{
                 UserRole.SUPER_ADMIN,

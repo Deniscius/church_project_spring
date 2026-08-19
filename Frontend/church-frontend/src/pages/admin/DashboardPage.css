@@ -62,6 +62,27 @@
   transition: transform var(--transition);
 }
 
+.dashboard-day-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.dashboard-day-link span[aria-hidden="true"] {
+  transition: transform var(--transition);
+}
+
+.dashboard-day-link:hover span[aria-hidden="true"],
+.dashboard-day-link:focus-visible span[aria-hidden="true"] {
+  transform: translateX(3px);
+}
+
+.dashboard-day-link.is-history {
+  color: var(--text-secondary, var(--text));
+}
+
 .dashboard-upcoming-intention {
   min-width: 14rem;
   max-width: 28rem;
@@ -84,11 +105,17 @@
 
 @media (prefers-reduced-motion: reduce) {
   .dashboard-kpi-link .card,
-  .dashboard-kpi-action span[aria-hidden="true"] {
+  .dashboard-kpi-action span[aria-hidden="true"],
+  .dashboard-day-link span[aria-hidden="true"] {
     transition: none;
   }
 
   .dashboard-kpi-link:hover .card {
+    transform: none;
+  }
+
+  .dashboard-day-link:hover span[aria-hidden="true"],
+  .dashboard-day-link:focus-visible span[aria-hidden="true"] {
     transform: none;
   }
 }

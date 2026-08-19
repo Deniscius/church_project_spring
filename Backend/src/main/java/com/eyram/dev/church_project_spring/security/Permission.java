@@ -47,9 +47,12 @@ public enum Permission {
     PRICING_MANAGE("pricing:manage"),
 
     USER_MANAGE("user:manage"),
+    PARISH_READ("parish:read"),
     PARISH_MANAGE("parish:manage"),
     PARISH_SETTINGS_MANAGE("parish-settings:manage"),
     PARISH_ACCESS_MANAGE("parish-access:manage"),
+    PARISH_REGISTRATION_READ("parish-registration:read"),
+    PARISH_REGISTRATION_MANAGE("parish-registration:manage"),
     DEANERY_MANAGE("deanery:manage"),
     PAYMENT_TYPE_MANAGE("payment-type:manage"),
 

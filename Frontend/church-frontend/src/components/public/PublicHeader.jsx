@@ -13,7 +13,7 @@ const FIDELE_LINKS = [
   {
     to: '/suivi',
     label: 'Suivre une demande',
-    description: 'Consulter son statut avec votre code de suivi.',
+    description: 'Consulter le statut avec votre code de suivi.',
   },
   {
     to: '/horaires',
@@ -52,9 +52,12 @@ function NavDropdown({
   onNavigate,
   onClose,
   active,
+  align = 'start',
 }) {
   const panelId = useId();
   const leaveTimer = useRef(null);
+  const triggerRef = useRef(null);
+  const panelRef = useRef(null);
 
   const canHover = () =>
     typeof window !== 'undefined'
@@ -72,7 +75,7 @@ function NavDropdown({
     clearLeave();
     leaveTimer.current = window.setTimeout(() => {
       onClose?.();
-    }, 160);
+    }, 170);
   };
 
   const handleMouseEnter = () => {
@@ -80,75 +83,101 @@ function NavDropdown({
     if (canHover()) onOpen?.();
   };
 
+  const focusFirstLink = () => {
+    window.requestAnimationFrame(() => {
+      panelRef.current?.querySelector('a')?.focus();
+    });
+  };
+
+  const handleKeyDown = (event) => {
+    if (event.key === 'Escape' && open) {
+      event.preventDefault();
+      event.stopPropagation();
+      onClose?.();
+      triggerRef.current?.focus();
+      return;
+    }
+
+    if (
+      event.target === triggerRef.current
+      && event.key === 'ArrowDown'
+      && !open
+    ) {
+      event.preventDefault();
+      onOpen?.();
+      focusFirstLink();
+    }
+  };
+
+  const handleBlurCapture = (event) => {
+    if (!event.currentTarget.contains(event.relatedTarget)) {
+      onClose?.();
+    }
+  };
+
   useEffect(() => () => clearLeave(), []);
 
   return (
     <div
-      className={`nav-dropdown nav-dropdown--rich${open ? ' is-open' : ''}${active ? ' has-active' : ''}`}
+      className={`nav-dropdown nav-dropdown--rich nav-dropdown--align-${align}${open ? ' is-open' : ''}${active ? ' has-active' : ''}`}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={scheduleClose}
+      onBlurCapture={handleBlurCapture}
+      onKeyDown={handleKeyDown}
     >
       <button
+        ref={triggerRef}
         type="button"
         className="nav-link nav-dropdown-trigger"
         aria-expanded={open}
-        aria-haspopup="true"
         aria-controls={panelId}
         onClick={onToggle}
-        onBlur={(e) => {
-          if (!e.currentTarget.parentElement?.contains(e.relatedTarget)) {
-            onClose?.();
-          }
-        }}
       >
         {label}
         <span className="nav-dropdown-chevron" aria-hidden="true" />
       </button>
 
-      <div id={panelId} className="nav-dropdown-panel nav-dropdown-panel--rich" hidden={!open}>
-        <div className="nav-dropdown-intro" aria-hidden="true">
+      <div
+        ref={panelRef}
+        id={panelId}
+        className="nav-dropdown-panel nav-dropdown-panel--rich"
+        hidden={!open}
+      >
+        <div className="nav-dropdown-intro">
           <span>{eyebrow}</span>
           <strong>{label}</strong>
           <p>{description}</p>
         </div>
 
-        <div className="nav-dropdown-menu" role="menu" aria-label={`Menu ${label}`}>
+        <ul className="nav-dropdown-menu" aria-label={`Liens ${label}`}>
           {links.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              role="menuitem"
-              className={({ isActive }) =>
-                `nav-dropdown-item nav-dropdown-item--rich${isActive ? ' active' : ''}${item.featured ? ' is-featured' : ''}`
-              }
-              onClick={onNavigate}
-            >
-              <span className="nav-dropdown-item-copy">
-                <strong>{item.label}</strong>
-                <small>{item.description}</small>
-              </span>
-              <span className="nav-dropdown-item-arrow" aria-hidden="true">→</span>
-            </NavLink>
+            <li key={item.to}>
+              <NavLink
+                to={item.to}
+                className={({ isActive }) =>
+                  `nav-dropdown-item nav-dropdown-item--rich${isActive ? ' active' : ''}${item.featured ? ' is-featured' : ''}`
+                }
+                onClick={onNavigate}
+              >
+                <span className="nav-dropdown-item-copy">
+                  <strong>{item.label}</strong>
+                  <small>{item.description}</small>
+                </span>
+                <span className="nav-dropdown-item-arrow" aria-hidden="true">→</span>
+              </NavLink>
+            </li>
           ))}
-        </div>
+        </ul>
       </div>
     </div>
   );
 }
 
-export default function PublicHeader() {
-  const { pathname } = useLocation();
-  const navRef = useRef(null);
+function PublicHeaderContent({ pathname }) {
+  const navigationBoundaryRef = useRef(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [openMenu, setOpenMenu] = useState(null);
   const isHome = pathname === '/';
-
-  const [navPathname, setNavPathname] = useState(pathname);
-  if (pathname !== navPathname) {
-    setNavPathname(pathname);
-    setMenuOpen(false);
-    setOpenMenu(null);
-  }
 
   const closeAll = () => {
     setMenuOpen(false);
@@ -158,13 +187,18 @@ export default function PublicHeader() {
   useEffect(() => {
     if (!openMenu && !menuOpen) return undefined;
 
-    const onPointerDown = (e) => {
-      if (navRef.current && !navRef.current.contains(e.target)) {
+    const onPointerDown = (event) => {
+      if (
+        navigationBoundaryRef.current
+        && !navigationBoundaryRef.current.contains(event.target)
+      ) {
         setOpenMenu(null);
+        setMenuOpen(false);
       }
     };
-    const onKeyDown = (e) => {
-      if (e.key === 'Escape') {
+
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
         setOpenMenu(null);
         setMenuOpen(false);
       }
@@ -178,12 +212,16 @@ export default function PublicHeader() {
     };
   }, [openMenu, menuOpen]);
 
-  const fideleActive = FIDELE_LINKS.some((l) => pathname === l.to || pathname.startsWith(`${l.to}/`));
-  const parishActive = PARISH_LINKS.some((l) => pathname === l.to || pathname.startsWith(`${l.to}/`));
+  const fideleActive = FIDELE_LINKS.some(
+    (link) => pathname === link.to || pathname.startsWith(`${link.to}/`)
+  );
+  const parishActive = PARISH_LINKS.some(
+    (link) => pathname === link.to || pathname.startsWith(`${link.to}/`)
+  );
 
   return (
     <header className={`public-header${isHome ? ' public-header--home' : ''}`}>
-      <div className="container public-bar">
+      <div ref={navigationBoundaryRef} className="container public-bar">
         <Link to="/" className="brand" onClick={closeAll}>
           <BrandLogo size={34} className="public-brand-logo" alt="" />
           <span className="brand-text">
@@ -197,8 +235,9 @@ export default function PublicHeader() {
           className="nav-toggle"
           aria-label={menuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
           aria-expanded={menuOpen}
+          aria-controls="public-main-navigation"
           onClick={() => {
-            setMenuOpen((v) => !v);
+            setMenuOpen((value) => !value);
             setOpenMenu(null);
           }}
         >
@@ -206,7 +245,7 @@ export default function PublicHeader() {
         </button>
 
         <nav
-          ref={navRef}
+          id="public-main-navigation"
           className={`nav-links${menuOpen ? ' open' : ''}`}
           aria-label="Navigation principale"
         >
@@ -218,8 +257,8 @@ export default function PublicHeader() {
             open={openMenu === 'fideles'}
             active={fideleActive}
             onOpen={() => setOpenMenu('fideles')}
-            onToggle={() => setOpenMenu((m) => (m === 'fideles' ? null : 'fideles'))}
-            onClose={() => setOpenMenu((m) => (m === 'fideles' ? null : m))}
+            onToggle={() => setOpenMenu((menu) => (menu === 'fideles' ? null : 'fideles'))}
+            onClose={() => setOpenMenu((menu) => (menu === 'fideles' ? null : menu))}
             onNavigate={closeAll}
           />
           <NavDropdown
@@ -229,9 +268,10 @@ export default function PublicHeader() {
             links={PARISH_LINKS}
             open={openMenu === 'paroisses'}
             active={parishActive}
+            align="end"
             onOpen={() => setOpenMenu('paroisses')}
-            onToggle={() => setOpenMenu((m) => (m === 'paroisses' ? null : 'paroisses'))}
-            onClose={() => setOpenMenu((m) => (m === 'paroisses' ? null : m))}
+            onToggle={() => setOpenMenu((menu) => (menu === 'paroisses' ? null : 'paroisses'))}
+            onClose={() => setOpenMenu((menu) => (menu === 'paroisses' ? null : menu))}
             onNavigate={closeAll}
           />
           <ThemeToggle compact className="public-theme-toggle" />
@@ -239,4 +279,9 @@ export default function PublicHeader() {
       </div>
     </header>
   );
+}
+
+export default function PublicHeader() {
+  const { pathname } = useLocation();
+  return <PublicHeaderContent key={pathname} pathname={pathname} />;
 }

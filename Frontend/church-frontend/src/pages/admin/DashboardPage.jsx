@@ -2,14 +2,18 @@ import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import PageHeader from '../../components/ui/PageHeader';
 import AppCard from '../../components/ui/AppCard';
+import AppBadge from '../../components/ui/AppBadge';
 import { useTenant } from '../../hooks/useTenant';
 import { formatParishTimeInUserZone } from '../../utils/formatTime';
 import { useParishDemandeStats } from '../../hooks/queries/useParishDemandes';
 import { useParishProgrammeQuery } from '../../hooks/queries/useParishProgramme';
+import { useParishUpcomingCelebrations } from '../../hooks/queries/useParishUpcomingCelebrations';
 import { WEEK_DAY_LABELS } from '../../constants/enums';
 import { ROUTES } from '../../constants/routes';
 import { formatFideleName } from '../../utils/personName';
 import './DashboardPage.css';
+
+const UPCOMING_DAYS = 14;
 
 function formatProgrammeDate(iso) {
   if (!iso) return '—';
@@ -53,6 +57,11 @@ export default function DashboardPage() {
     isLoading: programmeLoading,
     error: programmeError,
   } = useParishProgrammeQuery(activeParish?.id);
+  const {
+    data: upcomingCelebrations = [],
+    isLoading: upcomingLoading,
+    error: upcomingError,
+  } = useParishUpcomingCelebrations(activeParish?.id, UPCOMING_DAYS);
 
   const stats = {
     total: data?.total ?? 0,
@@ -90,7 +99,7 @@ export default function DashboardPage() {
     <div className="stack">
       <PageHeader
         title="Dashboard paroisse"
-        subtitle="Indicateurs agrégés et programme des messes (messe unique respectée)."
+        subtitle="Indicateurs, célébrations programmées et programme des messes de votre paroisse."
       />
       {error ? <p className="text-red-600">{error.message || 'Erreur'}</p> : null}
       {isLoading ? <p className="muted">Chargement…</p> : null}
@@ -152,6 +161,72 @@ export default function DashboardPage() {
         />
       </div>
 
+      <AppCard
+        title={`Célébrations programmées${upcomingCelebrations.length ? ` (${upcomingCelebrations.length})` : ''}`}
+        subtitle={`${UPCOMING_DAYS} prochains jours — intentions déjà enregistrées pour cette paroisse.`}
+      >
+        {upcomingError ? (
+          <p className="text-red-600">{upcomingError.message || 'Erreur de chargement des programmations'}</p>
+        ) : null}
+        {upcomingLoading ? <p className="muted">Chargement des célébrations à venir…</p> : null}
+        {!upcomingLoading && !upcomingError ? (
+          <div className="table-card">
+            <table className="app-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Heure</th>
+                  <th>Demande</th>
+                  <th>Intention</th>
+                  <th>Fidèle</th>
+                  <th>Statuts</th>
+                </tr>
+              </thead>
+              <tbody>
+                {upcomingCelebrations.map((item) => (
+                  <tr key={item.demandeDatePublicId || `${item.demandePublicId}-${item.dateCelebration}-${item.heureCelebration}`}>
+                    <td data-label="Date">{formatProgrammeDate(item.dateCelebration)}</td>
+                    <td data-label="Heure">
+                      <strong>{item.heureCelebration ? formatParishTimeInUserZone(item.heureCelebration) : '—'}</strong>
+                      {item.horaireLibelle ? (
+                        <span className="muted" style={{ display: 'block', fontSize: '0.82em' }}>
+                          {item.horaireLibelle}
+                        </span>
+                      ) : null}
+                    </td>
+                    <td data-label="Demande">
+                      <Link to={`/admin/demandes/${item.demandePublicId}`}>
+                        {item.codeSuivie || 'Voir'}
+                      </Link>
+                      <span className="muted" style={{ display: 'block', fontSize: '0.82em' }}>
+                        {item.typeDemandeLibelle || '—'}
+                      </span>
+                    </td>
+                    <td data-label="Intention" className="dashboard-upcoming-intention">
+                      {item.intention || '—'}
+                    </td>
+                    <td data-label="Fidèle">{item.fidele || '—'}</td>
+                    <td data-label="Statuts">
+                      <div className="dashboard-upcoming-statuses">
+                        <AppBadge value={item.statutDemande} />
+                        <AppBadge value={item.statutPaiement} />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {!upcomingCelebrations.length ? (
+                  <tr>
+                    <td colSpan={6} className="muted" data-label="">
+                      Aucune célébration enregistrée sur les {UPCOMING_DAYS} prochains jours.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+      </AppCard>
+
       {unpaidAlert.length > 0 ? (
         <AppCard
           title="Célébrations non payées"
@@ -190,7 +265,7 @@ export default function DashboardPage() {
 
       <AppCard
         title="Programme des messes"
-        subtitle="14 prochains jours — une messe unique masque les autres créneaux du jour."
+        subtitle="14 prochains jours — créneaux disponibles ; une messe unique masque les autres créneaux du jour."
       >
         {programmeError ? (
           <p className="text-red-600">{programmeError.message || 'Erreur programme'}</p>
@@ -249,7 +324,7 @@ export default function DashboardPage() {
         ) : null}
       </AppCard>
 
-      <AppCard title="Demandes récentes" subtitle="Les 5 dernières dépôts.">
+      <AppCard title="Demandes récentes" subtitle="Les 5 derniers dépôts.">
         <div className="table-card">
           <table className="app-table">
             <thead>

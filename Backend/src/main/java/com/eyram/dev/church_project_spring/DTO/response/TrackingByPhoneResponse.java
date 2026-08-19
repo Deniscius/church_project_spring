@@ -11,4 +11,8 @@ public record TrackingByPhoneResponse(
         List<TrackingByPhoneItemResponse> demandes,
         int count
 ) {
+    /** Compatibilité avec le service legacy qui ne renvoie encore que les codes. */
+    public TrackingByPhoneResponse(List<String> codes, int count) {
+        this(codes, List.of(), count);
+    }
 }

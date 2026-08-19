@@ -32,10 +32,17 @@ import { requestService } from '../../services/request.service';
 import { normalizeFormErrors } from '../../utils/formErrors';
 
 const STEPS = [
-  { id: 'identity', label: 'Intention' },
-  { id: 'place', label: 'Lieu & date' },
+  { id: 'identity', label: 'Votre intention' },
+  { id: 'celebration', label: 'Célébration' },
   { id: 'payment', label: 'Paiement' },
 ];
+
+function nextActionLabel(step, pending) {
+  if (pending) return 'Envoi…';
+  if (step === 1) return 'Choisir la célébration';
+  if (step === 2) return 'Choisir le paiement';
+  return 'Confirmer ma demande';
+}
 
 export default function NewRequestPage() {
   const navigate = useNavigate();
@@ -219,17 +226,17 @@ export default function NewRequestPage() {
   return (
     <div className="stack public-page demande-page">
       <PageHeader
-        title="Déposer une intention de messe"
-        subtitle="Simple, sans compte — 3 étapes."
+        title="Faire une demande de messe"
+        subtitle="Sans compte : indiquez l’intention, choisissez la célébration, puis le paiement."
       />
 
       {prefillBanner ? (
         <div className="demande-schedule-prefill" role="status">
-          <strong>Créneau repris depuis les horaires (figé)</strong>
+          <strong>Créneau déjà sélectionné</strong>
           <p>{prefillBanner}</p>
           <small className="muted">
-            Paroisse, formule, date et heure sont figées pour ce créneau. Pour un triduum, une neuvaine
-            ou un autre jour, repassez par les horaires.
+            Ce créneau est conservé pour votre demande. Pour changer de jour ou de formule,
+            choisissez simplement un autre horaire.
           </small>
         </div>
       ) : null}
@@ -270,7 +277,7 @@ export default function NewRequestPage() {
             <>
               <PaymentTypeSelector />
               <p className="muted" style={{ margin: 0 }}>
-                Vérifiez le résumé à droite, puis confirmez pour obtenir votre code de suivi.
+                Vérifiez le résumé, puis confirmez. Votre code de suivi sera affiché immédiatement.
               </p>
             </>
           ) : null}
@@ -308,9 +315,7 @@ export default function NewRequestPage() {
                 loading={mutation.isPending}
                 disabled={Boolean(successResult)}
               >
-                {step < STEPS.length
-                  ? 'Continuer'
-                  : (mutation.isPending ? 'Envoi…' : 'Confirmer la demande')}
+                {nextActionLabel(step, mutation.isPending)}
               </AppButton>
             </div>
             <button

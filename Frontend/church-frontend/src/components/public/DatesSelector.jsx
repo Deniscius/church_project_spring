@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import AppCard from '../ui/AppCard';
 import AppInput from '../ui/AppInput';
 import AppSelect from '../ui/AppSelect';
 import AppButton from '../ui/AppButton';
+import AppAlert from '../ui/AppAlert';
 import MultiScheduleModal from './MultiScheduleModal';
 import {
   getForfaitDureeLabel,
@@ -59,6 +60,8 @@ export default function DatesSelector() {
   const { draft, patch, dispatch } = usePublicDemandeDraft();
   const [slotError, setSlotError] = useState('');
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+  const [tariffChangeNotice, setTariffChangeNotice] = useState(null);
+  const userSelectedDateRef = useRef('');
   const n = Number(draft.forfaitNombreCelebration) || 0;
   const multi = isMultiCelebrationForfait(n);
   const trentaine = isTrentaineForfait(n);
@@ -186,6 +189,18 @@ export default function DatesSelector() {
     if (!preferred || preferred.publicId === draft.forfaitTarifPublicId) return;
     const natureLabel = NATURE_FORFAIT_OPTIONS.find((o) => o.value === preferred.natureForfait)?.label
       || preferred.nomForfait;
+
+    if (userSelectedDateRef.current === draft.dateDebut) {
+      setTariffChangeNotice({
+        date: draft.dateDebut,
+        previousLabel: draft.forfaitLabel || draft.forfaitNature || 'Tarif précédent',
+        previousAmount: draft.forfaitMontant,
+        nextLabel: natureLabel || preferred.natureForfait || 'Nouveau tarif',
+        nextAmount: preferred.montantForfait,
+      });
+      userSelectedDateRef.current = '';
+    }
+
     dispatch({
       type: 'SYNC_FORFAIT',
       payload: {
@@ -205,6 +220,8 @@ export default function DatesSelector() {
     draft.horairePublicId,
     draft.forfaitTarifPublicId,
     draft.forfaitNature,
+    draft.forfaitLabel,
+    draft.forfaitMontant,
     draft.forfaitNombreCelebration,
     draft.prefillNatureHonoraire,
     forfaits,
@@ -258,6 +275,8 @@ export default function DatesSelector() {
   const commitStart = (value) => {
     const err = value ? validateStart(value) : '';
     setSlotError(err);
+    setTariffChangeNotice(null);
+    userSelectedDateRef.current = !multi && value && !err ? value : '';
 
     if (!value) {
       patch({ dateDebut: '', datesCelebration: [], dateSchedules: {} });
@@ -384,6 +403,23 @@ export default function DatesSelector() {
         ) : null}
         {slotError ? <small className="text-red-600">{slotError}</small> : null}
       </div>
+
+      {tariffChangeNotice ? (
+        <AppAlert variant="info">
+          <strong>Tarif ajusté automatiquement pour le jour choisi.</strong>
+          <p style={{ margin: '6px 0 0' }}>
+            Le {formatFrDate(tariffChangeNotice.date)}, votre formule passe de{' '}
+            <strong>{tariffChangeNotice.previousLabel}</strong>
+            {tariffChangeNotice.previousAmount != null
+              ? ` (${formatCurrency(Number(tariffChangeNotice.previousAmount))})`
+              : ''}
+            {' '}à <strong>{tariffChangeNotice.nextLabel}</strong>
+            {tariffChangeNotice.nextAmount != null
+              ? ` (${formatCurrency(Number(tariffChangeNotice.nextAmount))})`
+              : ''}.
+          </p>
+        </AppAlert>
+      ) : null}
 
       {multi && generatedDates.length === n ? (
         <div className="generated-dates-preview">

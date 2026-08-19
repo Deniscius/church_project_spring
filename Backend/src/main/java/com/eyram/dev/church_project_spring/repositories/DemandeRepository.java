@@ -39,6 +39,19 @@ public interface DemandeRepository extends JpaRepository<Demande, Long> {
             """)
     List<Demande> findByTelFideleIn(@Param("phones") Collection<String> phones, Pageable pageable);
 
+    /**
+     * Suivi public par téléphone : toutes les demandes actives du numéro,
+     * de la plus ancienne à la plus récente.
+     */
+    @EntityGraph(attributePaths = {"paroisse", "typeDemande"})
+    @Query("""
+            SELECT d FROM Demande d
+            WHERE d.statusDel = false
+              AND d.telFidele IN :phones
+            ORDER BY d.createdAt ASC, d.id ASC
+            """)
+    List<Demande> findAllByTelFideleInChronological(@Param("phones") Collection<String> phones);
+
     List<Demande> findByStatusDelFalse();
 
     List<Demande> findByParoisseAndStatusDelFalse(Paroisse paroisse);

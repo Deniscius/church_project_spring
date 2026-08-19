@@ -5,14 +5,15 @@ import java.util.List;
 /**
  * Suivi par téléphone :
  * <ul>
- *   <li>si un e-mail est lié → OTP envoyé ({@code codes} vide) ;</li>
- *   <li>sinon → codes renvoyés directement (téléphone seul, cas le plus fréquent).</li>
+ *   <li>si un e-mail est lié → OTP envoyé ({@code demandes} vide) ;</li>
+ *   <li>sinon → résumés des demandes renvoyés directement.</li>
  * </ul>
  */
 public record TrackingByPhoneChallengeResponse(
         String emailMasked,
         int expiresInSeconds,
         String message,
-        List<String> codes
+        List<String> codes,
+        List<TrackingByPhoneItemResponse> demandes
 ) {
 }

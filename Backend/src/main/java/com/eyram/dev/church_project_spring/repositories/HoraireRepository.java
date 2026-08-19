@@ -66,6 +66,7 @@ public interface HoraireRepository extends JpaRepository<Horaire, Long> {
             @Param("debut") LocalDate debut,
             @Param("fin") LocalDate fin
     );
+
     boolean existsByJourSemaineAndHeureCelebrationAndParoisseAndDateSpecifiqueIsNullAndStatusDelFalse(
             JourSemaine jourSemaine,
             LocalTime heureCelebration,
@@ -139,5 +140,15 @@ public interface HoraireRepository extends JpaRepository<Horaire, Long> {
             Paroisse paroisse,
             LocalDate debut,
             LocalDate fin
+    );
+
+    /**
+     * Tous les créneaux actifs/configurés à date précise pour une journée.
+     * Utilisé pour remplacer ou réinitialiser proprement une personnalisation journalière.
+     */
+    @EntityGraph(attributePaths = {"paroisse"})
+    List<Horaire> findByParoisseAndDateSpecifiqueAndStatusDelFalse(
+            Paroisse paroisse,
+            LocalDate dateSpecifique
     );
 }

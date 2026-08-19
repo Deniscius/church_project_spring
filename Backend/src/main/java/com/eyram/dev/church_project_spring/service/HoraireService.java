@@ -1,6 +1,7 @@
 package com.eyram.dev.church_project_spring.service;
 
 import com.eyram.dev.church_project_spring.DTO.request.HoraireRequest;
+import com.eyram.dev.church_project_spring.DTO.request.ProgrammeJourUpdateRequest;
 import com.eyram.dev.church_project_spring.DTO.response.HoraireResponse;
 import com.eyram.dev.church_project_spring.DTO.response.ParoisseHorairesPublicResponse;
 import com.eyram.dev.church_project_spring.DTO.response.ProgrammeJourResponse;
@@ -29,13 +30,29 @@ public interface HoraireService {
     List<ParoisseHorairesPublicResponse> listPublicHorairesForActiveParishes();
 
     /**
-     * Programme résolu jour par jour (hebdo + ponctuels, messe unique respectée).
+     * Programme résolu jour par jour : hebdomadaire, ajouts ponctuels,
+     * personnalisation complète ou messe unique.
      */
     List<ProgrammeJourResponse> getProgramme(
             UUID paroissePublicId,
             LocalDate debut,
             LocalDate fin
     );
+
+    /**
+     * Remplace uniquement le programme disponible d'une date précise.
+     * Les demandes déjà enregistrées gardent leur créneau jusqu'à modification explicite.
+     */
+    ProgrammeJourResponse updateProgrammeForDate(
+            UUID paroissePublicId,
+            LocalDate date,
+            ProgrammeJourUpdateRequest request
+    );
+
+    /**
+     * Supprime toutes les exceptions de la date et réapplique la grille hebdomadaire.
+     */
+    ProgrammeJourResponse resetProgrammeForDate(UUID paroissePublicId, LocalDate date);
 
     /** Créneaux effectivement au programme pour une date donnée. */
     List<Horaire> resolveHorairesForDate(UUID paroissePublicId, LocalDate date);

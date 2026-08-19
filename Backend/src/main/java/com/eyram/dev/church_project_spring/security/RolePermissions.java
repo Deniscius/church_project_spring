@@ -46,6 +46,8 @@ public final class RolePermissions {
                 Permission.FINANCE_MANAGE,
                 Permission.SAAS_PLAN_READ,
                 Permission.SAAS_PLAN_MANAGE,
+                Permission.SUBSCRIPTION_READ,
+                Permission.SUBSCRIPTION_ACTIVATE,
                 Permission.DEMAND_EDIT,
                 Permission.DEMAND_DELETE,
                 Permission.DEMAND_VALIDATE,
@@ -68,6 +70,11 @@ public final class RolePermissions {
         matrix.put(UserRole.COMPTABLE, immutable(EnumSet.of(
                 Permission.FINANCE_READ,
                 Permission.FINANCE_MANAGE,
+                Permission.PAYOUT_MANAGE,
+                Permission.SUBSCRIPTION_READ,
+                Permission.SUBSCRIPTION_CHECKOUT,
+                Permission.SUBSCRIPTION_ACTIVATE,
+                Permission.SUBSCRIPTION_MANAGE,
                 Permission.DASHBOARD_VIEW,
                 Permission.DEMAND_READ,
                 Permission.DEMAND_AUDIT,
@@ -90,6 +97,8 @@ public final class RolePermissions {
                 Permission.PAYMENT_MANAGE,
                 Permission.PAYMENT_DELETE,
                 Permission.TREASURY_READ,
+                Permission.TREASURY_MANAGE,
+                Permission.SUBSCRIPTION_CHECKOUT,
                 Permission.RECEIPT_MANAGE,
                 Permission.INVOICE_MANAGE,
                 Permission.SCHEDULE_MANAGE,
@@ -134,7 +143,6 @@ public final class RolePermissions {
         return ROLE_PERMISSIONS.getOrDefault(role, Set.of());
     }
 
-    /** Authorities métier à injecter dans le principal Spring Security. */
     public static Set<String> authoritiesFor(UserRole role) {
         return permissionsFor(role).stream()
                 .map(Permission::authority)

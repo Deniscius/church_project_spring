@@ -50,6 +50,7 @@ export default function RequestsPage() {
 
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   // Comptable : toutes les demandes (actives + archivées) par défaut.
   const [listScope, setListScope] = useState(isAccountant ? 'ALL' : 'ACTIVE');
   const [deletedRows, setDeletedRows] = useState([]);
@@ -75,11 +76,19 @@ export default function RequestsPage() {
   const includeDeleted = listScope === 'ALL';
   const showDeletedOnly = listScope === 'DELETED';
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedSearch(search.trim());
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+
   const { data, isLoading, error, isFetching } = useParishDemandesPage(
     showDeletedOnly ? null : activeParish?.id,
     page,
     PAGE_SIZE,
-    includeDeleted
+    includeDeleted,
+    debouncedSearch
   );
 
   useEffect(() => {
@@ -296,6 +305,10 @@ export default function RequestsPage() {
             </button>
           </div>
         </div>
+      ) : (
+        <p className="muted">
+          {totalElements} demande{totalElements > 1 ? 's' : ''} archivée{totalElements > 1 ? 's' : ''}
+        </p>
       ) : (
         <p className="muted">
           {totalElements} demande{totalElements > 1 ? 's' : ''} archivée{totalElements > 1 ? 's' : ''}

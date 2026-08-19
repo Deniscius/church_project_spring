@@ -24,6 +24,7 @@ export const ROUTES = {
 
   // Paroisse (tenant)
   DASHBOARD: '/admin/dashboard',
+  DAILY_PROGRAMME: '/admin/programmations/:date',
   REQUESTS: '/admin/demandes',
   REQUEST_DETAILS: '/admin/demandes/:id',
   REQUEST_EDIT: '/admin/demandes/:id/modifier',

@@ -7,7 +7,9 @@ import { formatParishTimeInUserZone } from '../../utils/formatTime';
 import { useParishDemandeStats } from '../../hooks/queries/useParishDemandes';
 import { useParishProgrammeQuery } from '../../hooks/queries/useParishProgramme';
 import { WEEK_DAY_LABELS } from '../../constants/enums';
+import { ROUTES } from '../../constants/routes';
 import { formatFideleName } from '../../utils/personName';
+import './DashboardPage.css';
 
 function formatProgrammeDate(iso) {
   if (!iso) return '—';
@@ -20,6 +22,27 @@ function formatProgrammeDate(iso) {
   } catch {
     return iso;
   }
+}
+
+function DashboardKpiCard({ title, value, subtitle, to, action }) {
+  return (
+    <Link
+      className="dashboard-kpi-link"
+      to={to}
+      aria-label={`${title} — ${action}`}
+    >
+      <AppCard title={title}>
+        <div className="kpi dashboard-kpi">
+          <strong>{value}</strong>
+          <span className="page-subtitle">{subtitle}</span>
+          <span className="dashboard-kpi-action">
+            {action}
+            <span aria-hidden="true">→</span>
+          </span>
+        </div>
+      </AppCard>
+    </Link>
+  );
 }
 
 export default function DashboardPage() {
@@ -85,7 +108,7 @@ export default function DashboardPage() {
               annulation automatique 6 h avant la messe si le paiement manque.
             </p>
             <div className="unpaid-alert-actions">
-              <Link className="btn btn-primary btn-sm" to="/admin/demandes">
+              <Link className="btn btn-primary btn-sm" to={`${ROUTES.REQUESTS}?paiement=NON_PAYE`}>
                 Traiter les demandes
               </Link>
               {unpaidAlert[0]?.id ? (
@@ -98,31 +121,35 @@ export default function DashboardPage() {
         </aside>
       ) : null}
 
-      <div className="card-grid">
-        <AppCard title="Demandes totales">
-          <div className="kpi">
-            <strong>{stats.total}</strong>
-            <span className="page-subtitle">Enregistrées pour cette paroisse</span>
-          </div>
-        </AppCard>
-        <AppCard title="En attente">
-          <div className="kpi">
-            <strong>{stats.pending}</strong>
-            <span className="page-subtitle">Statut demande EN_ATTENTE</span>
-          </div>
-        </AppCard>
-        <AppCard title="Validées">
-          <div className="kpi">
-            <strong>{stats.validated}</strong>
-            <span className="page-subtitle">Statut demande VALIDEE</span>
-          </div>
-        </AppCard>
-        <AppCard title="Impayées proches">
-          <div className="kpi">
-            <strong>{stats.impayeesProches}</strong>
-            <span className="page-subtitle">Célébration ≤ 3 jours</span>
-          </div>
-        </AppCard>
+      <div className="card-grid dashboard-kpi-grid">
+        <DashboardKpiCard
+          title="Demandes totales"
+          value={stats.total}
+          subtitle="Enregistrées pour cette paroisse"
+          to={ROUTES.REQUESTS}
+          action="Voir toutes les demandes"
+        />
+        <DashboardKpiCard
+          title="En attente"
+          value={stats.pending}
+          subtitle="Statut demande EN_ATTENTE"
+          to={`${ROUTES.REQUESTS}?statut=EN_ATTENTE`}
+          action="Traiter les demandes"
+        />
+        <DashboardKpiCard
+          title="Validées"
+          value={stats.validated}
+          subtitle="Statut demande VALIDEE"
+          to={`${ROUTES.REQUESTS}?statut=VALIDEE`}
+          action="Voir les demandes validées"
+        />
+        <DashboardKpiCard
+          title="Impayées proches"
+          value={stats.impayeesProches}
+          subtitle="Célébration ≤ 3 jours"
+          to={`${ROUTES.REQUESTS}?paiement=NON_PAYE`}
+          action="Voir les demandes non payées"
+        />
       </div>
 
       {unpaidAlert.length > 0 ? (

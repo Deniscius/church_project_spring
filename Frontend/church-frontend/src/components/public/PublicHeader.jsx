@@ -2,23 +2,52 @@ import React, { useEffect, useId, useRef, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import ThemeToggle from '../ui/ThemeToggle';
 import BrandLogo from '../ui/BrandLogo';
+import './PublicHeader.css';
 
 const FIDELE_LINKS = [
-  { to: '/demande', label: 'Faire une demande' },
-  { to: '/suivi', label: 'Suivre une demande' },
-  { to: '/horaires', label: 'Horaires des messes' },
+  {
+    to: '/demande',
+    label: 'Faire une demande',
+    description: 'Déposer une intention de messe en quelques étapes.',
+  },
+  {
+    to: '/suivi',
+    label: 'Suivre une demande',
+    description: 'Consulter son statut avec votre code de suivi.',
+  },
+  {
+    to: '/horaires',
+    label: 'Horaires des messes',
+    description: 'Voir les célébrations disponibles par paroisse.',
+  },
 ];
 
 const PARISH_LINKS = [
-  { to: '/offres', label: 'Voir les offres' },
-  { to: '/inscription-paroisse', label: 'Inscrire ma paroisse' },
-  { to: '/admin/login', label: 'Espace paroisse' },
+  {
+    to: '/offres',
+    label: 'Offres & tarifs',
+    description: 'Comparer les formules, durées et prix Missanye.',
+    featured: true,
+  },
+  {
+    to: '/inscription-paroisse',
+    label: 'Inscrire ma paroisse',
+    description: 'Déposer un dossier d’inscription guidé.',
+  },
+  {
+    to: '/admin/login',
+    label: 'Espace paroisse',
+    description: 'Accéder à la gestion de votre paroisse.',
+  },
 ];
 
 function NavDropdown({
   label,
+  eyebrow,
+  description,
   links,
   open,
+  onOpen,
   onToggle,
   onNavigate,
   onClose,
@@ -27,7 +56,7 @@ function NavDropdown({
   const panelId = useId();
   const leaveTimer = useRef(null);
 
-  const canHoverClose = () =>
+  const canHover = () =>
     typeof window !== 'undefined'
     && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
 
@@ -39,19 +68,24 @@ function NavDropdown({
   };
 
   const scheduleClose = () => {
-    if (!canHoverClose()) return;
+    if (!canHover()) return;
     clearLeave();
     leaveTimer.current = window.setTimeout(() => {
       onClose?.();
-    }, 140);
+    }, 160);
+  };
+
+  const handleMouseEnter = () => {
+    clearLeave();
+    if (canHover()) onOpen?.();
   };
 
   useEffect(() => () => clearLeave(), []);
 
   return (
     <div
-      className={`nav-dropdown${open ? ' is-open' : ''}${active ? ' has-active' : ''}`}
-      onMouseEnter={clearLeave}
+      className={`nav-dropdown nav-dropdown--rich${open ? ' is-open' : ''}${active ? ' has-active' : ''}`}
+      onMouseEnter={handleMouseEnter}
       onMouseLeave={scheduleClose}
     >
       <button
@@ -62,7 +96,6 @@ function NavDropdown({
         aria-controls={panelId}
         onClick={onToggle}
         onBlur={(e) => {
-          // Ferme si le focus quitte le menu (évite état « hover » figé au clavier / tactile).
           if (!e.currentTarget.parentElement?.contains(e.relatedTarget)) {
             onClose?.();
           }
@@ -71,18 +104,33 @@ function NavDropdown({
         {label}
         <span className="nav-dropdown-chevron" aria-hidden="true" />
       </button>
-      <div id={panelId} className="nav-dropdown-panel" role="menu" hidden={!open}>
-        {links.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            role="menuitem"
-            className={({ isActive }) => `nav-dropdown-item${isActive ? ' active' : ''}`}
-            onClick={onNavigate}
-          >
-            {item.label}
-          </NavLink>
-        ))}
+
+      <div id={panelId} className="nav-dropdown-panel nav-dropdown-panel--rich" hidden={!open}>
+        <div className="nav-dropdown-intro" aria-hidden="true">
+          <span>{eyebrow}</span>
+          <strong>{label}</strong>
+          <p>{description}</p>
+        </div>
+
+        <div className="nav-dropdown-menu" role="menu" aria-label={`Menu ${label}`}>
+          {links.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              role="menuitem"
+              className={({ isActive }) =>
+                `nav-dropdown-item nav-dropdown-item--rich${isActive ? ' active' : ''}${item.featured ? ' is-featured' : ''}`
+              }
+              onClick={onNavigate}
+            >
+              <span className="nav-dropdown-item-copy">
+                <strong>{item.label}</strong>
+                <small>{item.description}</small>
+              </span>
+              <span className="nav-dropdown-item-arrow" aria-hidden="true">→</span>
+            </NavLink>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -164,18 +212,24 @@ export default function PublicHeader() {
         >
           <NavDropdown
             label="Fidèles"
+            eyebrow="Accès rapides"
+            description="Les démarches utiles avant et après votre demande de messe."
             links={FIDELE_LINKS}
             open={openMenu === 'fideles'}
             active={fideleActive}
+            onOpen={() => setOpenMenu('fideles')}
             onToggle={() => setOpenMenu((m) => (m === 'fideles' ? null : 'fideles'))}
             onClose={() => setOpenMenu((m) => (m === 'fideles' ? null : m))}
             onNavigate={closeAll}
           />
           <NavDropdown
             label="Paroisses"
+            eyebrow="Pour votre paroisse"
+            description="Découvrir Missanye, inscrire votre paroisse ou accéder à son espace."
             links={PARISH_LINKS}
             open={openMenu === 'paroisses'}
             active={parishActive}
+            onOpen={() => setOpenMenu('paroisses')}
             onToggle={() => setOpenMenu((m) => (m === 'paroisses' ? null : 'paroisses'))}
             onClose={() => setOpenMenu((m) => (m === 'paroisses' ? null : m))}
             onNavigate={closeAll}

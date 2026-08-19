@@ -1,8 +1,18 @@
 package com.eyram.dev.church_project_spring.security;
 
-import java.util.List;
-import java.util.Locale;
-
+import com.eyram.dev.church_project_spring.entities.Paroisse;
+import com.eyram.dev.church_project_spring.entities.ParoisseAccess;
+import com.eyram.dev.church_project_spring.entities.User;
+import com.eyram.dev.church_project_spring.enums.UserRole;
+import com.eyram.dev.church_project_spring.repositories.ParoisseAccessRepository;
+import com.eyram.dev.church_project_spring.repositories.UserRepository;
+import com.eyram.dev.church_project_spring.security.dto.LoginRequest;
+import com.eyram.dev.church_project_spring.security.dto.MultiTenantLoginResponse;
+import com.eyram.dev.church_project_spring.security.jwt.JwtUtils;
+import com.eyram.dev.church_project_spring.utils.exception.AccountDisabledException;
+import com.eyram.dev.church_project_spring.utils.exception.InvalidCredentialsException;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationServiceException;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -12,27 +22,10 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.eyram.dev.church_project_spring.entities.Paroisse;
-import com.eyram.dev.church_project_spring.entities.ParoisseAccess;
-import com.eyram.dev.church_project_spring.entities.User;
-import com.eyram.dev.church_project_spring.repositories.ParoisseAccessRepository;
-import com.eyram.dev.church_project_spring.repositories.UserRepository;
-import com.eyram.dev.church_project_spring.security.dto.LoginRequest;
-import com.eyram.dev.church_project_spring.security.dto.MultiTenantLoginResponse;
-import com.eyram.dev.church_project_spring.security.jwt.JwtUtils;
-import com.eyram.dev.church_project_spring.utils.exception.AccountDisabledException;
-import com.eyram.dev.church_project_spring.utils.exception.InvalidCredentialsException;
+import java.util.List;
+import java.util.Locale;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-
-/**
- * Service d'authentification tenant-aware.
- *
- * Le modèle courant autorise :
- * - un utilisateur global sans paroisse sélectionnée ;
- * - un utilisateur local avec exactement une paroisse active.
- */
+/** Authentification tenant-aware avec validation stricte du périmètre global/local. */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -62,35 +55,23 @@ public class MultiTenantAuthService {
             UserDetailsImpl principal = (UserDetailsImpl) authentication.getPrincipal();
 
             User user = userRepository.findByUsernameIgnoreCaseAndStatusDelFalse(principal.getUsername())
-                    .orElseThrow(() -> {
-                        log.warn("User not found after successful authentication: {}", principal.getUsername());
-                        return new InvalidCredentialsException("Identifiants incorrects");
-                    });
+                    .orElseThrow(() -> new InvalidCredentialsException("Identifiants incorrects"));
 
             validateAuthenticatedUser(user);
 
             List<ParoisseAccess> eligibleAccesses = findEligibleParoisseAccesses(user);
             List<ParoisseAccess> responseAccesses = resolveResponseAccesses(user, eligibleAccesses);
-
             List<MultiTenantLoginResponse.ParoisseAccessDto> paroissesDtos = responseAccesses.stream()
                     .map(this::mapParoisseAccess)
                     .toList();
-
             MultiTenantLoginResponse.ParoisseAccessDto selectedParoisse =
                     paroissesDtos.isEmpty() ? null : paroissesDtos.get(0);
 
             String token = jwtUtils.generateToken(principal);
-            MultiTenantLoginResponse.UserInfoDto userDto = mapUser(user);
-
-            log.info(
-                    "Login successful for user {} with selectedParoisse: {}",
-                    username,
-                    selectedParoisse != null ? selectedParoisse.getParoisseId() : "GLOBAL"
-            );
 
             return MultiTenantLoginResponse.builder()
                     .token(token)
-                    .user(userDto)
+                    .user(mapUser(user))
                     .paroisses(paroissesDtos)
                     .selectedParoisse(selectedParoisse)
                     .build();
@@ -109,7 +90,6 @@ public class MultiTenantAuthService {
         }
     }
 
-    /** Reconstruit le contexte session sans régénérer de jeton. */
     @Transactional(readOnly = true)
     public MultiTenantLoginResponse currentSession(UserDetailsImpl principal) {
         if (principal == null) {
@@ -142,7 +122,7 @@ public class MultiTenantAuthService {
                 .prenom(user.getPrenom())
                 .username(user.getUsername())
                 .role(user.getRole().name())
-                .permissions(RolePermissions.authoritiesFor(user.getRole()).stream().toList())
+                .permissions(RolePermissions.authoritiesFor(user.getRole()).stream().sorted().toList())
                 .isGlobal(user.getIsGlobal())
                 .build();
     }
@@ -151,10 +131,22 @@ public class MultiTenantAuthService {
         if (!Boolean.TRUE.equals(user.getIsActive())) {
             throw new AccountDisabledException("Compte désactivé. Contactez un administrateur.");
         }
-
         if (user.getRole() == null) {
             throw new AccountDisabledException(
                     "Le compte ne possède aucun rôle valide. Contactez un administrateur."
+            );
+        }
+
+        boolean platformRole = user.getRole() == UserRole.SUPER_ADMIN
+                || user.getRole() == UserRole.COMPTABLE;
+        boolean global = Boolean.TRUE.equals(user.getIsGlobal());
+        if (platformRole != global) {
+            log.error(
+                    "Security configuration mismatch for user {}: role={}, isGlobal={}",
+                    user.getUsername(), user.getRole(), user.getIsGlobal()
+            );
+            throw new AccountDisabledException(
+                    "Configuration de sécurité du compte invalide. Contactez un administrateur."
             );
         }
     }
@@ -168,16 +160,12 @@ public class MultiTenantAuthService {
                 .toList();
     }
 
-    private List<ParoisseAccess> resolveResponseAccesses(
-            User user,
-            List<ParoisseAccess> eligibleAccesses
-    ) {
+    private List<ParoisseAccess> resolveResponseAccesses(User user, List<ParoisseAccess> eligibleAccesses) {
         if (Boolean.TRUE.equals(user.getIsGlobal())) {
             if (!eligibleAccesses.isEmpty()) {
                 log.warn(
                         "Global user {} has {} parish assignment(s); they are ignored during login",
-                        user.getUsername(),
-                        eligibleAccesses.size()
+                        user.getUsername(), eligibleAccesses.size()
                 );
             }
             return List.of();
@@ -186,12 +174,10 @@ public class MultiTenantAuthService {
         if (eligibleAccesses.size() != 1) {
             log.warn(
                     "Local user {} has {} eligible active parish assignment(s)",
-                    user.getUsername(),
-                    eligibleAccesses.size()
+                    user.getUsername(), eligibleAccesses.size()
             );
             throw new AccountDisabledException(INVALID_LOCAL_ACCOUNT_MESSAGE);
         }
-
         return eligibleAccesses;
     }
 

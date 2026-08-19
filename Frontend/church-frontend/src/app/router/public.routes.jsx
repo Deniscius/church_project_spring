@@ -13,6 +13,7 @@ const TrackingResultPage = lazy(() => import('../../pages/public/TrackingResultP
 const PublicInvoicePage = lazy(() => import('../../pages/public/PublicInvoicePage'));
 const PublicPaymentPage = lazy(() => import('../../pages/public/PublicPaymentPage'));
 const PaymentReturnPage = lazy(() => import('../../pages/public/PaymentReturnPage'));
+const OffersPage = lazy(() => import('../../pages/public/OffersPage'));
 const ParishRegistrationPage = lazy(() => import('../../pages/public/ParishRegistrationPage'));
 const PublicSchedulesPage = lazy(() => import('../../pages/public/PublicSchedulesPage'));
 const SiteMapPage = lazy(() => import('../../pages/public/SiteMapPage'));
@@ -44,6 +45,7 @@ export function PublicRoutes() {
         <Route path="/paiement" element={<PublicPaymentPage />} />
         <Route path="/paiement/retour" element={<PaymentReturnPage />} />
         <Route path="/paiement/:codeSuivie" element={<PublicPaymentPage />} />
+        <Route path="/offres" element={<OffersPage />} />
         <Route path="/inscription-paroisse" element={<ParishRegistrationPage />} />
         <Route path="/plan-du-site" element={<SiteMapPage />} />
       </Route>

@@ -10,6 +10,7 @@ const FIDELE_LINKS = [
 ];
 
 const PARISH_LINKS = [
+  { to: '/offres', label: 'Voir les offres' },
   { to: '/inscription-paroisse', label: 'Inscrire ma paroisse' },
   { to: '/admin/login', label: 'Espace paroisse' },
 ];

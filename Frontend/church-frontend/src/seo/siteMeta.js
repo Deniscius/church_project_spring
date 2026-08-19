@@ -60,6 +60,13 @@ export const PUBLIC_INDEXABLE_ROUTES = [
     priority: '0.85',
   },
   {
+    path: '/offres',
+    label: 'Offres pour les paroisses',
+    description: 'Formules d’abonnement Missanye pour les paroisses, prix et durées à jour.',
+    changefreq: 'weekly',
+    priority: '0.8',
+  },
+  {
     path: '/inscription-paroisse',
     label: 'Inscrire ma paroisse',
     description: 'Demande d’inscription d’une paroisse à la plateforme SaaS.',
@@ -118,6 +125,13 @@ export const ROUTE_META = [
     ogType: 'website',
   },
   {
+    test: (p) => p === '/offres',
+    title: `Offres paroisses — ${SITE_NAME}`,
+    description:
+      'Comparez les formules d’abonnement Missanye pour votre paroisse : prix en FCFA, durée, coût mensuel équivalent et inscription guidée.',
+    ogType: 'website',
+  },
+  {
     test: (p) => p === '/inscription-paroisse',
     title: `Inscrire ma paroisse — ${SITE_NAME}`,
     description:
@@ -128,7 +142,7 @@ export const ROUTE_META = [
     test: (p) => p === '/plan-du-site',
     title: `Plan du site — ${SITE_NAME}`,
     description:
-      'Navigation structurée des pages publiques : demandes, suivi, horaires et inscription paroisse.',
+      'Navigation structurée des pages publiques : demandes, suivi, horaires, offres et inscription paroisse.',
     ogType: 'website',
   },
   {

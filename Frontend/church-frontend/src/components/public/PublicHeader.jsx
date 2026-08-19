@@ -173,8 +173,7 @@ function NavDropdown({
   );
 }
 
-export default function PublicHeader() {
-  const { pathname } = useLocation();
+function PublicHeaderContent({ pathname }) {
   const navigationBoundaryRef = useRef(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [openMenu, setOpenMenu] = useState(null);
@@ -184,11 +183,6 @@ export default function PublicHeader() {
     setMenuOpen(false);
     setOpenMenu(null);
   };
-
-  useEffect(() => {
-    setMenuOpen(false);
-    setOpenMenu(null);
-  }, [pathname]);
 
   useEffect(() => {
     if (!openMenu && !menuOpen) return undefined;
@@ -285,4 +279,9 @@ export default function PublicHeader() {
       </div>
     </header>
   );
+}
+
+export default function PublicHeader() {
+  const { pathname } = useLocation();
+  return <PublicHeaderContent key={pathname} pathname={pathname} />;
 }

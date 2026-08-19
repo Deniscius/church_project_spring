@@ -183,7 +183,6 @@ export default function OffersPage() {
             <div className="offers-plan-grid">
               {plans.map((plan) => {
                 const saving = savingsPercent(plan, monthlyReference);
-                const registrationUrl = `${ROUTES.PARISH_REGISTRATION}?plan=${encodeURIComponent(plan.code)}`;
                 return (
                   <article
                     key={plan.id || plan.code}
@@ -220,11 +219,11 @@ export default function OffersPage() {
                     <div className="offers-plan-footer">
                       <Link
                         className={`btn ${plan.featured ? 'btn-primary' : 'btn-secondary'} offers-plan-cta`}
-                        to={registrationUrl}
+                        to={ROUTES.PARISH_REGISTRATION}
                       >
-                        Choisir cette formule
+                        Continuer vers l’inscription
                       </Link>
-                      <small>Aucun paiement pendant le dépôt du dossier.</small>
+                      <small>Vous confirmerez la formule à l’étape « Formule ».</small>
                     </div>
                   </article>
                 );

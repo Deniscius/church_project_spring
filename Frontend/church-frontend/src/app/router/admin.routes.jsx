@@ -9,6 +9,7 @@ import { ROUTES } from '../../constants/routes';
 import PageSuspenseFallback from '../../components/ui/PageSuspenseFallback';
 
 const DashboardPage = lazy(() => import('../../pages/admin/DashboardPage'));
+const DailyProgrammePage = lazy(() => import('../../pages/admin/celebrations/DailyProgrammePage'));
 const RequestsPage = lazy(() => import('../../pages/admin/requests/RequestsPage'));
 const RequestDetailsPage = lazy(() => import('../../pages/admin/requests/RequestDetailsPage'));
 const EditRequestPage = lazy(() => import('../../pages/admin/requests/EditRequestPage'));
@@ -58,6 +59,7 @@ export function AdminRoutes() {
               <Route path={ROUTES.DASHBOARD} element={<DashboardPage />} />
             </Route>
             <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.DEMAND_READ]} />}>
+              <Route path={ROUTES.DAILY_PROGRAMME} element={<DailyProgrammePage />} />
               <Route path={ROUTES.REQUESTS} element={<RequestsPage />} />
               <Route path={ROUTES.REQUEST_DETAILS} element={<RequestDetailsPage />} />
               <Route path={ROUTES.CELEBRATION_SHEET} element={<CelebrationSheetPage />} />

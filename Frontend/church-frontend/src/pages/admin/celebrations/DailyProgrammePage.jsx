@@ -8,7 +8,8 @@ import AppDialog from '../../../components/ui/AppDialog';
 import AppSelect from '../../../components/ui/AppSelect';
 import { useTenant } from '../../../hooks/useTenant';
 import { usePermissions } from '../../../hooks/usePermissions';
-import { PERMISSIONS, ROUTES } from '../../../constants/roles';
+import { PERMISSIONS } from '../../../constants/roles';
+import { ROUTES } from '../../../constants/routes';
 import { formatParishTimeInUserZone } from '../../../utils/formatTime';
 import { dashboardService } from '../../../services/dashboard.service';
 import { useParishProgrammeQuery } from '../../../hooks/queries/useParishProgramme';
@@ -126,7 +127,7 @@ export default function DailyProgrammePage() {
           ? 'Historique de la journée — les célébrations passées sont conservées en lecture seule.'
           : 'Pilotez les intentions réellement programmées et ajustez leur créneau si nécessaire.'}
         actions={(
-          <Link className="btn btn-secondary" to="/admin/dashboard">
+          <Link className="btn btn-secondary" to={ROUTES.DASHBOARD}>
             Retour au dashboard
           </Link>
         )}

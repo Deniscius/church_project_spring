@@ -3,26 +3,49 @@ import { requestService } from '../../services/request.service';
 
 export const parishDemandeKeys = {
   all: (parishId) => ['demandes', 'paroisse', parishId],
-  page: (parishId, page, size, includeDeleted = false) => [
+  page: (parishId, page, size, includeDeleted = false, search = '') => [
     ...parishDemandeKeys.all(parishId),
     'page',
     page,
     size,
     includeDeleted ? 'with-deleted' : 'active',
+    search || 'no-search',
   ],
   stats: (parishId) => [...parishDemandeKeys.all(parishId), 'stats'],
 };
 
-/** Liste paginée — seul mode supporté (montée en charge). */
-export function useParishDemandesPage(parishId, page = 0, size = 20, includeDeleted = false) {
+/** Liste paginée — recherche serveur si un terme est fourni. */
+export function useParishDemandesPage(
+  parishId,
+  page = 0,
+  size = 20,
+  includeDeleted = false,
+  search = ''
+) {
+  const normalizedSearch = search.trim();
+
   return useQuery({
-    queryKey: parishDemandeKeys.page(parishId, page, size, includeDeleted),
-    queryFn: ({ signal }) => requestService.getByParish(parishId, {
+    queryKey: parishDemandeKeys.page(
+      parishId,
       page,
       size,
       includeDeleted,
-      signal,
-    }),
+      normalizedSearch
+    ),
+    queryFn: ({ signal }) => normalizedSearch
+      ? requestService.searchByParish(parishId, {
+          query: normalizedSearch,
+          page,
+          size,
+          includeDeleted,
+          signal,
+        })
+      : requestService.getByParish(parishId, {
+          page,
+          size,
+          includeDeleted,
+          signal,
+        }),
     enabled: Boolean(parishId),
     staleTime: 60_000,
     placeholderData: keepPreviousData,

@@ -29,10 +29,7 @@ export const ROLE_DESCRIPTIONS = {
   SUPER_ADMIN: 'Super Administrateur - Administration globale et intervention multi-tenant',
 };
 
-/**
- * Noms publics des authorities RBAC du backend.
- * Ces constantes évitent les chaînes magiques dans les composants et routes.
- */
+/** Noms publics des authorities RBAC du backend. */
 export const PERMISSIONS = {
   DASHBOARD_VIEW: 'dashboard:view',
 
@@ -48,6 +45,14 @@ export const PERMISSIONS = {
   PAYMENT_DELETE: 'payment:delete',
 
   TREASURY_READ: 'treasury:read',
+  TREASURY_MANAGE: 'treasury:manage',
+  PAYOUT_MANAGE: 'payout:manage',
+
+  SUBSCRIPTION_READ: 'subscription:read',
+  SUBSCRIPTION_CHECKOUT: 'subscription:checkout',
+  SUBSCRIPTION_ACTIVATE: 'subscription:activate',
+  SUBSCRIPTION_MANAGE: 'subscription:manage',
+
   RECEIPT_MANAGE: 'receipt:manage',
 
   INVOICE_READ: 'invoice:read',

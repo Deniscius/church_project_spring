@@ -309,10 +309,6 @@ export default function RequestsPage() {
         <p className="muted">
           {totalElements} demande{totalElements > 1 ? 's' : ''} archivée{totalElements > 1 ? 's' : ''}
         </p>
-      ) : (
-        <p className="muted">
-          {totalElements} demande{totalElements > 1 ? 's' : ''} archivée{totalElements > 1 ? 's' : ''}
-        </p>
       )}
 
       <AppDialog

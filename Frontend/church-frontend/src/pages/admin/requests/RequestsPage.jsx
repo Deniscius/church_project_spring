@@ -33,6 +33,14 @@ const columns = [
   { key: 'actions', label: 'Actions' },
 ];
 
+function normalizeSearchText(value) {
+  return String(value ?? '').trim().toLocaleLowerCase('fr');
+}
+
+function digitsOnly(value) {
+  return String(value ?? '').replace(/\D/g, '');
+}
+
 export default function RequestsPage() {
   const { user } = useAuth();
   const { activeParish } = useTenant();
@@ -42,6 +50,7 @@ export default function RequestsPage() {
 
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   // Comptable : toutes les demandes (actives + archivées) par défaut.
   const [listScope, setListScope] = useState(isAccountant ? 'ALL' : 'ACTIVE');
   const [deletedRows, setDeletedRows] = useState([]);
@@ -67,11 +76,19 @@ export default function RequestsPage() {
   const includeDeleted = listScope === 'ALL';
   const showDeletedOnly = listScope === 'DELETED';
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedSearch(search.trim());
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+
   const { data, isLoading, error, isFetching } = useParishDemandesPage(
     showDeletedOnly ? null : activeParish?.id,
     page,
     PAGE_SIZE,
-    includeDeleted
+    includeDeleted,
+    debouncedSearch
   );
 
   useEffect(() => {
@@ -107,11 +124,19 @@ export default function RequestsPage() {
 
   const filteredRows = useMemo(() => {
     const source = showDeletedOnly ? deletedRows : rows;
+    const term = normalizeSearchText(search);
+    const phoneTerm = digitsOnly(search);
+
     return source.filter((row) => {
-      const term = search.trim().toLocaleLowerCase('fr');
+      const rawPhone = row._raw?.telFidele || '';
+      const matchesPhone = Boolean(term) && (
+        normalizeSearchText(rawPhone).includes(term)
+        || (phoneTerm.length >= 4 && digitsOnly(rawPhone).includes(phoneTerm))
+      );
       const matchesSearch = !term
-        || row.trackingCode?.toLocaleLowerCase('fr').includes(term)
-        || row.applicant?.toLocaleLowerCase('fr').includes(term);
+        || normalizeSearchText(row.trackingCode).includes(term)
+        || normalizeSearchText(row.applicant).includes(term)
+        || matchesPhone;
       if (showDeletedOnly) return matchesSearch;
       return matchesSearch
         && (!statusFilter || row.requestStatus === statusFilter)
@@ -197,9 +222,12 @@ export default function RequestsPage() {
         ) : null}
         <input
           className="input"
-          placeholder="Rechercher (code ou demandeur)"
+          placeholder="Rechercher (code, demandeur ou téléphone)"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(0);
+          }}
         />
       </div>
       <AppTable

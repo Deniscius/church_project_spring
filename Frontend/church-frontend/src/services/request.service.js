@@ -39,6 +39,27 @@ export const requestService = {
     );
   },
 
+  /** Recherche serveur : code, demandeur ou téléphone, sur toute la paroisse. */
+  searchByParish: (paroissePublicId, options = {}) => {
+    const {
+      query = '',
+      page = 0,
+      size = 20,
+      includeDeleted = false,
+      signal,
+    } = options;
+    const params = new URLSearchParams();
+    params.set('q', query);
+    params.set('page', String(page));
+    params.set('size', String(size));
+    params.set('includeDeleted', includeDeleted ? 'true' : 'false');
+    return apiClient(
+      `/demandes/paroisse/${paroissePublicId}/recherche?${params.toString()}`,
+      {},
+      { auth: true, signal }
+    );
+  },
+
   getParishStats: (paroissePublicId, options = {}) =>
     apiClient(`/demandes/paroisse/${paroissePublicId}/stats`, {}, { auth: true, signal: options.signal }),
 

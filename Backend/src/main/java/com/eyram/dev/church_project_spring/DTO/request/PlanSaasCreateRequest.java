@@ -11,7 +11,7 @@ public record PlanSaasCreateRequest(
         @NotBlank(message = "Le code du plan est obligatoire")
         @Size(max = 30, message = "Le code du plan ne peut pas dépasser 30 caractères")
         @Pattern(
-                regexp = "^[A-Za-z0-9][A-Za-z0-9_-]{1,29}$",
+                regexp = "^[A-Za-z0-9][A-Za-z0-9_-]{0,29}$",
                 message = "Le code doit contenir uniquement des lettres, chiffres, tirets ou underscores"
         )
         String code,

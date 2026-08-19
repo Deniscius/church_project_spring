@@ -13,6 +13,7 @@ public record HoraireResponse(
         Boolean isActive,
         LocalDate dateSpecifique,
         Boolean uniqueSurParoisse,
+        Boolean programmeJourOverride,
         String natureHonoraire,
         UUID paroissePublicId,
         String paroisseNom,

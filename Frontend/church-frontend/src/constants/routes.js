@@ -11,6 +11,7 @@ export const ROUTES = {
   TRACKING: '/suivi',
   TRACKING_RESULT: '/suivi/resultat',
   PUBLIC_SCHEDULES: '/horaires',
+  OFFERS: '/offres',
   PARISH_REGISTRATION: '/inscription-paroisse',
   SITE_MAP: '/plan-du-site',
   PUBLIC_INVOICE: '/facture',

@@ -1,11 +1,8 @@
 package com.eyram.dev.church_project_spring.entities;
 
-import com.eyram.dev.church_project_spring.enums.PlanAbonnement;
 import com.eyram.dev.church_project_spring.utils.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -21,9 +18,10 @@ import java.util.UUID;
 /**
  * Catalogue tarifaire global du SaaS.
  *
- * Le code du plan reste porté par {@link PlanAbonnement} pour préserver la
- * compatibilité avec les inscriptions et abonnements existants. Les valeurs
- * commerciales (prix, durée, libellé) sont administrables sans redéploiement.
+ * Le code est un identifiant métier immuable administrable par le SUPER_ADMIN.
+ * Les valeurs commerciales (prix, durée, libellé, disponibilité) sont modifiables
+ * sans redéploiement. Les abonnements déjà créés conservent leur snapshot montant
+ * + durée et ne sont donc jamais recalculés rétroactivement.
  */
 @Entity
 @Table(
@@ -43,9 +41,8 @@ public class PlanSaas extends BaseEntity {
     @Column(name = "public_id", nullable = false, unique = true, updatable = false)
     private UUID publicId;
 
-    @Enumerated(EnumType.STRING)
     @Column(name = "code", nullable = false, length = 30, updatable = false)
-    private PlanAbonnement code;
+    private String code;
 
     @Column(name = "nom", nullable = false, length = 100)
     private String nom;

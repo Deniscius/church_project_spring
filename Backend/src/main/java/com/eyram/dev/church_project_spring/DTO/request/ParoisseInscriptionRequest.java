@@ -1,6 +1,5 @@
 package com.eyram.dev.church_project_spring.DTO.request;
 
-import com.eyram.dev.church_project_spring.enums.PlanAbonnement;
 import com.eyram.dev.church_project_spring.enums.RoleParoisse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
@@ -17,7 +16,7 @@ public record ParoisseInscriptionRequest(
         @Email @Size(max = 150) String email,
         @Size(max = 50) String telephone,
         @NotNull UUID doyennePublicId,
-        @NotNull PlanAbonnement planAbonnement,
+        @NotBlank @Size(max = 30) String planAbonnement,
         @NotBlank @Size(max = 80) String adminNom,
         @NotBlank @Size(max = 80) String adminPrenom,
         /** E-mail personnel vérifié par OTP — requis. */

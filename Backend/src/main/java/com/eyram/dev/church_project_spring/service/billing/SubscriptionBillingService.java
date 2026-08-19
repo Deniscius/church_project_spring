@@ -8,7 +8,6 @@ import com.eyram.dev.church_project_spring.entities.Paroisse;
 import com.eyram.dev.church_project_spring.entities.ParoisseAbonnement;
 import com.eyram.dev.church_project_spring.entities.ParoisseAccess;
 import com.eyram.dev.church_project_spring.entities.PlanSaas;
-import com.eyram.dev.church_project_spring.enums.PlanAbonnement;
 import com.eyram.dev.church_project_spring.enums.StatutAbonnement;
 import com.eyram.dev.church_project_spring.enums.StatutTenant;
 import com.eyram.dev.church_project_spring.repositories.ParoisseAbonnementRepository;
@@ -60,12 +59,12 @@ public class SubscriptionBillingService {
     private final CacheManager cacheManager;
 
     @Transactional
-    public ParoisseAbonnement createPending(Paroisse paroisse, PlanAbonnement plan) {
+    public ParoisseAbonnement createPending(Paroisse paroisse, String plan) {
         PlanSaas pricing = planSaasService.requireActive(plan);
 
         ParoisseAbonnement abonnement = new ParoisseAbonnement();
         abonnement.setParoisse(paroisse);
-        abonnement.setPlan(plan);
+        abonnement.setPlan(pricing.getCode());
         abonnement.setMontant(pricing.getMontantXof());
         abonnement.setDureeMois(pricing.getDureeMois());
         abonnement.setStatut(StatutAbonnement.EN_ATTENTE);
@@ -76,7 +75,7 @@ public class SubscriptionBillingService {
     /**
      * Crée l'abonnement en base, appelle FedaPay hors transaction, puis persiste l'URL.
      */
-    public Map<String, Object> checkout(UUID paroissePublicId, PlanAbonnement plan) {
+    public Map<String, Object> checkout(UUID paroissePublicId, String plan) {
         SubscriptionCheckoutPrep prep = transactionTemplate.execute(status ->
                 prepareSubscriptionCheckout(paroissePublicId, plan)
         );
@@ -103,17 +102,19 @@ public class SubscriptionBillingService {
         );
     }
 
-    private SubscriptionCheckoutPrep prepareSubscriptionCheckout(UUID paroissePublicId, PlanAbonnement plan) {
+    private SubscriptionCheckoutPrep prepareSubscriptionCheckout(UUID paroissePublicId, String plan) {
         Paroisse paroisse = paroisseRepository.findByPublicIdAndStatusDelFalse(paroissePublicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Paroisse introuvable"));
 
-        PlanAbonnement effectivePlan = plan != null ? plan : PlanAbonnement.MENSUEL;
+        String effectivePlan = StringUtils.hasText(plan)
+                ? planSaasService.requireActive(plan).getCode()
+                : planSaasService.requireDefaultActive().getCode();
         ParoisseAbonnement abonnement = createPending(paroisse, effectivePlan);
 
         if (!fedaPayProperties.isEnabled() || !StringUtils.hasText(fedaPayProperties.getSecretKey())) {
             return SubscriptionCheckoutPrep.done(Map.of(
                     "abonnementPublicId", abonnement.getPublicId(),
-                    "plan", effectivePlan.name(),
+                    "plan", effectivePlan,
                     "montant", abonnement.getMontant(),
                     "paymentUrl", "",
                     "providerTransactionId", "",
@@ -132,13 +133,13 @@ public class SubscriptionBillingService {
         metadata.put("type", "ABONNEMENT");
         metadata.put("paroissePublicId", paroisse.getPublicId().toString());
         metadata.put("abonnementPublicId", abonnement.getPublicId().toString());
-        metadata.put("plan", effectivePlan.name());
+        metadata.put("plan", effectivePlan);
 
         return new SubscriptionCheckoutPrep(
                 null,
                 abonnement.getPublicId(),
                 effectivePlan,
-                "Abonnement plateforme " + effectivePlan.name() + " — " + paroisse.getNom(),
+                "Abonnement plateforme " + effectivePlan + " — " + paroisse.getNom(),
                 abonnement.getMontant(),
                 fedaPayProperties.getCallbackBaseUrl(),
                 customer,
@@ -159,7 +160,7 @@ public class SubscriptionBillingService {
 
         return Map.of(
                 "abonnementPublicId", abonnement.getPublicId(),
-                "plan", prep.plan().name(),
+                "plan", prep.plan(),
                 "montant", prep.montant(),
                 "paymentUrl", token.url(),
                 "providerTransactionId", String.valueOf(created.id())
@@ -169,7 +170,7 @@ public class SubscriptionBillingService {
     private record SubscriptionCheckoutPrep(
             Map<String, Object> earlyResponse,
             UUID abonnementPublicId,
-            PlanAbonnement plan,
+            String plan,
             String description,
             int montant,
             String callbackUrl,
@@ -204,7 +205,7 @@ public class SubscriptionBillingService {
      * Après cet appel, l'admin local peut se connecter.
      */
     @Transactional
-    public Map<String, Object> activateManually(UUID paroissePublicId, PlanAbonnement plan) {
+    public Map<String, Object> activateManually(UUID paroissePublicId, String plan) {
         Paroisse paroisse = paroisseRepository.findByPublicIdAndStatusDelFalse(paroissePublicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Paroisse introuvable"));
         if (Boolean.TRUE.equals(paroisse.getIsSystem())) {
@@ -222,11 +223,13 @@ public class SubscriptionBillingService {
 
         if (abonnement == null) {
             abonnement = createPending(paroisse, resolvePlan(paroisse, plan));
-        } else if (plan != null && plan != abonnement.getPlan()) {
+        } else if (StringUtils.hasText(plan)) {
             PlanSaas pricing = planSaasService.requireActive(plan);
-            abonnement.setPlan(plan);
-            abonnement.setMontant(pricing.getMontantXof());
-            abonnement.setDureeMois(pricing.getDureeMois());
+            if (!pricing.getCode().equals(abonnement.getPlan())) {
+                abonnement.setPlan(pricing.getCode());
+                abonnement.setMontant(pricing.getMontantXof());
+                abonnement.setDureeMois(pricing.getDureeMois());
+            }
         }
 
         boolean renouvellement = Boolean.TRUE.equals(paroisse.getIsActive())
@@ -245,7 +248,7 @@ public class SubscriptionBillingService {
         return Map.of(
                 "paroissePublicId", paroisse.getPublicId(),
                 "statut", "ACTIF",
-                "plan", abonnement.getPlan().name(),
+                "plan", abonnement.getPlan(),
                 "finAt", abonnement.getFinAt() != null ? abonnement.getFinAt().toString() : "",
                 "message", renouvellement
                         ? "Abonnement renouvelé — nouvelle échéance le "
@@ -255,16 +258,27 @@ public class SubscriptionBillingService {
     }
 
     /** Reconduit le plan en cours à défaut d'indication explicite. */
-    private PlanAbonnement resolvePlan(Paroisse paroisse, PlanAbonnement plan) {
-        if (plan != null) {
-            return plan;
+    private String resolvePlan(Paroisse paroisse, String plan) {
+        if (StringUtils.hasText(plan)) {
+            return planSaasService.requireActive(plan).getCode();
         }
-        return abonnementRepository
+
+        String currentPlan = abonnementRepository
                 .findFirstByParoisseAndStatutAndStatusDelFalseOrderByFinAtDesc(
                         paroisse, StatutAbonnement.ACTIF
                 )
                 .map(ParoisseAbonnement::getPlan)
-                .orElse(PlanAbonnement.MENSUEL);
+                .orElse(null);
+
+        if (StringUtils.hasText(currentPlan)) {
+            try {
+                return planSaasService.requireActive(currentPlan).getCode();
+            } catch (RuntimeException ignored) {
+                // Le plan historique a pu être désactivé : on bascule alors
+                // vers la formule active recommandée plutôt que de bloquer le renouvellement.
+            }
+        }
+        return planSaasService.requireDefaultActive().getCode();
     }
 
     /**
@@ -404,7 +418,7 @@ public class SubscriptionBillingService {
                 .findByParoisseAndStatusDelFalseOrderByCreatedAtDesc(paroisse)
                 .stream()
                 .findFirst()
-                .orElseGet(() -> createPending(paroisse, PlanAbonnement.MENSUEL));
+                .orElseGet(() -> createPending(paroisse, planSaasService.requireDefaultActive().getCode()));
 
         abonnement.setStatut(StatutAbonnement.ACTIF);
         if (abonnement.getDebutAt() == null) {
@@ -540,5 +554,4 @@ public class SubscriptionBillingService {
         abonnement.setStatut(StatutAbonnement.ANNULE);
         abonnementRepository.save(abonnement);
     }
-
 }

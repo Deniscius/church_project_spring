@@ -28,6 +28,17 @@ const toForm = (plan) => ({
   ordreAffichage: String(plan.ordreAffichage ?? 0),
 });
 
+const createFormDefaults = (ordreAffichage = 10) => ({
+  code: '',
+  nom: '',
+  description: '',
+  montantXof: '',
+  dureeMois: '',
+  actif: true,
+  featured: false,
+  ordreAffichage: String(ordreAffichage),
+});
+
 function hasUnsavedChanges(plan, form) {
   if (!plan || !form) return false;
   const initial = toForm(plan);
@@ -47,7 +58,61 @@ function durationLabel(months) {
   return `${value || 0} mois`;
 }
 
-function PricingPlanCard({ plan, onEdit }) {
+function normalizeCodeInput(value) {
+  return String(value || '')
+    .toUpperCase()
+    .replace(/\s+/g, '_')
+    .replace(/[^A-Z0-9_-]/g, '')
+    .slice(0, 30);
+}
+
+function validateCommercialValues(form, { requireCode = false } = {}) {
+  const code = normalizeCodeInput(form.code);
+  const montantXof = Number(form.montantXof);
+  const dureeMois = Number(form.dureeMois);
+  const ordreAffichage = Number(form.ordreAffichage);
+
+  if (requireCode && !code) {
+    return { error: 'Le code interne du plan est obligatoire.' };
+  }
+  if (requireCode && !/^[A-Z0-9][A-Z0-9_-]{0,29}$/.test(code)) {
+    return { error: 'Le code doit contenir uniquement des lettres, chiffres, tirets ou underscores.' };
+  }
+  if (!form.nom.trim()) {
+    return { error: 'Le nom commercial du plan est obligatoire.' };
+  }
+  if (!Number.isInteger(montantXof) || montantXof <= 0) {
+    return { error: 'Le prix doit être un montant entier supérieur à 0 FCFA.' };
+  }
+  if (!Number.isInteger(dureeMois) || dureeMois <= 0) {
+    return { error: 'La durée doit être exprimée en mois entiers et être supérieure à 0.' };
+  }
+  if (!Number.isInteger(ordreAffichage) || ordreAffichage < 0) {
+    return { error: 'L’ordre d’affichage doit être un entier positif ou nul.' };
+  }
+
+  return {
+    values: {
+      ...(requireCode ? { code } : {}),
+      nom: form.nom.trim(),
+      description: form.description.trim() || null,
+      montantXof,
+      dureeMois,
+      actif: Boolean(form.actif),
+      featured: Boolean(form.actif && form.featured),
+      ordreAffichage,
+    },
+  };
+}
+
+function PricingPlanCard({
+  plan,
+  position,
+  onEdit,
+  onToggleActive,
+  toggleDisabled,
+  editDisabled,
+}) {
   const monthly = monthlyEquivalent(plan);
 
   return (
@@ -80,16 +145,33 @@ function PricingPlanCard({ plan, onEdit }) {
           <strong>{monthly != null ? formatCurrency(monthly) : '—'}</strong>
         </div>
         <div>
-          <span>Position</span>
-          <strong>#{Number(plan.ordreAffichage ?? 0) + 1}</strong>
+          <span>Position d’affichage</span>
+          <strong>#{position}</strong>
         </div>
       </div>
 
       <div className="saas-plan-card-footer">
-        <span className="saas-plan-contract-note">Nouveaux abonnements uniquement</span>
-        <AppButton variant="secondary" size="sm" onClick={() => onEdit(plan)}>
-          Modifier le plan
-        </AppButton>
+        <span className="saas-plan-contract-note">
+          {plan.actif ? 'Proposé aux nouvelles souscriptions' : 'Masqué aux nouvelles souscriptions'}
+        </span>
+        <div className="saas-plan-card-actions">
+          <AppButton
+            variant="secondary"
+            size="sm"
+            onClick={() => onToggleActive(plan)}
+            disabled={toggleDisabled}
+          >
+            {plan.actif ? 'Désactiver' : 'Activer'}
+          </AppButton>
+          <AppButton
+            variant="secondary"
+            size="sm"
+            onClick={() => onEdit(plan)}
+            disabled={editDisabled}
+          >
+            Modifier
+          </AppButton>
+        </div>
       </div>
     </article>
   );
@@ -102,6 +184,10 @@ export default function SaasPricingPage() {
   const [savingId, setSavingId] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [discardIntent, setDiscardIntent] = useState(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createBusy, setCreateBusy] = useState(false);
+  const [createForm, setCreateForm] = useState(() => createFormDefaults());
+  const [createError, setCreateError] = useState(null);
   const [error, setError] = useState(null);
   const [info, setInfo] = useState(null);
 
@@ -132,6 +218,10 @@ export default function SaasPricingPage() {
   );
   const selectedForm = selectedPlan ? forms[selectedPlan.publicId] || toForm(selectedPlan) : null;
   const selectedDirty = hasUnsavedChanges(selectedPlan, selectedForm);
+  const nextDisplayOrder = useMemo(() => {
+    if (!plans.length) return 10;
+    return Math.max(...plans.map((plan) => Number(plan.ordreAffichage) || 0)) + 10;
+  }, [plans]);
 
   useEffect(() => {
     if (!selectedDirty) return undefined;
@@ -163,6 +253,15 @@ export default function SaasPricingPage() {
     }));
   };
 
+  const setCreateField = (field, value) => {
+    setCreateError(null);
+    setCreateForm((current) => ({
+      ...current,
+      [field]: value,
+      ...(field === 'actif' && !value ? { featured: false } : {}),
+    }));
+  };
+
   const scrollToEditor = () => {
     window.requestAnimationFrame(() => {
       document.getElementById('saas-pricing-editor')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -188,6 +287,28 @@ export default function SaasPricingPage() {
     }
 
     activateEditor(plan);
+  };
+
+  const startCreate = () => {
+    setCreateForm(createFormDefaults(nextDisplayOrder));
+    setCreateError(null);
+    setError(null);
+    setInfo(null);
+    setCreateOpen(true);
+  };
+
+  const openCreate = () => {
+    if (selectedDirty) {
+      setDiscardIntent({ type: 'create' });
+      return;
+    }
+    startCreate();
+  };
+
+  const closeCreate = () => {
+    if (createBusy) return;
+    setCreateError(null);
+    setCreateOpen(false);
   };
 
   const requestRefresh = () => {
@@ -220,6 +341,12 @@ export default function SaasPricingPage() {
       return;
     }
 
+    if (intent.type === 'create') {
+      setEditingId(null);
+      startCreate();
+      return;
+    }
+
     if (intent.type === 'switch-plan') {
       const nextPlan = plans.find((plan) => plan.publicId === intent.planId);
       if (nextPlan) activateEditor(nextPlan);
@@ -232,28 +359,41 @@ export default function SaasPricingPage() {
     setError(null);
   };
 
-  const save = async (plan) => {
-    const form = forms[plan.publicId];
-    if (!form) return;
+  const createPlan = async () => {
+    const validated = validateCommercialValues(createForm, { requireCode: true });
+    if (validated.error) {
+      setCreateError(validated.error);
+      return;
+    }
 
-    const montantXof = Number(form.montantXof);
-    const dureeMois = Number(form.dureeMois);
-    const ordreAffichage = Number(form.ordreAffichage);
+    try {
+      setCreateBusy(true);
+      setCreateError(null);
+      setError(null);
+      setInfo(null);
+      const saved = await planSaasService.create(validated.values);
+      setCreateOpen(false);
+      await load({ silent: true });
+      setInfo(`La formule « ${saved.nom} » a été créée${saved.actif ? ' et est disponible aux paroisses' : ' en mode inactif'}.`);
+    } catch (e) {
+      setCreateError(e instanceof Error ? e.message : 'Création impossible');
+    } finally {
+      setCreateBusy(false);
+    }
+  };
 
-    if (!form.nom.trim()) {
-      setError('Le nom commercial du plan est obligatoire.');
-      return;
-    }
-    if (!Number.isInteger(montantXof) || montantXof <= 0) {
-      setError('Le prix doit être un montant entier supérieur à 0 FCFA.');
-      return;
-    }
-    if (!Number.isInteger(dureeMois) || dureeMois <= 0) {
-      setError('La durée doit être exprimée en mois entiers et être supérieure à 0.');
-      return;
-    }
-    if (!Number.isInteger(ordreAffichage) || ordreAffichage < 0) {
-      setError('L’ordre d’affichage doit être un entier positif ou nul.');
+  const toggleActive = async (plan) => {
+    if (selectedDirty) return;
+
+    const nextActive = !plan.actif;
+    const form = toForm(plan);
+    const validated = validateCommercialValues({
+      ...form,
+      actif: nextActive,
+      featured: nextActive ? form.featured : false,
+    });
+    if (validated.error) {
+      setError(validated.error);
       return;
     }
 
@@ -261,22 +401,40 @@ export default function SaasPricingPage() {
       setSavingId(plan.publicId);
       setError(null);
       setInfo(null);
-      const saved = await planSaasService.update(plan.publicId, {
-        nom: form.nom.trim(),
-        description: form.description.trim() || null,
-        montantXof,
-        dureeMois,
-        actif: Boolean(form.actif),
-        featured: Boolean(form.actif && form.featured),
-        ordreAffichage,
-      });
+      const saved = await planSaasService.update(plan.publicId, validated.values);
+      await load({ silent: true });
+      setInfo(
+        saved.actif
+          ? `La formule « ${saved.nom} » est de nouveau disponible aux nouvelles souscriptions.`
+          : `La formule « ${saved.nom} » est désactivée. Les abonnements historiques restent inchangés.`
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Mise à jour impossible');
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const save = async (plan) => {
+    const form = forms[plan.publicId];
+    if (!form) return;
+
+    const validated = validateCommercialValues(form);
+    if (validated.error) {
+      setError(validated.error);
+      return;
+    }
+
+    try {
+      setSavingId(plan.publicId);
+      setError(null);
+      setInfo(null);
+      const saved = await planSaasService.update(plan.publicId, validated.values);
 
       setPlans((current) => current.map((item) => item.publicId === saved.publicId ? saved : item));
       setForms((current) => ({ ...current, [saved.publicId]: toForm(saved) }));
 
-      if (saved.featured) {
-        await load({ silent: true });
-      }
+      await load({ silent: true });
 
       setEditingId(null);
       setInfo(`Le plan « ${saved.nom} » a été mis à jour. Les abonnements déjà facturés restent inchangés.`);
@@ -291,21 +449,26 @@ export default function SaasPricingPage() {
     <div className="stack saas-pricing-page">
       <PageHeader
         title="Tarification SaaS"
-        subtitle="Pilotez les formules proposées aux paroisses depuis une source de vérité unique."
+        subtitle="Créez, ordonnez et pilotez les formules proposées aux paroisses depuis une source de vérité unique."
         actions={(
-          <AppButton variant="secondary" onClick={requestRefresh} disabled={loading || Boolean(savingId)}>
-            {loading ? 'Actualisation…' : 'Actualiser'}
-          </AppButton>
+          <div className="button-row">
+            <AppButton variant="secondary" onClick={requestRefresh} disabled={loading || Boolean(savingId) || createBusy}>
+              {loading ? 'Actualisation…' : 'Actualiser'}
+            </AppButton>
+            <AppButton onClick={openCreate} disabled={loading || createBusy || Boolean(savingId)}>
+              + Nouvelle formule
+            </AppButton>
+          </div>
         )}
       />
 
       <section className="saas-pricing-hero" aria-label="Règle de tarification">
         <div>
-          <span className="saas-pricing-kicker">Catalogue commercial</span>
-          <h2>Des prix simples à administrer, sans casser l’historique</h2>
+          <span className="saas-pricing-kicker">Catalogue commercial dynamique</span>
+          <h2>Faites évoluer les offres sans redéployer l’application</h2>
           <p>
-            Une modification ici s’applique aux prochaines souscriptions et renouvellements.
-            Les montants et durées déjà vendus restent figés dans leurs abonnements.
+            Créez de nouvelles durées, activez ou masquez une formule et choisissez celle à recommander.
+            Les montants et durées déjà vendus restent figés dans l’historique des abonnements.
           </p>
         </div>
         <div className="saas-pricing-hero-chip">Source de vérité backend</div>
@@ -339,14 +502,23 @@ export default function SaasPricingPage() {
       {!loading && plans.length === 0 ? (
         <div className="card empty-state" role="status">
           <h3>Aucun plan SaaS configuré</h3>
-          <p>Le catalogue tarifaire ne contient actuellement aucune formule.</p>
+          <p>Créez la première formule commerciale à proposer aux paroisses.</p>
+          <AppButton onClick={openCreate}>Créer une formule</AppButton>
         </div>
       ) : null}
 
       {!loading && plans.length > 0 ? (
         <section className="saas-plan-grid" aria-label="Plans disponibles">
-          {plans.map((plan) => (
-            <PricingPlanCard key={plan.publicId} plan={plan} onEdit={openEditor} />
+          {plans.map((plan, index) => (
+            <PricingPlanCard
+              key={plan.publicId}
+              plan={plan}
+              position={index + 1}
+              onEdit={openEditor}
+              onToggleActive={toggleActive}
+              toggleDisabled={Boolean(savingId) || createBusy || selectedDirty}
+              editDisabled={Boolean(savingId) || createBusy}
+            />
           ))}
         </section>
       ) : null}
@@ -364,7 +536,7 @@ export default function SaasPricingPage() {
             <div>
               <span className="saas-pricing-kicker">Édition · {selectedPlan.code}</span>
               <h2>Modifier {selectedPlan.nom}</h2>
-              <p>Le code métier reste fixe. Seules les propriétés commerciales sont modifiables.</p>
+              <p>Le code interne reste fixe pour protéger l’historique. Les propriétés commerciales restent administrables.</p>
             </div>
             {selectedDirty ? <span className="saas-pricing-unsaved">Modifications non enregistrées</span> : null}
           </div>
@@ -394,7 +566,7 @@ export default function SaasPricingPage() {
                     value={selectedForm.montantXof}
                     onChange={(event) => setField(selectedPlan.publicId, 'montantXof', event.target.value)}
                   />
-                  <span className="muted text-sm">Montant envoyé au checkout pour les nouveaux abonnements.</span>
+                  <span className="muted text-sm">Montant appliqué aux prochaines souscriptions et renouvellements.</span>
                 </div>
 
                 <div className="form-field">
@@ -421,7 +593,7 @@ export default function SaasPricingPage() {
                     value={selectedForm.ordreAffichage}
                     onChange={(event) => setField(selectedPlan.publicId, 'ordreAffichage', event.target.value)}
                   />
-                  <span className="muted text-sm">0 s’affiche avant 1, puis 2, etc.</span>
+                  <span className="muted text-sm">Plus la valeur est petite, plus la formule apparaît tôt.</span>
                 </div>
 
                 <div className="form-field full">
@@ -489,7 +661,7 @@ export default function SaasPricingPage() {
 
           <div className="saas-pricing-editor-actions">
             <span className="muted text-sm">
-              Les abonnements déjà créés conservent leur montant et leur durée d’origine.
+              Désactiver une formule la retire des nouvelles souscriptions sans supprimer les contrats historiques.
             </span>
             <div className="button-row">
               <AppButton variant="secondary" onClick={cancelEdit} disabled={savingId === selectedPlan.publicId}>
@@ -508,9 +680,149 @@ export default function SaasPricingPage() {
       ) : null}
 
       <AppDialog
+        open={createOpen}
+        title="Créer une formule SaaS"
+        confirmLabel="Créer la formule"
+        cancelLabel="Annuler"
+        onConfirm={createPlan}
+        onCancel={closeCreate}
+        busy={createBusy}
+        size="lg"
+      >
+        <div className="saas-pricing-create-intro">
+          La nouvelle formule rejoint immédiatement le catalogue si elle est active. Son code interne devient immuable après création.
+        </div>
+        {createError ? <AppAlert variant="danger">{createError}</AppAlert> : null}
+        <div className="form-grid saas-pricing-create-grid">
+          <div className="form-field">
+            <label htmlFor="new-plan-code">Code interne *</label>
+            <AppInput
+              id="new-plan-code"
+              maxLength={30}
+              value={createForm.code}
+              disabled={createBusy}
+              onChange={(event) => setCreateField('code', normalizeCodeInput(event.target.value))}
+              placeholder="Ex. TRIMESTRIEL"
+            />
+            <span className="muted text-sm">Lettres, chiffres, tirets ou underscores. Non modifiable ensuite.</span>
+          </div>
+
+          <div className="form-field">
+            <label htmlFor="new-plan-name">Nom commercial *</label>
+            <AppInput
+              id="new-plan-name"
+              maxLength={100}
+              value={createForm.nom}
+              disabled={createBusy}
+              onChange={(event) => setCreateField('nom', event.target.value)}
+              placeholder="Ex. Trimestriel"
+            />
+          </div>
+
+          <div className="form-field">
+            <label htmlFor="new-plan-amount">Prix total (FCFA) *</label>
+            <AppInput
+              id="new-plan-amount"
+              type="number"
+              min="1"
+              step="1"
+              inputMode="numeric"
+              value={createForm.montantXof}
+              disabled={createBusy}
+              onChange={(event) => setCreateField('montantXof', event.target.value)}
+            />
+          </div>
+
+          <div className="form-field">
+            <label htmlFor="new-plan-duration">Durée (mois) *</label>
+            <AppInput
+              id="new-plan-duration"
+              type="number"
+              min="1"
+              step="1"
+              inputMode="numeric"
+              value={createForm.dureeMois}
+              disabled={createBusy}
+              onChange={(event) => setCreateField('dureeMois', event.target.value)}
+            />
+          </div>
+
+          <div className="form-field">
+            <label htmlFor="new-plan-order">Ordre d’affichage *</label>
+            <AppInput
+              id="new-plan-order"
+              type="number"
+              min="0"
+              step="1"
+              inputMode="numeric"
+              value={createForm.ordreAffichage}
+              disabled={createBusy}
+              onChange={(event) => setCreateField('ordreAffichage', event.target.value)}
+            />
+            <span className="muted text-sm">Prérempli après les formules existantes, mais vous pouvez le modifier.</span>
+          </div>
+
+          <div className="form-field full">
+            <label htmlFor="new-plan-description">Description commerciale</label>
+            <textarea
+              id="new-plan-description"
+              className="textarea"
+              maxLength={300}
+              rows={3}
+              value={createForm.description}
+              disabled={createBusy}
+              onChange={(event) => setCreateField('description', event.target.value)}
+              placeholder="Ex. Une formule souple pour les paroisses qui souhaitent s’engager par trimestre."
+            />
+            <span className="saas-pricing-char-count">{createForm.description.length}/300</span>
+          </div>
+        </div>
+
+        <div className="saas-pricing-create-options">
+          <label className="saas-pricing-switch-row">
+            <span>
+              <strong>Activer dès maintenant</strong>
+              <small>La formule sera visible sur la page des offres et pendant l’inscription.</small>
+            </span>
+            <span className="saas-pricing-switch">
+              <input
+                type="checkbox"
+                checked={createForm.actif}
+                disabled={createBusy}
+                onChange={(event) => setCreateField('actif', event.target.checked)}
+              />
+              <span aria-hidden="true" />
+            </span>
+          </label>
+
+          <label className={`saas-pricing-switch-row${!createForm.actif ? ' is-disabled' : ''}`}>
+            <span>
+              <strong>Définir comme recommandée</strong>
+              <small>Remplacera automatiquement la formule actuellement recommandée.</small>
+            </span>
+            <span className="saas-pricing-switch">
+              <input
+                type="checkbox"
+                checked={createForm.featured}
+                disabled={!createForm.actif || createBusy}
+                onChange={(event) => setCreateField('featured', event.target.checked)}
+              />
+              <span aria-hidden="true" />
+            </span>
+          </label>
+        </div>
+      </AppDialog>
+
+      <AppDialog
         open={Boolean(discardIntent)}
         title="Abandonner les modifications ?"
-        confirmLabel={discardIntent?.type === 'refresh' ? 'Actualiser quand même' : 'Changer de plan'}
+        confirmLabel={
+          discardIntent?.type === 'refresh'
+            ? 'Actualiser quand même'
+            : discardIntent?.type === 'create'
+              ? 'Créer une formule'
+              : 'Changer de plan'
+        }
         cancelLabel="Continuer l’édition"
         onConfirm={confirmDiscard}
         onCancel={() => setDiscardIntent(null)}

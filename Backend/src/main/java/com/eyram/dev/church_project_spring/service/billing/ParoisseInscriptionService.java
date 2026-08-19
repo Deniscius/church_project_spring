@@ -8,8 +8,8 @@ import com.eyram.dev.church_project_spring.entities.Paroisse;
 import com.eyram.dev.church_project_spring.entities.ParoisseAccess;
 import com.eyram.dev.church_project_spring.entities.ParoisseInscription;
 import com.eyram.dev.church_project_spring.entities.ParoisseInscriptionMembre;
+import com.eyram.dev.church_project_spring.entities.PlanSaas;
 import com.eyram.dev.church_project_spring.entities.User;
-import com.eyram.dev.church_project_spring.enums.PlanAbonnement;
 import com.eyram.dev.church_project_spring.enums.RoleParoisse;
 import com.eyram.dev.church_project_spring.enums.StatutInscription;
 import com.eyram.dev.church_project_spring.enums.StatutTenant;
@@ -20,9 +20,9 @@ import com.eyram.dev.church_project_spring.repositories.ParoisseInscriptionRepos
 import com.eyram.dev.church_project_spring.repositories.ParoisseRepository;
 import com.eyram.dev.church_project_spring.repositories.UserRepository;
 import com.eyram.dev.church_project_spring.service.PlanSaasService;
+import com.eyram.dev.church_project_spring.service.ProfessionalEmailService;
 import com.eyram.dev.church_project_spring.service.accounting.ParishLedgerService;
 import com.eyram.dev.church_project_spring.service.mail.AppMailService;
-import com.eyram.dev.church_project_spring.service.ProfessionalEmailService;
 import com.eyram.dev.church_project_spring.service.storage.StoredFileService;
 import com.eyram.dev.church_project_spring.service.tenant.TenantCatalogBootstrapService;
 import com.eyram.dev.church_project_spring.utils.exception.AlreadyExistException;
@@ -76,7 +76,7 @@ public class ParoisseInscriptionService {
 
         // Le front ne décide jamais seul du catalogue commercial : un code de
         // plan désactivé ou falsifié est rejeté côté serveur.
-        planSaasService.requireActive(request.planAbonnement());
+        PlanSaas selectedPlan = planSaasService.requireActive(request.planAbonnement());
 
         var proof = inscriptionOtpService.requireValidProof(
                 request.adminEmail(),
@@ -116,7 +116,7 @@ public class ParoisseInscriptionService {
             inscription.setEmail(request.email());
             inscription.setTelephone(request.telephone());
             inscription.setDoyennePublicId(request.doyennePublicId());
-            inscription.setPlanAbonnement(request.planAbonnement());
+            inscription.setPlanAbonnement(selectedPlan.getCode());
             inscription.setAdminNom(request.adminNom().trim());
             inscription.setAdminPrenom(request.adminPrenom().trim());
             inscription.setAdminEmail(proof.email());
@@ -166,7 +166,7 @@ public class ParoisseInscriptionService {
         Map<UUID, Paroisse> paroisses = paroisseRepository.findAllByStatusDelFalseAndIsSystemFalseOrderByNomAsc()
                 .stream()
                 .collect(Collectors.toMap(Paroisse::getPublicId, p -> p, (a, b) -> a));
-        Map<PlanAbonnement, Integer> planAmounts = planSaasService.findAll()
+        Map<String, Integer> planAmounts = planSaasService.findAll()
                 .stream()
                 .collect(Collectors.toMap(PlanSaasResponse::code, PlanSaasResponse::montantXof, (a, b) -> a));
 
@@ -391,7 +391,7 @@ public class ParoisseInscriptionService {
             ParoisseInscription inscription,
             Map<UUID, String> doyennes,
             Map<UUID, Paroisse> paroisses,
-            Map<PlanAbonnement, Integer> planAmounts
+            Map<String, Integer> planAmounts
     ) {
         List<ParoisseInscriptionResponse.MembreResponse> membres = new ArrayList<>();
         if (inscription.getMembres() != null) {

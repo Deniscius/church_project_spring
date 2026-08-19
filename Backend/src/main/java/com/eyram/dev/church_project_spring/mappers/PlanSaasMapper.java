@@ -1,5 +1,6 @@
 package com.eyram.dev.church_project_spring.mappers;
 
+import com.eyram.dev.church_project_spring.DTO.request.PlanSaasCreateRequest;
 import com.eyram.dev.church_project_spring.DTO.request.PlanSaasRequest;
 import com.eyram.dev.church_project_spring.DTO.response.PlanSaasResponse;
 import com.eyram.dev.church_project_spring.entities.PlanSaas;
@@ -13,6 +14,13 @@ import org.mapstruct.NullValuePropertyMappingStrategy;
 public interface PlanSaasMapper {
 
     PlanSaasResponse modelToDto(PlanSaas entity);
+
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "publicId", ignore = true)
+    @Mapping(target = "statusDel", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    PlanSaas createEntityFromDto(PlanSaasCreateRequest request);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "id", ignore = true)

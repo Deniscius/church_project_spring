@@ -5,6 +5,16 @@ export const planSaasService = {
 
   listAll: () => apiClient('/plans-saas', {}, { auth: true }),
 
+  create: (payload) =>
+    apiClient(
+      '/plans-saas',
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+      { auth: true }
+    ),
+
   update: (publicId, payload) =>
     apiClient(
       `/plans-saas/${publicId}`,

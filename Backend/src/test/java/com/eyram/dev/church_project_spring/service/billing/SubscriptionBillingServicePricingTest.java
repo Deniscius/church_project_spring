@@ -5,7 +5,6 @@ import com.eyram.dev.church_project_spring.config.PlatformBillingProperties;
 import com.eyram.dev.church_project_spring.entities.Paroisse;
 import com.eyram.dev.church_project_spring.entities.ParoisseAbonnement;
 import com.eyram.dev.church_project_spring.entities.PlanSaas;
-import com.eyram.dev.church_project_spring.enums.PlanAbonnement;
 import com.eyram.dev.church_project_spring.repositories.ParoisseAbonnementRepository;
 import com.eyram.dev.church_project_spring.repositories.ParoisseAccessRepository;
 import com.eyram.dev.church_project_spring.repositories.ParoisseRepository;
@@ -67,22 +66,22 @@ class SubscriptionBillingServicePricingTest {
     }
 
     @Test
-    void createPending_snapshotsCurrentPriceAndDuration() {
+    void createPending_snapshotsCurrentPriceAndDurationForDynamicPlan() {
         PlanSaas pricing = new PlanSaas();
-        pricing.setCode(PlanAbonnement.ANNUEL);
-        pricing.setMontantXof(45_000);
-        pricing.setDureeMois(12);
+        pricing.setCode("TRIMESTRIEL");
+        pricing.setMontantXof(15_000);
+        pricing.setDureeMois(3);
 
         Paroisse paroisse = new Paroisse();
-        when(planSaasService.requireActive(PlanAbonnement.ANNUEL)).thenReturn(pricing);
+        when(planSaasService.requireActive("TRIMESTRIEL")).thenReturn(pricing);
         when(abonnementRepository.save(any(ParoisseAbonnement.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        ParoisseAbonnement saved = service.createPending(paroisse, PlanAbonnement.ANNUEL);
+        ParoisseAbonnement saved = service.createPending(paroisse, "TRIMESTRIEL");
 
-        assertEquals(PlanAbonnement.ANNUEL, saved.getPlan());
-        assertEquals(45_000, saved.getMontant());
-        assertEquals(12, saved.getDureeMois());
+        assertEquals("TRIMESTRIEL", saved.getPlan());
+        assertEquals(15_000, saved.getMontant());
+        assertEquals(3, saved.getDureeMois());
         verify(abonnementRepository).save(saved);
     }
 }

@@ -46,14 +46,6 @@ public class MultiTenantAuthService {
     private final UserRepository userRepository;
     private final ParoisseAccessRepository paroisseAccessRepository;
 
-    /**
-     * Authentifie un utilisateur et retourne son contexte paroissial courant.
-     *
-     * @param request les identifiants (username, password)
-     * @return réponse contenant JWT et contexte utilisateur
-     * @throws InvalidCredentialsException si les identifiants sont incorrects
-     * @throws AccountDisabledException si le compte est désactivé ou mal configuré
-     */
     @Transactional(readOnly = true)
     public MultiTenantLoginResponse loginMultiTenant(LoginRequest request) {
         if (request == null || request.username() == null || request.username().isBlank()) {
@@ -88,15 +80,7 @@ public class MultiTenantAuthService {
                     paroissesDtos.isEmpty() ? null : paroissesDtos.get(0);
 
             String token = jwtUtils.generateToken(principal);
-
-            MultiTenantLoginResponse.UserInfoDto userDto = MultiTenantLoginResponse.UserInfoDto.builder()
-                    .publicId(user.getPublicId())
-                    .nom(user.getNom())
-                    .prenom(user.getPrenom())
-                    .username(user.getUsername())
-                    .role(user.getRole().name())
-                    .isGlobal(user.getIsGlobal())
-                    .build();
+            MultiTenantLoginResponse.UserInfoDto userDto = mapUser(user);
 
             log.info(
                     "Login successful for user {} with selectedParoisse: {}",
@@ -125,9 +109,7 @@ public class MultiTenantAuthService {
         }
     }
 
-    /**
-     * Reconstruit le contexte session sans régénérer de jeton (cookie déjà présent).
-     */
+    /** Reconstruit le contexte session sans régénérer de jeton. */
     @Transactional(readOnly = true)
     public MultiTenantLoginResponse currentSession(UserDetailsImpl principal) {
         if (principal == null) {
@@ -145,20 +127,23 @@ public class MultiTenantAuthService {
         MultiTenantLoginResponse.ParoisseAccessDto selectedParoisse =
                 paroissesDtos.isEmpty() ? null : paroissesDtos.get(0);
 
-        MultiTenantLoginResponse.UserInfoDto userDto = MultiTenantLoginResponse.UserInfoDto.builder()
+        return MultiTenantLoginResponse.builder()
+                .token(null)
+                .user(mapUser(user))
+                .paroisses(paroissesDtos)
+                .selectedParoisse(selectedParoisse)
+                .build();
+    }
+
+    private MultiTenantLoginResponse.UserInfoDto mapUser(User user) {
+        return MultiTenantLoginResponse.UserInfoDto.builder()
                 .publicId(user.getPublicId())
                 .nom(user.getNom())
                 .prenom(user.getPrenom())
                 .username(user.getUsername())
                 .role(user.getRole().name())
+                .permissions(RolePermissions.authoritiesFor(user.getRole()).stream().toList())
                 .isGlobal(user.getIsGlobal())
-                .build();
-
-        return MultiTenantLoginResponse.builder()
-                .token(null)
-                .user(userDto)
-                .paroisses(paroissesDtos)
-                .selectedParoisse(selectedParoisse)
                 .build();
     }
 

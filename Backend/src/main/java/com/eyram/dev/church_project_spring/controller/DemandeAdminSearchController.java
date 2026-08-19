@@ -22,7 +22,7 @@ public class DemandeAdminSearchController {
     private final DemandeAdminSearchService demandeAdminSearchService;
 
     @GetMapping("/paroisse/{paroissePublicId}/recherche")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETAIRE', 'CURE', 'COMPTABLE_LOCAL', 'COMPTABLE', 'SUPER_ADMIN')")
+    @PreAuthorize("hasAuthority('demand:read')")
     public ResponseEntity<PageResponse<DemandeListItemResponse>> searchByParoisse(
             @PathVariable UUID paroissePublicId,
             @RequestParam("q") String query,

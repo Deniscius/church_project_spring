@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import PageHeader from '../../../components/ui/PageHeader';
 import AppTable from '../../../components/ui/AppTable';
 import AppBadge from '../../../components/ui/AppBadge';
@@ -17,6 +17,8 @@ import {
 } from '../../../hooks/queries/useParishDemandes';
 
 const PAGE_SIZE = 20;
+const REQUEST_STATUS_FILTERS = new Set(['EN_ATTENTE', 'VALIDEE', 'REJETEE', 'ANNULEE']);
+const PAYMENT_STATUS_FILTERS = new Set(['NON_PAYE', 'PAYE', 'ECHOUE']);
 
 const columns = [
   { key: 'trackingCode', label: 'Code' },
@@ -35,11 +37,10 @@ export default function RequestsPage() {
   const { user } = useAuth();
   const { activeParish } = useTenant();
   const { has } = usePermissions();
+  const [searchParams, setSearchParams] = useSearchParams();
   const isAccountant = user?.role === 'COMPTABLE_LOCAL' || user?.role === 'COMPTABLE';
 
   const [page, setPage] = useState(0);
-  const [statusFilter, setStatusFilter] = useState('');
-  const [paymentFilter, setPaymentFilter] = useState('');
   const [search, setSearch] = useState('');
   // Comptable : toutes les demandes (actives + archivées) par défaut.
   const [listScope, setListScope] = useState(isAccountant ? 'ALL' : 'ACTIVE');
@@ -49,6 +50,19 @@ export default function RequestsPage() {
   const [pendingDelete, setPendingDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const invalidate = useInvalidateParishDemandes();
+
+  const statusParam = searchParams.get('statut') || '';
+  const paymentParam = searchParams.get('paiement') || '';
+  const statusFilter = REQUEST_STATUS_FILTERS.has(statusParam) ? statusParam : '';
+  const paymentFilter = PAYMENT_STATUS_FILTERS.has(paymentParam) ? paymentParam : '';
+
+  const updateFilterParam = (key, value) => {
+    const nextParams = new URLSearchParams(searchParams);
+    if (value) nextParams.set(key, value);
+    else nextParams.delete(key);
+    setSearchParams(nextParams, { replace: true });
+    setPage(0);
+  };
 
   const includeDeleted = listScope === 'ALL';
   const showDeletedOnly = listScope === 'DELETED';
@@ -158,14 +172,22 @@ export default function RequestsPage() {
         </select>
         {!showDeletedOnly ? (
           <>
-            <select className="select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <select
+              className="select"
+              value={statusFilter}
+              onChange={(e) => updateFilterParam('statut', e.target.value)}
+            >
               <option value="">Tous les statuts</option>
               <option value="EN_ATTENTE">En attente</option>
               <option value="VALIDEE">Validée</option>
               <option value="REJETEE">Rejetée</option>
               <option value="ANNULEE">Annulée</option>
             </select>
-            <select className="select" value={paymentFilter} onChange={(e) => setPaymentFilter(e.target.value)}>
+            <select
+              className="select"
+              value={paymentFilter}
+              onChange={(e) => updateFilterParam('paiement', e.target.value)}
+            >
               <option value="">Tous les paiements</option>
               <option value="NON_PAYE">Non payé</option>
               <option value="PAYE">Payé</option>

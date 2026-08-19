@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import PageHeader from '../../../components/ui/PageHeader';
 import AppTable from '../../../components/ui/AppTable';
 import AppBadge from '../../../components/ui/AppBadge';
@@ -25,15 +25,27 @@ const STATUS_OPTIONS = [
   { value: 'PAYE', label: 'Payé' },
   { value: 'ECHOUE', label: 'Échoué' },
 ];
+const PAYMENT_STATUS_FILTERS = new Set(STATUS_OPTIONS.map((option) => option.value).filter(Boolean));
 
 const PAGE_SIZE = 30;
 
 export default function PaymentsPage() {
   const { activeParish } = useTenant();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [page, setPage] = useState(0);
-  const [statusFilter, setStatusFilter] = useState('');
   const [modeFilter, setModeFilter] = useState('');
   const [search, setSearch] = useState('');
+
+  const statusParam = searchParams.get('statut') || '';
+  const statusFilter = PAYMENT_STATUS_FILTERS.has(statusParam) ? statusParam : '';
+
+  const updateStatusFilter = (value) => {
+    const nextParams = new URLSearchParams(searchParams);
+    if (value) nextParams.set('statut', value);
+    else nextParams.delete('statut');
+    setSearchParams(nextParams, { replace: true });
+    setPage(0);
+  };
 
   const { data, isLoading, error, isFetching } = useParishDemandesPage(
     activeParish?.id,
@@ -86,10 +98,7 @@ export default function PaymentsPage() {
             type="button"
             className={`chip${statusFilter === opt.value ? ' is-active' : ''}`}
             aria-pressed={statusFilter === opt.value}
-            onClick={() => {
-              setStatusFilter(opt.value);
-              setPage(0);
-            }}
+            onClick={() => updateStatusFilter(opt.value)}
           >
             {opt.label}
           </button>
@@ -100,10 +109,7 @@ export default function PaymentsPage() {
         <select
           className="select"
           value={statusFilter}
-          onChange={(e) => {
-            setStatusFilter(e.target.value);
-            setPage(0);
-          }}
+          onChange={(e) => updateStatusFilter(e.target.value)}
           aria-label="Filtrer par statut de paiement"
         >
           {STATUS_OPTIONS.map((opt) => (

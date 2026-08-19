@@ -17,6 +17,7 @@ import java.util.List;
  */
 public record ProgrammeJourUpdateRequest(
         @NotEmpty(message = "Au moins un créneau est obligatoire")
+        @Size(max = 20, message = "Une journée ne peut pas contenir plus de 20 créneaux")
         List<@Valid Creneau> creneaux
 ) {
     public record Creneau(

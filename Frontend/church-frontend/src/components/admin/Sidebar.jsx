@@ -10,7 +10,6 @@ import { useUIStore } from '../../store/ui.context';
 import AppIcon from '../ui/AppIcon';
 import BrandLogo from '../ui/BrandLogo';
 
-/** Menu quotidien de l’équipe paroissiale. */
 const parishMenu = [
   { to: '/admin/dashboard', label: 'Tableau de bord', icon: 'dashboard', permission: PERMISSIONS.DASHBOARD_VIEW },
   { to: '/admin/demandes', label: 'Demandes', icon: 'requests', permission: PERMISSIONS.DEMAND_READ },
@@ -26,7 +25,6 @@ const parishMenu = [
   { to: '/admin/profil', label: 'Mon profil', icon: 'profile', permission: PERMISSIONS.PROFILE_READ },
 ];
 
-/** Contrôle Super Admin sur un tenant (intervention). */
 const interventionMenu = [
   { to: '/admin/dashboard', label: 'Vue d’ensemble', icon: 'dashboard', permission: PERMISSIONS.DASHBOARD_VIEW },
   { to: '/admin/demandes', label: 'Demandes', icon: 'requests', permission: PERMISSIONS.DEMAND_READ },
@@ -39,15 +37,14 @@ const interventionMenu = [
   { to: '/admin/recu', label: 'Reçu', icon: 'invoices', permission: PERMISSIONS.RECEIPT_MANAGE },
 ];
 
-/** Menu plateforme (Super Admin / Comptable SaaS). */
 const platformMenu = [
-  { to: ROUTES.PARISHES, label: 'Paroisses', icon: 'parishes', permission: PERMISSIONS.PARISH_MANAGE },
-  { to: ROUTES.PARISH_INSCRIPTIONS, label: 'Inscriptions', icon: 'parishes', permission: PERMISSIONS.FINANCE_READ },
-  { to: ROUTES.SUBSCRIPTIONS, label: 'Abonnements', icon: 'invoices', permission: PERMISSIONS.FINANCE_READ },
-  { to: ROUTES.SAAS_PRICING, label: 'Tarification SaaS', icon: 'pricing', permission: PERMISSIONS.PARISH_MANAGE },
+  { to: ROUTES.PARISHES, label: 'Paroisses', icon: 'parishes', permission: PERMISSIONS.PARISH_READ },
+  { to: ROUTES.PARISH_INSCRIPTIONS, label: 'Inscriptions', icon: 'parishes', permission: PERMISSIONS.PARISH_REGISTRATION_READ },
+  { to: ROUTES.SUBSCRIPTIONS, label: 'Abonnements', icon: 'invoices', permission: PERMISSIONS.SUBSCRIPTION_READ },
+  { to: ROUTES.SAAS_PRICING, label: 'Tarification SaaS', icon: 'pricing', permission: PERMISSIONS.SAAS_PLAN_READ },
   { to: ROUTES.REVERSEMENTS, label: 'Reversements', icon: 'payments', permission: PERMISSIONS.FINANCE_READ },
-  { to: ROUTES.PLATFORM_DEMANDES, label: 'Audit demandes', icon: 'requests', permission: PERMISSIONS.DEMAND_READ },
-  { to: ROUTES.CATALOGUE_MODELE, label: 'Catalogue', icon: 'pricing', permission: PERMISSIONS.REQUEST_TYPE_READ },
+  { to: ROUTES.PLATFORM_DEMANDES, label: 'Audit demandes', icon: 'requests', permission: PERMISSIONS.DEMAND_AUDIT },
+  { to: ROUTES.CATALOGUE_MODELE, label: 'Catalogue', icon: 'pricing', permission: PERMISSIONS.SCHEDULE_MANAGE },
   { to: ROUTES.USERS, label: 'Utilisateurs', icon: 'users', permission: PERMISSIONS.USER_MANAGE },
   { to: ROUTES.PARISH_ACCESS, label: 'Accès paroisses', icon: 'access', permission: PERMISSIONS.PARISH_ACCESS_MANAGE },
   { to: ROUTES.DEANERIES, label: 'Doyennés', icon: 'deaneries', permission: PERMISSIONS.DEANERY_MANAGE },
@@ -76,9 +73,7 @@ export default function Sidebar() {
   const { activeParish, isIntervening } = useTenant();
   const { sidebarOpen, setSidebarOpen } = useUIStore();
 
-  const isPlatformUser = user?.isGlobal === true
-    && (user?.role === 'SUPER_ADMIN' || user?.role === 'COMPTABLE');
-
+  const isPlatformUser = user?.isGlobal === true;
   const visiblePlatform = isPlatformUser
     ? platformMenu.filter((item) => has(item.permission))
     : [];
@@ -93,11 +88,9 @@ export default function Sidebar() {
   }
 
   const close = () => setSidebarOpen(false);
-
   const parishLabel = isIntervening && activeParish?.name
     ? activeParish.name
     : (activeParish?.name || 'Paroisse');
-
   const modeLabel = isIntervening
     ? parishLabel
     : isPlatformUser
@@ -112,19 +105,14 @@ export default function Sidebar() {
         onClick={close}
         aria-label="Fermer le menu"
       />
-      <aside
-        className={`sidebar${sidebarOpen ? ' is-open' : ''}`}
-        aria-label="Navigation principale"
-      >
+      <aside className={`sidebar${sidebarOpen ? ' is-open' : ''}`} aria-label="Navigation principale">
         <div className="sidebar-brand">
           <div className="sidebar-brand-main">
             <BrandLogo size={36} className="sidebar-brand-logo" alt="" />
             <div className="sidebar-brand-text">
               <div className="sidebar-brand-title">Missanye</div>
               <div className="sidebar-brand-meta">
-                <span className="sidebar-brand-mode" title={modeLabel}>
-                  {modeLabel}
-                </span>
+                <span className="sidebar-brand-mode" title={modeLabel}>{modeLabel}</span>
               </div>
               <div className="sidebar-brand-tags">
                 {isIntervening ? (
@@ -135,12 +123,7 @@ export default function Sidebar() {
               </div>
             </div>
           </div>
-          <button
-            type="button"
-            className="sidebar-close"
-            onClick={close}
-            aria-label="Fermer le menu"
-          >
+          <button type="button" className="sidebar-close" onClick={close} aria-label="Fermer le menu">
             <AppIcon name="close" size={18} />
           </button>
         </div>
@@ -152,7 +135,6 @@ export default function Sidebar() {
               <NavItems items={visiblePlatform} onNavigate={close} />
             </div>
           )}
-
           {visibleParish.length > 0 && (
             <div className="sidebar-section">
               <p className="sidebar-section-label">

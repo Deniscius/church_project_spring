@@ -17,6 +17,8 @@ public interface PlanSaasRepository extends JpaRepository<PlanSaas, Long> {
 
     boolean existsByCodeIgnoreCaseAndStatusDelFalse(String code);
 
+    long countByActifTrueAndStatusDelFalse();
+
     List<PlanSaas> findByStatusDelFalseOrderByOrdreAffichageAscNomAsc();
 
     List<PlanSaas> findByActifTrueAndStatusDelFalseOrderByOrdreAffichageAscNomAsc();

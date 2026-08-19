@@ -1,70 +1,58 @@
+import { useMemo } from 'react';
 import { useAuth } from './useAuth';
-import {
-  hasPermission,
-  canRead,
-  canCreate,
-  canEdit,
-  canDelete,
-  canValidate,
-  isAdmin,
-  isSuperAdmin,
-  isHierarchyGreaterOrEqual,
-  ROLE_PERMISSIONS,
-  ROLES,
-} from '../constants/roles';
+import { isAdmin, isSuperAdmin, PERMISSIONS, ROLES } from '../constants/roles';
 
 /**
- * Hook pour vérifier les permissions et les rôles de l'utilisateur.
- * Facilite les vérifications partout dans l'application.
- * 
- * Usage:
- * const { can, has, isAdminUser, isSuperAdminUser } = usePermissions();
- * if (can.edit) { ... }
+ * Permissions effectives de la session.
+ *
+ * Le frontend n'invente aucun droit à partir du rôle : il consomme uniquement
+ * la liste `user.permissions` fournie par le backend. Les guards UI améliorent
+ * l'expérience mais ne remplacent jamais les contrôles Spring Security.
  */
 export function usePermissions() {
   const { user } = useAuth();
   const userRole = user?.role;
 
+  const allPermissions = useMemo(() => {
+    if (!Array.isArray(user?.permissions)) return [];
+    return [...new Set(user.permissions.filter(Boolean))];
+  }, [user?.permissions]);
+
+  const permissionSet = useMemo(() => new Set(allPermissions), [allPermissions]);
+  const has = (permission) => Boolean(permission) && permissionSet.has(permission);
+
   return {
-    // Fonctions de permission granulaires
-    has: (permission) => hasPermission(userRole, permission),
+    has,
+    allPermissions,
+
+    // Compatibilité avec les anciens composants génériques de demande.
     can: {
-      read: canRead(userRole),
-      create: canCreate(userRole),
-      edit: canEdit(userRole),
-      delete: canDelete(userRole),
-      validate: canValidate(userRole),
+      read: has(PERMISSIONS.DEMAND_READ),
+      create: has(PERMISSIONS.DEMAND_EDIT),
+      edit: has(PERMISSIONS.DEMAND_EDIT),
+      delete: has(PERMISSIONS.DEMAND_DELETE),
+      validate: has(PERMISSIONS.DEMAND_VALIDATE),
     },
 
-    // Vérifications de rôle simple
     role: userRole,
     isAdminUser: isAdmin(userRole),
     isSuperAdminUser: isSuperAdmin(userRole),
     isSecretaire: userRole === ROLES.SECRETAIRE,
     isCure: userRole === ROLES.CURE,
 
-    // Hiérarchie
-    isHierarchyGreaterOrEqual: (requiredRole) =>
-      isHierarchyGreaterOrEqual(userRole, requiredRole),
-
-    // Vérification multi-rôles
     hasAnyRole: (...roles) => roles.includes(userRole),
-    hasAllRoles: (...roles) => roles.every((r) => userRole === r),
+    hasAllRoles: (...roles) => roles.every((role) => userRole === role),
 
-    // Retourner les permissions du rôle
-    allPermissions: ROLE_PERMISSIONS[userRole] || [],
-
-    // Vérification personnalisée
     check: (condition) => {
       if (typeof condition === 'function') {
-        return condition(userRole);
+        return condition({ role: userRole, permissions: allPermissions });
       }
       return false;
     },
 
-    // Pour compatibilité avec l'ancienne API
+    // Compatibilité ciblée : privilégier `has(PERMISSIONS.X)` dans le nouveau code.
     hasRole: (roles = []) => roles.includes(userRole),
-    canManageSettings: isAdmin(userRole),
+    canManageSettings: has(PERMISSIONS.PARISH_SETTINGS_MANAGE),
     canReadOnly: userRole === ROLES.CURE,
   };
 }

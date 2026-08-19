@@ -19,9 +19,15 @@ async function resolvePdfData(source) {
     throw new Error('Source PDF non supportée');
   }
 
-  // blob: / data: — PDF.js charge via URL
+  // Ne jamais laisser PDF.js recharger une URL blob: depuis son worker :
+  // certains navigateurs renvoient alors un statut réseau 0. On récupère les
+  // octets dans le thread principal puis on les transmet directement à PDF.js.
   if (source.startsWith('blob:') || source.startsWith('data:')) {
-    return { url: source };
+    const res = await fetch(source);
+    if (!res.ok) {
+      throw new Error(`Impossible de charger le PDF (HTTP ${res.status})`);
+    }
+    return { data: await res.arrayBuffer() };
   }
 
   // Same-origin (/__receipt, /api/…) ou URL absolue : fetch → ArrayBuffer
@@ -43,7 +49,7 @@ async function resolvePdfData(source) {
 
 /**
  * Aperçu PDF fiable (canvas via PDF.js) — indépendant de l’iframe / plugin navigateur.
- * Fonctionne en prod cross-origin (blob) et sur mobile.
+ * Les Blobs sont transmis comme octets à PDF.js, sans second chargement réseau par le worker.
  */
 export default function PdfCanvasViewer({ source, fileName = 'document.pdf' }) {
   const hostRef = useRef(null);

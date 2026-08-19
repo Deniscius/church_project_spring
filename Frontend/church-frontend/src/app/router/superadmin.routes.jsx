@@ -32,95 +32,51 @@ function LazyOutlet() {
   );
 }
 
-function PermissionRoute({ permission, path, element }) {
-  return (
-    <Route element={<PermissionGuard requiredPermissions={[permission]} />}>
-      <Route path={path} element={element} />
-    </Route>
-  );
-}
-
 export function SuperAdminRoutes() {
   return (
     <Route element={<ProtectedGuard />}>
       <Route element={<PlatformStaffGuard />}>
         <Route element={<AdminLayout />}>
           <Route element={<LazyOutlet />}>
-            <PermissionRoute
-              permission={PERMISSIONS.PARISH_REGISTRATION_READ}
-              path={ROUTES.PARISH_INSCRIPTIONS}
-              element={<InscriptionsPage />}
-            />
-            <PermissionRoute
-              permission={PERMISSIONS.FINANCE_READ}
-              path={ROUTES.REVERSEMENTS}
-              element={<ReversementsPage />}
-            />
-            <PermissionRoute
-              permission={PERMISSIONS.SUBSCRIPTION_READ}
-              path={ROUTES.SUBSCRIPTIONS}
-              element={<AbonnementsPage />}
-            />
-            <PermissionRoute
-              permission={PERMISSIONS.SCHEDULE_MANAGE}
-              path={ROUTES.CATALOGUE_MODELE}
-              element={<CatalogueModelePage />}
-            />
-            <PermissionRoute
-              permission={PERMISSIONS.DEMAND_AUDIT}
-              path={ROUTES.PLATFORM_DEMANDES}
-              element={<PlatformDemandesPage />}
-            />
-            <PermissionRoute
-              permission={PERMISSIONS.SAAS_PLAN_READ}
-              path={ROUTES.SAAS_PRICING}
-              element={<SaasPricingPage />}
-            />
-            <PermissionRoute
-              permission={PERMISSIONS.PARISH_READ}
-              path={ROUTES.PARISHES}
-              element={<ParishesPage />}
-            />
-            <PermissionRoute
-              permission={PERMISSIONS.PARISH_MANAGE}
-              path={ROUTES.PARISH_CREATE}
-              element={<CreateParishPage />}
-            />
-            <PermissionRoute
-              permission={PERMISSIONS.PARISH_MANAGE}
-              path={ROUTES.PARISH_EDIT}
-              element={<EditParishPage />}
-            />
-            <PermissionRoute
-              permission={PERMISSIONS.PARISH_ACCESS_MANAGE}
-              path={ROUTES.PARISH_ACCESS}
-              element={<ParishAccessPage />}
-            />
-            <PermissionRoute
-              permission={PERMISSIONS.DEANERY_MANAGE}
-              path={ROUTES.DEANERIES}
-              element={<DeaneriesPage />}
-            />
-            <PermissionRoute
-              permission={PERMISSIONS.PAYMENT_TYPE_MANAGE}
-              path={ROUTES.PAYMENT_TYPES}
-              element={<PaymentTypesPage />}
-            />
-            <PermissionRoute
-              permission={PERMISSIONS.USER_MANAGE}
-              path={ROUTES.USERS}
-              element={<UsersPage />}
-            />
-            <PermissionRoute
-              permission={PERMISSIONS.USER_MANAGE}
-              path={ROUTES.USER_CREATE}
-              element={<CreateUserPage />}
-            />
-            <PermissionRoute
-              permission={PERMISSIONS.USER_MANAGE}
-              path={ROUTES.USER_EDIT}
-              element={<EditUserPage />}
-            />
+            <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.PARISH_REGISTRATION_READ]} />}>
+              <Route path={ROUTES.PARISH_INSCRIPTIONS} element={<InscriptionsPage />} />
+            </Route>
+            <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.FINANCE_READ]} />}>
+              <Route path={ROUTES.REVERSEMENTS} element={<ReversementsPage />} />
+            </Route>
+            <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.SUBSCRIPTION_READ]} />}>
+              <Route path={ROUTES.SUBSCRIPTIONS} element={<AbonnementsPage />} />
+            </Route>
+            <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.SCHEDULE_MANAGE]} />}>
+              <Route path={ROUTES.CATALOGUE_MODELE} element={<CatalogueModelePage />} />
+            </Route>
+            <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.DEMAND_AUDIT]} />}>
+              <Route path={ROUTES.PLATFORM_DEMANDES} element={<PlatformDemandesPage />} />
+            </Route>
+            <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.SAAS_PLAN_READ]} />}>
+              <Route path={ROUTES.SAAS_PRICING} element={<SaasPricingPage />} />
+            </Route>
+            <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.PARISH_READ]} />}>
+              <Route path={ROUTES.PARISHES} element={<ParishesPage />} />
+            </Route>
+            <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.PARISH_MANAGE]} />}>
+              <Route path={ROUTES.PARISH_CREATE} element={<CreateParishPage />} />
+              <Route path={ROUTES.PARISH_EDIT} element={<EditParishPage />} />
+            </Route>
+            <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.PARISH_ACCESS_MANAGE]} />}>
+              <Route path={ROUTES.PARISH_ACCESS} element={<ParishAccessPage />} />
+            </Route>
+            <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.DEANERY_MANAGE]} />}>
+              <Route path={ROUTES.DEANERIES} element={<DeaneriesPage />} />
+            </Route>
+            <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.PAYMENT_TYPE_MANAGE]} />}>
+              <Route path={ROUTES.PAYMENT_TYPES} element={<PaymentTypesPage />} />
+            </Route>
+            <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.USER_MANAGE]} />}>
+              <Route path={ROUTES.USERS} element={<UsersPage />} />
+              <Route path={ROUTES.USER_CREATE} element={<CreateUserPage />} />
+              <Route path={ROUTES.USER_EDIT} element={<EditUserPage />} />
+            </Route>
           </Route>
         </Route>
       </Route>

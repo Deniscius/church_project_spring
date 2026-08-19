@@ -63,6 +63,15 @@ public class Horaire extends BaseEntity implements Serializable {
     private Boolean uniqueSurParoisse = false;
 
     /**
+     * Marque un créneau faisant partie d'une personnalisation complète d'une date.
+     * Dès qu'au moins un créneau actif de ce type existe pour une date, la grille
+     * hebdomadaire n'est plus utilisée pour cette journée : seuls les créneaux
+     * personnalisés sont proposés.
+     */
+    @Column(name = "programme_jour_override", nullable = false)
+    private Boolean programmeJourOverride = false;
+
+    /**
      * Honoraire (nature de forfait) applicable aux intentions sur cette date précise.
      * Typiquement {@code SPECIALE} pour un événement solennel ; sinon NORMALE / DOMINICALE
      * selon le jour choisi par l'admin.

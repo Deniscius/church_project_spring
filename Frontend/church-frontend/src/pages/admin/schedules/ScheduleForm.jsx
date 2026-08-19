@@ -11,6 +11,7 @@ import { NATURE_FORFAIT_OPTIONS, WEEK_DAYS, WEEK_DAY_LABELS } from '../../../con
 import { getDayEnumFromDateString } from '../../../utils/schedulingUtils';
 import FormError from '../../../components/ui/FormError';
 import { qk } from '../../../hooks/queries/usePublicReferentiel';
+import { parishProgrammeKeys } from '../../../hooks/queries/useParishProgramme';
 
 const INITIAL_VALUE = {
   mode: 'hebdo', // hebdo | solennel
@@ -84,7 +85,9 @@ export default function ScheduleForm({ scheduleId = null }) {
       return {
         ...current,
         mode,
-        uniqueSurParoisse: true,
+        // Une date précise complète la grille hebdomadaire par défaut.
+        // Le remplacement total doit être un choix explicite de l'admin.
+        uniqueSurParoisse: false,
         natureHonoraire: current.dateSpecifique
           ? (current.natureHonoraire || suggestedNatureForDay(getDayEnumFromDateString(current.dateSpecifique)))
           : 'SPECIALE',
@@ -137,7 +140,10 @@ export default function ScheduleForm({ scheduleId = null }) {
       else await scheduleService.create(payload);
       await queryClient.invalidateQueries({ queryKey: qk.horairesPublicActives });
       if (activeParish?.id) {
-        await queryClient.invalidateQueries({ queryKey: qk.horairesParish(activeParish.id) });
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: qk.horairesParish(activeParish.id) }),
+          queryClient.invalidateQueries({ queryKey: parishProgrammeKeys.all(activeParish.id) }),
+        ]);
       }
       navigate('/admin/horaires');
     } catch (e) {
@@ -152,7 +158,7 @@ export default function ScheduleForm({ scheduleId = null }) {
   return (
     <AppCard
       title={scheduleId ? 'Modifier le créneau' : 'Nouveau créneau'}
-      subtitle="Créneau hebdomadaire récurrent, ou événement solennel à date fixe (toute date du calendrier)."
+      subtitle="Créneau hebdomadaire récurrent, ou créneau à date précise. Une date précise s’ajoute aux horaires habituels tant que « célébration unique » n’est pas cochée."
     >
       <FormError error={error} errorRef={errorRef} />
       <form onSubmit={submit}>
@@ -250,8 +256,8 @@ export default function ScheduleForm({ scheduleId = null }) {
                   Célébration unique sur la paroisse ce jour-là
                 </label>
                 <small className="muted">
-                  Si coché, le programme n’affiche que cette messe pour cette date
-                  (les créneaux hebdomadaires sont masqués).
+                  Laissez décoché pour conserver les créneaux hebdomadaires du jour et ajouter cette célébration.
+                  Cochez uniquement si cette messe doit remplacer tout le programme habituel de cette date.
                 </small>
               </div>
             </>

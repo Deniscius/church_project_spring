@@ -1,10 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import PageHeader from '../../../components/ui/PageHeader';
 import AppCard from '../../../components/ui/AppCard';
 import AppBadge from '../../../components/ui/AppBadge';
 import AppButton from '../../../components/ui/AppButton';
 import AppDialog from '../../../components/ui/AppDialog';
+import AppInput from '../../../components/ui/AppInput';
 import AppSelect from '../../../components/ui/AppSelect';
 import { useTenant } from '../../../hooks/useTenant';
 import { usePermissions } from '../../../hooks/usePermissions';
@@ -12,11 +14,23 @@ import { PERMISSIONS } from '../../../constants/roles';
 import { ROUTES } from '../../../constants/routes';
 import { formatParishTimeInUserZone } from '../../../utils/formatTime';
 import { dashboardService } from '../../../services/dashboard.service';
-import { useParishProgrammeQuery } from '../../../hooks/queries/useParishProgramme';
+import { scheduleService } from '../../../services/schedule.service';
+import {
+  parishProgrammeKeys,
+  useParishProgrammeQuery,
+} from '../../../hooks/queries/useParishProgramme';
+import { qk } from '../../../hooks/queries/usePublicReferentiel';
 import {
   useInvalidateParishCelebrations,
   useParishCelebrationsForDay,
 } from '../../../hooks/queries/useParishUpcomingCelebrations';
+
+const PROGRAMME_MODE_LABELS = {
+  HEBDOMADAIRE: 'Programme hebdomadaire par défaut',
+  HEBDOMADAIRE_AVEC_AJOUT: 'Programme habituel + créneau ponctuel',
+  PERSONNALISE: 'Programme personnalisé pour cette date',
+  MESSE_UNIQUE: 'Messe unique pour cette date',
+};
 
 function longDate(iso) {
   if (!iso) return '—';
@@ -36,15 +50,30 @@ function todayInParishZone() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Lome' });
 }
 
+function draftFromSchedule(daySchedule) {
+  const rows = (daySchedule?.creneaux || []).map((slot) => ({
+    heureCelebration: slot.heureCelebration ? String(slot.heureCelebration).slice(0, 5) : '',
+    libelle: slot.libelle || '',
+    natureHonoraire: slot.natureHonoraire || null,
+  }));
+  return rows.length ? rows : [{ heureCelebration: '', libelle: '', natureHonoraire: null }];
+}
+
 export default function DailyProgrammePage() {
   const { date } = useParams();
+  const queryClient = useQueryClient();
   const { activeParish } = useTenant();
   const { has } = usePermissions();
   const canEdit = has(PERMISSIONS.DEMAND_EDIT);
+  const canManageSchedule = has(PERMISSIONS.SCHEDULE_MANAGE);
   const invalidate = useInvalidateParishCelebrations();
   const [editing, setEditing] = useState(null);
   const [selectedSlot, setSelectedSlot] = useState('');
   const [saving, setSaving] = useState(false);
+  const [editingDaySchedule, setEditingDaySchedule] = useState(false);
+  const [daySlotsDraft, setDaySlotsDraft] = useState([]);
+  const [savingDaySchedule, setSavingDaySchedule] = useState(false);
+  const [confirmResetSchedule, setConfirmResetSchedule] = useState(false);
   const [error, setError] = useState(null);
   const [info, setInfo] = useState(null);
 
@@ -59,6 +88,7 @@ export default function DailyProgrammePage() {
     data: scheduleDays = [],
     isLoading: scheduleLoading,
     error: scheduleError,
+    refetch: refetchSchedule,
   } = useParishProgrammeQuery(parishId, { debut: date, fin: date });
 
   const daySchedule = useMemo(
@@ -72,7 +102,8 @@ export default function DailyProgrammePage() {
       label: [
         slot.heureCelebration ? formatParishTimeInUserZone(slot.heureCelebration) : 'Heure non définie',
         slot.libelle,
-        slot.dateSpecifique ? 'ponctuelle' : null,
+        slot.programmeJourOverride ? 'personnalisé' : null,
+        slot.dateSpecifique && !slot.programmeJourOverride ? 'ponctuel' : null,
         slot.uniqueSurParoisse ? 'messe unique' : null,
       ].filter(Boolean).join(' · '),
     })),
@@ -80,6 +111,8 @@ export default function DailyProgrammePage() {
   );
 
   const isPastDay = Boolean(date && date < todayInParishZone());
+  const programmeMode = daySchedule?.modeProgramme || 'HEBDOMADAIRE';
+  const followsWeeklyDefault = programmeMode === 'HEBDOMADAIRE';
 
   const openEdit = (item) => {
     setError(null);
@@ -119,13 +152,104 @@ export default function DailyProgrammePage() {
     }
   };
 
+  const openDayScheduleEditor = () => {
+    setError(null);
+    setInfo(null);
+    setDaySlotsDraft(draftFromSchedule(daySchedule));
+    setEditingDaySchedule(true);
+  };
+
+  const changeDaySlot = (index, key, value) => {
+    setDaySlotsDraft((current) => current.map((slot, i) => (
+      i === index ? { ...slot, [key]: value } : slot
+    )));
+  };
+
+  const addDaySlot = () => {
+    setDaySlotsDraft((current) => [
+      ...current,
+      { heureCelebration: '', libelle: '', natureHonoraire: null },
+    ]);
+  };
+
+  const removeDaySlot = (index) => {
+    setDaySlotsDraft((current) => current.filter((_, i) => i !== index));
+  };
+
+  const invalidateScheduleQueries = async () => {
+    if (!parishId) return;
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: parishProgrammeKeys.all(parishId) }),
+      queryClient.invalidateQueries({ queryKey: qk.horairesParish(parishId) }),
+      queryClient.invalidateQueries({ queryKey: qk.horairesPublicActives }),
+    ]);
+  };
+
+  const saveDayProgramme = async () => {
+    if (!parishId || !date) return;
+    const cleaned = daySlotsDraft
+      .map((slot) => ({
+        heureCelebration: slot.heureCelebration,
+        libelle: slot.libelle?.trim() || null,
+        natureHonoraire: slot.natureHonoraire || null,
+      }))
+      .filter((slot) => slot.heureCelebration);
+
+    if (!cleaned.length) {
+      setError('Ajoutez au moins un créneau pour personnaliser cette journée.');
+      return;
+    }
+    if (cleaned.length !== daySlotsDraft.length) {
+      setError('Chaque créneau doit avoir une heure.');
+      return;
+    }
+    const times = cleaned.map((slot) => slot.heureCelebration);
+    if (new Set(times).size !== times.length) {
+      setError('Deux créneaux ne peuvent pas avoir la même heure.');
+      return;
+    }
+
+    try {
+      setSavingDaySchedule(true);
+      setError(null);
+      await scheduleService.updateProgrammeForDate(parishId, date, cleaned);
+      setEditingDaySchedule(false);
+      await invalidateScheduleQueries();
+      await refetchSchedule();
+      setInfo(
+        'Programme de la journée personnalisé. Les demandes déjà enregistrées ne sont pas déplacées automatiquement.'
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Impossible de modifier les créneaux de la journée');
+    } finally {
+      setSavingDaySchedule(false);
+    }
+  };
+
+  const resetDayProgramme = async () => {
+    if (!parishId || !date) return;
+    try {
+      setSavingDaySchedule(true);
+      setError(null);
+      await scheduleService.resetProgrammeForDate(parishId, date);
+      setConfirmResetSchedule(false);
+      await invalidateScheduleQueries();
+      await refetchSchedule();
+      setInfo('La journée suit de nouveau les créneaux hebdomadaires par défaut.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Impossible de revenir au programme par défaut');
+    } finally {
+      setSavingDaySchedule(false);
+    }
+  };
+
   return (
     <div className="stack">
       <PageHeader
         title={`Programmations du ${longDate(date)}`}
         subtitle={isPastDay
           ? 'Historique de la journée — les célébrations passées sont conservées en lecture seule.'
-          : 'Pilotez les intentions réellement programmées et ajustez leur créneau si nécessaire.'}
+          : 'Pilotez les intentions enregistrées et le programme disponible pour cette date.'}
         actions={(
           <Link className="btn btn-secondary" to={ROUTES.DASHBOARD}>
             Retour au dashboard
@@ -145,7 +269,7 @@ export default function DailyProgrammePage() {
         title={`Célébrations de la journée${celebrations.length ? ` (${celebrations.length})` : ''}`}
         subtitle={isPastDay
           ? 'Les éléments passés restent visibles pour la traçabilité.'
-          : 'La modification change uniquement le créneau de cette journée, jamais la date.'}
+          : 'Ici vous modifiez le créneau d’une demande précise, sans changer sa date.'}
       >
         {isLoading ? <p className="muted">Chargement des programmations…</p> : null}
         {!isLoading && !queryError ? (
@@ -225,22 +349,57 @@ export default function DailyProgrammePage() {
 
       <AppCard
         title="Créneaux disponibles ce jour"
-        subtitle="Ces horaires viennent du programme paroissial résolu pour cette date."
+        subtitle="Cette grille détermine les horaires proposés pour cette date."
       >
         {scheduleLoading ? <p className="muted">Chargement des créneaux…</p> : null}
         {scheduleError ? (
           <p className="text-red-600">{scheduleError.message || 'Impossible de charger les créneaux.'}</p>
         ) : null}
         {!scheduleLoading && !scheduleError ? (
-          slotOptions.length ? (
-            <ul style={{ margin: 0, paddingLeft: 20 }}>
-              {slotOptions.map((slot) => <li key={slot.value}>{slot.label}</li>)}
-            </ul>
-          ) : (
-            <p className="muted" style={{ margin: 0 }}>
-              Aucun créneau paroissial n’est disponible pour cette journée.
-            </p>
-          )
+          <div className="stack" style={{ gap: 14 }}>
+            <div>
+              <strong>{PROGRAMME_MODE_LABELS[programmeMode] || programmeMode}</strong>
+              {followsWeeklyDefault ? (
+                <p className="muted" style={{ margin: '4px 0 0' }}>
+                  Aucune exception n’est appliquée : cette date reprend automatiquement les horaires habituels de ce jour de semaine.
+                </p>
+              ) : (
+                <p className="muted" style={{ margin: '4px 0 0' }}>
+                  Cette date possède une exception au programme hebdomadaire.
+                </p>
+              )}
+            </div>
+
+            {slotOptions.length ? (
+              <ul style={{ margin: 0, paddingLeft: 20 }}>
+                {slotOptions.map((slot) => <li key={slot.value}>{slot.label}</li>)}
+              </ul>
+            ) : (
+              <p className="muted" style={{ margin: 0 }}>
+                Aucun créneau paroissial n’est disponible pour cette journée.
+              </p>
+            )}
+
+            {canManageSchedule && !isPastDay ? (
+              <div className="button-row">
+                <AppButton variant="secondary" onClick={openDayScheduleEditor}>
+                  Modifier les créneaux du jour
+                </AppButton>
+                {!followsWeeklyDefault ? (
+                  <AppButton variant="secondary" onClick={() => setConfirmResetSchedule(true)}>
+                    Revenir au programme par défaut
+                  </AppButton>
+                ) : null}
+              </div>
+            ) : null}
+
+            {!isPastDay ? (
+              <p className="muted" style={{ margin: 0, fontSize: '0.88rem' }}>
+                Modifier la grille du jour n’altère pas automatiquement les demandes déjà enregistrées ;
+                leurs créneaux peuvent être ajustés individuellement dans le tableau ci-dessus.
+              </p>
+            ) : null}
+          </div>
         ) : null}
       </AppCard>
 
@@ -275,6 +434,87 @@ export default function DailyProgrammePage() {
             </div>
           </div>
         ) : null}
+      </AppDialog>
+
+      <AppDialog
+        open={editingDaySchedule}
+        title={`Modifier les créneaux du ${longDate(date)}`}
+        confirmLabel={savingDaySchedule ? 'Enregistrement…' : 'Enregistrer le programme'}
+        cancelLabel="Annuler"
+        busy={savingDaySchedule}
+        size="lg"
+        onCancel={() => {
+          if (!savingDaySchedule) setEditingDaySchedule(false);
+        }}
+        onConfirm={saveDayProgramme}
+      >
+        <div className="stack" style={{ gap: 14 }}>
+          <p className="muted" style={{ margin: 0 }}>
+            Les créneaux ci-dessous remplaceront les horaires hebdomadaires uniquement pour cette date.
+          </p>
+          {daySlotsDraft.map((slot, index) => (
+            <div className="form-grid" key={`${index}-${slot.heureCelebration}`}>
+              <div className="form-field">
+                <label htmlFor={`day-slot-time-${index}`}>Heure *</label>
+                <AppInput
+                  id={`day-slot-time-${index}`}
+                  type="time"
+                  value={slot.heureCelebration}
+                  onChange={(e) => changeDaySlot(index, 'heureCelebration', e.target.value)}
+                  disabled={savingDaySchedule}
+                />
+              </div>
+              <div className="form-field">
+                <label htmlFor={`day-slot-label-${index}`}>Libellé</label>
+                <AppInput
+                  id={`day-slot-label-${index}`}
+                  value={slot.libelle}
+                  maxLength={150}
+                  placeholder="Ex. Messe du matin"
+                  onChange={(e) => changeDaySlot(index, 'libelle', e.target.value)}
+                  disabled={savingDaySchedule}
+                />
+              </div>
+              <div className="form-field full">
+                <AppButton
+                  type="button"
+                  variant="secondary"
+                  onClick={() => removeDaySlot(index)}
+                  disabled={savingDaySchedule || daySlotsDraft.length === 1}
+                >
+                  Retirer ce créneau
+                </AppButton>
+              </div>
+            </div>
+          ))}
+          <div className="button-row">
+            <AppButton
+              type="button"
+              variant="secondary"
+              onClick={addDaySlot}
+              disabled={savingDaySchedule}
+            >
+              + Ajouter un créneau
+            </AppButton>
+          </div>
+        </div>
+      </AppDialog>
+
+      <AppDialog
+        open={confirmResetSchedule}
+        title="Revenir au programme hebdomadaire"
+        confirmLabel={savingDaySchedule ? 'Réinitialisation…' : 'Réappliquer le programme par défaut'}
+        cancelLabel="Annuler"
+        busy={savingDaySchedule}
+        onCancel={() => {
+          if (!savingDaySchedule) setConfirmResetSchedule(false);
+        }}
+        onConfirm={resetDayProgramme}
+      >
+        <p style={{ margin: 0 }}>
+          Les créneaux spécifiques du {longDate(date)} seront retirés. Cette date reprendra les horaires hebdomadaires habituels.
+          Les demandes déjà enregistrées conserveront leur créneau tant que vous ne les modifiez pas individuellement.
+        </p>
       </AppDialog>
     </div>
   );

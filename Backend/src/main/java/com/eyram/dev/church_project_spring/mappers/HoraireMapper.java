@@ -18,6 +18,7 @@ public interface HoraireMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "paroisse", ignore = true)
+    @Mapping(target = "programmeJourOverride", ignore = true)
     Horaire dtoToModel(HoraireRequest request);
 
     @Mapping(target = "paroissePublicId", source = "paroisse.publicId")
@@ -31,5 +32,6 @@ public interface HoraireMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "paroisse", ignore = true)
+    @Mapping(target = "programmeJourOverride", ignore = true)
     void updateEntityFromDto(HoraireRequest request, @MappingTarget Horaire entity);
 }

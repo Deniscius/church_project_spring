@@ -1,6 +1,7 @@
 package com.eyram.dev.church_project_spring.controller;
 
 import com.eyram.dev.church_project_spring.DTO.request.HoraireRequest;
+import com.eyram.dev.church_project_spring.DTO.request.ProgrammeJourUpdateRequest;
 import com.eyram.dev.church_project_spring.DTO.response.HoraireResponse;
 import com.eyram.dev.church_project_spring.DTO.response.ParoisseHorairesPublicResponse;
 import com.eyram.dev.church_project_spring.DTO.response.ProgrammeJourResponse;
@@ -10,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -53,10 +55,7 @@ public class HoraireController {
         return ResponseEntity.ok(horaireService.getByParoisse(paroissePublicId));
     }
 
-    /**
-     * Programme résolu (hebdomadaire + dates précises, messe unique respectée).
-     * Déclaré avant {@code /{publicId}} n'est pas nécessaire ici (chemin plus spécifique).
-     */
+    /** Programme résolu pour une période : défaut hebdomadaire + exceptions de date. */
     @GetMapping("/paroisse/{paroissePublicId}/programme")
     public ResponseEntity<List<ProgrammeJourResponse>> getProgramme(
             @PathVariable UUID paroissePublicId,
@@ -64,6 +63,33 @@ public class HoraireController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fin
     ) {
         return ResponseEntity.ok(horaireService.getProgramme(paroissePublicId, debut, fin));
+    }
+
+    /**
+     * Personnalise tous les créneaux disponibles d'une date sans modifier la grille
+     * hebdomadaire des autres semaines.
+     */
+    @PutMapping("/paroisse/{paroissePublicId}/programme/{date}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'COMPTABLE')")
+    public ResponseEntity<ProgrammeJourResponse> updateProgrammeForDate(
+            @PathVariable UUID paroissePublicId,
+            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @Valid @RequestBody ProgrammeJourUpdateRequest request
+    ) {
+        return ResponseEntity.ok(horaireService.updateProgrammeForDate(paroissePublicId, date, request));
+    }
+
+    /**
+     * Supprime toutes les exceptions de la date et remet le programme hebdomadaire
+     * comme source de vérité pour cette journée.
+     */
+    @DeleteMapping("/paroisse/{paroissePublicId}/programme/{date}/personnalisation")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'COMPTABLE')")
+    public ResponseEntity<ProgrammeJourResponse> resetProgrammeForDate(
+            @PathVariable UUID paroissePublicId,
+            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
+    ) {
+        return ResponseEntity.ok(horaireService.resetProgrammeForDate(paroissePublicId, date));
     }
 
     @PutMapping("/{publicId}")

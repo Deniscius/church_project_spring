@@ -10,7 +10,7 @@ export const scheduleService = {
   getByParishPublic: (paroissePublicId) =>
     apiClient(`/horaires/paroisse/${paroissePublicId}`, {}, { auth: false }),
 
-  /** Programme résolu (dates précises + messe unique). */
+  /** Programme résolu (hebdo + ajouts ponctuels + personnalisation de date). */
   getProgramme: (paroissePublicId, { debut, fin, signal } = {}) => {
     const params = new URLSearchParams();
     if (debut) params.set('debut', debut);
@@ -22,6 +22,22 @@ export const scheduleService = {
       { auth: true }
     );
   },
+
+  /** Remplace la grille disponible pour une seule date. */
+  updateProgrammeForDate: (paroissePublicId, date, creneaux) =>
+    apiClient(
+      `/horaires/paroisse/${paroissePublicId}/programme/${date}`,
+      { method: 'PUT', body: JSON.stringify({ creneaux }) },
+      { auth: true }
+    ),
+
+  /** Supprime toutes les exceptions de cette date et reprend la grille hebdomadaire. */
+  resetProgrammeForDate: (paroissePublicId, date) =>
+    apiClient(
+      `/horaires/paroisse/${paroissePublicId}/programme/${date}/personnalisation`,
+      { method: 'DELETE' },
+      { auth: true }
+    ),
 
   getAll: () => apiClient('/horaires', {}, { auth: true }),
 

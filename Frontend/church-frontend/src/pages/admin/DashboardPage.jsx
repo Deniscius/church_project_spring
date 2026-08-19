@@ -147,8 +147,8 @@ export default function DashboardPage() {
           title="Impayées proches"
           value={stats.impayeesProches}
           subtitle="Célébration ≤ 3 jours"
-          to={`${ROUTES.REQUESTS}?paiement=NON_PAYE`}
-          action="Voir les demandes non payées"
+          to={`${ROUTES.PAYMENTS}?statut=NON_PAYE`}
+          action="Voir les paiements non réglés"
         />
       </div>
 

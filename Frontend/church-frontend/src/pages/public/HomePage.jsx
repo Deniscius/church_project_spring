@@ -72,15 +72,16 @@ export default function HomePage() {
           <div>
             <h2 id="home-parish-title">Vous représentez une paroisse&nbsp;?</h2>
             <p className="muted">
-              Gérez les demandes, les horaires et la trésorerie dans un espace dédié.
+              Découvrez les formules Missanye puis ouvrez un espace pour gérer les demandes,
+              les horaires, les paiements et la trésorerie.
             </p>
           </div>
           <div className="button-row">
-            <Link className="btn btn-primary" to="/inscription-paroisse">
-              Inscrire ma paroisse
+            <Link className="btn btn-primary" to="/offres">
+              Voir les offres
             </Link>
-            <Link className="btn btn-secondary" to="/admin/login">
-              Se connecter
+            <Link className="btn btn-secondary" to="/inscription-paroisse">
+              Inscrire ma paroisse
             </Link>
           </div>
         </div>

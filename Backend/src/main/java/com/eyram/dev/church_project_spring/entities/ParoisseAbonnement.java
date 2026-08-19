@@ -1,9 +1,18 @@
 package com.eyram.dev.church_project_spring.entities;
 
-import com.eyram.dev.church_project_spring.enums.PlanAbonnement;
 import com.eyram.dev.church_project_spring.enums.StatutAbonnement;
 import com.eyram.dev.church_project_spring.utils.BaseEntity;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.Filter;
@@ -37,9 +46,9 @@ public class ParoisseAbonnement extends BaseEntity {
     @JoinColumn(name = "paroisse_id", nullable = false)
     private Paroisse paroisse;
 
-    @Enumerated(EnumType.STRING)
+    /** Code commercial du plan au moment de la création de la période. */
     @Column(name = "plan", nullable = false, length = 30)
-    private PlanAbonnement plan;
+    private String plan;
 
     /** Montant contractuel figé au moment de la création de l'abonnement. */
     @Column(name = "montant", nullable = false)

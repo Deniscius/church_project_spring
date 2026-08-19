@@ -105,7 +105,14 @@ function validateCommercialValues(form, { requireCode = false } = {}) {
   };
 }
 
-function PricingPlanCard({ plan, position, onEdit, onToggleActive, busy }) {
+function PricingPlanCard({
+  plan,
+  position,
+  onEdit,
+  onToggleActive,
+  toggleDisabled,
+  editDisabled,
+}) {
   const monthly = monthlyEquivalent(plan);
 
   return (
@@ -152,11 +159,16 @@ function PricingPlanCard({ plan, position, onEdit, onToggleActive, busy }) {
             variant="secondary"
             size="sm"
             onClick={() => onToggleActive(plan)}
-            disabled={busy}
+            disabled={toggleDisabled}
           >
             {plan.actif ? 'Désactiver' : 'Activer'}
           </AppButton>
-          <AppButton variant="secondary" size="sm" onClick={() => onEdit(plan)} disabled={busy}>
+          <AppButton
+            variant="secondary"
+            size="sm"
+            onClick={() => onEdit(plan)}
+            disabled={editDisabled}
+          >
             Modifier
           </AppButton>
         </div>
@@ -175,6 +187,7 @@ export default function SaasPricingPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [createBusy, setCreateBusy] = useState(false);
   const [createForm, setCreateForm] = useState(() => createFormDefaults());
+  const [createError, setCreateError] = useState(null);
   const [error, setError] = useState(null);
   const [info, setInfo] = useState(null);
 
@@ -241,6 +254,7 @@ export default function SaasPricingPage() {
   };
 
   const setCreateField = (field, value) => {
+    setCreateError(null);
     setCreateForm((current) => ({
       ...current,
       [field]: value,
@@ -275,15 +289,25 @@ export default function SaasPricingPage() {
     activateEditor(plan);
   };
 
-  const openCreate = () => {
+  const startCreate = () => {
     setCreateForm(createFormDefaults(nextDisplayOrder));
+    setCreateError(null);
     setError(null);
     setInfo(null);
     setCreateOpen(true);
   };
 
+  const openCreate = () => {
+    if (selectedDirty) {
+      setDiscardIntent({ type: 'create' });
+      return;
+    }
+    startCreate();
+  };
+
   const closeCreate = () => {
     if (createBusy) return;
+    setCreateError(null);
     setCreateOpen(false);
   };
 
@@ -317,6 +341,12 @@ export default function SaasPricingPage() {
       return;
     }
 
+    if (intent.type === 'create') {
+      setEditingId(null);
+      startCreate();
+      return;
+    }
+
     if (intent.type === 'switch-plan') {
       const nextPlan = plans.find((plan) => plan.publicId === intent.planId);
       if (nextPlan) activateEditor(nextPlan);
@@ -332,12 +362,13 @@ export default function SaasPricingPage() {
   const createPlan = async () => {
     const validated = validateCommercialValues(createForm, { requireCode: true });
     if (validated.error) {
-      setError(validated.error);
+      setCreateError(validated.error);
       return;
     }
 
     try {
       setCreateBusy(true);
+      setCreateError(null);
       setError(null);
       setInfo(null);
       const saved = await planSaasService.create(validated.values);
@@ -345,13 +376,15 @@ export default function SaasPricingPage() {
       await load({ silent: true });
       setInfo(`La formule « ${saved.nom} » a été créée${saved.actif ? ' et est disponible aux paroisses' : ' en mode inactif'}.`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Création impossible');
+      setCreateError(e instanceof Error ? e.message : 'Création impossible');
     } finally {
       setCreateBusy(false);
     }
   };
 
   const toggleActive = async (plan) => {
+    if (selectedDirty) return;
+
     const nextActive = !plan.actif;
     const form = toForm(plan);
     const validated = validateCommercialValues({
@@ -422,7 +455,7 @@ export default function SaasPricingPage() {
             <AppButton variant="secondary" onClick={requestRefresh} disabled={loading || Boolean(savingId) || createBusy}>
               {loading ? 'Actualisation…' : 'Actualiser'}
             </AppButton>
-            <AppButton onClick={openCreate} disabled={loading || createBusy}>
+            <AppButton onClick={openCreate} disabled={loading || createBusy || Boolean(savingId)}>
               + Nouvelle formule
             </AppButton>
           </div>
@@ -483,7 +516,8 @@ export default function SaasPricingPage() {
               position={index + 1}
               onEdit={openEditor}
               onToggleActive={toggleActive}
-              busy={savingId === plan.publicId || createBusy}
+              toggleDisabled={Boolean(savingId) || createBusy || selectedDirty}
+              editDisabled={Boolean(savingId) || createBusy}
             />
           ))}
         </section>
@@ -658,6 +692,7 @@ export default function SaasPricingPage() {
         <div className="saas-pricing-create-intro">
           La nouvelle formule rejoint immédiatement le catalogue si elle est active. Son code interne devient immuable après création.
         </div>
+        {createError ? <AppAlert variant="danger">{createError}</AppAlert> : null}
         <div className="form-grid saas-pricing-create-grid">
           <div className="form-field">
             <label htmlFor="new-plan-code">Code interne *</label>
@@ -781,7 +816,13 @@ export default function SaasPricingPage() {
       <AppDialog
         open={Boolean(discardIntent)}
         title="Abandonner les modifications ?"
-        confirmLabel={discardIntent?.type === 'refresh' ? 'Actualiser quand même' : 'Changer de plan'}
+        confirmLabel={
+          discardIntent?.type === 'refresh'
+            ? 'Actualiser quand même'
+            : discardIntent?.type === 'create'
+              ? 'Créer une formule'
+              : 'Changer de plan'
+        }
         cancelLabel="Continuer l’édition"
         onConfirm={confirmDiscard}
         onCancel={() => setDiscardIntent(null)}

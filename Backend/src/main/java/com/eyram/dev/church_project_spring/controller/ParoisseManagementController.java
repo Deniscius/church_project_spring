@@ -22,12 +22,13 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/admin/paroisses")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('SUPER_ADMIN')")
+@PreAuthorize("principal.isGlobal()")
 public class ParoisseManagementController {
 
     private final ParoisseManagementService paroisseManagementService;
 
     @PostMapping("/{paroissePublicId}/assign-admin")
+    @PreAuthorize("hasAuthority('parish-access:manage') and principal.isGlobal()")
     public ResponseEntity<UserResponse> assignAdminToParoisse(
             @PathVariable UUID paroissePublicId,
             @Valid @RequestBody UserRequest userRequest
@@ -42,6 +43,7 @@ public class ParoisseManagementController {
     }
 
     @GetMapping("/{paroissePublicId}/admins")
+    @PreAuthorize("hasAuthority('parish-access:manage') and principal.isGlobal()")
     public ResponseEntity<List<UserResponse>> getParoisseAdmins(
             @PathVariable UUID paroissePublicId
     ) {
@@ -49,6 +51,7 @@ public class ParoisseManagementController {
     }
 
     @GetMapping("/stats/count")
+    @PreAuthorize("hasAuthority('parish:read') and principal.isGlobal()")
     public ResponseEntity<Long> getParoisseCount() {
         return ResponseEntity.ok(paroisseManagementService.getActiveParoisseCount());
     }

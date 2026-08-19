@@ -51,12 +51,15 @@ function todayInParishZone() {
 }
 
 function draftFromSchedule(daySchedule) {
-  const rows = (daySchedule?.creneaux || []).map((slot) => ({
+  const rows = (daySchedule?.creneaux || []).map((slot, index) => ({
+    clientKey: slot.horairePublicId || `existing-${index}`,
     heureCelebration: slot.heureCelebration ? String(slot.heureCelebration).slice(0, 5) : '',
     libelle: slot.libelle || '',
     natureHonoraire: slot.natureHonoraire || null,
   }));
-  return rows.length ? rows : [{ heureCelebration: '', libelle: '', natureHonoraire: null }];
+  return rows.length
+    ? rows
+    : [{ clientKey: 'empty-0', heureCelebration: '', libelle: '', natureHonoraire: null }];
 }
 
 export default function DailyProgrammePage() {
@@ -168,7 +171,12 @@ export default function DailyProgrammePage() {
   const addDaySlot = () => {
     setDaySlotsDraft((current) => [
       ...current,
-      { heureCelebration: '', libelle: '', natureHonoraire: null },
+      {
+        clientKey: `new-${Date.now()}-${current.length}`,
+        heureCelebration: '',
+        libelle: '',
+        natureHonoraire: null,
+      },
     ]);
   };
 
@@ -453,7 +461,7 @@ export default function DailyProgrammePage() {
             Les créneaux ci-dessous remplaceront les horaires hebdomadaires uniquement pour cette date.
           </p>
           {daySlotsDraft.map((slot, index) => (
-            <div className="form-grid" key={`${index}-${slot.heureCelebration}`}>
+            <div className="form-grid" key={slot.clientKey}>
               <div className="form-field">
                 <label htmlFor={`day-slot-time-${index}`}>Heure *</label>
                 <AppInput

@@ -1,6 +1,5 @@
 package com.eyram.dev.church_project_spring.DTO.response;
 
-import com.eyram.dev.church_project_spring.enums.PlanAbonnement;
 import com.eyram.dev.church_project_spring.enums.RoleParoisse;
 import com.eyram.dev.church_project_spring.enums.StatutInscription;
 
@@ -16,7 +15,7 @@ public record ParoisseInscriptionResponse(
         String telephone,
         UUID doyennePublicId,
         String doyenneNom,
-        PlanAbonnement planAbonnement,
+        String planAbonnement,
         int montantAbonnement,
         String adminNom,
         String adminPrenom,

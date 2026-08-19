@@ -21,12 +21,12 @@ ALTER TABLE paroisse_abonnement
 
 ALTER TABLE plan_saas
     ADD CONSTRAINT chk_plan_saas_code_format
-        CHECK (code ~ '^[A-Z0-9][A-Z0-9_-]{1,29}$');
+        CHECK (code ~ '^[A-Z0-9][A-Z0-9_-]{0,29}$');
 
 ALTER TABLE paroisse_inscription
     ADD CONSTRAINT ck_paroisse_inscription_plan_format
-        CHECK (plan_abonnement ~ '^[A-Z0-9][A-Z0-9_-]{1,29}$');
+        CHECK (plan_abonnement ~ '^[A-Z0-9][A-Z0-9_-]{0,29}$');
 
 ALTER TABLE paroisse_abonnement
     ADD CONSTRAINT ck_abonnement_plan_format
-        CHECK (plan ~ '^[A-Z0-9][A-Z0-9_-]{1,29}$');
+        CHECK (plan ~ '^[A-Z0-9][A-Z0-9_-]{0,29}$');

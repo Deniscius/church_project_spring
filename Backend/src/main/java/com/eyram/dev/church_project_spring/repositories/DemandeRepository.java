@@ -54,6 +54,35 @@ public interface DemandeRepository extends JpaRepository<Demande, Long> {
     })
     Page<Demande> findByParoisse(Paroisse paroisse, Pageable pageable);
 
+    /**
+     * Recherche paginée dans une paroisse. Le téléphone est stocké en E.164 ;
+     * {@code phonePattern} reçoit donc uniquement les chiffres saisis afin
+     * d'accepter « 90 12 34 56 », « +22890123456 » ou « 90123456 ».
+     */
+    @EntityGraph(attributePaths = {
+            "paroisse", "typeDemande", "forfaitTarif", "horaire", "user", "typePaiement"
+    })
+    @Query("""
+            SELECT d FROM Demande d
+            WHERE d.paroisse = :paroisse
+              AND (:includeDeleted = true OR d.statusDel = false)
+              AND (
+                    LOWER(d.codeSuivie) LIKE :textPattern
+                 OR LOWER(d.prenomFidele) LIKE :textPattern
+                 OR LOWER(d.nomFidele) LIKE :textPattern
+                 OR LOWER(CONCAT(d.prenomFidele, CONCAT(' ', d.nomFidele))) LIKE :textPattern
+                 OR LOWER(CONCAT(d.nomFidele, CONCAT(' ', d.prenomFidele))) LIKE :textPattern
+                 OR d.telFidele LIKE :phonePattern
+              )
+            """)
+    Page<Demande> searchByParoisse(
+            @Param("paroisse") Paroisse paroisse,
+            @Param("includeDeleted") boolean includeDeleted,
+            @Param("textPattern") String textPattern,
+            @Param("phonePattern") String phonePattern,
+            Pageable pageable
+    );
+
     List<Demande> findByTypePaiementPublicIdAndStatusDelFalse(UUID typePaiementPublicId);
 
     List<Demande> findByParoisseAndStatutDemandeAndStatusDelFalse(Paroisse paroisse, StatutDemandeEnum statutDemande);

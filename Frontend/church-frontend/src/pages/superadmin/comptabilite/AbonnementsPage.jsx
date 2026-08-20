@@ -75,7 +75,11 @@ function echeanceLabel(row) {
 
 export default function AbonnementsPage() {
   const { has } = usePermissions();
-  const canExecute = has(PERMISSIONS.FINANCE_MANAGE);
+  const canCheckout = has(PERMISSIONS.SUBSCRIPTION_CHECKOUT);
+  const canActivate = has(PERMISSIONS.SUBSCRIPTION_ACTIVATE);
+  const canManage = has(PERMISSIONS.SUBSCRIPTION_MANAGE);
+  const canChoosePlan = canCheckout || canActivate;
+  const hasSubscriptionAction = canCheckout || canActivate || canManage;
   const [rows, setRows] = useState([]);
   const [planOptions, setPlanOptions] = useState([]);
   const [filter, setFilter] = useState('A_RELANCER');
@@ -86,7 +90,7 @@ export default function AbonnementsPage() {
   const [plansChoisis, setPlansChoisis] = useState({});
   const [prolongJours, setProlongJours] = useState({});
   const [confirmRow, setConfirmRow] = useState(null);
-  const [confirmMode, setConfirmMode] = useState(null); // checkout | manuel | prolonger | annuler | resilier
+  const [confirmMode, setConfirmMode] = useState(null);
 
   async function load() {
     try {
@@ -162,7 +166,14 @@ export default function AbonnementsPage() {
   const planLabel = (code) => planOptions.find((p) => p.value === code)?.name || PLAN_LABELS[code] || code;
   const joursFor = (row) => prolongJours[row.publicId] || 30;
 
+  function canRun(action) {
+    if (action === 'checkout') return canCheckout;
+    if (action === 'manuel') return canActivate;
+    return canManage;
+  }
+
   async function runAction(row, action) {
+    if (!canRun(action)) return;
     setBusyId(row.publicId);
     setError(null);
     setInfo(null);
@@ -232,14 +243,13 @@ export default function AbonnementsPage() {
 
       {error ? <div className="alert-error" role="alert">{error}</div> : null}
       {info ? <div className="alert-success" role="status">{info}</div> : null}
-      {!canExecute ? (
+      {!hasSubscriptionAction ? (
         <div className="alert-info" role="status">
-          Consultation seule : le paiement et l’activation relèvent du comptable plateforme.
+          Consultation seule : aucune opération d’abonnement n’est autorisée pour ce compte.
         </div>
       ) : (
         <div className="alert-info" role="status">
-          Circuit normal : lien FedaPay. Prolongation = geste commercial sans facture.
-          Résiliation coupe l’accès sans effacer l’historique.
+          Les actions affichées correspondent exactement à vos permissions : paiement, activation ou administration du cycle.
         </div>
       )}
 
@@ -330,7 +340,7 @@ export default function AbonnementsPage() {
                     <div className="cell-stack">
                       <span>{planLabel(r.plan)}</span>
                       <span className="muted">{formatCurrency(r.montant || 0)}</span>
-                      {canExecute && r.statut !== 'ANNULE' && planOptions.length > 0 ? (
+                      {canChoosePlan && r.statut !== 'ANNULE' && planOptions.length > 0 ? (
                         <label className="muted" style={{ display: 'grid', gap: 4, marginTop: 6 }}>
                           <span>Formule</span>
                           <select
@@ -348,7 +358,7 @@ export default function AbonnementsPage() {
                           </select>
                         </label>
                       ) : null}
-                      {canExecute && (r.statut === 'ACTIF' || r.statut === 'EXPIRE' || r.enTolerance) ? (
+                      {canManage && (r.statut === 'ACTIF' || r.statut === 'EXPIRE' || r.enTolerance) ? (
                         <label className="muted" style={{ display: 'grid', gap: 4, marginTop: 6 }}>
                           <span>Prolonger</span>
                           <select
@@ -400,25 +410,29 @@ export default function AbonnementsPage() {
                     <AppBadge value={r.statut} label={STATUS_LABELS[r.statut] || r.statut} />
                   </td>
                   <td data-label="Actions" className="button-row">
-                    {canExecute && r.statut !== 'ANNULE' ? (
+                    {r.statut !== 'ANNULE' ? (
                       <>
-                        <button
-                          type="button"
-                          className="btn btn-primary"
-                          disabled={busyId === r.publicId || !r.paroissePublicId || !planOptions.length}
-                          onClick={() => { setConfirmMode('checkout'); setConfirmRow(r); }}
-                        >
-                          {busyId === r.publicId ? 'Traitement…' : 'Payer (FedaPay)'}
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-secondary"
-                          disabled={busyId === r.publicId || !r.paroissePublicId || !planFor(r)}
-                          onClick={() => { setConfirmMode('manuel'); setConfirmRow(r); }}
-                        >
-                          Activer
-                        </button>
-                        {(r.statut === 'ACTIF' || r.statut === 'EXPIRE' || r.enTolerance) ? (
+                        {canCheckout ? (
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            disabled={busyId === r.publicId || !r.paroissePublicId || !planOptions.length}
+                            onClick={() => { setConfirmMode('checkout'); setConfirmRow(r); }}
+                          >
+                            {busyId === r.publicId ? 'Traitement…' : 'Payer (FedaPay)'}
+                          </button>
+                        ) : null}
+                        {canActivate ? (
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            disabled={busyId === r.publicId || !r.paroissePublicId || !planFor(r)}
+                            onClick={() => { setConfirmMode('manuel'); setConfirmRow(r); }}
+                          >
+                            Activer
+                          </button>
+                        ) : null}
+                        {canManage && (r.statut === 'ACTIF' || r.statut === 'EXPIRE' || r.enTolerance) ? (
                           <button
                             type="button"
                             className="btn btn-secondary"
@@ -428,7 +442,7 @@ export default function AbonnementsPage() {
                             Prolonger
                           </button>
                         ) : null}
-                        {r.statut === 'EN_ATTENTE' ? (
+                        {canManage && r.statut === 'EN_ATTENTE' ? (
                           <button
                             type="button"
                             className="btn btn-secondary"
@@ -438,7 +452,7 @@ export default function AbonnementsPage() {
                             Annuler lien
                           </button>
                         ) : null}
-                        {r.statut !== 'EN_ATTENTE' ? (
+                        {canManage && r.statut !== 'EN_ATTENTE' ? (
                           <button
                             type="button"
                             className="btn btn-secondary"
@@ -466,7 +480,7 @@ export default function AbonnementsPage() {
         busy={Boolean(busyId)}
         onCancel={() => { setConfirmRow(null); setConfirmMode(null); }}
         onConfirm={() => {
-          if (!confirmRow || !confirmMode) return;
+          if (!confirmRow || !confirmMode || !canRun(confirmMode)) return;
           runAction(confirmRow, confirmMode);
         }}
       >

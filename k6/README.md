@@ -62,3 +62,36 @@ Commencer par ce palier de 3 utilisateurs. Toute augmentation doit être décid�
 en fonction de la formule Render, des métriques JVM/Hikari/PostgreSQL et des
 objectifs de capacité. Ne pas lancer de test d'écriture ou de paiement en
 production.
+
+
+## 3. Test de capacité authentifié
+
+Ce scénario réutilise une session obtenue dans `setup()` afin de ne pas mesurer
+le rate limiting de connexion. Il lance cinq lectures en parallèle par
+utilisateur et augmente progressivement la charge jusqu'à 10 utilisateurs.
+
+```powershell
+$env:K6_USERNAME = "compte-test"
+$env:K6_PASSWORD = "mot-de-passe-temporaire"
+k6 run k6/authenticated-capacity-production.js
+Remove-Item Env:K6_USERNAME
+Remove-Item Env:K6_PASSWORD
+```
+
+Des seuils avec arrêt automatique protègent la production :
+
+- arrêt si le taux d'erreur dépasse 5 % après 15 secondes ;
+- arrêt si moins de 95 % des contrôles réussissent ;
+- arrêt si le p95 HTTP dépasse 2 secondes après 20 secondes.
+
+### Référence production du 20 août 2026
+
+- 10 utilisateurs simultanés ;
+- 1 732 requêtes, soit 16,39 requêtes/seconde ;
+- 0 erreur HTTP et 3 460/3 460 contrôles réussis ;
+- moyenne globale : 259 ms ; p95 global : 413 ms ; maximum : 781 ms ;
+- p95 session : 361 ms ; profil : 359 ms ; demandes : 428 ms ;
+- p95 statistiques : 497 ms ; programmations : 411 ms.
+
+Cette référence concerne uniquement des lectures authentifiées sur l'instance
+Render Starter et la base PostgreSQL 256 MB configurées au moment du test.

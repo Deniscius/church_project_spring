@@ -35,14 +35,13 @@ function formatDateTime(value) {
 
 export default function ReversementsPage() {
   const { has } = usePermissions();
-  const canExecute = has(PERMISSIONS.FINANCE_MANAGE);
+  const canExecute = has(PERMISSIONS.PAYOUT_MANAGE);
   const [rows, setRows] = useState([]);
   const [filter, setFilter] = useState('EN_ATTENTE');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [info, setInfo] = useState(null);
   const [busyId, setBusyId] = useState(null);
-  // Décision en cours de saisie : { id, action: 'PAYER' | 'REJETER', value }
   const [decision, setDecision] = useState(null);
 
   async function load() {
@@ -82,13 +81,14 @@ export default function ReversementsPage() {
   );
 
   function startDecision(row, action) {
+    if (!canExecute) return;
     setInfo(null);
     setError(null);
     setDecision({ id: row.publicId, action, value: '' });
   }
 
   async function confirmDecision(row) {
-    if (!decision) return;
+    if (!canExecute || !decision) return;
     const { action, value } = decision;
     if (action === 'PAYER' && !value.trim()) {
       setError('La référence du virement est obligatoire pour justifier le décaissement.');

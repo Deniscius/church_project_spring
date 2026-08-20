@@ -68,7 +68,9 @@ export default function ParishesPage() {
   const toast = useToast();
   const { setActiveParish } = useTenant();
   const { has } = usePermissions();
-  const canActivate = has(PERMISSIONS.FINANCE_MANAGE);
+  const canManageParishes = has(PERMISSIONS.PARISH_MANAGE);
+  const canActivate = has(PERMISSIONS.SUBSCRIPTION_ACTIVATE);
+  const canViewRegistrations = has(PERMISSIONS.PARISH_REGISTRATION_READ);
   const [rows, setRows] = useState([]);
   const [doyennes, setDoyennes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -119,7 +121,7 @@ export default function ParishesPage() {
     if (payload.doyenneId) {
       applyDoyenneFilter(payload.doyenneId);
     }
-    if (payload.openCreate) {
+    if (payload.openCreate && canManageParishes) {
       setEditingId(null);
       setForm({ ...EMPTY_FORM, doyennePublicId: payload.doyenneId || getDoyenneFilter() || '' });
       setFilter('PROSPECT');
@@ -127,7 +129,7 @@ export default function ParishesPage() {
       setShowForm(true);
     }
     navigate(location.pathname, { replace: true, state: null });
-  }, [location.state, location.pathname, navigate]);
+  }, [location.state, location.pathname, navigate, canManageParishes]);
 
   // Compat anciennes URL ?doyenne=
   useEffect(() => {
@@ -136,14 +138,14 @@ export default function ParishesPage() {
     const openNew = qs.get('nouvelle') === '1';
     if (!legacy && !openNew) return;
     if (legacy) applyDoyenneFilter(legacy);
-    if (openNew) {
+    if (openNew && canManageParishes) {
       setEditingId(null);
       setForm({ ...EMPTY_FORM, doyennePublicId: legacy || getDoyenneFilter() || '' });
       setFilter('PROSPECT');
       setShowForm(true);
     }
     window.history.replaceState({}, '', window.location.pathname);
-  }, []);
+  }, [canManageParishes]);
 
   const visibleRows = useMemo(() => {
     let list = rows;
@@ -180,6 +182,7 @@ export default function ParishesPage() {
   };
 
   const openCreate = () => {
+    if (!canManageParishes) return;
     setEditingId(null);
     setForm({ ...EMPTY_FORM, doyennePublicId: doyenneFilter || '' });
     setError(null);
@@ -187,6 +190,7 @@ export default function ParishesPage() {
   };
 
   const openEdit = (row) => {
+    if (!canManageParishes) return;
     setEditingId(row.id);
     setForm({
       nom: row.name || '',
@@ -203,13 +207,14 @@ export default function ParishesPage() {
   };
 
   const openActivate = (row) => {
+    if (!canActivate) return;
     setPendingActivate(row);
     setActivatePlan('MENSUEL');
     setError(null);
   };
 
   const confirmActivate = async () => {
-    if (!pendingActivate?.id) return;
+    if (!canActivate || !pendingActivate?.id) return;
     setActivating(true);
     setError(null);
     try {
@@ -227,6 +232,7 @@ export default function ParishesPage() {
 
   const submit = async (event) => {
     event.preventDefault();
+    if (!canManageParishes) return;
     try {
       setSaving(true);
       setError(null);
@@ -261,7 +267,7 @@ export default function ParishesPage() {
   };
 
   const remove = async () => {
-    if (!pendingDelete) return;
+    if (!canManageParishes || !pendingDelete) return;
     try {
       setDeletingId(pendingDelete.id);
       setError(null);
@@ -282,10 +288,14 @@ export default function ParishesPage() {
         subtitle="Annuaire des tenants. Activez une fiche sans inscription, ou intervenez en support."
         actions={
           <div className="button-row">
-            <Link className="btn btn-secondary" to="/admin/inscriptions-paroisse" style={{ textDecoration: 'none' }}>
-              Inscriptions
-            </Link>
-            <AppButton onClick={openCreate} disabled={loading}>Ajouter à l’annuaire</AppButton>
+            {canViewRegistrations ? (
+              <Link className="btn btn-secondary" to="/admin/inscriptions-paroisse" style={{ textDecoration: 'none' }}>
+                Inscriptions
+              </Link>
+            ) : null}
+            {canManageParishes ? (
+              <AppButton onClick={openCreate} disabled={loading}>Ajouter à l’annuaire</AppButton>
+            ) : null}
           </div>
         }
       />
@@ -356,7 +366,7 @@ export default function ParishesPage() {
 
       {error ? <div className="alert-danger" role="alert">{error}</div> : null}
 
-      {showForm ? (
+      {showForm && canManageParishes ? (
         <AppCard title={editingId ? 'Modifier la paroisse' : 'Ajouter une paroisse à l’annuaire'}>
           <p className="muted" style={{ marginTop: 0 }}>
             La fiche apparaît comme prospect dans le doyenné. Vous pourrez ensuite
@@ -510,15 +520,19 @@ export default function ParishesPage() {
                 >
                   Intervenir
                 </button>
-                <button type="button" className="btn btn-secondary" onClick={() => openEdit(row)}>Modifier</button>
-                <button
-                  type="button"
-                  className="btn btn-danger"
-                  disabled={deletingId === row.id}
-                  onClick={() => setPendingDelete(row)}
-                >
-                  {deletingId === row.id ? 'Désactivation…' : 'Désactiver'}
-                </button>
+                {canManageParishes ? (
+                  <>
+                    <button type="button" className="btn btn-secondary" onClick={() => openEdit(row)}>Modifier</button>
+                    <button
+                      type="button"
+                      className="btn btn-danger"
+                      disabled={deletingId === row.id}
+                      onClick={() => setPendingDelete(row)}
+                    >
+                      {deletingId === row.id ? 'Désactivation…' : 'Désactiver'}
+                    </button>
+                  </>
+                ) : null}
               </div>
             );
           }

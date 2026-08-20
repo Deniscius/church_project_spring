@@ -3,8 +3,8 @@ import AppCard from '../ui/AppCard';
 import AppInput from '../ui/AppInput';
 import AppSelect from '../ui/AppSelect';
 import AppButton from '../ui/AppButton';
-import AppAlert from '../ui/AppAlert';
 import MultiScheduleModal from './MultiScheduleModal';
+import TariffChangeDialog from './TariffChangeDialog';
 import {
   getForfaitDureeLabel,
   isMultiCelebrationForfait,
@@ -40,6 +40,13 @@ function formatFrDate(iso) {
     month: 'long',
     year: 'numeric',
   });
+}
+
+function amountsDiffer(previousAmount, nextAmount) {
+  if (previousAmount == null || nextAmount == null) return false;
+  const previous = Number(previousAmount);
+  const next = Number(nextAmount);
+  return Number.isFinite(previous) && Number.isFinite(next) && previous !== next;
 }
 
 function pickDefaultSchedule(horaires, iso) {
@@ -186,18 +193,30 @@ export default function DatesSelector() {
       currentNature: draft.forfaitNature,
       nombreCelebration: draft.forfaitNombreCelebration ?? 1,
     });
-    if (!preferred || preferred.publicId === draft.forfaitTarifPublicId) return;
+
+    const userSelectedThisDate = userSelectedDateRef.current === draft.dateDebut;
+    if (!preferred) {
+      if (userSelectedThisDate) userSelectedDateRef.current = '';
+      return;
+    }
+    if (preferred.publicId === draft.forfaitTarifPublicId) {
+      if (userSelectedThisDate) userSelectedDateRef.current = '';
+      return;
+    }
+
     const natureLabel = NATURE_FORFAIT_OPTIONS.find((o) => o.value === preferred.natureForfait)?.label
       || preferred.nomForfait;
 
-    if (userSelectedDateRef.current === draft.dateDebut) {
-      setTariffChangeNotice({
-        date: draft.dateDebut,
-        previousLabel: draft.forfaitLabel || draft.forfaitNature || 'Tarif précédent',
-        previousAmount: draft.forfaitMontant,
-        nextLabel: natureLabel || preferred.natureForfait || 'Nouveau tarif',
-        nextAmount: preferred.montantForfait,
-      });
+    if (userSelectedThisDate) {
+      if (amountsDiffer(draft.forfaitMontant, preferred.montantForfait)) {
+        setTariffChangeNotice({
+          date: draft.dateDebut,
+          previousLabel: draft.forfaitLabel || draft.forfaitNature || 'Tarif précédent',
+          previousAmount: draft.forfaitMontant,
+          nextLabel: natureLabel || preferred.natureForfait || 'Nouveau tarif',
+          nextAmount: preferred.montantForfait,
+        });
+      }
       userSelectedDateRef.current = '';
     }
 
@@ -404,22 +423,14 @@ export default function DatesSelector() {
         {slotError ? <small className="text-red-600">{slotError}</small> : null}
       </div>
 
-      {tariffChangeNotice ? (
-        <AppAlert variant="info">
-          <strong>Tarif ajusté automatiquement pour le jour choisi.</strong>
-          <p style={{ margin: '6px 0 0' }}>
-            Le {formatFrDate(tariffChangeNotice.date)}, votre formule passe de{' '}
-            <strong>{tariffChangeNotice.previousLabel}</strong>
-            {tariffChangeNotice.previousAmount != null
-              ? ` (${formatCurrency(Number(tariffChangeNotice.previousAmount))})`
-              : ''}
-            {' '}à <strong>{tariffChangeNotice.nextLabel}</strong>
-            {tariffChangeNotice.nextAmount != null
-              ? ` (${formatCurrency(Number(tariffChangeNotice.nextAmount))})`
-              : ''}.
-          </p>
-        </AppAlert>
-      ) : null}
+      <TariffChangeDialog
+        open={Boolean(tariffChangeNotice)}
+        notice={tariffChangeNotice ? {
+          ...tariffChangeNotice,
+          formattedDate: formatFrDate(tariffChangeNotice.date),
+        } : null}
+        onClose={() => setTariffChangeNotice(null)}
+      />
 
       {multi && generatedDates.length === n ? (
         <div className="generated-dates-preview">

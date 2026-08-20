@@ -46,7 +46,6 @@ public final class RolePermissions {
                 Permission.DEANERY_MANAGE,
                 Permission.PAYMENT_TYPE_MANAGE,
                 Permission.FINANCE_READ,
-                Permission.FINANCE_MANAGE,
                 Permission.SAAS_PLAN_READ,
                 Permission.SAAS_PLAN_MANAGE,
                 Permission.SUBSCRIPTION_READ,
@@ -72,7 +71,6 @@ public final class RolePermissions {
 
         EnumSet<Permission> platformAccountant = EnumSet.of(
                 Permission.FINANCE_READ,
-                Permission.FINANCE_MANAGE,
                 Permission.PAYOUT_MANAGE,
                 Permission.SUBSCRIPTION_READ,
                 Permission.SUBSCRIPTION_CHECKOUT,

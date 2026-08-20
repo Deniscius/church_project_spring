@@ -68,8 +68,8 @@ export default function ParishTreasuryPage() {
   const paroisseId = activeParish?.publicId || activeParish?.id;
   const canManageCashOps = has(PERMISSIONS.PAYMENT_MANAGE);
   const isLocalAccountant = user?.role === 'COMPTABLE_LOCAL';
-  const canEditBank = has(PERMISSIONS.USER_MANAGE) || user?.role === 'ADMIN';
-  const canRequestReversement = user?.role === 'ADMIN';
+  const canEditBank = has(PERMISSIONS.PARISH_SETTINGS_MANAGE);
+  const canRequestReversement = has(PERMISSIONS.TREASURY_MANAGE);
   const [compte, setCompte] = useState(null);
   const [rows, setRows] = useState([]);
   const [filter, setFilter] = useState('ALL');
@@ -122,7 +122,7 @@ export default function ParishTreasuryPage() {
   }, [paroisseId]);
 
   async function saveBank() {
-    if (!paroisseId) return;
+    if (!canEditBank || !paroisseId) return;
     const titulaire = (bankDraft.titulaireCompte || '').trim();
     const banque = (bankDraft.nomBanque || '').trim();
     if (!titulaire || !banque || !(bankDraft.ibanOrRib || '').trim()) {
@@ -227,7 +227,7 @@ export default function ParishTreasuryPage() {
   }), [rows]);
 
   async function onDemande() {
-    if (!paroisseId) return;
+    if (!canRequestReversement || !paroisseId) return;
     const amount = Number(montant);
     if (!Number.isFinite(amount) || amount < 100) {
       setError('Montant minimum : 100 FCFA');
@@ -557,7 +557,7 @@ export default function ParishTreasuryPage() {
       </section>
 
       <AppDialog
-        open={bankModalOpen}
+        open={bankModalOpen && canEditBank}
         title="Coordonnées bancaires"
         confirmLabel={savingBank ? 'Enregistrement…' : 'Enregistrer'}
         cancelLabel="Annuler"
@@ -668,7 +668,7 @@ export default function ParishTreasuryPage() {
       </AppDialog>
 
       <AppDialog
-        open={reversementModalOpen}
+        open={reversementModalOpen && canRequestReversement}
         title="Demander un reversement"
         confirmLabel={busy ? 'Envoi…' : 'Demander le virement'}
         cancelLabel="Annuler"

@@ -36,6 +36,7 @@ class RolePermissionsTest {
         assertTrue(RolePermissions.hasPermission(UserRole.COMPTABLE_LOCAL, Permission.TREASURY_READ));
         assertFalse(RolePermissions.hasPermission(UserRole.COMPTABLE_LOCAL, Permission.PAYMENT_MANAGE));
         assertFalse(RolePermissions.hasPermission(UserRole.COMPTABLE_LOCAL, Permission.TREASURY_MANAGE));
+        assertFalse(RolePermissions.hasPermission(UserRole.COMPTABLE_LOCAL, Permission.PAYOUT_MANAGE));
     }
 
     @Test
@@ -45,14 +46,16 @@ class RolePermissionsTest {
         assertTrue(RolePermissions.hasPermission(UserRole.ADMIN, Permission.TREASURY_MANAGE));
         assertTrue(RolePermissions.hasPermission(UserRole.ADMIN, Permission.SUBSCRIPTION_CHECKOUT));
         assertFalse(RolePermissions.hasPermission(UserRole.ADMIN, Permission.PAYOUT_MANAGE));
-        assertFalse(RolePermissions.hasPermission(UserRole.ADMIN, Permission.FINANCE_MANAGE));
+        assertFalse(RolePermissions.hasPermission(UserRole.ADMIN, Permission.SUBSCRIPTION_MANAGE));
         assertFalse(RolePermissions.hasPermission(UserRole.ADMIN, Permission.SAAS_PLAN_MANAGE));
     }
 
     @Test
     void platformAccountantExecutesFinancialOperationsWithoutSystemAdministration() {
-        assertTrue(RolePermissions.hasPermission(UserRole.COMPTABLE, Permission.FINANCE_MANAGE));
+        assertTrue(RolePermissions.hasPermission(UserRole.COMPTABLE, Permission.FINANCE_READ));
         assertTrue(RolePermissions.hasPermission(UserRole.COMPTABLE, Permission.PAYOUT_MANAGE));
+        assertTrue(RolePermissions.hasPermission(UserRole.COMPTABLE, Permission.SUBSCRIPTION_CHECKOUT));
+        assertTrue(RolePermissions.hasPermission(UserRole.COMPTABLE, Permission.SUBSCRIPTION_ACTIVATE));
         assertTrue(RolePermissions.hasPermission(UserRole.COMPTABLE, Permission.SUBSCRIPTION_MANAGE));
         assertTrue(RolePermissions.hasPermission(UserRole.COMPTABLE, Permission.PARISH_REGISTRATION_MANAGE));
         assertTrue(RolePermissions.hasPermission(UserRole.COMPTABLE, Permission.SCHEDULE_MANAGE));
@@ -61,11 +64,12 @@ class RolePermissionsTest {
     }
 
     @Test
-    void superAdminCanApproveOnboardingButCannotExecutePayout() {
+    void superAdminCanApproveAndActivateOnboardingButCannotExecutePayoutOrLifecycleChanges() {
         assertTrue(RolePermissions.hasPermission(UserRole.SUPER_ADMIN, Permission.PARISH_REGISTRATION_MANAGE));
         assertTrue(RolePermissions.hasPermission(UserRole.SUPER_ADMIN, Permission.SUBSCRIPTION_ACTIVATE));
         assertTrue(RolePermissions.hasPermission(UserRole.SUPER_ADMIN, Permission.SAAS_PLAN_MANAGE));
         assertFalse(RolePermissions.hasPermission(UserRole.SUPER_ADMIN, Permission.PAYOUT_MANAGE));
+        assertFalse(RolePermissions.hasPermission(UserRole.SUPER_ADMIN, Permission.SUBSCRIPTION_CHECKOUT));
         assertFalse(RolePermissions.hasPermission(UserRole.SUPER_ADMIN, Permission.SUBSCRIPTION_MANAGE));
     }
 
@@ -90,6 +94,7 @@ class RolePermissionsTest {
         assertTrue(authorities.contains(Permission.DEMAND_EDIT.authority()));
         assertTrue(authorities.contains(Permission.USER_MANAGE.authority()));
         assertTrue(authorities.contains(Permission.PARISH_READ.authority()));
-        assertFalse(authorities.contains(Permission.FINANCE_MANAGE.authority()));
+        assertTrue(authorities.contains(Permission.TREASURY_MANAGE.authority()));
+        assertFalse(authorities.contains(Permission.PAYOUT_MANAGE.authority()));
     }
 }

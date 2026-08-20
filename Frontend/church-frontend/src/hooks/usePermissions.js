@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { useAuth } from './useAuth';
 import { isAdmin, isSuperAdmin, PERMISSIONS, ROLES } from '../constants/roles';
 
@@ -12,13 +11,10 @@ import { isAdmin, isSuperAdmin, PERMISSIONS, ROLES } from '../constants/roles';
 export function usePermissions() {
   const { user } = useAuth();
   const userRole = user?.role;
-
-  const allPermissions = useMemo(() => {
-    if (!Array.isArray(user?.permissions)) return [];
-    return [...new Set(user.permissions.filter(Boolean))];
-  }, [user?.permissions]);
-
-  const permissionSet = useMemo(() => new Set(allPermissions), [allPermissions]);
+  const allPermissions = Array.isArray(user?.permissions)
+    ? [...new Set(user.permissions.filter(Boolean))]
+    : [];
+  const permissionSet = new Set(allPermissions);
   const has = (permission) => Boolean(permission) && permissionSet.has(permission);
 
   return {

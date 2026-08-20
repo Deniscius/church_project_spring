@@ -9,8 +9,6 @@ import { formatCurrency } from '../../../utils/formatCurrency';
 import { usePermissions } from '../../../hooks/usePermissions';
 import { PERMISSIONS } from '../../../constants/roles';
 
-// Le pipeline se lit en deux temps : approbation du dossier, puis encaissement
-// et activation. « À activer » est la file d'attente propre au comptable.
 const FILTERS = [
   { id: 'SOUMISE', label: 'À approuver', match: (r) => r.statut === 'SOUMISE' },
   { id: 'A_ACTIVER', label: 'À activer', match: (r) => r.statut === 'APPROUVEE' && !r.paroisseActive },
@@ -36,10 +34,6 @@ function formatDateTime(value) {
   });
 }
 
-/**
- * Le pipeline ne s'arrête pas à l'approbation : l'activation par le comptable
- * et l'ouverture de la connexion admin doivent aussi se voir.
- */
 function stepState(row, step) {
   if (row.statut === 'REJETEE') return step === 1 ? 'done' : '';
   const approuvee = row.statut === 'APPROUVEE';
@@ -63,8 +57,10 @@ function stepState(row, step) {
 export default function InscriptionsPage() {
   const queryClient = useQueryClient();
   const { has } = usePermissions();
-  // Encaissement et activation sont des actes financiers : comptable uniquement.
-  const canExecuteFinance = has(PERMISSIONS.FINANCE_MANAGE);
+  const canManageRegistration = has(PERMISSIONS.PARISH_REGISTRATION_MANAGE);
+  const canCheckout = has(PERMISSIONS.SUBSCRIPTION_CHECKOUT);
+  const canActivate = has(PERMISSIONS.SUBSCRIPTION_ACTIVATE);
+  const canViewParishes = has(PERMISSIONS.PARISH_READ);
   const [rows, setRows] = useState([]);
   const [filter, setFilter] = useState('SOUMISE');
   const [selectedId, setSelectedId] = useState(null);
@@ -115,6 +111,7 @@ export default function InscriptionsPage() {
   }, [visible, selected]);
 
   async function approuver(row) {
+    if (!canManageRegistration) return;
     setBusy(true);
     setInfo(null);
     setPaymentUrl('');
@@ -125,15 +122,17 @@ export default function InscriptionsPage() {
       const emailsHint = [res?.emailParoisse, res?.emailAdmin].filter(Boolean).length
         ? ` E-mails pro : paroisse ${res.emailParoisse || '—'} · admin ${res.emailAdmin || '—'}.`
         : '';
-      if (!canExecuteFinance) {
-        setInfo(`Dossier approuvé. Le comptable prend le relais pour l’encaissement et l’activation.${emailsHint}`);
-      } else {
+      if (canCheckout || canActivate) {
         setInfo(
-          (url
-            ? 'Dossier approuvé. Envoyez le lien de paiement à la paroisse, ou activez l’accès si le paiement est déjà reçu.'
-            : 'Dossier approuvé. FedaPay est désactivé : cliquez sur « Activer l’accès » pour ouvrir la connexion admin.')
+          (url && canCheckout
+            ? 'Dossier approuvé. Le lien de paiement est disponible.'
+            : canActivate
+              ? 'Dossier approuvé. Vous pouvez activer l’accès si le paiement a déjà été reçu.'
+              : 'Dossier approuvé.')
           + emailsHint
         );
+      } else {
+        setInfo(`Dossier approuvé. Le traitement de l’abonnement relève d’un compte autorisé.${emailsHint}`);
       }
       await queryClient.invalidateQueries({ queryKey: ['paroisses'] });
       await load();
@@ -146,7 +145,7 @@ export default function InscriptionsPage() {
   }
 
   async function rejeter() {
-    if (!pendingReject) return;
+    if (!canManageRegistration || !pendingReject) return;
     const motif = rejectMotif.trim();
     if (motif.length < 8) {
       setError('Indiquez un motif de rejet (au moins 8 caractères).');
@@ -169,6 +168,7 @@ export default function InscriptionsPage() {
   }
 
   async function genererLienPaiement(row) {
+    if (!canCheckout) return;
     if (!row.paroissePublicId) {
       setError('Paroisse pas encore créée — approuvez d’abord le dossier.');
       return;
@@ -182,7 +182,7 @@ export default function InscriptionsPage() {
       if (url) {
         setInfo('Lien de paiement généré. Copiez-le ou ouvrez FedaPay.');
       } else {
-        setInfo(res?.message || 'Pas d’URL FedaPay — activez manuellement l’accès.');
+        setInfo(res?.message || 'Pas d’URL FedaPay disponible.');
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Échec génération lien');
@@ -192,6 +192,7 @@ export default function InscriptionsPage() {
   }
 
   async function activerAcces() {
+    if (!canActivate) return;
     if (!pendingActivate?.paroissePublicId) {
       setError('Paroisse introuvable sur ce dossier.');
       return;
@@ -245,9 +246,11 @@ export default function InscriptionsPage() {
         title="Inscriptions"
         subtitle="Pipeline SaaS : validation → paiement abonnement → activation → connexion admin paroisse."
         actions={
-          <Link className="btn btn-secondary" to="/admin/paroisses" style={{ textDecoration: 'none' }}>
-            Voir les paroisses
-          </Link>
+          canViewParishes ? (
+            <Link className="btn btn-secondary" to="/admin/paroisses" style={{ textDecoration: 'none' }}>
+              Voir les paroisses
+            </Link>
+          ) : null
         }
       />
 
@@ -369,7 +372,7 @@ export default function InscriptionsPage() {
                     <span>
                       {selected.paroisseActive
                         ? `Actif${selected.abonnementFinAt ? ` jusqu’au ${formatDateTime(selected.abonnementFinAt)}` : ''}`
-                        : 'En attente d’activation par le comptable'}
+                        : 'En attente d’activation'}
                     </span>
                   </div>
                 ) : (
@@ -452,7 +455,7 @@ export default function InscriptionsPage() {
                 </div>
               ) : null}
 
-              {selected.statut === 'SOUMISE' ? (
+              {canManageRegistration && selected.statut === 'SOUMISE' ? (
                 <div className="button-row">
                   <button type="button" className="btn btn-primary" disabled={busy} onClick={() => approuver(selected)}>
                     Approuver le dossier
@@ -486,34 +489,37 @@ export default function InscriptionsPage() {
                   <div className="activation-callout">
                     <strong>Comment l’admin se connecte ?</strong>
                     <ol>
-                      <li>Activez l’accès (paiement reçu ou lien FedaPay payé).</li>
+                      <li>Activez l’accès après paiement ou générez le lien FedaPay.</li>
                       <li>L’admin ouvre <code>/admin/login</code>.</li>
                       <li>Identifiant : <strong>{selected.adminUsername}</strong> + mot de passe choisi à l’inscription.</li>
                     </ol>
                   </div>
-                  {canExecuteFinance ? (
+                  {canActivate || canCheckout ? (
                     <div className="button-row">
-                      <button
-                        type="button"
-                        className="btn btn-primary"
-                        disabled={busy || !selected.paroissePublicId}
-                        onClick={() => setPendingActivate(selected)}
-                      >
-                        Activer l’accès maintenant
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        disabled={busy || !selected.paroissePublicId}
-                        onClick={() => genererLienPaiement(selected)}
-                      >
-                        Générer lien paiement
-                      </button>
+                      {canActivate ? (
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          disabled={busy || !selected.paroissePublicId}
+                          onClick={() => setPendingActivate(selected)}
+                        >
+                          Activer l’accès maintenant
+                        </button>
+                      ) : null}
+                      {canCheckout ? (
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          disabled={busy || !selected.paroissePublicId}
+                          onClick={() => genererLienPaiement(selected)}
+                        >
+                          Générer lien paiement
+                        </button>
+                      ) : null}
                     </div>
                   ) : (
                     <div className="alert-info" role="status">
-                      Dossier approuvé. L’encaissement de l’abonnement et l’activation de l’accès
-                      relèvent du comptable plateforme.
+                      Dossier approuvé. Votre compte peut consulter ce dossier mais ne peut pas traiter l’abonnement.
                     </div>
                   )}
                   {paymentUrl ? (
@@ -536,7 +542,7 @@ export default function InscriptionsPage() {
       </div>
 
       <AppDialog
-        open={Boolean(pendingReject)}
+        open={Boolean(pendingReject) && canManageRegistration}
         title="Rejeter l'inscription"
         confirmLabel="Rejeter"
         cancelLabel="Annuler"
@@ -560,7 +566,7 @@ export default function InscriptionsPage() {
       </AppDialog>
 
       <AppDialog
-        open={Boolean(pendingActivate)}
+        open={Boolean(pendingActivate) && canActivate}
         title="Activer l'accès"
         confirmLabel="Activer"
         cancelLabel="Annuler"

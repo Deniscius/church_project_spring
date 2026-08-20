@@ -57,7 +57,6 @@ public enum Permission {
     PAYMENT_TYPE_MANAGE("payment-type:manage"),
 
     FINANCE_READ("finance:read"),
-    FINANCE_MANAGE("finance:manage"),
 
     SAAS_PLAN_READ("saas-plan:read"),
     SAAS_PLAN_MANAGE("saas-plan:manage"),

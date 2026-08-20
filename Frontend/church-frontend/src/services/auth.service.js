@@ -21,6 +21,7 @@ function mapLoginUser(user) {
     prenom: user.prenom || '',
     username: user.username,
     role: user.role,
+    permissions: Array.isArray(user.permissions) ? user.permissions.filter(Boolean) : [],
     isGlobal: Boolean(user.isGlobal),
   };
 }

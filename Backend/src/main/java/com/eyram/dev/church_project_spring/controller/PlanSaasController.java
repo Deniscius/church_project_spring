@@ -33,19 +33,19 @@ public class PlanSaasController {
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('SUPER_ADMIN') and principal.isGlobal()")
+    @PreAuthorize("hasAuthority('saas-plan:read') and principal.isGlobal()")
     public ResponseEntity<List<PlanSaasResponse>> findAll() {
         return ResponseEntity.ok(planSaasService.findAll());
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('SUPER_ADMIN') and principal.isGlobal()")
+    @PreAuthorize("hasAuthority('saas-plan:manage') and principal.isGlobal()")
     public ResponseEntity<PlanSaasResponse> create(@Valid @RequestBody PlanSaasCreateRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(planSaasService.create(request));
     }
 
     @PutMapping("/{publicId}")
-    @PreAuthorize("hasRole('SUPER_ADMIN') and principal.isGlobal()")
+    @PreAuthorize("hasAuthority('saas-plan:manage') and principal.isGlobal()")
     public ResponseEntity<PlanSaasResponse> update(
             @PathVariable UUID publicId,
             @Valid @RequestBody PlanSaasRequest request

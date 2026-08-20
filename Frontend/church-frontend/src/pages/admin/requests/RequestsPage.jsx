@@ -5,7 +5,6 @@ import AppTable from '../../../components/ui/AppTable';
 import AppBadge from '../../../components/ui/AppBadge';
 import AppDialog from '../../../components/ui/AppDialog';
 import { useTenant } from '../../../hooks/useTenant';
-import { useAuth } from '../../../hooks/useAuth';
 import { requestService } from '../../../services/request.service';
 import { formatDate } from '../../../utils/formatDate';
 import { mapDemandeToRequestRow } from '../../../utils/apiMappers';
@@ -42,17 +41,16 @@ function digitsOnly(value) {
 }
 
 export default function RequestsPage() {
-  const { user } = useAuth();
   const { activeParish } = useTenant();
   const { has } = usePermissions();
   const [searchParams, setSearchParams] = useSearchParams();
-  const isAccountant = user?.role === 'COMPTABLE_LOCAL' || user?.role === 'COMPTABLE';
+  const canAudit = has(PERMISSIONS.DEMAND_AUDIT);
+  const canDelete = has(PERMISSIONS.DEMAND_DELETE);
 
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  // Comptable : toutes les demandes (actives + archivées) par défaut.
-  const [listScope, setListScope] = useState(isAccountant ? 'ALL' : 'ACTIVE');
+  const [listScope, setListScope] = useState(canAudit ? 'ALL' : 'ACTIVE');
   const [deletedRows, setDeletedRows] = useState([]);
   const [deletedLoading, setDeletedLoading] = useState(false);
   const [deletedError, setDeletedError] = useState(null);
@@ -73,8 +71,8 @@ export default function RequestsPage() {
     setPage(0);
   };
 
-  const includeDeleted = listScope === 'ALL';
-  const showDeletedOnly = listScope === 'DELETED';
+  const includeDeleted = canAudit && listScope === 'ALL';
+  const showDeletedOnly = canAudit && listScope === 'DELETED';
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -145,7 +143,7 @@ export default function RequestsPage() {
   }, [rows, deletedRows, showDeletedOnly, search, statusFilter, paymentFilter]);
 
   const confirmRemove = async () => {
-    if (!pendingDelete) return;
+    if (!canDelete || !pendingDelete) return;
     try {
       setDeleting(true);
       await requestService.remove(pendingDelete.id);
@@ -167,9 +165,9 @@ export default function RequestsPage() {
       <PageHeader
         title="Demandes"
         subtitle={
-          isAccountant
-            ? 'Vue comptable : actives et archivées (soft delete) avec trace.'
-            : 'Liste paginée des demandes de la paroisse active. La suppression est un archivage (soft delete) avec trace.'
+          canAudit
+            ? 'Vue audit : demandes actives et archivées avec traçabilité.'
+            : 'Liste paginée des demandes de la paroisse active.'
         }
       />
       {error || deletedError ? (
@@ -183,17 +181,15 @@ export default function RequestsPage() {
       <div className="card filters">
         <select
           className="select"
-          value={listScope}
+          value={canAudit ? listScope : 'ACTIVE'}
           onChange={(e) => {
             setListScope(e.target.value);
             setPage(0);
           }}
         >
-          {isAccountant || has(PERMISSIONS.DEMAND_DELETE) || has(PERMISSIONS.TREASURY_READ) ? (
-            <option value="ALL">Toutes (actives + archivées)</option>
-          ) : null}
+          {canAudit ? <option value="ALL">Toutes (actives + archivées)</option> : null}
           <option value="ACTIVE">Demandes actives</option>
-          <option value="DELETED">Demandes supprimées (trace)</option>
+          {canAudit ? <option value="DELETED">Demandes supprimées (trace)</option> : null}
         </select>
         {!showDeletedOnly ? (
           <>
@@ -265,7 +261,7 @@ export default function RequestsPage() {
             return (
               <div className="button-row">
                 <Link className="btn btn-secondary" to={`/admin/demandes/${row.id}`}>Voir</Link>
-                {!row.statusDel && has(PERMISSIONS.DEMAND_DELETE) ? (
+                {!row.statusDel && canDelete ? (
                   <button type="button" className="btn btn-danger" onClick={() => setPendingDelete(row)}>
                     Supprimer
                   </button>
@@ -312,7 +308,7 @@ export default function RequestsPage() {
       )}
 
       <AppDialog
-        open={Boolean(pendingDelete)}
+        open={Boolean(pendingDelete) && canDelete}
         title="Archiver la demande"
         confirmLabel="Archiver"
         cancelLabel="Annuler"
@@ -324,7 +320,7 @@ export default function RequestsPage() {
         {pendingDelete ? (
           <p style={{ margin: 0 }}>
             Soft delete de « {pendingDelete.trackingCode} » : la demande disparaît des listes actives
-            mais reste consultable (vue comptable / demandes archivées) avec votre identité et l’heure.
+            mais reste consultable par les comptes disposant de la permission d’audit, avec votre identité et l’heure.
           </p>
         ) : null}
       </AppDialog>

@@ -39,7 +39,8 @@ public class AuthController {
                 jwt.username(),
                 jwt.tenantId(),
                 jwt.isGlobal(),
-                jwt.roles()
+                jwt.roles(),
+                jwt.permissions()
         ));
     }
 }

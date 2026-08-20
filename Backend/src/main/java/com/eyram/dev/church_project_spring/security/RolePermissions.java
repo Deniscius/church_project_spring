@@ -1,163 +1,212 @@
 package com.eyram.dev.church_project_spring.security;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-
 import com.eyram.dev.church_project_spring.enums.UserRole;
 
+import java.util.Collections;
+import java.util.EnumMap;
+import java.util.EnumSet;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 /**
- * Gestion centralisée des permissions par rôle.
- * Hiérarchie : SUPER_ADMIN > ADMIN > SECRETAIRE > CURE
- * 
- * Note : Les fidèles n'ont pas de compte, ils accèdent via endpoints publics anonymes.
+ * Matrice RBAC centrale : un rôle applicatif regroupe des permissions métier.
+ *
+ * <p>Important : cette classe définit les capacités, pas le périmètre de données.
+ * L'accès à une paroisse reste contrôlé séparément par {@link TenantAccessService}.</p>
  */
-public class RolePermissions {
+public final class RolePermissions {
 
-    public static final String PERMISSION_READ = "read";
-    public static final String PERMISSION_CREATE = "create";
-    public static final String PERMISSION_EDIT = "edit";
-    public static final String PERMISSION_DELETE = "delete";
-    public static final String PERMISSION_ADMIN = "admin";
-    public static final String PERMISSION_VALIDATE = "validate";
-    public static final String PERMISSION_MANAGE_USERS = "manage_users";
-    public static final String PERMISSION_MANAGE_SYSTEM = "manage_system";
-
-    private static final Map<UserRole, Set<String>> ROLE_PERMISSIONS = new HashMap<>();
+    private static final Map<UserRole, Set<Permission>> ROLE_PERMISSIONS;
 
     static {
-        // ✅ SUPER_ADMIN : accès complet
-        ROLE_PERMISSIONS.put(UserRole.SUPER_ADMIN, Set.of(
-                PERMISSION_READ,
-                PERMISSION_CREATE,
-                PERMISSION_EDIT,
-                PERMISSION_DELETE,
-                PERMISSION_ADMIN,
-                PERMISSION_VALIDATE,
-                PERMISSION_MANAGE_USERS,
-                PERMISSION_MANAGE_SYSTEM
-        ));
+        EnumMap<UserRole, Set<Permission>> matrix = new EnumMap<>(UserRole.class);
 
-        // Comptable plateforme : finances SaaS (pas de config système complète)
-        ROLE_PERMISSIONS.put(UserRole.COMPTABLE, Set.of(
-                PERMISSION_READ,
-                PERMISSION_EDIT,
-                PERMISSION_ADMIN
-        ));
+        Set<Permission> parishRead = EnumSet.of(
+                Permission.DASHBOARD_VIEW,
+                Permission.DEMAND_READ,
+                Permission.PAYMENT_READ,
+                Permission.INVOICE_READ,
+                Permission.SCHEDULE_READ,
+                Permission.REQUEST_TYPE_READ,
+                Permission.PRICING_READ,
+                Permission.PARISH_READ,
+                Permission.PROFILE_READ
+        );
 
-        // Comptable local : contrôle trésorerie / caisse (lecture)
-        ROLE_PERMISSIONS.put(UserRole.COMPTABLE_LOCAL, Set.of(
-                PERMISSION_READ,
-                PERMISSION_VALIDATE
-        ));
+        EnumSet<Permission> superAdmin = EnumSet.of(
+                Permission.SYSTEM_ADMIN,
+                Permission.USER_MANAGE,
+                Permission.PARISH_MANAGE,
+                Permission.PARISH_SETTINGS_MANAGE,
+                Permission.PARISH_ACCESS_MANAGE,
+                Permission.PARISH_REGISTRATION_READ,
+                Permission.PARISH_REGISTRATION_MANAGE,
+                Permission.DEANERY_MANAGE,
+                Permission.PAYMENT_TYPE_MANAGE,
+                Permission.FINANCE_READ,
+                Permission.SAAS_PLAN_READ,
+                Permission.SAAS_PLAN_MANAGE,
+                Permission.SUBSCRIPTION_READ,
+                Permission.SUBSCRIPTION_ACTIVATE,
+                Permission.DEMAND_EDIT,
+                Permission.DEMAND_DELETE,
+                Permission.DEMAND_VALIDATE,
+                Permission.DEMAND_AUDIT,
+                Permission.DEMAND_DATE_MANAGE,
+                Permission.PAYMENT_MANAGE,
+                Permission.PAYMENT_DELETE,
+                Permission.TREASURY_READ,
+                Permission.RECEIPT_MANAGE,
+                Permission.INVOICE_MANAGE,
+                Permission.SCHEDULE_MANAGE,
+                Permission.CELEBRATION_MANAGE,
+                Permission.CELEBRATION_SCHEDULE_MANAGE,
+                Permission.REQUEST_TYPE_MANAGE,
+                Permission.PRICING_MANAGE
+        );
+        superAdmin.addAll(parishRead);
+        matrix.put(UserRole.SUPER_ADMIN, immutable(superAdmin));
 
-        // ✅ ADMIN : administrateur local
-        ROLE_PERMISSIONS.put(UserRole.ADMIN, Set.of(
-                PERMISSION_READ,
-                PERMISSION_CREATE,
-                PERMISSION_EDIT,
-                PERMISSION_DELETE,
-                PERMISSION_VALIDATE,
-                PERMISSION_MANAGE_USERS
-        ));
+        EnumSet<Permission> platformAccountant = EnumSet.of(
+                Permission.FINANCE_READ,
+                Permission.PAYOUT_MANAGE,
+                Permission.SUBSCRIPTION_READ,
+                Permission.SUBSCRIPTION_CHECKOUT,
+                Permission.SUBSCRIPTION_ACTIVATE,
+                Permission.SUBSCRIPTION_MANAGE,
+                Permission.PARISH_READ,
+                Permission.PARISH_REGISTRATION_READ,
+                Permission.PARISH_REGISTRATION_MANAGE,
+                Permission.DASHBOARD_VIEW,
+                Permission.DEMAND_READ,
+                Permission.DEMAND_AUDIT,
+                Permission.PAYMENT_READ,
+                Permission.SCHEDULE_READ,
+                Permission.SCHEDULE_MANAGE,
+                Permission.REQUEST_TYPE_READ,
+                Permission.REQUEST_TYPE_MANAGE,
+                Permission.PRICING_READ,
+                Permission.PRICING_MANAGE,
+                Permission.PROFILE_READ
+        );
+        matrix.put(UserRole.COMPTABLE, immutable(platformAccountant));
 
-        // ✅ SECRETAIRE : gestion complète des demandes
-        ROLE_PERMISSIONS.put(UserRole.SECRETAIRE, Set.of(
-                PERMISSION_READ,
-                PERMISSION_CREATE,
-                PERMISSION_EDIT,
-                PERMISSION_VALIDATE
-        ));
+        EnumSet<Permission> admin = EnumSet.of(
+                Permission.DEMAND_EDIT,
+                Permission.DEMAND_DELETE,
+                Permission.DEMAND_VALIDATE,
+                Permission.DEMAND_AUDIT,
+                Permission.DEMAND_DATE_MANAGE,
+                Permission.PAYMENT_MANAGE,
+                Permission.PAYMENT_DELETE,
+                Permission.TREASURY_READ,
+                Permission.TREASURY_MANAGE,
+                Permission.SUBSCRIPTION_CHECKOUT,
+                Permission.RECEIPT_MANAGE,
+                Permission.INVOICE_MANAGE,
+                Permission.SCHEDULE_MANAGE,
+                Permission.CELEBRATION_MANAGE,
+                Permission.CELEBRATION_SCHEDULE_MANAGE,
+                Permission.REQUEST_TYPE_MANAGE,
+                Permission.PRICING_MANAGE,
+                Permission.USER_MANAGE,
+                Permission.PARISH_SETTINGS_MANAGE
+        );
+        admin.addAll(parishRead);
+        matrix.put(UserRole.ADMIN, immutable(admin));
 
-        // ✅ CURE : consultation et validation
-        ROLE_PERMISSIONS.put(UserRole.CURE, Set.of(
-                PERMISSION_READ,
-                PERMISSION_VALIDATE
-        ));
+        EnumSet<Permission> localAccountant = EnumSet.copyOf(parishRead);
+        localAccountant.add(Permission.TREASURY_READ);
+        localAccountant.add(Permission.DEMAND_AUDIT);
+        matrix.put(UserRole.COMPTABLE_LOCAL, immutable(localAccountant));
+
+        EnumSet<Permission> secretary = EnumSet.copyOf(parishRead);
+        secretary.add(Permission.DEMAND_EDIT);
+        secretary.add(Permission.PAYMENT_MANAGE);
+        secretary.add(Permission.TREASURY_READ);
+        secretary.add(Permission.CELEBRATION_MANAGE);
+        secretary.add(Permission.CELEBRATION_SCHEDULE_MANAGE);
+        matrix.put(UserRole.SECRETAIRE, immutable(secretary));
+
+        EnumSet<Permission> priest = EnumSet.copyOf(parishRead);
+        priest.add(Permission.DEMAND_VALIDATE);
+        priest.add(Permission.CELEBRATION_MANAGE);
+        matrix.put(UserRole.CURE, immutable(priest));
+
+        ROLE_PERMISSIONS = Collections.unmodifiableMap(matrix);
     }
 
-    /**
-     * Retourne l'ensemble des permissions d'un rôle.
-     */
-    public static Set<String> getPermissions(UserRole role) {
-        return ROLE_PERMISSIONS.getOrDefault(role, new HashSet<>());
+    private RolePermissions() {
     }
 
-    /**
-     * Vérifie si un rôle possède une permission.
-     */
-    public static boolean hasPermission(UserRole role, String permission) {
-        return getPermissions(role).contains(permission);
+    public static Set<Permission> permissionsFor(UserRole role) {
+        if (role == null) {
+            return Set.of();
+        }
+        return ROLE_PERMISSIONS.getOrDefault(role, Set.of());
     }
 
-    /**
-     * Vérifie si un rôle peut lire.
-     */
+    public static Set<String> authoritiesFor(UserRole role) {
+        return permissionsFor(role).stream()
+                .map(Permission::authority)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    public static boolean hasPermission(UserRole role, Permission permission) {
+        return permission != null && permissionsFor(role).contains(permission);
+    }
+
+    public static boolean hasAuthority(UserRole role, String authority) {
+        return authority != null && authoritiesFor(role).contains(authority);
+    }
+
     public static boolean canRead(UserRole role) {
-        return hasPermission(role, PERMISSION_READ);
+        return hasPermission(role, Permission.DEMAND_READ);
     }
 
-    /**
-     * Vérifie si un rôle peut créer.
-     */
     public static boolean canCreate(UserRole role) {
-        return hasPermission(role, PERMISSION_CREATE);
+        return hasPermission(role, Permission.DEMAND_EDIT);
     }
 
-    /**
-     * Vérifie si un rôle peut éditer.
-     */
     public static boolean canEdit(UserRole role) {
-        return hasPermission(role, PERMISSION_EDIT);
+        return hasPermission(role, Permission.DEMAND_EDIT);
     }
 
-    /**
-     * Vérifie si un rôle peut supprimer.
-     */
     public static boolean canDelete(UserRole role) {
-        return hasPermission(role, PERMISSION_DELETE);
+        return hasPermission(role, Permission.DEMAND_DELETE);
     }
 
-    /**
-     * Vérifie si un rôle peut valider.
-     */
     public static boolean canValidate(UserRole role) {
-        return hasPermission(role, PERMISSION_VALIDATE);
+        return hasPermission(role, Permission.DEMAND_VALIDATE);
     }
 
-    /**
-     * Vérifie si un rôle peut administrer.
-     */
     public static boolean isAdmin(UserRole role) {
-        return hasPermission(role, PERMISSION_ADMIN) || 
-               hasPermission(role, PERMISSION_MANAGE_SYSTEM);
+        return role == UserRole.ADMIN || role == UserRole.SUPER_ADMIN;
     }
 
-    /**
-     * Vérifie si un rôle a accès administrateur global.
-     */
     public static boolean isSuperAdmin(UserRole role) {
         return role == UserRole.SUPER_ADMIN;
     }
 
-    /**
-     * Vérifie si un rôle a accès administrateur (local ou global).
-     */
     public static boolean isAdminOrSuperAdmin(UserRole role) {
-        return role == UserRole.ADMIN || role == UserRole.SUPER_ADMIN;
+        return isAdmin(role);
     }
 
-    /**
-     * Retourne la liste des rôles en ordre hiérarchique.
-     */
+    /** Ordre d'affichage uniquement ; ne doit pas servir à autoriser une action. */
     public static UserRole[] getHierarchy() {
         return new UserRole[]{
                 UserRole.SUPER_ADMIN,
                 UserRole.COMPTABLE,
                 UserRole.ADMIN,
+                UserRole.COMPTABLE_LOCAL,
                 UserRole.SECRETAIRE,
                 UserRole.CURE
         };
+    }
+
+    private static Set<Permission> immutable(Set<Permission> permissions) {
+        return Collections.unmodifiableSet(EnumSet.copyOf(permissions));
     }
 }

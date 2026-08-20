@@ -1,10 +1,7 @@
 import React from 'react';
-import { ROLES, ROLE_DESCRIPTIONS, ROLE_LABELS, ROLE_PERMISSIONS } from '../../constants/roles';
+import { ROLES, ROLE_DESCRIPTIONS, ROLE_LABELS } from '../../constants/roles';
 
-/**
- * Composant pour sélectionner un rôle dans l'interface admin.
- * Affiche les rôles avec leurs descriptions.
- */
+/** Sélecteur de rôle : le backend reste responsable de la matrice de permissions. */
 export function RoleSelector({ selectedRole, onChange, disabled = false }) {
   const roleEntries = Object.entries(ROLES).map(([key, value]) => ({
     key,
@@ -48,16 +45,14 @@ export function RoleSelector({ selectedRole, onChange, disabled = false }) {
   );
 }
 
-/**
- * Composant pour afficher un badge de rôle.
- */
 export function RoleBadge({ role, className = '' }) {
   const colorMap = {
     SUPER_ADMIN: 'bg-red-100 text-red-800',
+    COMPTABLE: 'bg-purple-100 text-purple-800',
     ADMIN: 'bg-orange-100 text-orange-800',
+    COMPTABLE_LOCAL: 'bg-cyan-100 text-cyan-800',
     SECRETAIRE: 'bg-blue-100 text-blue-800',
     CURE: 'bg-green-100 text-green-800',
-    USER: 'bg-gray-100 text-gray-800',
   };
 
   return (
@@ -67,33 +62,18 @@ export function RoleBadge({ role, className = '' }) {
   );
 }
 
-/**
- * Composant pour afficher la liste des permissions d'un rôle.
- */
-export function PermissionsList({ role, className = '' }) {
-  const permissions = ROLE_PERMISSIONS[role] || [];
-
-  const permissionLabels = {
-    read: 'Lire',
-    create: 'Créer',
-    edit: 'Éditer',
-    delete: 'Supprimer',
-    validate: 'Valider',
-    admin: 'Administrer',
-    manage_users: 'Gérer les utilisateurs',
-    manage_system: 'Gérer le système',
-  };
-
+/** Affiche des permissions déjà calculées par le backend. */
+export function PermissionsList({ permissions = [], className = '' }) {
   return (
     <div className={`permissions-list ${className}`}>
       <h4 className="font-semibold mb-2">Permissions</h4>
       <div className="flex flex-wrap gap-2">
-        {permissions.map((perm) => (
+        {permissions.map((permission) => (
           <span
-            key={perm}
+            key={permission}
             className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-md"
           >
-            ✓ {permissionLabels[perm] || perm}
+            ✓ {permission}
           </span>
         ))}
       </div>

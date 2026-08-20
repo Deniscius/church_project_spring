@@ -71,7 +71,7 @@ public class TenantAccessService {
             return false;
         }
 
-        // Évite un aller-retour DB pour les super-admins globaux.
+        // Les comptes plateforme globaux travaillent hors rattachement paroissial.
         if (isGlobalFromPrincipal()) {
             return true;
         }
@@ -89,7 +89,7 @@ public class TenantAccessService {
 
     /**
      * Écriture du catalogue métier (horaires / types / forfaits).
-     * Le COMPTABLE ne peut modifier que la paroisse modèle SaaS.
+     * Le COMPTABLE plateforme ne peut modifier que la paroisse modèle SaaS.
      */
     public void checkCatalogWriteAccess(Paroisse paroisse) {
         checkParoisseAccess(paroisse);
@@ -100,6 +100,10 @@ public class TenantAccessService {
                     "Le comptable ne peut modifier que le catalogue modèle de la plateforme"
             );
         }
+    }
+
+    public boolean hasPermission(Permission permission) {
+        return permission != null && hasAuthority(permission.authority());
     }
 
     private boolean hasAuthority(String authority) {
@@ -139,20 +143,15 @@ public class TenantAccessService {
         }
     }
 
-    /**
-     * Audit : voir les demandes soft-supprimées (comptable local / plateforme / admin).
-     */
+    /** Audit : accès aux demandes soft-supprimées. */
     public boolean canIncludeDeletedDemandes() {
-        return hasAuthority("ROLE_" + UserRole.COMPTABLE_LOCAL.name())
-                || hasAuthority("ROLE_" + UserRole.COMPTABLE.name())
-                || hasAuthority("ROLE_" + UserRole.ADMIN.name())
-                || hasAuthority("ROLE_" + UserRole.SUPER_ADMIN.name());
+        return hasPermission(Permission.DEMAND_AUDIT);
     }
 
     public void requireIncludeDeletedDemandes() {
         if (!canIncludeDeletedDemandes()) {
             throw new AccessDeniedException(
-                    "Seuls les comptes comptables et administrateurs peuvent consulter les demandes archivées dans la liste complète"
+                    "Votre rôle ne permet pas de consulter les demandes archivées"
             );
         }
     }

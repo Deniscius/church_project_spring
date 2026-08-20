@@ -36,9 +36,7 @@ public class MultiTenantLoginResponse implements Serializable {
     @JsonProperty("selectedParoisse")
     private ParoisseAccessDto selectedParoisse;
 
-    /**
-     * Info utilisateur de la réponse
-     */
+    /** Info utilisateur et droits effectifs de la session. */
     @Getter
     @Setter
     @Builder
@@ -61,13 +59,15 @@ public class MultiTenantLoginResponse implements Serializable {
         @JsonProperty("role")
         private String role;
 
+        /** Permissions métier calculées côté backend à partir du rôle. */
+        @JsonProperty("permissions")
+        private List<String> permissions;
+
         @JsonProperty("isGlobal")
         private Boolean isGlobal;
     }
 
-    /**
-     * Accès à une paroisse
-     */
+    /** Accès à une paroisse. */
     @Getter
     @Setter
     @Builder

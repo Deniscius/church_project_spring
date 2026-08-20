@@ -28,7 +28,7 @@ public class DashboardController {
     private final DashboardProgrammeService dashboardProgrammeService;
 
     @GetMapping("/paroisses/{paroissePublicId}/programmations")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETAIRE', 'CURE', 'COMPTABLE_LOCAL', 'SUPER_ADMIN')")
+    @PreAuthorize("hasAuthority('dashboard:view')")
     public ResponseEntity<List<UpcomingCelebrationResponse>> upcomingCelebrations(
             @PathVariable UUID paroissePublicId,
             @RequestParam(defaultValue = "14") int jours
@@ -37,7 +37,7 @@ public class DashboardController {
     }
 
     @GetMapping("/paroisses/{paroissePublicId}/programmations/passees")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETAIRE', 'CURE', 'COMPTABLE_LOCAL', 'SUPER_ADMIN')")
+    @PreAuthorize("hasAuthority('dashboard:view')")
     public ResponseEntity<List<UpcomingCelebrationResponse>> pastCelebrations(
             @PathVariable UUID paroissePublicId,
             @RequestParam(defaultValue = "14") int jours
@@ -46,7 +46,7 @@ public class DashboardController {
     }
 
     @GetMapping("/paroisses/{paroissePublicId}/programmations/jour/{date}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETAIRE', 'CURE', 'COMPTABLE_LOCAL', 'SUPER_ADMIN')")
+    @PreAuthorize("hasAuthority('dashboard:view')")
     public ResponseEntity<List<UpcomingCelebrationResponse>> celebrationsForDay(
             @PathVariable UUID paroissePublicId,
             @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
@@ -55,7 +55,7 @@ public class DashboardController {
     }
 
     @PatchMapping("/paroisses/{paroissePublicId}/programmations/{demandeDatePublicId}/horaire")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETAIRE', 'SUPER_ADMIN')")
+    @PreAuthorize("hasAuthority('celebration-schedule:manage')")
     public ResponseEntity<UpcomingCelebrationResponse> updateCelebrationSchedule(
             @PathVariable UUID paroissePublicId,
             @PathVariable UUID demandeDatePublicId,

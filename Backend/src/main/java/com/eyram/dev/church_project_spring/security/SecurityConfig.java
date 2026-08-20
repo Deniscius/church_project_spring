@@ -4,12 +4,11 @@ import com.eyram.dev.church_project_spring.security.jwt.AuthCookieService;
 import com.eyram.dev.church_project_spring.security.jwt.AuthEntryPointJwt;
 import com.eyram.dev.church_project_spring.security.jwt.AuthTokenFilter;
 import com.eyram.dev.church_project_spring.security.jwt.JwtUtils;
-import com.eyram.dev.church_project_spring.security.PublicRateLimitFilter;
 import lombok.RequiredArgsConstructor;
-import org.springframework.core.env.Environment;
-import org.springframework.core.env.Profiles;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -24,8 +23,8 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 import org.springframework.web.cors.CorsConfigurationSource;
 
@@ -44,16 +43,9 @@ public class SecurityConfig {
             PasswordEncoder passwordEncoder
     ) {
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
-
         provider.setUserDetailsService(userDetailsService);
         provider.setPasswordEncoder(passwordEncoder);
-
-        /*
-         * Masque les détails d'échec d'authentification pour limiter
-         * l'énumération de comptes / mauvaises configs de paroisse.
-         */
         provider.setHideUserNotFoundExceptions(true);
-
         return provider;
     }
 
@@ -80,10 +72,7 @@ public class SecurityConfig {
             CookieAuthMutationGuardFilter cookieAuthMutationGuardFilter) throws Exception {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
-                // CSRF Spring désactivé : SPA + cookie. Mitigé par SameSite=Lax (prod)
-                // + CookieAuthMutationGuardFilter (X-Requested-With) + CORS allowlist.
                 .csrf(AbstractHttpConfigurer::disable)
-                // Empêche la popup navigateur « Se connecter » (WWW-Authenticate: Basic).
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .logout(AbstractHttpConfigurer::disable)
@@ -97,8 +86,6 @@ public class SecurityConfig {
                             "camera=(), microphone=(), geolocation=()"
                     ));
                     headers.contentSecurityPolicy(csp -> csp.policyDirectives(
-                            // 'self' : aperçu PDF en iframe same-origin (proxy Vite / ngrok).
-                            // Les origines cross-site restent bloquées ; le front prod utilise un blob.
                             "frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
                     ));
                     headers.httpStrictTransportSecurity(hsts -> hsts
@@ -114,16 +101,15 @@ public class SecurityConfig {
                                 "/auth/forgot-password", "/auth/reset-password").permitAll()
                         .requestMatchers(HttpMethod.POST, "/auth/logout").permitAll()
                         .requestMatchers(HttpMethod.GET, "/auth/me").authenticated()
-                        // Swagger : jamais en production (même si springdoc était réactivé par erreur).
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html")
                         .access(swaggerAccess())
-                        // Santé publique uniquement — Prometheus authentifié (SUPER_ADMIN)
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
-                        .requestMatchers("/actuator/**").hasRole("SUPER_ADMIN")
+                        .requestMatchers("/actuator/**")
+                        .hasAuthority(Permission.SYSTEM_ADMIN.authority())
                         .requestMatchers("/error", "/login", "/login.html", "/health-ui", "/health.html", "/assets/**", "/").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        // Dépôt public et consultation publique par code
+                        // Dépôt et suivi publics
                         .requestMatchers(HttpMethod.POST, "/demandes").permitAll()
                         .requestMatchers(HttpMethod.POST, "/inscriptions-paroisse").permitAll()
                         .requestMatchers(HttpMethod.POST, "/inscriptions-paroisse/otp/**").permitAll()
@@ -137,7 +123,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/paiements/reconcile/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/webhooks/fedapay").permitAll()
 
-                        // Catalogue public : DTO slim uniquement (pas de RIB sur /paroisses)
+                        // Catalogue public
                         .requestMatchers(HttpMethod.GET, "/paroisses/public", "/paroisses/annuaire",
                                 "/paroisses/annuaire/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/doyennes", "/doyennes/*").permitAll()
@@ -149,92 +135,118 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/plans-saas/public").permitAll()
                         .requestMatchers(HttpMethod.POST, "/demandes/suivi/par-telephone").permitAll()
                         .requestMatchers(HttpMethod.POST, "/demandes/suivi/par-telephone/verifier").permitAll()
-                        // Dates par demandePublicId : trop permissif — retiré du permitAll
 
-                        // Gestion des utilisateurs : aucun rôle métier inférieur ne doit accéder aux routes admin.
+                        // Utilisateurs
                         .requestMatchers("/admin/users", "/admin/users/**")
-                        .hasAnyRole("ADMIN", "SUPER_ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/users").hasAnyRole("ADMIN", "SUPER_ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/users/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/users/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/users").hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        .hasAuthority(Permission.USER_MANAGE.authority())
+                        .requestMatchers(HttpMethod.POST, "/users")
+                        .hasAuthority(Permission.USER_MANAGE.authority())
+                        .requestMatchers(HttpMethod.PUT, "/users/**")
+                        .hasAuthority(Permission.USER_MANAGE.authority())
+                        .requestMatchers(HttpMethod.DELETE, "/users/**")
+                        .hasAuthority(Permission.USER_MANAGE.authority())
+                        .requestMatchers(HttpMethod.GET, "/users")
+                        .hasAuthority(Permission.USER_MANAGE.authority())
 
-                        // Le référentiel brut des affectations permet de modifier les tenants.
+                        // Administration globale : permission + compte global obligatoires.
                         .requestMatchers("/paroisse-access", "/paroisse-access/**")
-                        .access(globalSuperAdminAccess())
+                        .access(globalPermissionAccess(Permission.PARISH_ACCESS_MANAGE))
                         .requestMatchers(HttpMethod.GET, "/plans-saas")
-                        .access(globalSuperAdminAccess())
+                        .access(globalPermissionAccess(Permission.SAAS_PLAN_READ))
+                        .requestMatchers(HttpMethod.POST, "/plans-saas")
+                        .access(globalPermissionAccess(Permission.SAAS_PLAN_MANAGE))
                         .requestMatchers(HttpMethod.PUT, "/plans-saas/**")
-                        .access(globalSuperAdminAccess())
+                        .access(globalPermissionAccess(Permission.SAAS_PLAN_MANAGE))
 
-                        // Exception au référentiel global : une paroisse tient ses propres
-                        // coordonnées, son RIB et le logo du reçu.
+                        // Paramètres de la paroisse courante
                         .requestMatchers(HttpMethod.PATCH, "/paroisses/*/coordonnees")
-                        .hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        .hasAuthority(Permission.PARISH_SETTINGS_MANAGE.authority())
                         .requestMatchers(HttpMethod.POST, "/paroisses/*/logo")
-                        .hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        .hasAuthority(Permission.PARISH_SETTINGS_MANAGE.authority())
                         .requestMatchers(HttpMethod.DELETE, "/paroisses/*/logo")
-                        .hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        .hasAuthority(Permission.PARISH_SETTINGS_MANAGE.authority())
                         .requestMatchers(HttpMethod.GET, "/paroisses/*/logo")
-                        .hasAnyRole("ADMIN", "SECRETAIRE", "CURE", "COMPTABLE_LOCAL", "SUPER_ADMIN")
+                        .hasAuthority(Permission.PROFILE_READ.authority())
 
-                        // Gestion du référentiel global
-                        .requestMatchers(HttpMethod.POST, "/paroisses", "/doyennes", "/type-paiement")
-                        .access(globalSuperAdminAccess())
-                        .requestMatchers(HttpMethod.PUT, "/paroisses/**", "/doyennes/**", "/type-paiement/**")
-                        .access(globalSuperAdminAccess())
-                        .requestMatchers(HttpMethod.DELETE, "/paroisses/**", "/doyennes/**", "/type-paiement/**")
-                        .access(globalSuperAdminAccess())
+                        // Référentiels globaux
+                        .requestMatchers(HttpMethod.POST, "/paroisses")
+                        .access(globalPermissionAccess(Permission.PARISH_MANAGE))
+                        .requestMatchers(HttpMethod.PUT, "/paroisses/**")
+                        .access(globalPermissionAccess(Permission.PARISH_MANAGE))
+                        .requestMatchers(HttpMethod.DELETE, "/paroisses/**")
+                        .access(globalPermissionAccess(Permission.PARISH_MANAGE))
+                        .requestMatchers(HttpMethod.POST, "/doyennes")
+                        .access(globalPermissionAccess(Permission.DEANERY_MANAGE))
+                        .requestMatchers(HttpMethod.PUT, "/doyennes/**")
+                        .access(globalPermissionAccess(Permission.DEANERY_MANAGE))
+                        .requestMatchers(HttpMethod.DELETE, "/doyennes/**")
+                        .access(globalPermissionAccess(Permission.DEANERY_MANAGE))
+                        .requestMatchers(HttpMethod.POST, "/type-paiement")
+                        .access(globalPermissionAccess(Permission.PAYMENT_TYPE_MANAGE))
+                        .requestMatchers(HttpMethod.PUT, "/type-paiement/**")
+                        .access(globalPermissionAccess(Permission.PAYMENT_TYPE_MANAGE))
+                        .requestMatchers(HttpMethod.DELETE, "/type-paiement/**")
+                        .access(globalPermissionAccess(Permission.PAYMENT_TYPE_MANAGE))
 
-                        // Paramétrage paroissial : admin local, ou comptable/super admin
-                        // pour le catalogue plateforme (support is_system) cloné aux tenants.
-                        .requestMatchers(HttpMethod.POST, "/horaires", "/type-demandes", "/forfait-tarifs")
-                        .hasAnyRole("ADMIN", "COMPTABLE", "SUPER_ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/horaires/**", "/type-demandes/**", "/forfait-tarifs/**")
-                        .hasAnyRole("ADMIN", "COMPTABLE", "SUPER_ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/horaires/**", "/type-demandes/**", "/forfait-tarifs/**")
-                        .hasAnyRole("ADMIN", "COMPTABLE", "SUPER_ADMIN")
+                        // Catalogue paroissial
+                        .requestMatchers(HttpMethod.POST, "/horaires")
+                        .hasAuthority(Permission.SCHEDULE_MANAGE.authority())
+                        .requestMatchers(HttpMethod.PUT, "/horaires/**")
+                        .hasAuthority(Permission.SCHEDULE_MANAGE.authority())
+                        .requestMatchers(HttpMethod.DELETE, "/horaires/**")
+                        .hasAuthority(Permission.SCHEDULE_MANAGE.authority())
+                        .requestMatchers(HttpMethod.POST, "/type-demandes")
+                        .hasAuthority(Permission.REQUEST_TYPE_MANAGE.authority())
+                        .requestMatchers(HttpMethod.PUT, "/type-demandes/**")
+                        .hasAuthority(Permission.REQUEST_TYPE_MANAGE.authority())
+                        .requestMatchers(HttpMethod.DELETE, "/type-demandes/**")
+                        .hasAuthority(Permission.REQUEST_TYPE_MANAGE.authority())
+                        .requestMatchers(HttpMethod.POST, "/forfait-tarifs")
+                        .hasAuthority(Permission.PRICING_MANAGE.authority())
+                        .requestMatchers(HttpMethod.PUT, "/forfait-tarifs/**")
+                        .hasAuthority(Permission.PRICING_MANAGE.authority())
+                        .requestMatchers(HttpMethod.DELETE, "/forfait-tarifs/**")
+                        .hasAuthority(Permission.PRICING_MANAGE.authority())
 
-                        // Gestion des demandes après leur dépôt public
+                        // Demandes
                         .requestMatchers(HttpMethod.PUT, "/demandes/**")
-                        .hasAnyRole("SECRETAIRE", "ADMIN", "SUPER_ADMIN")
+                        .hasAuthority(Permission.DEMAND_EDIT.authority())
                         .requestMatchers(HttpMethod.PATCH, "/demandes/*/intention")
-                        .hasAnyRole("SECRETAIRE", "ADMIN", "SUPER_ADMIN")
+                        .hasAuthority(Permission.DEMAND_EDIT.authority())
                         .requestMatchers(HttpMethod.PATCH, "/demandes/*/validation")
-                        .hasAnyRole("CURE", "ADMIN", "SUPER_ADMIN")
+                        .hasAuthority(Permission.DEMAND_VALIDATE.authority())
                         .requestMatchers(HttpMethod.DELETE, "/demandes/**")
-                        .hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        .hasAuthority(Permission.DEMAND_DELETE.authority())
 
-                        // Feuille d'intentions : confirmation de célébration
+                        // Célébration
                         .requestMatchers(HttpMethod.POST, "/celebrations/dates/*/marquer-celebree")
-                        .hasAnyRole("SECRETAIRE", "CURE", "ADMIN", "SUPER_ADMIN")
+                        .hasAuthority(Permission.CELEBRATION_MANAGE.authority())
 
-                        // Paiements : saisie par le secrétariat, suppression par un administrateur.
-                        // La caisse locale (espèces) est encaissée ici, hors solde de reversement.
+                        // Paiements
                         .requestMatchers(HttpMethod.POST, "/details-paiement", "/details-paiement/caisse/**")
-                        .hasAnyRole("SECRETAIRE", "ADMIN", "SUPER_ADMIN")
+                        .hasAuthority(Permission.PAYMENT_MANAGE.authority())
                         .requestMatchers(HttpMethod.GET, "/details-paiement/caisse/**")
-                        .hasAnyRole("SECRETAIRE", "COMPTABLE_LOCAL", "ADMIN", "SUPER_ADMIN")
+                        .hasAuthority(Permission.PAYMENT_READ.authority())
                         .requestMatchers(HttpMethod.PUT, "/details-paiement/**")
-                        .hasAnyRole("SECRETAIRE", "ADMIN", "SUPER_ADMIN")
+                        .hasAuthority(Permission.PAYMENT_MANAGE.authority())
                         .requestMatchers(HttpMethod.DELETE, "/details-paiement/**")
-                        .hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        .hasAuthority(Permission.PAYMENT_DELETE.authority())
 
-                        // Les factures sont générées automatiquement ; leur maintenance est administrative.
+                        // Factures
                         .requestMatchers(HttpMethod.POST, "/facture")
-                        .hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        .hasAuthority(Permission.INVOICE_MANAGE.authority())
                         .requestMatchers(HttpMethod.PUT, "/facture/**")
-                        .hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        .hasAuthority(Permission.INVOICE_MANAGE.authority())
                         .requestMatchers(HttpMethod.DELETE, "/facture/**")
-                        .hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        .hasAuthority(Permission.INVOICE_MANAGE.authority())
 
-                        // Les dates sont créées avec la demande ; seules les corrections administratives sont permises.
+                        // Corrections administratives des dates d'une demande
                         .requestMatchers(HttpMethod.POST, "/demande-dates")
-                        .hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        .hasAuthority(Permission.DEMAND_DATE_MANAGE.authority())
                         .requestMatchers(HttpMethod.PUT, "/demande-dates/**")
-                        .hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        .hasAuthority(Permission.DEMAND_DATE_MANAGE.authority())
                         .requestMatchers(HttpMethod.DELETE, "/demande-dates/**")
-                        .hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        .hasAuthority(Permission.DEMAND_DATE_MANAGE.authority())
 
                         .anyRequest().authenticated()
                 )
@@ -256,16 +268,21 @@ public class SecurityConfig {
         };
     }
 
-    private AuthorizationManager<RequestAuthorizationContext> globalSuperAdminAccess() {
+    /**
+     * Une authority globale n'est valable que pour un principal explicitement global.
+     * Cela empêche un compte local possédant par erreur un rôle puissant d'agir sur
+     * l'ensemble des tenants.
+     */
+    private AuthorizationManager<RequestAuthorizationContext> globalPermissionAccess(Permission permission) {
         return (authenticationSupplier, context) -> {
             var authentication = authenticationSupplier.get();
-            boolean hasSuperAdminRole = authentication.getAuthorities().stream()
-                    .anyMatch(authority -> "ROLE_SUPER_ADMIN".equals(authority.getAuthority()));
+            boolean hasPermission = authentication.getAuthorities().stream()
+                    .anyMatch(authority -> permission.authority().equals(authority.getAuthority()));
             boolean isGlobal = authentication.getPrincipal() instanceof UserDetailsImpl principal
                     && principal.isGlobal();
 
             return new AuthorizationDecision(
-                    authentication.isAuthenticated() && hasSuperAdminRole && isGlobal
+                    authentication.isAuthenticated() && hasPermission && isGlobal
             );
         };
     }

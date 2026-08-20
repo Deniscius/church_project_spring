@@ -2,7 +2,10 @@ import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 
-/** Accès équipe plateforme globale : SUPER_ADMIN ou COMPTABLE. */
+/**
+ * Guard de périmètre plateforme.
+ * Les capacités métier sont contrôlées séparément par PermissionGuard.
+ */
 export default function PlatformStaffGuard() {
   const { user, isAuthenticated } = useAuth();
 
@@ -10,9 +13,7 @@ export default function PlatformStaffGuard() {
     return <Navigate to="/admin/login" replace />;
   }
 
-  const allowed =
-    user.isGlobal === true
-    && (user.role === 'SUPER_ADMIN' || user.role === 'COMPTABLE');
-
-  return allowed ? <Outlet /> : <Navigate to="/unauthorized" replace />;
+  return user.isGlobal === true
+    ? <Outlet />
+    : <Navigate to="/unauthorized" replace />;
 }

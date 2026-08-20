@@ -1,9 +1,9 @@
 /**
- * Adapte la réponse JWT du backend vers le modèle utilisateur attendu par l’UI.
+ * Adapte la réponse d'authentification legacy vers le modèle utilisateur UI.
  */
 export function mapJwtToUser(jwt) {
-  const rawRole = jwt.roles?.[0];
-  const role = String(rawRole).replace(/^ROLE_/, '');
+  const rawRole = jwt.roles?.find((value) => String(value).startsWith('ROLE_')) || jwt.roles?.[0];
+  const role = String(rawRole || '').replace(/^ROLE_/, '');
 
   const full = (jwt.fullName || '').trim();
   const space = full.indexOf(' ');
@@ -16,5 +16,7 @@ export function mapJwtToUser(jwt) {
     lastName,
     username: jwt.username,
     role,
+    permissions: Array.isArray(jwt.permissions) ? jwt.permissions.filter(Boolean) : [],
+    isGlobal: Boolean(jwt.isGlobal),
   };
 }

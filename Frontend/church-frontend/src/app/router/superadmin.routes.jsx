@@ -1,9 +1,10 @@
 import React, { Suspense, lazy } from 'react';
 import { Outlet, Route } from 'react-router-dom';
 import ProtectedGuard from '../guards/ProtectedGuard';
-import AdminLayout from '../../layouts/AdminLayout';
-import GlobalAdminGuard from '../guards/GlobalAdminGuard';
+import PermissionGuard from '../guards/PermissionGuard';
 import PlatformStaffGuard from '../guards/PlatformStaffGuard';
+import AdminLayout from '../../layouts/AdminLayout';
+import { PERMISSIONS } from '../../constants/roles';
 import { ROUTES } from '../../constants/routes';
 import PageSuspenseFallback from '../../components/ui/PageSuspenseFallback';
 
@@ -37,22 +38,41 @@ export function SuperAdminRoutes() {
       <Route element={<PlatformStaffGuard />}>
         <Route element={<AdminLayout />}>
           <Route element={<LazyOutlet />}>
-            {/* Finances SaaS + audit : SUPER_ADMIN + COMPTABLE */}
-            <Route path={ROUTES.PARISH_INSCRIPTIONS} element={<InscriptionsPage />} />
-            <Route path={ROUTES.REVERSEMENTS} element={<ReversementsPage />} />
-            <Route path={ROUTES.SUBSCRIPTIONS} element={<AbonnementsPage />} />
-            <Route path={ROUTES.CATALOGUE_MODELE} element={<CatalogueModelePage />} />
-            <Route path={ROUTES.PLATFORM_DEMANDES} element={<PlatformDemandesPage />} />
-
-            {/* Configuration système : SUPER_ADMIN uniquement */}
-            <Route element={<GlobalAdminGuard />}>
+            <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.PARISH_REGISTRATION_READ]} />}>
+              <Route path={ROUTES.PARISH_INSCRIPTIONS} element={<InscriptionsPage />} />
+            </Route>
+            <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.FINANCE_READ]} />}>
+              <Route path={ROUTES.REVERSEMENTS} element={<ReversementsPage />} />
+            </Route>
+            <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.SUBSCRIPTION_READ]} />}>
+              <Route path={ROUTES.SUBSCRIPTIONS} element={<AbonnementsPage />} />
+            </Route>
+            <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.SCHEDULE_MANAGE]} />}>
+              <Route path={ROUTES.CATALOGUE_MODELE} element={<CatalogueModelePage />} />
+            </Route>
+            <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.DEMAND_AUDIT]} />}>
+              <Route path={ROUTES.PLATFORM_DEMANDES} element={<PlatformDemandesPage />} />
+            </Route>
+            <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.SAAS_PLAN_READ]} />}>
               <Route path={ROUTES.SAAS_PRICING} element={<SaasPricingPage />} />
+            </Route>
+            <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.PARISH_READ]} />}>
               <Route path={ROUTES.PARISHES} element={<ParishesPage />} />
+            </Route>
+            <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.PARISH_MANAGE]} />}>
               <Route path={ROUTES.PARISH_CREATE} element={<CreateParishPage />} />
               <Route path={ROUTES.PARISH_EDIT} element={<EditParishPage />} />
+            </Route>
+            <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.PARISH_ACCESS_MANAGE]} />}>
               <Route path={ROUTES.PARISH_ACCESS} element={<ParishAccessPage />} />
+            </Route>
+            <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.DEANERY_MANAGE]} />}>
               <Route path={ROUTES.DEANERIES} element={<DeaneriesPage />} />
+            </Route>
+            <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.PAYMENT_TYPE_MANAGE]} />}>
               <Route path={ROUTES.PAYMENT_TYPES} element={<PaymentTypesPage />} />
+            </Route>
+            <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.USER_MANAGE]} />}>
               <Route path={ROUTES.USERS} element={<UsersPage />} />
               <Route path={ROUTES.USER_CREATE} element={<CreateUserPage />} />
               <Route path={ROUTES.USER_EDIT} element={<EditUserPage />} />

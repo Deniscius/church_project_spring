@@ -30,9 +30,8 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Séparation des pouvoirs : le SUPER_ADMIN constitue l'équipe plateforme et
- * consulte les finances, mais seul le COMPTABLE exécute les mouvements
- * d'argent (paiement/rejet de reversement, activation d'abonnement).
+ * Comptabilité avec séparation des pouvoirs : consultation, demande locale,
+ * reversement et administration d'abonnement sont des permissions distinctes.
  */
 @RestController
 @RequestMapping("/comptabilite")
@@ -45,31 +44,31 @@ public class ComptabiliteController {
     private final ParoisseMapper paroisseMapper;
 
     @GetMapping("/comptes/{paroissePublicId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'COMPTABLE_LOCAL', 'COMPTABLE', 'SUPER_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('treasury:read', 'finance:read')")
     public ResponseEntity<CompteParoisseResponse> compte(@PathVariable UUID paroissePublicId) {
         return ResponseEntity.ok(reversementService.getCompte(paroissePublicId));
     }
 
     @GetMapping("/reversements")
-    @PreAuthorize("hasAnyRole('COMPTABLE', 'SUPER_ADMIN')")
+    @PreAuthorize("hasAuthority('finance:read')")
     public ResponseEntity<List<DemandeReversementResponse>> listReversements() {
         return ResponseEntity.ok(reversementService.listAll());
     }
 
     @GetMapping("/reversements/paroisse/{paroissePublicId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'COMPTABLE_LOCAL', 'COMPTABLE', 'SUPER_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('treasury:read', 'finance:read')")
     public ResponseEntity<List<DemandeReversementResponse>> listByParoisse(@PathVariable UUID paroissePublicId) {
         return ResponseEntity.ok(reversementService.listByParoisse(paroissePublicId));
     }
 
     @PostMapping("/reversements")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('treasury:manage')")
     public ResponseEntity<DemandeReversementResponse> demander(@Valid @RequestBody DemandeReversementRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(reversementService.demander(request));
     }
 
     @PostMapping("/reversements/{publicId}/payer")
-    @PreAuthorize("hasRole('COMPTABLE')")
+    @PreAuthorize("hasAuthority('payout:manage')")
     public ResponseEntity<DemandeReversementResponse> payer(
             @PathVariable UUID publicId,
             @Valid @RequestBody ReversementDecisionRequest request
@@ -79,7 +78,7 @@ public class ComptabiliteController {
     }
 
     @PostMapping("/reversements/{publicId}/rejeter")
-    @PreAuthorize("hasRole('COMPTABLE')")
+    @PreAuthorize("hasAuthority('payout:manage')")
     public ResponseEntity<DemandeReversementResponse> rejeter(
             @PathVariable UUID publicId,
             @RequestBody(required = false) ReversementDecisionRequest request
@@ -93,17 +92,13 @@ public class ComptabiliteController {
     }
 
     @GetMapping("/abonnements")
-    @PreAuthorize("hasAnyRole('COMPTABLE', 'SUPER_ADMIN')")
+    @PreAuthorize("hasAuthority('subscription:read')")
     public ResponseEntity<List<AbonnementResponse>> listAbonnements() {
         return ResponseEntity.ok(subscriptionBillingService.listAbonnements());
     }
 
-    /**
-     * Support technique du catalogue plateforme (horaires, types, forfaits)
-     * cloné vers chaque nouveau tenant. Indépendant de toute paroisse cliente.
-     */
     @GetMapping("/catalogue-modele")
-    @PreAuthorize("hasAnyRole('COMPTABLE', 'SUPER_ADMIN')")
+    @PreAuthorize("hasAuthority('schedule:manage') and principal.isGlobal()")
     public ResponseEntity<ParoisseResponse> catalogueModele() {
         return ResponseEntity.ok(
                 tenantCatalogBootstrapService.findTemplateParoisse()
@@ -115,7 +110,7 @@ public class ComptabiliteController {
     }
 
     @PostMapping("/abonnements/checkout/{paroissePublicId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'COMPTABLE')")
+    @PreAuthorize("hasAuthority('subscription:checkout')")
     public ResponseEntity<Map<String, Object>> checkoutAbonnement(
             @PathVariable UUID paroissePublicId,
             @RequestParam(required = false) String plan
@@ -123,13 +118,8 @@ public class ComptabiliteController {
         return ResponseEntity.ok(subscriptionBillingService.checkout(paroissePublicId, plan));
     }
 
-    /**
-     * Confirme le paiement d'abonnement (hors ligne / FedaPay déjà reçu) et active la paroisse.
-     * L'admin local peut ensuite se connecter. Accessible au SUPER_ADMIN (onboarding
-     * depuis l'annuaire) et au COMPTABLE (circuit financier).
-     */
     @PostMapping("/abonnements/{paroissePublicId}/activer")
-    @PreAuthorize("hasAnyRole('COMPTABLE', 'SUPER_ADMIN')")
+    @PreAuthorize("hasAuthority('subscription:activate')")
     public ResponseEntity<Map<String, Object>> activerAbonnement(
             @PathVariable UUID paroissePublicId,
             @RequestParam(required = false) String plan
@@ -137,9 +127,8 @@ public class ComptabiliteController {
         return ResponseEntity.ok(subscriptionBillingService.activateManually(paroissePublicId, plan));
     }
 
-    /** Prolongation gracieuse (jours) sans nouveau cycle de facturation. */
     @PostMapping("/abonnements/{paroissePublicId}/prolonger")
-    @PreAuthorize("hasRole('COMPTABLE')")
+    @PreAuthorize("hasAuthority('subscription:manage')")
     public ResponseEntity<Map<String, Object>> prolongerAbonnement(
             @PathVariable UUID paroissePublicId,
             @RequestParam(defaultValue = "30") int jours
@@ -147,18 +136,16 @@ public class ComptabiliteController {
         return ResponseEntity.ok(subscriptionBillingService.prolonger(paroissePublicId, jours));
     }
 
-    /** Annule un lien de paiement d'abonnement abandonné. */
     @PostMapping("/abonnements/{abonnementPublicId}/annuler")
-    @PreAuthorize("hasRole('COMPTABLE')")
+    @PreAuthorize("hasAuthority('subscription:manage')")
     public ResponseEntity<Map<String, Object>> annulerAbonnementPending(
             @PathVariable UUID abonnementPublicId
     ) {
         return ResponseEntity.ok(subscriptionBillingService.annulerPending(abonnementPublicId));
     }
 
-    /** Résilie l'accès SaaS de la paroisse. */
     @PostMapping("/abonnements/{paroissePublicId}/resilier")
-    @PreAuthorize("hasRole('COMPTABLE')")
+    @PreAuthorize("hasAuthority('subscription:manage')")
     public ResponseEntity<Map<String, Object>> resilierAbonnement(
             @PathVariable UUID paroissePublicId
     ) {

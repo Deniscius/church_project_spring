@@ -24,7 +24,16 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.UUID;
@@ -45,12 +54,16 @@ public class DemandeController {
     }
 
     @PutMapping("/{publicId}")
-    public ResponseEntity<DemandeResponse> update(@PathVariable UUID publicId,
-                                                  @Valid @RequestBody DemandeRequest request) {
+    @PreAuthorize("hasAuthority('demand:edit')")
+    public ResponseEntity<DemandeResponse> update(
+            @PathVariable UUID publicId,
+            @Valid @RequestBody DemandeRequest request
+    ) {
         return ResponseEntity.ok(demandeService.update(publicId, request));
     }
 
     @PatchMapping("/{publicId}/validation")
+    @PreAuthorize("hasAuthority('demand:validate')")
     public ResponseEntity<DemandeResponse> updateValidation(
             @PathVariable UUID publicId,
             @Valid @RequestBody DemandeValidationRequest request
@@ -59,6 +72,7 @@ public class DemandeController {
     }
 
     @PatchMapping("/{publicId}/intention")
+    @PreAuthorize("hasAuthority('demand:edit')")
     public ResponseEntity<DemandeResponse> updateIntention(
             @PathVariable UUID publicId,
             @Valid @RequestBody DemandeIntentionRequest request
@@ -67,6 +81,7 @@ public class DemandeController {
     }
 
     @GetMapping("/{publicId}")
+    @PreAuthorize("hasAuthority('demand:read')")
     public ResponseEntity<DemandeResponse> getByPublicId(@PathVariable UUID publicId) {
         return ResponseEntity.ok(demandeService.getByPublicId(publicId));
     }
@@ -76,9 +91,6 @@ public class DemandeController {
         return ResponseEntity.ok(publicDemandeViewService.toPublic(demandeService.getByCodeSuivie(codeSuivie)));
     }
 
-    /**
-     * Étape 1 : envoie un OTP à l'e-mail lié au téléphone (ne révèle pas les codes).
-     */
     @PostMapping("/suivi/par-telephone")
     public ResponseEntity<TrackingByPhoneChallengeResponse> lookupByPhone(
             @Valid @RequestBody TrackingByPhoneRequest request
@@ -86,7 +98,6 @@ public class DemandeController {
         return ResponseEntity.ok(trackingPhoneOtpService.requestOtp(request.telephone()));
     }
 
-    /** Étape 2 : après OTP, renvoie les codes de suivi. */
     @PostMapping("/suivi/par-telephone/verifier")
     public ResponseEntity<TrackingByPhoneResponse> verifyPhoneLookup(
             @Valid @RequestBody TrackingByPhoneVerifyRequest request
@@ -105,16 +116,11 @@ public class DemandeController {
         ));
     }
 
-    /**
-     * {@code /recu} sans extension : fetch JS (évite l’interception navigateur des URL {@code .pdf}).
-     * {@code /recu.pdf} : ouverture directe / téléchargement.
-     */
-    @GetMapping(value = { "/code/{codeSuivie}/recu", "/code/{codeSuivie}/recu.pdf" },
+    @GetMapping(value = {"/code/{codeSuivie}/recu", "/code/{codeSuivie}/recu.pdf"},
             produces = MediaType.APPLICATION_PDF_VALUE)
     public ResponseEntity<byte[]> downloadReceipt(@PathVariable String codeSuivie) {
         byte[] pdf = demandeReceiptService.generate(codeSuivie);
         return ResponseEntity.ok()
-                // inline : aperçu navigateur / iframe ; le front gère le téléchargement en blob
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                         "inline; filename=\"recu-" + codeSuivie + ".pdf\"")
                 .contentType(MediaType.APPLICATION_PDF)
@@ -122,8 +128,9 @@ public class DemandeController {
                 .body(pdf);
     }
 
+    /** Audit plateforme transversal : compte global + permission d'audit. */
     @GetMapping
-    @PreAuthorize("hasAnyRole('COMPTABLE', 'SUPER_ADMIN')")
+    @PreAuthorize("hasAuthority('demand:audit') and principal.isGlobal()")
     public ResponseEntity<PageResponse<DemandeResponse>> getAllPaged(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
@@ -133,18 +140,15 @@ public class DemandeController {
     }
 
     @GetMapping("/paroisse/{paroissePublicId}/stats")
+    @PreAuthorize("hasAuthority('dashboard:view')")
     public ResponseEntity<DemandeParoisseStatsResponse> getParoisseStats(
             @PathVariable UUID paroissePublicId
     ) {
         return ResponseEntity.ok(demandeService.getParoisseStats(paroissePublicId));
     }
 
-    /**
-     * Liste paroisse toujours paginée (évite les dumps mémoire sous charge).
-     * Sans {@code page}, renvoie la page 0 (taille 20).
-     * {@code includeDeleted=true} : actives + archivées (comptable / admin uniquement).
-     */
     @GetMapping("/paroisse/{paroissePublicId}")
+    @PreAuthorize("hasAuthority('demand:read')")
     public ResponseEntity<PageResponse<DemandeResponse>> getByParoisse(
             @PathVariable UUID paroissePublicId,
             @RequestParam(defaultValue = "0") int page,
@@ -159,6 +163,7 @@ public class DemandeController {
     }
 
     @GetMapping("/paroisse/{paroissePublicId}/statut/{statutDemande}")
+    @PreAuthorize("hasAuthority('demand:read')")
     public ResponseEntity<List<DemandeResponse>> getByParoisseAndStatut(
             @PathVariable UUID paroissePublicId,
             @PathVariable StatutDemandeEnum statutDemande
@@ -167,6 +172,7 @@ public class DemandeController {
     }
 
     @GetMapping("/paroisse/{paroissePublicId}/supprimees")
+    @PreAuthorize("hasAuthority('demand:audit')")
     public ResponseEntity<List<DemandeResponse>> getDeletedByParoisse(
             @PathVariable UUID paroissePublicId
     ) {
@@ -174,12 +180,14 @@ public class DemandeController {
     }
 
     @DeleteMapping("/{publicId}")
+    @PreAuthorize("hasAuthority('demand:delete')")
     public ResponseEntity<Void> delete(@PathVariable UUID publicId) {
         demandeService.deleteByPublicId(publicId);
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/type-paiement/{typePaiementPublicId}")
+    @PreAuthorize("hasAuthority('demand:read')")
     public List<DemandeResponse> getByTypePaiement(@PathVariable UUID typePaiementPublicId) {
         return demandeService.getByTypePaiement(typePaiementPublicId);
     }

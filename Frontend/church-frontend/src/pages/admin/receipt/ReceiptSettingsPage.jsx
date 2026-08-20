@@ -8,9 +8,10 @@ import PdfPreviewModal from '../../../components/ui/PdfPreviewModal';
 import PhoneField from '../../../components/ui/PhoneField';
 import { FieldLabel } from '../../../components/ui/HelpTip';
 import { useTenant } from '../../../hooks/useTenant';
-import { useAuth } from '../../../hooks/useAuth';
+import { usePermissions } from '../../../hooks/usePermissions';
 import { useToast } from '../../../contexts/toast.context';
 import { parishService } from '../../../services/parish.service';
+import { PERMISSIONS } from '../../../constants/roles';
 import {
   DEFAULT_PHONE_COUNTRY_ISO,
   parseStoredPhone,
@@ -23,9 +24,9 @@ const ARCHIDIOCESE = 'ARCHIDIOCÈSE DE LOMÉ';
 export default function ReceiptSettingsPage() {
   const toast = useToast();
   const { activeParish } = useTenant();
-  const { user } = useAuth();
+  const { has } = usePermissions();
   const paroisseId = activeParish?.publicId || activeParish?.id;
-  const canEdit = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
+  const canEdit = has(PERMISSIONS.RECEIPT_MANAGE);
 
   const [parish, setParish] = useState(null);
   const [telCountryIso, setTelCountryIso] = useState(DEFAULT_PHONE_COUNTRY_ISO);
@@ -275,7 +276,7 @@ export default function ReceiptSettingsPage() {
               </div>
             ) : (
               <p className="muted" style={{ margin: 0 }}>
-                Seul l’administrateur de la paroisse peut modifier le logo.
+                Votre compte ne peut pas modifier le logo.
               </p>
             )}
           </AppCard>

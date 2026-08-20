@@ -9,8 +9,9 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
-import java.util.List;
+import java.util.LinkedHashSet;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 @Getter
@@ -48,12 +49,15 @@ public class UserDetailsImpl implements UserDetails {
     }
 
     public static UserDetailsImpl build(User user, Long tenantId) {
+        Set<GrantedAuthority> authorities = new LinkedHashSet<>();
 
-        List<GrantedAuthority> authorities = List.of(
-                new SimpleGrantedAuthority(
-                        "ROLE_" + user.getRole().name()
-                )
-        );
+        // Le rôle reste présent pour la compatibilité Spring/diagnostic.
+        authorities.add(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
+
+        // Les décisions métier utilisent les permissions granulaires.
+        RolePermissions.authoritiesFor(user.getRole()).stream()
+                .map(SimpleGrantedAuthority::new)
+                .forEach(authorities::add);
 
         return new UserDetailsImpl(
                 user.getPublicId(),
@@ -62,30 +66,45 @@ public class UserDetailsImpl implements UserDetails {
                 tenantId,
                 Boolean.TRUE.equals(user.getIsGlobal()),
                 user.getPassword(),
-                authorities,
+                Set.copyOf(authorities),
                 Boolean.TRUE.equals(user.getIsActive())
         );
     }
-    @Override
-    public Collection<? extends GrantedAuthority> getAuthorities() { return authorities; }
 
     @Override
-    public String getPassword() { return password; }
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        return authorities;
+    }
 
     @Override
-    public String getUsername() { return username; }
+    public String getPassword() {
+        return password;
+    }
 
     @Override
-    public boolean isAccountNonExpired() { return true; }
+    public String getUsername() {
+        return username;
+    }
 
     @Override
-    public boolean isAccountNonLocked() { return true; }
+    public boolean isAccountNonExpired() {
+        return true;
+    }
 
     @Override
-    public boolean isCredentialsNonExpired() { return true; }
+    public boolean isAccountNonLocked() {
+        return true;
+    }
 
     @Override
-    public boolean isEnabled() { return enabled; }
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return enabled;
+    }
 
     @Override
     public boolean equals(Object o) {

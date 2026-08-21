@@ -53,9 +53,11 @@ Il reste à créer **Postgres** (`missanye-db`, même région) et le **static si
    |----------|---------|
    | `JWT_SECRET` | `(openssl rand -base64 32)` |
    | `APP_CORS_ALLOWED_ORIGINS` | `https://missanye-web.onrender.com` |
-   | `SPRING_MAIL_HOST` | SMTP (ex. `in-v3.mailjet.com`) |
-   | `SPRING_MAIL_USERNAME` | identifiant SMTP |
-   | `SPRING_MAIL_PASSWORD` | mot de passe SMTP |
+   | `SPRING_MAIL_HOST` | `smtp-relay.brevo.com` (défini par le Blueprint) |
+   | `SPRING_MAIL_PORT` | `587` (STARTTLS) |
+   | `SPRING_MAIL_USERNAME` | identifiant SMTP fourni par Brevo |
+   | `SPRING_MAIL_PASSWORD` | **clé SMTP Brevo**, jamais la clé API |
+   | `APP_MAIL_FROM` | expéditeur vérifié dans Brevo (ex. `noreply@missanye.com`) |
    | `FEDAPAY_CALLBACK_BASE_URL` | `https://missanye-web.onrender.com/paiement` |
    | `FEDAPAY_ENABLED` | `true` (si go-live paiement) |
    | `FEDAPAY_SECRET_KEY` | `sk_live_…` |
@@ -68,8 +70,10 @@ Il reste à créer **Postgres** (`missanye-db`, même région) et le **static si
    | `VITE_API_BASE_URL` | `https://missanye-api.onrender.com` |
    | `VITE_PUBLIC_SITE_URL` | `https://missanye-web.onrender.com` |
 
-7. Redéployer **web** puis **api** (ou Manual Deploy).
-8. FedaPay Dashboard → webhook → `https://missanye-api.onrender.com/webhooks/fedapay`.
+7. Dans Brevo → **Transactional** → **Settings** → **Configuration**, créer/copier les identifiants SMTP. Vérifier aussi l'expéditeur ou authentifier le domaine `missanye.com` (SPF/DKIM).
+8. Redéployer **web** puis **api** (ou Manual Deploy).
+9. Envoyer un e-mail transactionnel de test et vérifier son statut dans les journaux Brevo.
+10. FedaPay Dashboard → webhook → `https://missanye-api.onrender.com/webhooks/fedapay`.
 
 ## Comportements importants
 

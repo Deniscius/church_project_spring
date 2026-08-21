@@ -2,6 +2,7 @@ package com.eyram.dev.church_project_spring.service.auth;
 
 import com.eyram.dev.church_project_spring.DTO.request.ForgotPasswordRequest;
 import com.eyram.dev.church_project_spring.DTO.request.ResetPasswordRequest;
+import com.eyram.dev.church_project_spring.config.CacheConfig;
 import com.eyram.dev.church_project_spring.entities.PasswordResetToken;
 import com.eyram.dev.church_project_spring.entities.User;
 import com.eyram.dev.church_project_spring.repositories.PasswordResetTokenRepository;
@@ -11,6 +12,7 @@ import com.eyram.dev.church_project_spring.utils.exception.BusinessRuleException
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -117,6 +119,7 @@ public class PasswordResetService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = CacheConfig.AUTH_USER_DETAILS, allEntries = true)
     public Map<String, String> resetPassword(ResetPasswordRequest request) {
         String rawToken = request.token() == null ? "" : request.token().trim();
         String newPassword = request.newPassword();

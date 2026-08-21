@@ -4,6 +4,7 @@ import com.eyram.dev.church_project_spring.entities.Demande;
 import com.eyram.dev.church_project_spring.entities.Paroisse;
 import com.eyram.dev.church_project_spring.entities.TypePaiement;
 import com.eyram.dev.church_project_spring.enums.StatutDemandeEnum;
+import com.eyram.dev.church_project_spring.repositories.projection.DemandeParoisseStatsProjection;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -61,6 +62,11 @@ public interface DemandeRepository extends JpaRepository<Demande, Long> {
     })
     Page<Demande> findByParoisseAndStatusDelFalse(Paroisse paroisse, Pageable pageable);
 
+    @EntityGraph(attributePaths = {
+            "paroisse", "typeDemande", "forfaitTarif", "horaire", "user", "typePaiement"
+    })
+    List<Demande> findTop5ByParoisseAndStatusDelFalseOrderByCreatedAtDesc(Paroisse paroisse);
+
     /** Liste complète (actives + soft-supprimées) — audit comptable. */
     @EntityGraph(attributePaths = {
             "paroisse", "typeDemande", "forfaitTarif", "horaire", "user", "typePaiement"
@@ -104,16 +110,20 @@ public interface DemandeRepository extends JpaRepository<Demande, Long> {
 
     boolean existsByTypePaiementAndStatusDelFalse(TypePaiement typePaiement);
 
-    long countByParoisseAndStatusDelFalse(Paroisse paroisse);
-
-    long countByParoisseAndStatutDemandeAndStatusDelFalse(Paroisse paroisse, StatutDemandeEnum statutDemande);
-
     @Query("""
-            SELECT COALESCE(SUM(d.montant), 0)
+            SELECT COUNT(d) AS total,
+                   COALESCE(SUM(CASE WHEN d.statutDemande = :enAttente THEN 1 ELSE 0 END), 0) AS enAttente,
+                   COALESCE(SUM(CASE WHEN d.statutDemande = :validee THEN 1 ELSE 0 END), 0) AS validees,
+                   COALESCE(SUM(d.montant), 0) AS volumeMontant
             FROM Demande d
-            WHERE d.paroisse = :paroisse AND d.statusDel = false
+            WHERE d.paroisse = :paroisse
+              AND d.statusDel = false
             """)
-    BigDecimal sumMontantByParoisse(@Param("paroisse") Paroisse paroisse);
+    DemandeParoisseStatsProjection aggregateStatsByParoisse(
+            @Param("paroisse") Paroisse paroisse,
+            @Param("enAttente") StatutDemandeEnum enAttente,
+            @Param("validee") StatutDemandeEnum validee
+    );
 
     @Query("""
             SELECT DISTINCT d FROM Demande d

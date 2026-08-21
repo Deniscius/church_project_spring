@@ -22,6 +22,8 @@ public class CacheConfig {
     public static final String DOYENNES = "doyennes";
     public static final String TYPE_PAIEMENTS = "typePaiements";
     public static final String HORAIRES_PUBLIC_ACTIVES = "horairesPublicActives";
+    public static final String DASHBOARD_STATS = "dashboardStats";
+    public static final String DASHBOARD_PROGRAMMES = "dashboardProgrammes";
 
     @Bean
     public CacheManager cacheManager() {
@@ -30,9 +32,22 @@ public class CacheConfig {
                 caffeine(DOYENNES, 60, 32),
                 caffeine(TYPE_PAIEMENTS, 60, 32),
                 // Programme public : TTL court pour limiter la charge sans données trop figées.
-                caffeine(HORAIRES_PUBLIC_ACTIVES, 5, 8)
+                caffeine(HORAIRES_PUBLIC_ACTIVES, 5, 8),
+                caffeineSeconds(DASHBOARD_STATS, 20, 128),
+                caffeineSeconds(DASHBOARD_PROGRAMMES, 30, 256)
         ));
         return manager;
+    }
+
+    private static CaffeineCache caffeineSeconds(String name, long expireSeconds, long maxSize) {
+        return new CaffeineCache(
+                name,
+                Caffeine.newBuilder()
+                        .expireAfterWrite(expireSeconds, TimeUnit.SECONDS)
+                        .maximumSize(maxSize)
+                        .recordStats()
+                        .build()
+        );
     }
 
     private static CaffeineCache caffeine(String name, long expireMinutes, long maxSize) {

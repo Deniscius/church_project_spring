@@ -15,6 +15,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.springframework.cache.CacheManager;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Clock;
@@ -42,6 +43,7 @@ class DashboardProgrammeServiceImplTest {
     @Mock private HoraireRepository horaireRepository;
     @Mock private HoraireService horaireService;
     @Mock private TenantAccessService tenantAccessService;
+    @Mock private CacheManager cacheManager;
 
     private Clock clock;
     private DashboardProgrammeServiceImpl service;
@@ -55,7 +57,8 @@ class DashboardProgrammeServiceImplTest {
                 horaireRepository,
                 horaireService,
                 tenantAccessService,
-                clock
+                clock,
+                cacheManager
         );
     }
 

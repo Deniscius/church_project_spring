@@ -19,6 +19,7 @@ import com.eyram.dev.church_project_spring.enums.StatutValidationEnum;
 import com.eyram.dev.church_project_spring.config.DemandePaymentProperties;
 import com.eyram.dev.church_project_spring.mappers.DemandeMapper;
 import com.eyram.dev.church_project_spring.repositories.*;
+import com.eyram.dev.church_project_spring.repositories.projection.DemandeParoisseStatsProjection;
 import com.eyram.dev.church_project_spring.security.TenantAccessService;
 import com.eyram.dev.church_project_spring.service.DemandeService;
 import com.eyram.dev.church_project_spring.service.DemandeSchedulingPolicy;
@@ -517,26 +518,49 @@ public class DemandeServiceImpl implements DemandeService {
                 .orElseThrow(() -> new ResourceNotFoundException("Paroisse introuvable"));
         tenantAccessService.checkParoisseAccess(paroisse);
 
-        long total = demandeRepository.countByParoisseAndStatusDelFalse(paroisse);
-        long enAttente = demandeRepository.countByParoisseAndStatutDemandeAndStatusDelFalse(
-                paroisse, StatutDemandeEnum.EN_ATTENTE);
-        long validees = demandeRepository.countByParoisseAndStatutDemandeAndStatusDelFalse(
-                paroisse, StatutDemandeEnum.VALIDEE);
-        BigDecimal volume = demandeRepository.sumMontantByParoisse(paroisse);
-
-        PageRequest recentPage = PageRequest.of(0, 5, Sort.by(Sort.Direction.DESC, "createdAt"));
-        List<DemandeResponse> recentes = buildDemandeResponses(
-                demandeRepository.findByParoisseAndStatusDelFalse(paroisse, recentPage).getContent()
+        DemandeParoisseStatsProjection stats = demandeRepository.aggregateStatsByParoisse(
+                paroisse,
+                StatutDemandeEnum.EN_ATTENTE,
+                StatutDemandeEnum.VALIDEE
         );
 
-        List<Demande> impayees = listUnpaidApproachingForParoisse(paroisse);
-        List<DemandeResponse> impayeesProches = buildDemandeResponses(impayees);
+        // Pas de Page ici : Top5 évite le COUNT(*) automatique inutile au dashboard.
+        List<Demande> recentesEntities =
+                demandeRepository.findTop5ByParoisseAndStatusDelFalseOrderByCreatedAtDesc(paroisse);
+        List<Demande> impayeesEntities = listUnpaidApproachingForParoisse(paroisse);
+
+        // Les deux widgets partagent le même enrichissement batch (dates, factures, paiements).
+        List<Demande> demandesAEnrichir = new ArrayList<>(recentesEntities);
+        Set<Long> demandeIds = recentesEntities.stream()
+                .map(Demande::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        impayeesEntities.stream()
+                .filter(demande -> demande.getId() == null || demandeIds.add(demande.getId()))
+                .forEach(demandesAEnrichir::add);
+
+        Map<UUID, DemandeResponse> responsesByPublicId = buildDemandeResponses(demandesAEnrichir)
+                .stream()
+                .collect(Collectors.toMap(
+                        DemandeResponse::publicId,
+                        response -> response,
+                        (left, right) -> left
+                ));
+
+        List<DemandeResponse> recentes = recentesEntities.stream()
+                .map(demande -> responsesByPublicId.get(demande.getPublicId()))
+                .filter(Objects::nonNull)
+                .toList();
+        List<DemandeResponse> impayeesProches = impayeesEntities.stream()
+                .map(demande -> responsesByPublicId.get(demande.getPublicId()))
+                .filter(Objects::nonNull)
+                .toList();
 
         return new DemandeParoisseStatsResponse(
-                total,
-                enAttente,
-                validees,
-                volume != null ? volume : BigDecimal.ZERO,
+                stats.getTotal() != null ? stats.getTotal() : 0L,
+                stats.getEnAttente() != null ? stats.getEnAttente() : 0L,
+                stats.getValidees() != null ? stats.getValidees() : 0L,
+                stats.getVolumeMontant() != null ? stats.getVolumeMontant() : BigDecimal.ZERO,
                 recentes,
                 impayeesProches.size(),
                 impayeesProches

@@ -40,11 +40,11 @@ services:
           property: connectionString
       - key: APP_STORAGE_ROOT
         value: /app/uploads
-      # Configuration A/B : pool conservateur pour le petit PostgreSQL Render.
+      # Pool validé par test A/B sur le PostgreSQL Render.
       - key: HIKARI_MAX_POOL_SIZE
-        value: "5"
+        value: "8"
       - key: HIKARI_MIN_IDLE
-        value: "1"
+        value: "2"
       - key: HIKARI_CONNECTION_TIMEOUT_MS
         value: "10000"
       - key: TOMCAT_MAX_THREADS

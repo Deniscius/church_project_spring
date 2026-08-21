@@ -148,3 +148,22 @@ de protection.
 Ce résultat valide le palier de 25 utilisateurs pour ce scénario de lectures
 parallèles. Les pics maximum dépassent ponctuellement 2 secondes ; le prochain
 palier doit rester progressif et conserver les mêmes arrêts automatiques.
+
+
+## 6. Palier progressif de 30 utilisateurs — 21 août 2026
+
+Le test a ajouté une montée à 30 utilisateurs puis un plateau de 20 secondes.
+L'exécution s'est terminée normalement sans déclencher les protections.
+
+- 30 utilisateurs simultanés atteints et maintenus ;
+- 6 367 requêtes, soit 48,30 requêtes/seconde ;
+- aucune erreur HTTP et 12 730/12 730 contrôles réussis ;
+- moyenne : 564 ms ; p90 : 1 010 ms ; p95 : 1 340 ms ; maximum : 2 690 ms ;
+- p95 session : 1 290 ms ; profil : 1 300 ms ; demandes : 1 330 ms ;
+- p95 statistiques : 1 410 ms ; programmations : 1 390 ms ;
+- l'API est restée `UP` après le test.
+
+Le palier respecte encore le seuil p95 de 1,5 seconde, mais la marge restante
+est faible et tous les endpoints se rapprochent du seuil. Le prochain palier
+doit conserver l'arrêt automatique ; 30 utilisateurs représentent désormais
+la limite haute validée de ce scénario sur l'infrastructure actuelle.

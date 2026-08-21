@@ -95,3 +95,28 @@ Des seuils avec arrêt automatique protègent la production :
 
 Cette référence concerne uniquement des lectures authentifiées sur l'instance
 Render Starter et la base PostgreSQL 256 MB configurées au moment du test.
+
+
+## 4. Stress test contrôlé jusqu'à 20 utilisateurs
+
+Le scénario de capacité monte désormais par paliers de 5, 10, 15 puis 20
+utilisateurs, avec un plateau final de 20. Il s'arrête automatiquement avant la
+fin si le taux d'erreur dépasse 2 % ou si le p95 HTTP dépasse 1,5 seconde.
+
+### Point de rupture observé le 21 août 2026
+
+L'arrêt automatique a eu lieu pendant la montée, à **11 utilisateurs actifs** :
+
+- 440 requêtes analysées et aucune erreur HTTP ;
+- 860/860 contrôles fonctionnels réussis ;
+- débit moyen : 10,48 requêtes/seconde ;
+- moyenne globale : 586 ms ;
+- p90 : 1 023 ms ; p95 : 1 588 ms ; maximum : 2 256 ms ;
+- p95 session : 1 118 ms ; profil : 1 677 ms ; demandes : 1 701 ms ;
+- p95 statistiques : 1 386 ms ; programmations : 1 556 ms.
+
+Le point de rupture correspond ici au seuil de performance choisi, pas à une
+panne : l'API n'a retourné aucune erreur et l'endpoint de santé est resté `UP`
+après le test. Avec cinq requêtes parallèles par utilisateur, **10 utilisateurs
+simultanés constituent le palier de confort actuel** de l'instance Render
+Starter et du pool Hikari limité à 5 connexions.

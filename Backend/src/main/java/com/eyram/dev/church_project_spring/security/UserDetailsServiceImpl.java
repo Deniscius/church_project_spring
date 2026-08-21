@@ -1,8 +1,10 @@
 package com.eyram.dev.church_project_spring.security;
 
+import com.eyram.dev.church_project_spring.config.CacheConfig;
 import com.eyram.dev.church_project_spring.entities.User;
 import com.eyram.dev.church_project_spring.repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -20,6 +22,11 @@ public class UserDetailsServiceImpl implements UserDetailsService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(
+            cacheNames = CacheConfig.AUTH_USER_DETAILS,
+            key = "#login == null ? '' : #login.strip().toLowerCase()",
+            sync = true
+    )
     public UserDetails loadUserByUsername(String login)
             throws UsernameNotFoundException {
 

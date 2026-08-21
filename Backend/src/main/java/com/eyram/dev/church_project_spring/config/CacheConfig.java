@@ -25,6 +25,7 @@ public class CacheConfig {
     public static final String DASHBOARD_STATS = "dashboardStats";
     public static final String DASHBOARD_PROGRAMMES = "dashboardProgrammes";
     public static final String AUTH_USER_DETAILS = "authUserDetails";
+    public static final String DEMANDE_PAGES = "demandePages";
 
     @Bean
     public CacheManager cacheManager() {
@@ -37,7 +38,8 @@ public class CacheConfig {
                 caffeineSeconds(DASHBOARD_STATS, 20, 128),
                 caffeineSeconds(DASHBOARD_PROGRAMMES, 30, 256),
                 // Réduit une lecture PostgreSQL par requête JWT ; révocation retardée de 5 s max.
-                caffeineSeconds(AUTH_USER_DETAILS, 5, 1_000)
+                caffeineSeconds(AUTH_USER_DETAILS, 5, 1_000),
+                caffeineSeconds(DEMANDE_PAGES, 10, 256)
         ));
         return manager;
     }

@@ -112,7 +112,8 @@ public class DemandeServiceImpl implements DemandeService {
     @Override
     @CacheEvict(cacheNames = {
             CacheConfig.DASHBOARD_STATS,
-            CacheConfig.DASHBOARD_PROGRAMMES
+            CacheConfig.DASHBOARD_PROGRAMMES,
+            CacheConfig.DEMANDE_PAGES
     }, allEntries = true)
     public DemandeResponse create(DemandeRequest request) {
 
@@ -210,7 +211,8 @@ public class DemandeServiceImpl implements DemandeService {
     @Override
     @CacheEvict(cacheNames = {
             CacheConfig.DASHBOARD_STATS,
-            CacheConfig.DASHBOARD_PROGRAMMES
+            CacheConfig.DASHBOARD_PROGRAMMES,
+            CacheConfig.DEMANDE_PAGES
     }, allEntries = true)
     public DemandeResponse update(UUID publicId, DemandeRequest request) {
 
@@ -314,7 +316,8 @@ public class DemandeServiceImpl implements DemandeService {
     @Override
     @CacheEvict(cacheNames = {
             CacheConfig.DASHBOARD_STATS,
-            CacheConfig.DASHBOARD_PROGRAMMES
+            CacheConfig.DASHBOARD_PROGRAMMES,
+            CacheConfig.DEMANDE_PAGES
     }, allEntries = true)
     public DemandeResponse updateIntention(UUID publicId, DemandeIntentionRequest request) {
         String intention = IntentionTextUtils.requireValid(request == null ? null : request.intention());
@@ -330,7 +333,8 @@ public class DemandeServiceImpl implements DemandeService {
     @Override
     @CacheEvict(cacheNames = {
             CacheConfig.DASHBOARD_STATS,
-            CacheConfig.DASHBOARD_PROGRAMMES
+            CacheConfig.DASHBOARD_PROGRAMMES,
+            CacheConfig.DEMANDE_PAGES
     }, allEntries = true)
     public DemandeResponse updateTypePaiementByCodeSuivie(String codeSuivie, UUID typePaiementPublicId) {
         if (codeSuivie == null || codeSuivie.isBlank()) {
@@ -376,7 +380,8 @@ public class DemandeServiceImpl implements DemandeService {
     @Override
     @CacheEvict(cacheNames = {
             CacheConfig.DASHBOARD_STATS,
-            CacheConfig.DASHBOARD_PROGRAMMES
+            CacheConfig.DASHBOARD_PROGRAMMES,
+            CacheConfig.DEMANDE_PAGES
     }, allEntries = true)
     public DemandeResponse updateValidation(UUID publicId, DemandeValidationRequest request) {
         if (request == null || request.statut() == null) {
@@ -528,12 +533,32 @@ public class DemandeServiceImpl implements DemandeService {
 
         int safePage = Math.max(page, 0);
         int safeSize = Math.min(Math.max(size, 1), 100);
-        PageRequest pageable = PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+        // Les archives restent toujours lues directement : elles sont réservées à l'audit
+        // et ne doivent pas partager le cache des données actives.
+        if (includeDeleted) {
+            return buildParoissePage(paroisse, safePage, safeSize, true);
+        }
+
+        Cache cache = cacheManager.getCache(CacheConfig.DEMANDE_PAGES);
+        String cacheKey = paroissePublicId + ":" + safePage + ":" + safeSize;
+        return cache != null
+                ? cache.get(cacheKey, () -> buildParoissePage(paroisse, safePage, safeSize, false))
+                : buildParoissePage(paroisse, safePage, safeSize, false);
+    }
+
+    private PageResponse<DemandeResponse> buildParoissePage(
+            Paroisse paroisse,
+            int page,
+            int size,
+            boolean includeDeleted
+    ) {
+        PageRequest pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<Demande> demandePage = includeDeleted
                 ? demandeRepository.findByParoisse(paroisse, pageable)
                 : demandeRepository.findByParoisseAndStatusDelFalse(paroisse, pageable);
         List<DemandeResponse> content = buildDemandeResponses(demandePage.getContent());
-        return PageResponse.of(content, safePage, safeSize, demandePage.getTotalElements());
+        return PageResponse.of(content, page, size, demandePage.getTotalElements());
     }
 
     @Override
@@ -616,7 +641,8 @@ public class DemandeServiceImpl implements DemandeService {
     @Override
     @CacheEvict(cacheNames = {
             CacheConfig.DASHBOARD_STATS,
-            CacheConfig.DASHBOARD_PROGRAMMES
+            CacheConfig.DASHBOARD_PROGRAMMES,
+            CacheConfig.DEMANDE_PAGES
     }, allEntries = true)
     public void deleteByPublicId(UUID publicId) {
         Demande demande = demandeRepository.findByPublicIdAndStatusDelFalse(publicId)
@@ -637,7 +663,8 @@ public class DemandeServiceImpl implements DemandeService {
     @Override
     @CacheEvict(cacheNames = {
             CacheConfig.DASHBOARD_STATS,
-            CacheConfig.DASHBOARD_PROGRAMMES
+            CacheConfig.DASHBOARD_PROGRAMMES,
+            CacheConfig.DEMANDE_PAGES
     }, allEntries = true)
     public int cancelUnpaidApproachingCelebrations() {
         if (!demandePaymentProperties.isUnpaidAutoCancelEnabled()) {

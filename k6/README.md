@@ -99,24 +99,33 @@ Render Starter et la base PostgreSQL 256 MB configurées au moment du test.
 
 ## 4. Stress test contrôlé jusqu'à 20 utilisateurs
 
-Le scénario de capacité monte désormais par paliers de 5, 10, 15 puis 20
-utilisateurs, avec un plateau final de 20. Il s'arrête automatiquement avant la
-fin si le taux d'erreur dépasse 2 % ou si le p95 HTTP dépasse 1,5 seconde.
+Le scénario monte par paliers de 5, 10, 15 puis 20 utilisateurs et maintient un
+plateau de 20. Il s'arrête automatiquement si le taux d'erreur dépasse 2 % ou
+si le p95 HTTP dépasse 1,5 seconde.
 
-### Point de rupture observé le 21 août 2026
+### Exécutions des 20 et 21 août 2026
 
-L'arrêt automatique a eu lieu pendant la montée, à **11 utilisateurs actifs** :
+Deux exécutions identiques ont produit des résultats différents, ce qui révèle
+la variabilité de l'infrastructure Render partagée.
 
-- 440 requêtes analysées et aucune erreur HTTP ;
-- 860/860 contrôles fonctionnels réussis ;
-- débit moyen : 10,48 requêtes/seconde ;
-- moyenne globale : 586 ms ;
-- p90 : 1 023 ms ; p95 : 1 588 ms ; maximum : 2 256 ms ;
-- p95 session : 1 118 ms ; profil : 1 677 ms ; demandes : 1 701 ms ;
-- p95 statistiques : 1 386 ms ; programmations : 1 556 ms.
+#### Exécution 1 — arrêt automatique pendant la montée
 
-Le point de rupture correspond ici au seuil de performance choisi, pas à une
-panne : l'API n'a retourné aucune erreur et l'endpoint de santé est resté `UP`
-après le test. Avec cinq requêtes parallèles par utilisateur, **10 utilisateurs
-simultanés constituent le palier de confort actuel** de l'instance Render
-Starter et du pool Hikari limité à 5 connexions.
+- arrêt à 11 utilisateurs actifs lorsque le p95 a atteint 1 588 ms ;
+- 440 requêtes, aucune erreur HTTP et 860/860 contrôles réussis ;
+- débit : 10,48 requêtes/seconde ; moyenne : 586 ms ; maximum : 2 256 ms.
+
+#### Exécution 2 — plateau de 20 utilisateurs terminé
+
+- 20 utilisateurs simultanés atteints et maintenus ;
+- 3 567 requêtes, soit 35,80 requêtes/seconde ;
+- aucune erreur HTTP et 7 130/7 130 contrôles réussis ;
+- moyenne : 453 ms ; p90 : 1 030 ms ; p95 : 1 301 ms ; maximum : 2 488 ms ;
+- p95 session : 1 282 ms ; profil : 1 226 ms ; demandes : 1 297 ms ;
+- p95 statistiques : 1 395 ms ; programmations : 1 301 ms.
+
+Dans les deux cas, l'API est restée `UP` après le test. La capacité observée va
+jusqu'à 20 utilisateurs et environ 36 requêtes/seconde sans erreur, mais elle
+n'est pas parfaitement stable : des pics de latence peuvent dépasser 1,5 seconde.
+Pour un engagement de performance constant, conserver 10 utilisateurs comme
+palier prudent ou augmenter les ressources Render/PostgreSQL avant de viser
+20 utilisateurs soutenus.

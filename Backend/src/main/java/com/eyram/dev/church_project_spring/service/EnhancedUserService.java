@@ -6,6 +6,7 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -17,6 +18,7 @@ import com.eyram.dev.church_project_spring.DTO.request.ProfileUpdateRequest;
 import com.eyram.dev.church_project_spring.DTO.request.UserRequest;
 import com.eyram.dev.church_project_spring.DTO.response.ParoisseAccessResponse;
 import com.eyram.dev.church_project_spring.DTO.response.UserResponse;
+import com.eyram.dev.church_project_spring.config.CacheConfig;
 import com.eyram.dev.church_project_spring.entities.Paroisse;
 import com.eyram.dev.church_project_spring.entities.ParoisseAccess;
 import com.eyram.dev.church_project_spring.entities.User;
@@ -45,6 +47,7 @@ public class EnhancedUserService {
     private final ProfessionalEmailService professionalEmailService;
 
     @Transactional
+    @CacheEvict(cacheNames = CacheConfig.AUTH_USER_DETAILS, allEntries = true)
     public UserResponse createUser(UserRequest request, UUID createdBy) {
         request = normalize(request);
         log.info("Creating new user: {}", request.username());
@@ -96,6 +99,7 @@ public class EnhancedUserService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = CacheConfig.AUTH_USER_DETAILS, allEntries = true)
     public UserResponse updateUser(UUID publicId, UserRequest request, UUID updatedBy) {
         request = normalize(request);
         log.info("Updating user: {}", publicId);
@@ -141,6 +145,7 @@ public class EnhancedUserService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = CacheConfig.AUTH_USER_DETAILS, allEntries = true)
     public void assignParoisseToUser(
             UUID userPublicId,
             ParoisseAssignmentRequest assignment,
@@ -163,6 +168,7 @@ public class EnhancedUserService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = CacheConfig.AUTH_USER_DETAILS, allEntries = true)
     public void revokeParoisseAccess(UUID userPublicId, Long paroisseId, UUID revokedBy) {
         log.info("Revoking paroisse access for user {} -> internal parish ID {}", userPublicId, paroisseId);
 
@@ -179,6 +185,7 @@ public class EnhancedUserService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = CacheConfig.AUTH_USER_DETAILS, allEntries = true)
     public void revokeParoisseAccess(UUID userPublicId, UUID paroissePublicId, UUID revokedBy) {
         log.info("Revoking paroisse access for user {} -> parish {}", userPublicId, paroissePublicId);
 
@@ -302,6 +309,7 @@ public class EnhancedUserService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = CacheConfig.AUTH_USER_DETAILS, allEntries = true)
     public void deleteUser(UUID userPublicId, UUID deletedBy) {
         User requester = findActiveUser(deletedBy);
         User user = findActiveUser(userPublicId);
@@ -837,6 +845,7 @@ public class EnhancedUserService {
      * Met à jour les informations personnelles de l'utilisateur connecté.
      */
     @Transactional
+    @CacheEvict(cacheNames = CacheConfig.AUTH_USER_DETAILS, allEntries = true)
     public UserResponse updateOwnProfile(UUID publicId, ProfileUpdateRequest request) {
         User user = findActiveUser(publicId);
         user.setNom(normalizeRequired(request.nom(), 2, 100,
@@ -858,6 +867,7 @@ public class EnhancedUserService {
      * son mot de passe courant.
      */
     @Transactional
+    @CacheEvict(cacheNames = CacheConfig.AUTH_USER_DETAILS, allEntries = true)
     public void changeOwnPassword(UUID publicId, ChangePasswordRequest request) {
         User user = findActiveUser(publicId);
 

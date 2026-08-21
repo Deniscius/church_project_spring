@@ -167,3 +167,23 @@ Le palier respecte encore le seuil p95 de 1,5 seconde, mais la marge restante
 est faible et tous les endpoints se rapprochent du seuil. Le prochain palier
 doit conserver l'arrêt automatique ; 30 utilisateurs représentent désormais
 la limite haute validée de ce scénario sur l'infrastructure actuelle.
+
+
+## 7. Limite de performance à 35 utilisateurs — 21 août 2026
+
+Le scénario a poursuivi la montée jusqu'à 35 utilisateurs. Le seuil p95 de
+1,5 seconde a été dépassé pendant le plateau, ce qui a provoqué l'arrêt
+automatique prévu.
+
+- 35 utilisateurs simultanés atteints ;
+- 6 423 requêtes avant l'arrêt, soit 51,80 requêtes/seconde ;
+- aucune erreur HTTP et 12 820/12 820 contrôles réussis ;
+- moyenne : 664 ms ; p90 : 1 280 ms ; p95 : 1 520 ms ; maximum : 2 300 ms ;
+- p95 session : 1 490 ms ; profil : 1 490 ms ; demandes : 1 540 ms ;
+- p95 statistiques : 1 600 ms ; programmations : 1 550 ms ;
+- l'API est restée `UP` après l'arrêt.
+
+La limite observée est une limite de performance, pas de disponibilité : aucune
+requête n'a échoué. Sur l'infrastructure actuelle, **30 utilisateurs simultanés
+est le dernier palier validé sous le p95 de 1,5 seconde**. Une montée au-delà de
+35 n'apporterait plus de valeur avant optimisation ou augmentation des ressources.

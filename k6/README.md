@@ -129,3 +129,22 @@ n'est pas parfaitement stable : des pics de latence peuvent dépasser 1,5 second
 Pour un engagement de performance constant, conserver 10 utilisateurs comme
 palier prudent ou augmenter les ressources Render/PostgreSQL avant de viser
 20 utilisateurs soutenus.
+
+
+## 5. Palier progressif de 25 utilisateurs — 21 août 2026
+
+Le palier suivant a ajouté une montée à 25 utilisateurs puis un plateau de
+20 secondes. L'exécution s'est terminée normalement sans déclencher les seuils
+de protection.
+
+- 25 utilisateurs simultanés atteints et maintenus ;
+- 5 167 requêtes, soit 44,66 requêtes/seconde ;
+- aucune erreur HTTP et 10 330/10 330 contrôles réussis ;
+- moyenne : 427 ms ; p90 : 721 ms ; p95 : 961 ms ; maximum : 2 200 ms ;
+- p95 session : 898 ms ; profil : 914 ms ; demandes : 927 ms ;
+- p95 statistiques : 997 ms ; programmations : 971 ms ;
+- l'API est restée `UP` après le test.
+
+Ce résultat valide le palier de 25 utilisateurs pour ce scénario de lectures
+parallèles. Les pics maximum dépassent ponctuellement 2 secondes ; le prochain
+palier doit rester progressif et conserver les mêmes arrêts automatiques.

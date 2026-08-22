@@ -2,6 +2,7 @@ package com.eyram.dev.church_project_spring.security.jwt;
 
 import com.eyram.dev.church_project_spring.context.TenantContext;
 import com.eyram.dev.church_project_spring.security.UserDetailsImpl;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -9,7 +10,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.lang.NonNull;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
@@ -47,9 +50,8 @@ public class AuthTokenFilter extends OncePerRequestFilter {
         try {
             String token = resolveToken(request);
 
-            if (token != null && jwtUtils.validateToken(token)) {
-
-                String username = jwtUtils.getUsernameFromToken(token);
+            if (token != null) {
+                String username = jwtUtils.parseUsername(token);
                 UserDetailsImpl userDetails = (UserDetailsImpl) userDetailsService.loadUserByUsername(username);
 
                 /*
@@ -59,7 +61,7 @@ public class AuthTokenFilter extends OncePerRequestFilter {
                  * de statut utilisateur ; ils ne doivent donc pas piloter l'isolation.
                  */
                 if (!userDetails.isEnabled()) {
-                    throw new IllegalStateException("Compte utilisateur désactivé");
+                    throw new DisabledException("Compte utilisateur désactivé");
                 }
 
                 Long tenantId = userDetails.getTenantId();
@@ -75,10 +77,15 @@ public class AuthTokenFilter extends OncePerRequestFilter {
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
 
-        } catch (Exception e) {
-            log.debug("Authentification JWT impossible : {}", e.getMessage());
+        } catch (JwtException | IllegalArgumentException | AuthenticationException e) {
+            log.debug("Authentification JWT refusée : {}", e.getMessage());
             SecurityContextHolder.clearContext();
             TenantContext.clear();
+        } catch (Exception e) {
+            log.error("Erreur technique pendant l'authentification JWT", e);
+            SecurityContextHolder.clearContext();
+            TenantContext.clear();
+            throw new ServletException("Erreur technique pendant l'authentification", e);
         }
 
         try {

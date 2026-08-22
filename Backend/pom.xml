@@ -53,12 +53,6 @@
         </dependency>
 
         <dependency>
-            <groupId>org.xerial</groupId>
-            <artifactId>sqlite-jdbc</artifactId>
-            <version>3.45.3.0</version>
-        </dependency>
-
-        <dependency>
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-crypto</artifactId>
         </dependency>
@@ -183,23 +177,11 @@
             <artifactId>openpdf</artifactId>
             <version>2.0.5</version>
         </dependency>
-
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-devtools</artifactId>
-            <scope>runtime</scope>
-        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-configuration-processor</artifactId>
             <optional>true</optional>
         </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-docker-compose</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
     </dependencies>
 
     <build>
@@ -246,7 +228,7 @@
                 <configuration>
                     <url>${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/church_project_db}</url>
                     <user>${SPRING_DATASOURCE_USERNAME:postgres}</user>
-                    <password>${SPRING_DATASOURCE_PASSWORD:1234}</password>
+                    <password>${SPRING_DATASOURCE_PASSWORD}</password>
                     <locations>
                         <location>filesystem:src/main/resources/db/migration</location>
                     </locations>

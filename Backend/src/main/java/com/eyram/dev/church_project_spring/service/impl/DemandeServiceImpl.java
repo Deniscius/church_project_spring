@@ -154,7 +154,6 @@ public class DemandeServiceImpl implements DemandeService {
         }
 
         validateSpecialeContact(request, forfaitTarif);
-        validateSpecialeContact(request, forfaitTarif);
         validateDates(request, forfaitTarif);
         if (ForfaitDureeLabels.isMultiCelebration(forfaitTarif.getNombreCelebration())) {
             if (!hasCelebrationSlots(request)) {
@@ -263,6 +262,7 @@ public class DemandeServiceImpl implements DemandeService {
                     .orElseThrow(() -> new ResourceNotFoundException("Utilisateur introuvable"));
         }
 
+        validateSpecialeContact(request, forfaitTarif);
         validateDates(request, forfaitTarif);
         if (ForfaitDureeLabels.isMultiCelebration(forfaitTarif.getNombreCelebration())) {
             if (!hasCelebrationSlots(request)) {

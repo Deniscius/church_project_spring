@@ -2,15 +2,9 @@ package com.eyram.dev.church_project_spring.security.jwt;
 
 import com.eyram.dev.church_project_spring.config.JwtProperties;
 import com.eyram.dev.church_project_spring.security.UserDetailsImpl;
-import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.MalformedJwtException;
-import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
-import io.jsonwebtoken.security.SignatureException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 
@@ -19,8 +13,6 @@ import java.util.Date;
 
 @Component
 public class JwtUtils {
-
-    private static final Logger log = LoggerFactory.getLogger(JwtUtils.class);
 
     private final SecretKey signingKey;
     private final long jwtExpirationMs;
@@ -57,34 +49,17 @@ public class JwtUtils {
                 .compact();
     }
 
-    public String getUsernameFromToken(String token) {
+    /**
+     * Vérifie la signature et l'expiration une seule fois, puis retourne le sujet.
+     * Les exceptions JWT sont volontairement laissées au filtre d'authentification.
+     */
+    public String parseUsername(String token) {
         return Jwts.parser()
                 .verifyWith(signingKey)
                 .build()
                 .parseSignedClaims(token)
                 .getPayload()
                 .getSubject();
-    }
-
-    public boolean validateToken(String token) {
-        try {
-            Jwts.parser()
-                    .verifyWith(signingKey)
-                    .build()
-                    .parseSignedClaims(token);
-            return true;
-        } catch (SignatureException e) {
-            log.debug("Signature JWT invalide", e);
-        } catch (MalformedJwtException e) {
-            log.debug("JWT mal formé", e);
-        } catch (ExpiredJwtException e) {
-            log.debug("JWT expiré", e);
-        } catch (UnsupportedJwtException e) {
-            log.debug("JWT non supporté", e);
-        } catch (IllegalArgumentException e) {
-            log.debug("Jeton JWT vide ou invalide", e);
-        }
-        return false;
     }
 
 }

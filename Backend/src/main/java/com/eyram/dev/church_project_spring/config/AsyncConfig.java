@@ -16,12 +16,6 @@ public class AsyncConfig {
         return build("mail-", 2, 8, 200);
     }
 
-    /** Traitement webhooks paiement hors thread HTTP. */
-    @Bean(name = "webhookExecutor")
-    public Executor webhookExecutor() {
-        return build("webhook-", 2, 6, 300);
-    }
-
     /** Génération PDF / exports lourds. */
     @Bean(name = "pdfExecutor")
     public Executor pdfExecutor() {

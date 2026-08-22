@@ -21,7 +21,7 @@ public class ParishLedgerService {
 
     @Transactional
     public CompteParoisse ensureCompte(Paroisse paroisse) {
-        return compteParoisseRepository.findByParoisseAndStatusDelFalse(paroisse)
+        return compteParoisseRepository.findByParoisseForUpdate(paroisse)
                 .orElseGet(() -> {
                     CompteParoisse compte = new CompteParoisse();
                     compte.setParoisse(paroisse);
@@ -37,11 +37,13 @@ public class ParishLedgerService {
         if (montant <= 0 || paroisse == null) {
             return;
         }
+        // Le verrou du compte sérialise également le contrôle d'idempotence :
+        // deux callbacks simultanés d'une même paroisse ne peuvent plus créditer deux fois.
+        CompteParoisse compte = ensureCompte(paroisse);
         if (StringUtils.hasText(referenceExterne)
                 && ecritureComptableRepository.existsByReferenceExterneAndStatusDelFalse(referenceExterne)) {
             return;
         }
-        CompteParoisse compte = ensureCompte(paroisse);
         compte.setSoldeDisponible(compte.getSoldeDisponible() + montant);
         compteParoisseRepository.save(compte);
 

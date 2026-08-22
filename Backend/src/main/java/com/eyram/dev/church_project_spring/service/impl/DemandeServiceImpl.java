@@ -60,8 +60,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -156,6 +154,7 @@ public class DemandeServiceImpl implements DemandeService {
         }
 
         validateSpecialeContact(request, forfaitTarif);
+        validateSpecialeContact(request, forfaitTarif);
         validateDates(request, forfaitTarif);
         if (ForfaitDureeLabels.isMultiCelebration(forfaitTarif.getNombreCelebration())) {
             if (!hasCelebrationSlots(request)) {
@@ -223,16 +222,22 @@ public class DemandeServiceImpl implements DemandeService {
 
         Paroisse paroisse = paroisseRepository.findByPublicIdAndStatusDelFalse(request.paroissePublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Paroisse introuvable"));
+        requireActive(Boolean.TRUE.equals(paroisse.getIsActive()),
+                "Cette paroisse n'accepte plus de modifications de demandes");
 
         tenantAccessService.checkParoisseAccess(paroisse);
 
         TypeDemande typeDemande = typeDemandeRepository.findByPublicIdAndStatusDelFalse(request.typeDemandePublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Type de demande introuvable"));
+        requireActive(Boolean.TRUE.equals(typeDemande.getIsActive()),
+                "Ce type de demande n'est plus disponible");
 
         validateTypeDemandeParoisse(typeDemande, paroisse);
 
         ForfaitTarif forfaitTarif = forfaitTarifRepository.findByPublicIdAndStatusDelFalse(request.forfaitTarifPublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Forfait tarif introuvable"));
+        requireActive(Boolean.TRUE.equals(forfaitTarif.getIsActive()),
+                "Ce forfait n'est plus disponible");
 
         if (!forfaitTarif.getTypeDemande().getPublicId().equals(typeDemande.getPublicId())) {
             throw new IllegalArgumentException("Le forfait ne correspond pas au type de demande");
@@ -242,6 +247,8 @@ public class DemandeServiceImpl implements DemandeService {
         if (request.horairePublicId() != null) {
             horaire = horaireRepository.findByPublicIdAndStatusDelFalse(request.horairePublicId())
                     .orElseThrow(() -> new ResourceNotFoundException("Horaire introuvable"));
+            requireActive(Boolean.TRUE.equals(horaire.getIsActive()),
+                    "Cet horaire n'est plus disponible");
 
             if (!horaire.getParoisse().getPublicId().equals(paroisse.getPublicId())) {
                 throw new IllegalArgumentException("L'horaire ne correspond pas à la paroisse choisie");

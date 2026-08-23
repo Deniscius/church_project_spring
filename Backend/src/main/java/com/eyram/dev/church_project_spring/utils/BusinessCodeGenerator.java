@@ -69,7 +69,7 @@ public final class BusinessCodeGenerator {
         return (when != null ? when : LocalDateTime.now()).format(TS);
     }
 
-    /** Jeton court non prédictible (≈40 bits) pour les codes exposés publiquement. */
+    /** Jeton non prédictible sur un alphabet de 32 symboles (5 bits par caractère). */
     public static String publicToken(int length) {
         int size = Math.max(6, Math.min(length, 16));
         char[] buf = new char[size];
@@ -103,11 +103,11 @@ public final class BusinessCodeGenerator {
 
     /**
      * Code de suivi : MS + initiales paroisse + jeton aléatoire.
-     * Exemple paroisse « Saint Joseph » → {@code MS-SJ-K7M2XQ}.
+     * Exemple paroisse « Saint Joseph » → {@code MS-SJ-K7M2XQ8W4P}.
      */
     public static String demandeCode(String parishName) {
         String initials = parishInitials(parishName);
-        return "MS-" + initials + "-" + publicToken(6);
+        return "MS-" + initials + "-" + publicToken(10);
     }
 
     /**
@@ -122,7 +122,14 @@ public final class BusinessCodeGenerator {
         String trimmed = raw.trim().toUpperCase(Locale.ROOT);
         String compact = trimmed.replaceAll("[\\s_-]+", "");
 
-        // Nouveau format : MS + initiales (2–4 lettres) + jeton 6
+        // Nouveau format renforcé : MS + initiales (2–4 lettres) + jeton 10 (50 bits).
+        if (compact.matches("MS[A-Z]{2,4}[A-Z2-9]{10}")) {
+            String body = compact.substring(2);
+            String token = body.substring(body.length() - 10);
+            String initials = body.substring(0, body.length() - 10);
+            return "MS-" + initials + "-" + token;
+        }
+        // Format 6 caractères historique : conservé uniquement pour les demandes existantes.
         if (compact.matches("MS[A-Z]{2,4}[A-Z2-9]{6}")) {
             String body = compact.substring(2);
             String token = body.substring(body.length() - 6);

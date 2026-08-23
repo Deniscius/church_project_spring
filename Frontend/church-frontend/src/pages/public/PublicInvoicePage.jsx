@@ -32,22 +32,26 @@ export default function PublicInvoicePage() {
       setLoading(false);
       return;
     }
-    let cancelled = false;
+    const controller = new AbortController();
     (async () => {
       try {
         setLoading(true);
         setError(null);
-        const data = await invoiceService.getByTrackingCode(code);
-        if (!cancelled) setFacture(data);
+        setFacture(null);
+        const data = await invoiceService.getByTrackingCode(
+          code,
+          { signal: controller.signal }
+        );
+        if (!controller.signal.aborted) setFacture(data);
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Erreur');
+        if (!controller.signal.aborted) {
+          setError(e instanceof Error ? e.message : 'Erreur');
+        }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => controller.abort();
   }, [codeSuivie]);
 
   return (
@@ -61,8 +65,10 @@ export default function PublicInvoicePage() {
       <div className="grid-2">
         <PublicInvoiceCard codeSuivie={facture?.codeSuivieDemande || codeSuivie} />
         <AppCard title="Données facture">
-          {loading ? <p className="muted">Chargement…</p> : null}
-          {error ? <p className="text-red-600">{error}</p> : null}
+          {loading ? (
+            <p className="muted" role="status" aria-live="polite">Chargement…</p>
+          ) : null}
+          {error ? <p className="text-red-600" role="alert">{error}</p> : null}
           {facture ? (
             <div className="info-list">
               <div className="info-row">

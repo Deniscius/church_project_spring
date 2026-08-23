@@ -165,10 +165,18 @@ public class FedaPayPaymentService {
                     .orElse(null);
         });
 
-        String txId = StringUtils.hasText(providerTransactionIdHint)
-                ? providerTransactionIdHint.trim()
-                : (details != null ? details.getIdTransaction() : null);
+        String storedTransactionId = details != null ? details.getIdTransaction() : null;
+        if (StringUtils.hasText(providerTransactionIdHint)) {
+            String hintedTransactionId = providerTransactionIdHint.trim();
+            if (!StringUtils.hasText(storedTransactionId)
+                    || !storedTransactionId.equals(hintedTransactionId)) {
+                throw new BusinessRuleException(
+                        "La transaction reçue ne correspond pas à cette facture"
+                );
+            }
+        }
 
+        String txId = storedTransactionId;
         if (StringUtils.hasText(txId)) {
             String remoteStatus = fetchRemoteStatus(txId);
             if (isApprovedStatus(remoteStatus)) {

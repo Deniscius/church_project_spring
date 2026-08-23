@@ -14,7 +14,9 @@ export default class ErrorBoundary extends Component {
   static getDerivedStateFromError(error) {
     return {
       hasError: true,
-      message: error?.message || 'Une erreur inattendue est survenue.',
+      message: import.meta.env.DEV && error?.message
+        ? error.message
+        : 'Une erreur inattendue empêche l’affichage de cette page.',
     };
   }
 

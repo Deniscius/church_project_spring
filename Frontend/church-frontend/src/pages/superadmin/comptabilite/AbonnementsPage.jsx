@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import PageHeader from '../../../components/ui/PageHeader';
 import AppCard from '../../../components/ui/AppCard';
 import AppBadge from '../../../components/ui/AppBadge';
@@ -91,6 +91,7 @@ export default function AbonnementsPage() {
   const [prolongJours, setProlongJours] = useState({});
   const [confirmRow, setConfirmRow] = useState(null);
   const [confirmMode, setConfirmMode] = useState(null);
+  const actionBusyRef = useRef(false);
 
   async function load() {
     try {
@@ -173,7 +174,8 @@ export default function AbonnementsPage() {
   }
 
   async function runAction(row, action) {
-    if (!canRun(action)) return;
+    if (!canRun(action) || actionBusyRef.current) return;
+    actionBusyRef.current = true;
     setBusyId(row.publicId);
     setError(null);
     setInfo(null);
@@ -206,6 +208,7 @@ export default function AbonnementsPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Échec de l’opération');
     } finally {
+      actionBusyRef.current = false;
       setBusyId(null);
     }
   }
@@ -235,7 +238,7 @@ export default function AbonnementsPage() {
         title="Abonnements SaaS"
         subtitle="Une ligne par paroisse : payer, activer, prolonger, annuler un lien abandonné ou résilier."
         actions={(
-          <button type="button" className="btn btn-secondary" onClick={load} disabled={loading}>
+          <button type="button" className="btn btn-secondary" onClick={load} disabled={loading || Boolean(busyId)}>
             {loading ? 'Actualisation…' : 'Actualiser'}
           </button>
         )}
@@ -346,7 +349,7 @@ export default function AbonnementsPage() {
                           <select
                             className="select"
                             value={planFor(r)}
-                            disabled={busyId === r.publicId}
+                            disabled={Boolean(busyId)}
                             onChange={(e) => setPlansChoisis((prev) => ({
                               ...prev,
                               [r.publicId]: e.target.value,
@@ -364,7 +367,7 @@ export default function AbonnementsPage() {
                           <select
                             className="select"
                             value={joursFor(r)}
-                            disabled={busyId === r.publicId}
+                            disabled={Boolean(busyId)}
                             onChange={(e) => setProlongJours((prev) => ({
                               ...prev,
                               [r.publicId]: Number(e.target.value),
@@ -416,7 +419,7 @@ export default function AbonnementsPage() {
                           <button
                             type="button"
                             className="btn btn-primary"
-                            disabled={busyId === r.publicId || !r.paroissePublicId || !planOptions.length}
+                            disabled={Boolean(busyId) || !r.paroissePublicId || !planOptions.length}
                             onClick={() => { setConfirmMode('checkout'); setConfirmRow(r); }}
                           >
                             {busyId === r.publicId ? 'Traitement…' : 'Payer (FedaPay)'}
@@ -426,7 +429,7 @@ export default function AbonnementsPage() {
                           <button
                             type="button"
                             className="btn btn-secondary"
-                            disabled={busyId === r.publicId || !r.paroissePublicId || !planFor(r)}
+                            disabled={Boolean(busyId) || !r.paroissePublicId || !planFor(r)}
                             onClick={() => { setConfirmMode('manuel'); setConfirmRow(r); }}
                           >
                             Activer
@@ -436,7 +439,7 @@ export default function AbonnementsPage() {
                           <button
                             type="button"
                             className="btn btn-secondary"
-                            disabled={busyId === r.publicId || !r.paroissePublicId}
+                            disabled={Boolean(busyId) || !r.paroissePublicId}
                             onClick={() => { setConfirmMode('prolonger'); setConfirmRow(r); }}
                           >
                             Prolonger
@@ -446,7 +449,7 @@ export default function AbonnementsPage() {
                           <button
                             type="button"
                             className="btn btn-secondary"
-                            disabled={busyId === r.publicId}
+                            disabled={Boolean(busyId)}
                             onClick={() => { setConfirmMode('annuler'); setConfirmRow(r); }}
                           >
                             Annuler lien
@@ -456,7 +459,7 @@ export default function AbonnementsPage() {
                           <button
                             type="button"
                             className="btn btn-secondary"
-                            disabled={busyId === r.publicId || !r.paroissePublicId}
+                            disabled={Boolean(busyId) || !r.paroissePublicId}
                             onClick={() => { setConfirmMode('resilier'); setConfirmRow(r); }}
                           >
                             Résilier

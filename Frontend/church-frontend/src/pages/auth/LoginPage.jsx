@@ -8,7 +8,6 @@ import { useToast } from '../../contexts/toast.context';
 import { useScrollToError } from '../../hooks/useScrollToError';
 import {
   normalizeFormErrors,
-  sanitizeAuthPasswordEdges,
   sanitizeAuthUsernameInput,
 } from '../../utils/formErrors';
 
@@ -30,9 +29,8 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
     const cleanUser = sanitizeAuthUsernameInput(username);
-    const cleanPass = sanitizeAuthPasswordEdges(password);
+    const cleanPass = password;
     setUsername(cleanUser);
-    setPassword(cleanPass);
     if (!cleanUser || !cleanPass) {
       const msg = 'Identifiant et mot de passe sont obligatoires.';
       setError(msg);
@@ -115,9 +113,9 @@ export default function LoginPage() {
             className="auth-password-input"
             type={showPassword ? 'text' : 'password'}
             autoComplete="current-password"
+            maxLength={200}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            onBlur={() => setPassword((v) => sanitizeAuthPasswordEdges(v))}
             placeholder="Votre mot de passe"
             required
             disabled={loading}

@@ -88,6 +88,18 @@ public class PaymentReturnTokenService {
     }
 
     private static byte[] decode(String value) {
-        return Base64.getUrlDecoder().decode(value);
+        try {
+            byte[] decoded = Base64.getUrlDecoder().decode(value);
+            // Le décodeur JDK accepte plusieurs derniers caractères Base64URL
+            // pouvant représenter les mêmes octets lorsque des bits de bourrage
+            // sont inutilisés. Une ré-encodage canonique empêche qu'un jeton
+            // textuellement altéré soit néanmoins accepté.
+            if (!encode(decoded).equals(value)) {
+                throw new IllegalArgumentException("Jeton de retour invalide");
+            }
+            return decoded;
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("Jeton de retour invalide", ex);
+        }
     }
 }

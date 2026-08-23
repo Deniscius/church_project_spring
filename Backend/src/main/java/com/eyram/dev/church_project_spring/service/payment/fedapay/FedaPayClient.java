@@ -91,7 +91,7 @@ public class FedaPayClient {
                     .body(String.class);
             return objectMapper.readTree(raw == null ? "{}" : raw);
         } catch (RestClientResponseException ex) {
-            log.error("FedaPay POST {} failed: {} {}", path, ex.getStatusCode(), ex.getResponseBodyAsString());
+            log.error("FedaPay POST {} failed with status {}", path, ex.getStatusCode());
             throw new BusinessRuleException("Erreur FedaPay: " + summarizeError(ex));
         } catch (Exception ex) {
             log.error("FedaPay POST {} failed", path, ex);
@@ -107,7 +107,7 @@ public class FedaPayClient {
                     .body(String.class);
             return objectMapper.readTree(raw == null ? "{}" : raw);
         } catch (RestClientResponseException ex) {
-            log.error("FedaPay GET {} failed: {} {}", path, ex.getStatusCode(), ex.getResponseBodyAsString());
+            log.error("FedaPay GET {} failed with status {}", path, ex.getStatusCode());
             throw new BusinessRuleException("Erreur FedaPay: " + summarizeError(ex));
         } catch (Exception ex) {
             log.error("FedaPay GET {} failed", path, ex);
@@ -196,11 +196,7 @@ public class FedaPayClient {
     }
 
     private static String summarizeError(RestClientResponseException ex) {
-        String body = ex.getResponseBodyAsString();
-        if (!StringUtils.hasText(body)) {
-            return ex.getStatusCode().toString();
-        }
-        return body.length() > 240 ? body.substring(0, 240) + "…" : body;
+        return "requête refusée (" + ex.getStatusCode() + ")";
     }
 
     public record CreateTransactionCommand(

@@ -4,10 +4,12 @@ import com.eyram.dev.church_project_spring.config.DemandePaymentProperties;
 import com.eyram.dev.church_project_spring.entities.Demande;
 import com.eyram.dev.church_project_spring.entities.DemandeDate;
 import com.eyram.dev.church_project_spring.enums.StatutDemandeEnum;
+import com.eyram.dev.church_project_spring.enums.StatutPaiementEnum;
 import com.eyram.dev.church_project_spring.repositories.DemandeDateRepository;
 import com.eyram.dev.church_project_spring.repositories.DemandeRepository;
 import com.eyram.dev.church_project_spring.security.TenantAccessService;
 import com.eyram.dev.church_project_spring.service.mail.AppMailService;
+import com.eyram.dev.church_project_spring.utils.exception.BusinessRuleException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,10 +22,13 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.eq;
@@ -86,6 +91,22 @@ class DemandeCelebrationLifecycleServiceTest {
         assertEquals(1, marked);
         assertTrue(Boolean.TRUE.equals(slot.getCelebre()));
         verify(demandeDateRepository).save(slot);
+    }
+
+    @Test
+    void markCelebrated_rejectsUnpaidDemand() {
+        UUID slotId = UUID.randomUUID();
+        DemandeDate slot = slotAt(LocalDate.of(2026, 8, 17), LocalTime.of(10, 0));
+        slot.setPublicId(slotId);
+        slot.getDemande().setStatutPaiement(StatutPaiementEnum.NON_PAYE);
+        when(demandeDateRepository.findByPublicIdAndStatusDelFalse(slotId))
+                .thenReturn(Optional.of(slot));
+
+        DemandeCelebrationLifecycleService service = serviceAt("2026-08-17T15:00:00Z");
+
+        assertThrows(BusinessRuleException.class, () -> service.markCelebrated(slotId));
+        assertFalse(Boolean.TRUE.equals(slot.getCelebre()));
+        verify(demandeDateRepository, never()).save(any(DemandeDate.class));
     }
 
     private DemandeDate slotAt(LocalDate date, LocalTime time) {

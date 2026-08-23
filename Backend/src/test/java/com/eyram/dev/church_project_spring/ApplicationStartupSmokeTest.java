@@ -15,6 +15,7 @@ import com.eyram.dev.church_project_spring.entities.User;
 import com.eyram.dev.church_project_spring.enums.JourSemaine;
 import com.eyram.dev.church_project_spring.enums.ModePaiement;
 import com.eyram.dev.church_project_spring.enums.NatureForfaitEnum;
+import com.eyram.dev.church_project_spring.enums.StatutTenant;
 import com.eyram.dev.church_project_spring.enums.UserRole;
 import com.eyram.dev.church_project_spring.repositories.ForfaitTarifRepository;
 import com.eyram.dev.church_project_spring.repositories.HoraireRepository;
@@ -103,7 +104,7 @@ class ApplicationStartupSmokeTest {
                 .stream()
                 .findFirst()
                 .orElseThrow();
-        parish.setIsActive(true);
+        parish.appliquerStatut(StatutTenant.ACTIVE);
         paroisseRepository.save(parish);
         tenantCatalogBootstrapService.seedDefaultsIfEmpty(parish);
 

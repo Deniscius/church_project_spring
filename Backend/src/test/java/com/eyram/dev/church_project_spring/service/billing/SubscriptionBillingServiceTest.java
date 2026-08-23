@@ -55,7 +55,7 @@ class SubscriptionBillingServiceTest {
         Paroisse otherParish = new Paroisse();
         otherParish.setPublicId(parishId);
 
-        when(paroisseRepository.findByPublicIdAndStatusDelFalse(parishId))
+        when(paroisseRepository.findByPublicIdForUpdate(parishId))
                 .thenReturn(Optional.of(otherParish));
         org.mockito.Mockito.doThrow(new AccessDeniedException("Accès refusé"))
                 .when(tenantAccessService).checkParoisseAccess(otherParish);

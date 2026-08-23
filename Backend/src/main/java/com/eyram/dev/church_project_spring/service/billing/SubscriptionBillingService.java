@@ -186,7 +186,7 @@ public class SubscriptionBillingService {
     @Transactional
     public void activateFromProviderTransaction(String transactionId) {
         ParoisseAbonnement abonnement = abonnementRepository
-                .findByIdTransactionAndStatusDelFalse(transactionId)
+                .findByIdTransactionForUpdate(transactionId)
                 .orElse(null);
         if (abonnement == null) {
             log.warn("Abonnement introuvable pour transaction {}", transactionId);
@@ -547,7 +547,7 @@ public class SubscriptionBillingService {
     @Transactional
     public void markFailedFromProviderTransaction(String transactionId) {
         ParoisseAbonnement abonnement = abonnementRepository
-                .findByIdTransactionAndStatusDelFalse(transactionId)
+                .findByIdTransactionForUpdate(transactionId)
                 .orElse(null);
         if (abonnement == null || abonnement.getStatut() == StatutAbonnement.ACTIF) {
             return;

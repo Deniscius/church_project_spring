@@ -2,6 +2,7 @@ package com.eyram.dev.church_project_spring.repositories;
 
 import com.eyram.dev.church_project_spring.entities.ParoisseInscription;
 import com.eyram.dev.church_project_spring.enums.StatutInscription;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -19,9 +20,12 @@ public interface ParoisseInscriptionRepository extends JpaRepository<ParoisseIns
 
     /**
      * Sérialise les décisions administratives sur un même dossier.
+     *
+     * La collection membres reste volontairement chargée paresseusement dans
+     * la transaction : un graphe avec collection et FOR UPDATE peut produire
+     * un verrouillage invalide sur le côté nullable d'une jointure PostgreSQL.
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @EntityGraph(attributePaths = {"membres"})
     @Query("""
             SELECT i FROM ParoisseInscription i
             WHERE i.publicId = :publicId

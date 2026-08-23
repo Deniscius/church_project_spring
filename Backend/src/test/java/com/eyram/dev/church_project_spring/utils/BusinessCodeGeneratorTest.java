@@ -3,7 +3,7 @@ package com.eyram.dev.church_project_spring.utils;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertMatches;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BusinessCodeGeneratorTest {
 
@@ -11,7 +11,7 @@ class BusinessCodeGeneratorTest {
     void generatedTrackingCodeUsesFiftyBitToken() {
         String code = BusinessCodeGenerator.demandeCode("Saint Joseph");
 
-        assertMatches("^MS-SJ-[A-HJ-NP-Z2-9]{10}$", code);
+        assertTrue(code.matches("^MS-SJ-[A-HJ-NP-Z2-9]{10}$"));
     }
 
     @Test

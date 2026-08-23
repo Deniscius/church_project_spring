@@ -10,6 +10,12 @@ import org.mapstruct.MappingTarget;
 @Mapper(componentModel = "spring")
 public interface TypePaiementMapper {
 
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "publicId", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "statusDel", ignore = true)
+    @Mapping(target = "demandes", ignore = true)
     TypePaiement dtoToModel(TypePaiementRequest request);
 
     TypePaiementResponse modelToDto(TypePaiement typePaiement);
@@ -19,5 +25,6 @@ public interface TypePaiementMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "statusDel", ignore = true)
+    @Mapping(target = "demandes", ignore = true)
     void dtoToModel(TypePaiementRequest request, @MappingTarget TypePaiement typePaiement);
 }

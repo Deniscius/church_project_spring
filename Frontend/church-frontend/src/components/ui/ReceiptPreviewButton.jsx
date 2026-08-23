@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { getReceiptPdfUrl, getReceiptPreviewUrl } from '../../utils/receiptPdfUrl';
 import { requestService } from '../../services/request.service';
 import AppButton from './AppButton';
@@ -36,6 +36,8 @@ export default function ReceiptPreviewButton({
   const [pdfBlob, setPdfBlob] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const loadingRef = useRef(false);
+  const abortRef = useRef(null);
 
   const previewUrl = useMemo(() => getReceiptPreviewUrl(codeSuivie), [codeSuivie]);
   const pdfUrl = useMemo(() => getReceiptPdfUrl(codeSuivie), [codeSuivie]);
@@ -45,9 +47,15 @@ export default function ReceiptPreviewButton({
   );
 
   useEffect(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    loadingRef.current = false;
+    setLoading(false);
     setPdfBlob(null);
     setError(null);
     setOpen(false);
+
+    return () => abortRef.current?.abort();
   }, [codeSuivie]);
 
   if (!codeSuivie || !previewUrl) return null;
@@ -60,20 +68,32 @@ export default function ReceiptPreviewButton({
     setOpen(true);
     setError(null);
 
-    if (pdfBlob) return;
+    if (pdfBlob || loadingRef.current) return;
 
+    const controller = new AbortController();
+    abortRef.current = controller;
+    loadingRef.current = true;
     setLoading(true);
     try {
-      const blob = await requestService.fetchReceiptPdf(codeSuivie);
+      const blob = await requestService.fetchReceiptPdf(
+        codeSuivie,
+        { signal: controller.signal }
+      );
       if (!(await blobLooksLikePdf(blob))) {
         throw new Error('L’API n’a pas renvoyé un fichier PDF valide.');
       }
-      setPdfBlob(blob);
+      if (!controller.signal.aborted) setPdfBlob(blob);
     } catch (err) {
-      setPdfBlob(null);
-      setError(humanizeReceiptError(err));
+      if (!controller.signal.aborted) {
+        setPdfBlob(null);
+        setError(humanizeReceiptError(err));
+      }
     } finally {
-      setLoading(false);
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+        loadingRef.current = false;
+        if (!controller.signal.aborted) setLoading(false);
+      }
     }
   };
 
@@ -90,7 +110,7 @@ export default function ReceiptPreviewButton({
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
-    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
   };
 
   return (

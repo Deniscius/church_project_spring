@@ -72,8 +72,15 @@ public class DemandeCelebrationLifecycleService {
             throw new BusinessRuleException("Seules les demandes validées peuvent être marquées célébrées.");
         }
 
+        LocalDateTime now = LocalDateTime.now(clock);
+        if (resolveCelebrationAt(slot).isAfter(now)) {
+            throw new BusinessRuleException(
+                    "Une célébration ne peut pas être confirmée avant sa date et son heure prévues."
+            );
+        }
+
         if (!Boolean.TRUE.equals(slot.getCelebre())) {
-            applyCelebrated(slot, LocalDateTime.now(clock));
+            applyCelebrated(slot, now);
         }
         return toLightResponse(slot);
     }

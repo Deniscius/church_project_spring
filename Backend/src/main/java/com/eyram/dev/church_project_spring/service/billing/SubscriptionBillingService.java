@@ -103,7 +103,7 @@ public class SubscriptionBillingService {
     }
 
     private SubscriptionCheckoutPrep prepareSubscriptionCheckout(UUID paroissePublicId, String plan) {
-        Paroisse paroisse = paroisseRepository.findByPublicIdAndStatusDelFalse(paroissePublicId)
+        Paroisse paroisse = paroisseRepository.findByPublicIdForUpdate(paroissePublicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Paroisse introuvable"));
         tenantAccessService.checkParoisseAccess(paroisse);
 
@@ -185,13 +185,27 @@ public class SubscriptionBillingService {
 
     @Transactional
     public void activateFromProviderTransaction(String transactionId) {
+        ParoisseAbonnement candidate = abonnementRepository
+                .findByIdTransactionAndStatusDelFalse(transactionId)
+                .orElse(null);
+        if (candidate == null) {
+            log.warn("Abonnement introuvable pour transaction {}", transactionId);
+            return;
+        }
+
+        // Ordre de verrouillage unique : paroisse, puis abonnement. Deux
+        // paiements distincts reçus simultanément pour la même paroisse ne
+        // peuvent ainsi ni perdre ni doubler une prolongation.
+        paroisseRepository.findByPublicIdForUpdate(candidate.getParoisse().getPublicId())
+                .orElseThrow(() -> new ResourceNotFoundException("Paroisse introuvable"));
         ParoisseAbonnement abonnement = abonnementRepository
                 .findByIdTransactionForUpdate(transactionId)
                 .orElse(null);
         if (abonnement == null) {
-            log.warn("Abonnement introuvable pour transaction {}", transactionId);
+            log.warn("Abonnement supprimé pendant le traitement de la transaction {}", transactionId);
             return;
         }
+
         // Une transaction ne paie qu'une période : un webhook rejoué ne doit
         // pas prolonger l'échéance une seconde fois.
         if (abonnement.getStatut() == StatutAbonnement.ACTIF) {
@@ -207,11 +221,7 @@ public class SubscriptionBillingService {
      */
     @Transactional
     public Map<String, Object> activateManually(UUID paroissePublicId, String plan) {
-        Paroisse paroisse = paroisseRepository.findByPublicIdAndStatusDelFalse(paroissePublicId)
-                .orElseThrow(() -> new ResourceNotFoundException("Paroisse introuvable"));
-        if (Boolean.TRUE.equals(paroisse.getIsSystem())) {
-            throw new IllegalArgumentException("Le catalogue plateforme n'est pas une paroisse cliente");
-        }
+        Paroisse paroisse = requireClientParoisseForUpdate(paroissePublicId);
 
         // Un abonnement en attente est honoré ; sinon on ouvre une nouvelle
         // période, ce qui rend le renouvellement possible sur une paroisse déjà active.
@@ -409,7 +419,7 @@ public class SubscriptionBillingService {
         if (jours < 1 || jours > 366) {
             throw new IllegalArgumentException("La prolongation doit être entre 1 et 366 jours");
         }
-        Paroisse paroisse = requireClientParoisse(paroissePublicId);
+        Paroisse paroisse = requireClientParoisseForUpdate(paroissePublicId);
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime enCours = paroisse.getSubscriptionExpiresAt();
         LocalDateTime depart = (enCours != null && enCours.isAfter(now)) ? enCours : now;
@@ -451,7 +461,7 @@ public class SubscriptionBillingService {
      */
     @Transactional
     public Map<String, Object> annulerPending(UUID abonnementPublicId) {
-        ParoisseAbonnement abonnement = abonnementRepository.findByPublicIdAndStatusDelFalse(abonnementPublicId)
+        ParoisseAbonnement abonnement = abonnementRepository.findByPublicIdForUpdate(abonnementPublicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Abonnement introuvable"));
         if (abonnement.getStatut() != StatutAbonnement.EN_ATTENTE) {
             throw new IllegalArgumentException("Seuls les abonnements en attente de paiement peuvent être annulés");
@@ -470,7 +480,7 @@ public class SubscriptionBillingService {
      */
     @Transactional
     public Map<String, Object> resilier(UUID paroissePublicId) {
-        Paroisse paroisse = requireClientParoisse(paroissePublicId);
+        Paroisse paroisse = requireClientParoisseForUpdate(paroissePublicId);
         for (ParoisseAbonnement abonnement : abonnementRepository
                 .findByParoisseAndStatusDelFalseOrderByCreatedAtDesc(paroisse)) {
             if (abonnement.getStatut() == StatutAbonnement.ACTIF
@@ -493,8 +503,8 @@ public class SubscriptionBillingService {
         );
     }
 
-    private Paroisse requireClientParoisse(UUID paroissePublicId) {
-        Paroisse paroisse = paroisseRepository.findByPublicIdAndStatusDelFalse(paroissePublicId)
+    private Paroisse requireClientParoisseForUpdate(UUID paroissePublicId) {
+        Paroisse paroisse = paroisseRepository.findByPublicIdForUpdate(paroissePublicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Paroisse introuvable"));
         if (Boolean.TRUE.equals(paroisse.getIsSystem())) {
             throw new IllegalArgumentException("Le catalogue plateforme n'est pas une paroisse cliente");

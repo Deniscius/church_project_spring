@@ -2,6 +2,7 @@ package com.eyram.dev.church_project_spring;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -246,6 +247,36 @@ class ApplicationStartupSmokeTest {
         ResponseEntity<String> paidTracking =
                 restTemplate.getForEntity("/demandes/code/" + trackingCode, String.class);
         assertThat(paidTracking.getBody()).contains("\"statutPaiement\":\"PAYE\"");
+
+        ResponseEntity<byte[]> receipt =
+                restTemplate.getForEntity("/demandes/code/" + trackingCode + "/recu.pdf", byte[].class);
+        assertThat(receipt.getStatusCode().is2xxSuccessful()).isTrue();
+        assertThat(receipt.getHeaders().getContentType()).isEqualTo(MediaType.APPLICATION_PDF);
+        assertThat(receipt.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION))
+                .contains("recu-" + trackingCode + ".pdf");
+        assertThat(receipt.getHeaders().getFirst(HttpHeaders.CACHE_CONTROL))
+                .isEqualTo("no-store, private");
+        assertThat(new String(receipt.getBody(), 0, 5, StandardCharsets.US_ASCII))
+                .isEqualTo("%PDF-");
+
+        HttpHeaders sheetHeaders = new HttpHeaders();
+        sheetHeaders.set(HttpHeaders.COOKIE, setCookie.split(";", 2)[0]);
+        ResponseEntity<byte[]> celebrationSheet = restTemplate.exchange(
+                "/celebrations/paroisse/" + parish.getPublicId()
+                        + "/feuille.pdf?date=" + celebrationDate,
+                HttpMethod.GET,
+                new HttpEntity<>(sheetHeaders),
+                byte[].class
+        );
+        assertThat(celebrationSheet.getStatusCode().is2xxSuccessful()).isTrue();
+        assertThat(celebrationSheet.getHeaders().getContentType())
+                .isEqualTo(MediaType.APPLICATION_PDF);
+        assertThat(celebrationSheet.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION))
+                .contains("feuille-intentions-" + celebrationDate + ".pdf");
+        assertThat(celebrationSheet.getHeaders().getFirst(HttpHeaders.CACHE_CONTROL))
+                .isEqualTo("no-store, private");
+        assertThat(new String(celebrationSheet.getBody(), 0, 5, StandardCharsets.US_ASCII))
+                .isEqualTo("%PDF-");
     }
 
     @Test

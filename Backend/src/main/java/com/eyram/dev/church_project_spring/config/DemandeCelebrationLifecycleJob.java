@@ -1,5 +1,7 @@
 package com.eyram.dev.church_project_spring.config;
 
+import com.eyram.dev.church_project_spring.context.TenantContext;
+
 import com.eyram.dev.church_project_spring.service.DemandeCelebrationLifecycleService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -46,7 +48,7 @@ public class DemandeCelebrationLifecycleJob implements ApplicationRunner {
 
     private void remind(String origine) {
         try {
-            int sent = celebrationLifecycleService.sendUpcomingCelebrationReminders();
+            int sent = TenantContext.withoutTenant(celebrationLifecycleService::sendUpcomingCelebrationReminders);
             if (sent > 0) {
                 log.info("Rappels célébration {} : {} e-mail(s) fidèle envoyé(s)", origine, sent);
             }
@@ -57,7 +59,7 @@ public class DemandeCelebrationLifecycleJob implements ApplicationRunner {
 
     private void complete(String origine) {
         try {
-            int marked = celebrationLifecycleService.autoCompletePastCelebrations();
+            int marked = TenantContext.withoutTenant(celebrationLifecycleService::autoCompletePastCelebrations);
             if (marked > 0) {
                 log.info("Auto-célébration {} : {} créneau(x) marqué(s)", origine, marked);
             }

@@ -4,6 +4,9 @@ import com.eyram.dev.church_project_spring.entities.ParoisseInscription;
 import com.eyram.dev.church_project_spring.enums.StatutInscription;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -13,6 +16,18 @@ public interface ParoisseInscriptionRepository extends JpaRepository<ParoisseIns
 
     @EntityGraph(attributePaths = {"membres"})
     Optional<ParoisseInscription> findByPublicIdAndStatusDelFalse(UUID publicId);
+
+    /**
+     * Sérialise les décisions administratives sur un même dossier.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @EntityGraph(attributePaths = {"membres"})
+    @Query("""
+            SELECT i FROM ParoisseInscription i
+            WHERE i.publicId = :publicId
+              AND i.statusDel = false
+            """)
+    Optional<ParoisseInscription> findByPublicIdForUpdate(@Param("publicId") UUID publicId);
 
     @EntityGraph(attributePaths = {"membres"})
     List<ParoisseInscription> findByStatusDelFalseOrderByCreatedAtDesc();

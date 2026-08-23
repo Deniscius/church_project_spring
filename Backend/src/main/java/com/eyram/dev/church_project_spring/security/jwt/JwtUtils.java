@@ -10,21 +10,30 @@ import org.springframework.util.Assert;
 
 import javax.crypto.SecretKey;
 import java.util.Date;
+import java.util.UUID;
 
 @Component
 public class JwtUtils {
 
     private final SecretKey signingKey;
     private final long jwtExpirationMs;
+    private final String issuer;
+    private final String audience;
 
     public JwtUtils(JwtProperties properties) {
         Assert.hasText(properties.secret(),
                 "La propriété jwt.secret doit contenir une clé Base64");
+        Assert.hasText(properties.issuer(),
+                "La propriété jwt.issuer est obligatoire");
+        Assert.hasText(properties.audience(),
+                "La propriété jwt.audience est obligatoire");
         Assert.isTrue(properties.expirationMs() > 0,
                 "La propriété jwt.expiration-ms doit être supérieure à zéro");
 
         this.signingKey = createSigningKey(properties.secret());
         this.jwtExpirationMs = properties.expirationMs();
+        this.issuer = properties.issuer();
+        this.audience = properties.audience();
     }
 
     private SecretKey createSigningKey(String encodedSecret) {
@@ -40,7 +49,10 @@ public class JwtUtils {
 
     public String generateToken(UserDetailsImpl user) {
         return Jwts.builder()
+                .issuer(issuer)
                 .subject(user.getUsername())
+                .audience().add(audience).and()
+                .id(UUID.randomUUID().toString())
                 .claim("tenantId", user.getTenantId())   // ← null si SUPER_ADMIN global
                 .claim("isGlobal", user.isGlobal())      // ← true si accès total
                 .issuedAt(new Date())
@@ -56,6 +68,8 @@ public class JwtUtils {
     public String parseUsername(String token) {
         return Jwts.parser()
                 .verifyWith(signingKey)
+                .requireIssuer(issuer)
+                .requireAudience(audience)
                 .build()
                 .parseSignedClaims(token)
                 .getPayload()

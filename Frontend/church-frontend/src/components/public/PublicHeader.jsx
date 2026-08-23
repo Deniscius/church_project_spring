@@ -175,6 +175,7 @@ function NavDropdown({
 
 function PublicHeaderContent({ pathname }) {
   const navigationBoundaryRef = useRef(null);
+  const menuToggleRef = useRef(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [openMenu, setOpenMenu] = useState(null);
   const isHome = pathname === '/';
@@ -201,6 +202,9 @@ function PublicHeaderContent({ pathname }) {
       if (event.key === 'Escape') {
         setOpenMenu(null);
         setMenuOpen(false);
+        if (menuOpen) {
+          window.requestAnimationFrame(() => menuToggleRef.current?.focus());
+        }
       }
     };
 
@@ -231,6 +235,7 @@ function PublicHeaderContent({ pathname }) {
         </Link>
 
         <button
+          ref={menuToggleRef}
           type="button"
           className="nav-toggle"
           aria-label={menuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}

@@ -2,6 +2,7 @@ package com.eyram.dev.church_project_spring.security.jwt;
 
 import com.eyram.dev.church_project_spring.config.JwtProperties;
 import com.eyram.dev.church_project_spring.security.UserDetailsImpl;
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
@@ -53,6 +54,7 @@ public class JwtUtils {
                 .subject(user.getUsername())
                 .audience().add(audience).and()
                 .id(UUID.randomUUID().toString())
+                .claim("tokenVersion", user.getTokenVersion())
                 .claim("tenantId", user.getTenantId())   // ← null si SUPER_ADMIN global
                 .claim("isGlobal", user.isGlobal())      // ← true si accès total
                 .issuedAt(new Date())
@@ -65,15 +67,27 @@ public class JwtUtils {
      * Vérifie la signature et l'expiration une seule fois, puis retourne le sujet.
      * Les exceptions JWT sont volontairement laissées au filtre d'authentification.
      */
-    public String parseUsername(String token) {
-        return Jwts.parser()
+    public JwtPrincipal parsePrincipal(String token) {
+        Claims claims = Jwts.parser()
                 .verifyWith(signingKey)
                 .requireIssuer(issuer)
                 .requireAudience(audience)
                 .build()
                 .parseSignedClaims(token)
-                .getPayload()
-                .getSubject();
+                .getPayload();
+
+        Object rawVersion = claims.get("tokenVersion");
+        if (!(rawVersion instanceof Number number)) {
+            throw new IllegalArgumentException("JWT sans version de sécurité");
+        }
+        return new JwtPrincipal(claims.getSubject(), number.longValue());
+    }
+
+    public String parseUsername(String token) {
+        return parsePrincipal(token).username();
+    }
+
+    public record JwtPrincipal(String username, long tokenVersion) {
     }
 
 }

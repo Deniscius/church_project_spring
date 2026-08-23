@@ -50,7 +50,7 @@ public class ComptabiliteController {
     }
 
     @GetMapping("/reversements")
-    @PreAuthorize("hasAuthority('finance:read')")
+    @PreAuthorize("hasAuthority('finance:read') and principal.isGlobal()")
     public ResponseEntity<List<DemandeReversementResponse>> listReversements() {
         return ResponseEntity.ok(reversementService.listAll());
     }
@@ -68,7 +68,7 @@ public class ComptabiliteController {
     }
 
     @PostMapping("/reversements/{publicId}/payer")
-    @PreAuthorize("hasAuthority('payout:manage')")
+    @PreAuthorize("hasAuthority('payout:manage') and principal.isGlobal()")
     public ResponseEntity<DemandeReversementResponse> payer(
             @PathVariable UUID publicId,
             @Valid @RequestBody ReversementDecisionRequest request
@@ -78,7 +78,7 @@ public class ComptabiliteController {
     }
 
     @PostMapping("/reversements/{publicId}/rejeter")
-    @PreAuthorize("hasAuthority('payout:manage')")
+    @PreAuthorize("hasAuthority('payout:manage') and principal.isGlobal()")
     public ResponseEntity<DemandeReversementResponse> rejeter(
             @PathVariable UUID publicId,
             @RequestBody(required = false) ReversementDecisionRequest request
@@ -92,7 +92,7 @@ public class ComptabiliteController {
     }
 
     @GetMapping("/abonnements")
-    @PreAuthorize("hasAuthority('subscription:read')")
+    @PreAuthorize("hasAuthority('subscription:read') and principal.isGlobal()")
     public ResponseEntity<List<AbonnementResponse>> listAbonnements() {
         return ResponseEntity.ok(subscriptionBillingService.listAbonnements());
     }
@@ -119,7 +119,7 @@ public class ComptabiliteController {
     }
 
     @PostMapping("/abonnements/{paroissePublicId}/activer")
-    @PreAuthorize("hasAuthority('subscription:activate')")
+    @PreAuthorize("hasAuthority('subscription:activate') and principal.isGlobal()")
     public ResponseEntity<Map<String, Object>> activerAbonnement(
             @PathVariable UUID paroissePublicId,
             @RequestParam(required = false) String plan
@@ -128,7 +128,7 @@ public class ComptabiliteController {
     }
 
     @PostMapping("/abonnements/{paroissePublicId}/prolonger")
-    @PreAuthorize("hasAuthority('subscription:manage')")
+    @PreAuthorize("hasAuthority('subscription:manage') and principal.isGlobal()")
     public ResponseEntity<Map<String, Object>> prolongerAbonnement(
             @PathVariable UUID paroissePublicId,
             @RequestParam(defaultValue = "30") int jours
@@ -137,7 +137,7 @@ public class ComptabiliteController {
     }
 
     @PostMapping("/abonnements/{abonnementPublicId}/annuler")
-    @PreAuthorize("hasAuthority('subscription:manage')")
+    @PreAuthorize("hasAuthority('subscription:manage') and principal.isGlobal()")
     public ResponseEntity<Map<String, Object>> annulerAbonnementPending(
             @PathVariable UUID abonnementPublicId
     ) {
@@ -145,7 +145,7 @@ public class ComptabiliteController {
     }
 
     @PostMapping("/abonnements/{paroissePublicId}/resilier")
-    @PreAuthorize("hasAuthority('subscription:manage')")
+    @PreAuthorize("hasAuthority('subscription:manage') and principal.isGlobal()")
     public ResponseEntity<Map<String, Object>> resilierAbonnement(
             @PathVariable UUID paroissePublicId
     ) {

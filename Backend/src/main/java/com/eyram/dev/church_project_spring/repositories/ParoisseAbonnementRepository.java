@@ -18,6 +18,14 @@ public interface ParoisseAbonnementRepository extends JpaRepository<ParoisseAbon
 
     Optional<ParoisseAbonnement> findByPublicIdAndStatusDelFalse(UUID publicId);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT a FROM ParoisseAbonnement a
+            WHERE a.publicId = :publicId
+              AND a.statusDel = false
+            """)
+    Optional<ParoisseAbonnement> findByPublicIdForUpdate(@Param("publicId") UUID publicId);
+
     Optional<ParoisseAbonnement> findByIdTransactionAndStatusDelFalse(String idTransaction);
 
     /**

@@ -152,6 +152,7 @@ public class PasswordResetService {
         }
 
         user.setPassword(passwordEncoder.encode(newPassword));
+        user.setTokenVersion(nextTokenVersion(user));
         userRepository.save(user);
 
         token.setUsedAt(now);
@@ -160,6 +161,10 @@ public class PasswordResetService {
 
         log.info("Mot de passe réinitialisé pour {}", user.getUsername());
         return Map.of("message", "Mot de passe mis à jour. Vous pouvez vous connecter.");
+    }
+
+    private static long nextTokenVersion(User user) {
+        return user.getTokenVersion() == null ? 1L : user.getTokenVersion() + 1L;
     }
 
     private Optional<User> findActiveUser(String raw) {

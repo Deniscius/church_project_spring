@@ -19,6 +19,7 @@ import com.eyram.dev.church_project_spring.repositories.ParoisseRepository;
 import com.eyram.dev.church_project_spring.repositories.UserRepository;
 import com.eyram.dev.church_project_spring.security.TenantAccessService;
 import com.eyram.dev.church_project_spring.service.PlanSaasService;
+import com.eyram.dev.church_project_spring.service.audit.AdministrativeAuditService;
 import com.eyram.dev.church_project_spring.service.ProfessionalEmailService;
 import com.eyram.dev.church_project_spring.service.payment.fedapay.FedaPayClient;
 import com.eyram.dev.church_project_spring.service.tenant.TenantCatalogBootstrapService;
@@ -48,6 +49,7 @@ class SubscriptionBillingServiceTest {
     @Mock private UserRepository userRepository;
     @Mock private TransactionTemplate transactionTemplate;
     @Mock private CacheManager cacheManager;
+    @Mock private AdministrativeAuditService administrativeAuditService;
 
     @Test
     void checkoutRejectsAnotherParishBeforeCreatingSubscription() {
@@ -77,7 +79,8 @@ class SubscriptionBillingServiceTest {
                 paroisseAccessRepository,
                 userRepository,
                 transactionTemplate,
-                cacheManager
+                cacheManager,
+                administrativeAuditService
         );
 
         assertThrows(AccessDeniedException.class, () -> service.checkout(parishId, null));

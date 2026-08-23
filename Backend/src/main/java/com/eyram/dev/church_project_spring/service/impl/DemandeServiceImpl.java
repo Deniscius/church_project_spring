@@ -404,6 +404,19 @@ public class DemandeServiceImpl implements DemandeService {
                 .orElseThrow(() -> new ResourceNotFoundException("Demande introuvable"));
         tenantAccessService.checkParoisseAccess(demande.getParoisse());
 
+        if (demande.getStatutDemande() == StatutDemandeEnum.ANNULEE) {
+            throw new BusinessRuleException("Une demande annulée ne peut plus être validée ou rejetée");
+        }
+        if (demande.getStatutDemande() == StatutDemandeEnum.TERMINEE) {
+            throw new BusinessRuleException("Une demande terminée ne peut plus changer de validation");
+        }
+        if (request.statut() == StatutValidationEnum.REJETEE
+                && demande.getStatutPaiement() == StatutPaiementEnum.PAYE) {
+            throw new BusinessRuleException(
+                    "Une demande payée ne peut pas être rejetée sans procédure de remboursement"
+            );
+        }
+
         User validator = tenantAccessService.getCurrentUser();
         demande.setStatutValidation(request.statut());
         demande.setStatutDemande(

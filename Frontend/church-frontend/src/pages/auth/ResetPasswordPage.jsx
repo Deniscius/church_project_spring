@@ -88,6 +88,7 @@ export default function ResetPasswordPage() {
             required
             disabled={loading || !token}
             minLength={8}
+            maxLength={200}
           />
           <button
             type="button"

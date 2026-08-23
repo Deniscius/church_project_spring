@@ -87,10 +87,53 @@ class InscriptionOtpServiceTest {
         assertTrue(mailBody.contains("n'apparaît que dans cet e-mail"));
 
         // Preuve serveur conserve le secret pour la soumission ultérieure
-        var proof = service.requireValidProof("admin@example.com", res.otpProof(), res.adminUsername());
+        var proof = service.requireValidProof(
+                "admin@example.com",
+                res.otpProof(),
+                res.adminUsername(),
+                "Jean",
+                "Dupont",
+                "Saint Joseph"
+        );
         assertNotNull(proof.password());
         assertFalse(proof.password().isBlank());
         assertFalse(mailBody.contains(res.otpProof()));
+
+        assertThrows(BusinessRuleException.class, () -> service.requireValidProof(
+                "admin@example.com",
+                res.otpProof(),
+                res.adminUsername(),
+                "Jean",
+                "Dupont",
+                "Saint Joseph"
+        ));
+    }
+
+    @Test
+    void proofRejectsParishChangedAfterOtpVerification() throws Exception {
+        when(professionalEmailService.slugify("Saint Joseph")).thenReturn("saint-joseph");
+        when(professionalEmailService.slugify("Jean")).thenReturn("jean");
+        when(professionalEmailService.slugify("Dupont")).thenReturn("dupont");
+        when(userRepository.existsByUsernameIgnoreCaseAndStatusDelFalse(anyString())).thenReturn(false);
+        when(inscriptionRepository.existsByAdminUsernameIgnoreCaseAndStatusDelFalse(anyString())).thenReturn(false);
+
+        putOtp("admin@example.com", "123456");
+        InscriptionOtpVerifyResponse res = service.verifyOtp(
+                "admin@example.com",
+                "123456",
+                "Jean",
+                "Dupont",
+                "Saint Joseph"
+        );
+
+        assertThrows(BusinessRuleException.class, () -> service.requireValidProof(
+                "admin@example.com",
+                res.otpProof(),
+                res.adminUsername(),
+                "Jean",
+                "Dupont",
+                "Sainte Thérèse"
+        ));
     }
 
     @Test

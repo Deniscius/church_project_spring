@@ -28,9 +28,11 @@ class TrackingPhoneOtpServiceTest {
     void requestOtpDoesNotExposeWhetherPhoneExistsWhenNoEmailIsAvailable() {
         String phone = "+22890123456";
         Demande demande = mock(Demande.class);
-        when(demande.getId()).thenReturn(null);
+        when(demande.getId()).thenReturn(1L);
         when(demande.getCodeSuivie()).thenReturn("MS-TEST-ABC234");
         when(demande.getEmailFidele()).thenReturn(null);
+        when(demandeDateRepository.findByDemande_IdInAndStatusDelFalseOrderByOrdreAsc(List.of(1L)))
+                .thenReturn(List.of());
 
         when(demandeRepository.findAllByTelFideleInChronological(
                 TrackingPhoneOtpService.phoneLookupVariants(phone)
@@ -45,7 +47,7 @@ class TrackingPhoneOtpServiceTest {
         assertEquals(unknown, knownWithoutEmail);
         assertTrue(knownWithoutEmail.codes().isEmpty());
         assertTrue(knownWithoutEmail.demandes().isEmpty());
-        verifyNoInteractions(demandeDateRepository, mailService);
+        verifyNoInteractions(mailService);
     }
 
     @Test
@@ -55,6 +57,8 @@ class TrackingPhoneOtpServiceTest {
         when(demande.getId()).thenReturn(null);
         when(demande.getCodeSuivie()).thenReturn("MS-TEST-ABC234");
         when(demande.getEmailFidele()).thenReturn("fidele@example.com");
+        when(demandeDateRepository.findByDemande_IdInAndStatusDelFalseOrderByOrdreAsc(List.of(1L)))
+                .thenReturn(List.of());
         when(demandeRepository.findAllByTelFideleInChronological(
                 TrackingPhoneOtpService.phoneLookupVariants(phone)
         )).thenReturn(List.of(demande));

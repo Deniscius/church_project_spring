@@ -3,11 +3,10 @@ package com.eyram.dev.church_project_spring.DTO.response;
 import java.util.List;
 
 /**
- * Suivi par téléphone :
- * <ul>
- *   <li>si un e-mail est lié → OTP envoyé ({@code demandes} vide) ;</li>
- *   <li>sinon → résumés des demandes renvoyés directement.</li>
- * </ul>
+ * Réponse uniforme au démarrage du suivi par téléphone.
+ *
+ * <p>Les listes restent toujours vides afin de ne pas révéler publiquement
+ * l'existence d'un numéro ni les demandes qui lui sont associées.</p>
  */
 public record TrackingByPhoneChallengeResponse(
         String emailMasked,

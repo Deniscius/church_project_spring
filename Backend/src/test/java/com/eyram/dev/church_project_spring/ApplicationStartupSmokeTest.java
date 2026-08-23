@@ -175,7 +175,7 @@ class ApplicationStartupSmokeTest {
         assertThat(creation.getStatusCode().value()).isEqualTo(201);
         JsonNode created = objectMapper.readTree(creation.getBody());
         String trackingCode = created.path("codeSuivie").asText();
-        assertThat(trackingCode).hasSize(10);
+        assertThat(trackingCode).matches("^MS-[A-Z0-9]+-[A-Z0-9]{10}$");
         assertThat(created.path("facturePublicId").asText()).isNotBlank();
 
         ResponseEntity<String> tracking =

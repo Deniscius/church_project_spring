@@ -8,7 +8,6 @@ import com.eyram.dev.church_project_spring.entities.DemandeDate;
 import com.eyram.dev.church_project_spring.repositories.DemandeDateRepository;
 import com.eyram.dev.church_project_spring.repositories.DemandeRepository;
 import com.eyram.dev.church_project_spring.service.mail.AppMailService;
-import com.eyram.dev.church_project_spring.utils.PiiMasking;
 import com.eyram.dev.church_project_spring.utils.exception.BusinessRuleException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -30,7 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
- * Suivi par téléphone : OTP e-mail si une adresse est liée, sinon résultats directs.
+ * Suivi par téléphone : les résultats ne sont délivrés qu'après validation d'un OTP e-mail.
  */
 @Service
 @RequiredArgsConstructor
@@ -54,10 +53,7 @@ public class TrackingPhoneOtpService {
 
         List<Demande> hits = demandeRepository.findAllByTelFideleInChronological(variants);
         if (hits.isEmpty()) {
-            // Anti-énumération : même message générique.
-            throw new BusinessRuleException(
-                    "Aucune demande récupérable automatiquement pour ce numéro. Utilisez votre code de suivi."
-            );
+            return genericChallengeResponse();
         }
 
         List<TrackingByPhoneItemResponse> demandes = buildTrackingItems(hits);
@@ -67,9 +63,7 @@ public class TrackingPhoneOtpService {
                 .distinct()
                 .toList();
         if (codes.isEmpty()) {
-            throw new BusinessRuleException(
-                    "Aucune demande récupérable automatiquement pour ce numéro. Utilisez votre code de suivi."
-            );
+            return genericChallengeResponse();
         }
 
         // Utiliser l'adresse la plus récemment renseignée pour ce numéro.
@@ -81,15 +75,9 @@ public class TrackingPhoneOtpService {
                 .reduce((first, second) -> second)
                 .orElse(null);
 
-        // Cas fréquent : dépôt sans e-mail → renvoyer directement la liste minimale.
+        // Ne jamais révéler les demandes pour un simple numéro connu.
         if (email == null) {
-            return new TrackingByPhoneChallengeResponse(
-                    null,
-                    0,
-                    "Voici les demandes associées à ce numéro.",
-                    codes,
-                    demandes
-            );
+            return genericChallengeResponse();
         }
 
         String phoneKey = canonicalPhoneKey(variants);
@@ -118,10 +106,14 @@ public class TrackingPhoneOtpService {
                         """.formatted(code)
         );
 
+        return genericChallengeResponse();
+    }
+
+    private static TrackingByPhoneChallengeResponse genericChallengeResponse() {
         return new TrackingByPhoneChallengeResponse(
-                PiiMasking.maskEmail(email),
+                null,
                 OTP_TTL_SECONDS,
-                "Un code a été envoyé à l'adresse e-mail associée à ce numéro.",
+                "Si une adresse e-mail est associée à ce numéro, un code de vérification a été envoyé.",
                 List.of(),
                 List.of()
         );

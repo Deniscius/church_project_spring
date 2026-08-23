@@ -13,6 +13,20 @@ jobs:
   backend:
     name: Backend (Maven)
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: church_project_ci
+          POSTGRES_USER: church_ci
+          POSTGRES_PASSWORD: church_ci_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U church_ci -d church_project_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     defaults:
       run:
         working-directory: Backend
@@ -23,6 +37,13 @@ jobs:
           distribution: temurin
           java-version: '17'
           cache: maven
+      - name: Validate Flyway migrations on PostgreSQL
+        run: >-
+          ./mvnw -B
+          -Dflyway.url=jdbc:postgresql://localhost:5432/church_project_ci
+          -Dflyway.user=church_ci
+          -Dflyway.password=church_ci_password
+          flyway:migrate flyway:validate
       - name: Unit tests
         run: ./mvnw -B -DskipITs test
 

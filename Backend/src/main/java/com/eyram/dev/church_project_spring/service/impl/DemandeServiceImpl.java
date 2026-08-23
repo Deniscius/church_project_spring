@@ -703,7 +703,20 @@ public class DemandeServiceImpl implements DemandeService {
 
         tenantAccessService.checkParoisseAccess(demande.getParoisse());
 
-        softDeleteRelatedEntities(demande);
+        if (demande.getStatutPaiement() == StatutPaiementEnum.PAYE) {
+            throw new BusinessRuleException(
+                    "Une demande payée ne peut pas être supprimée sans procédure de remboursement"
+            );
+        }
+        boolean hasCelebratedSlot = demandeDateRepository
+                .findByDemande_IdAndStatusDelFalse(demande.getId())
+                .stream()
+                .anyMatch(date -> Boolean.TRUE.equals(date.getCelebre()));
+        if (hasCelebratedSlot) {
+            throw new BusinessRuleException(
+                    "Une demande comportant une célébration confirmée ne peut pas être supprimée"
+            );
+        }
 
         User actor = tenantAccessService.getCurrentUser();
         cancelDemande(demande, actor != null ? actor.getFullName() : "Système");
@@ -881,7 +894,7 @@ public class DemandeServiceImpl implements DemandeService {
         );
 
         appMailService.sendText(demande.getEmailFidele().trim(), subject, body);
-        log.info("Rappel impayé envoyé pour {} → {}", demande.getCodeSuivie(), demande.getEmailFidele());
+        log.info("Rappel impayé envoyé pour la demande {}", demande.getCodeSuivie());
     }
 
     private void cancelDemande(Demande demande, String deletedByNom) {

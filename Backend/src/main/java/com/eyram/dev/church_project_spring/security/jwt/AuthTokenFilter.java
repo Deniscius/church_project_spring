@@ -10,6 +10,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.lang.NonNull;
+import org.springframework.security.authentication.CredentialsExpiredException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.AuthenticationException;
@@ -51,8 +52,9 @@ public class AuthTokenFilter extends OncePerRequestFilter {
             String token = resolveToken(request);
 
             if (token != null) {
-                String username = jwtUtils.parseUsername(token);
-                UserDetailsImpl userDetails = (UserDetailsImpl) userDetailsService.loadUserByUsername(username);
+                JwtUtils.JwtPrincipal jwtPrincipal = jwtUtils.parsePrincipal(token);
+                UserDetailsImpl userDetails = (UserDetailsImpl) userDetailsService
+                        .loadUserByUsername(jwtPrincipal.username());
 
                 /*
                  * Les informations d'accès sont relues depuis la base à chaque requête.
@@ -62,6 +64,9 @@ public class AuthTokenFilter extends OncePerRequestFilter {
                  */
                 if (!userDetails.isEnabled()) {
                     throw new DisabledException("Compte utilisateur désactivé");
+                }
+                if (jwtPrincipal.tokenVersion() != userDetails.getTokenVersion()) {
+                    throw new CredentialsExpiredException("Session révoquée");
                 }
 
                 Long tenantId = userDetails.getTenantId();

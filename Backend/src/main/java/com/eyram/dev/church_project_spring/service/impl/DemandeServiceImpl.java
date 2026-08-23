@@ -852,11 +852,19 @@ public class DemandeServiceImpl implements DemandeService {
     }
 
     private LocalDateTime resolveCelebrationAt(Demande demande, DemandeDate firstDate) {
-        LocalTime celebrationTime = demande.getHeurePersonnalisee() != null
-                ? demande.getHeurePersonnalisee()
-                : (demande.getHoraire() != null
-                        ? demande.getHoraire().getHeureCelebration()
-                        : LocalTime.MIDNIGHT);
+        LocalTime celebrationTime = firstDate.getHeurePersonnalisee();
+        if (celebrationTime == null && firstDate.getHoraire() != null) {
+            celebrationTime = firstDate.getHoraire().getHeureCelebration();
+        }
+        if (celebrationTime == null) {
+            celebrationTime = demande.getHeurePersonnalisee();
+        }
+        if (celebrationTime == null && demande.getHoraire() != null) {
+            celebrationTime = demande.getHoraire().getHeureCelebration();
+        }
+        if (celebrationTime == null) {
+            celebrationTime = LocalTime.MIDNIGHT;
+        }
         return LocalDateTime.of(firstDate.getDateCelebration(), celebrationTime);
     }
 

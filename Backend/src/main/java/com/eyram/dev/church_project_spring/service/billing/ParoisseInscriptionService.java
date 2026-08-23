@@ -22,6 +22,7 @@ import com.eyram.dev.church_project_spring.repositories.UserRepository;
 import com.eyram.dev.church_project_spring.service.PlanSaasService;
 import com.eyram.dev.church_project_spring.service.ProfessionalEmailService;
 import com.eyram.dev.church_project_spring.service.accounting.ParishLedgerService;
+import com.eyram.dev.church_project_spring.service.audit.AdministrativeAuditService;
 import com.eyram.dev.church_project_spring.service.mail.AppMailService;
 import com.eyram.dev.church_project_spring.service.storage.StoredFileService;
 import com.eyram.dev.church_project_spring.service.tenant.TenantCatalogBootstrapService;
@@ -65,6 +66,7 @@ public class ParoisseInscriptionService {
     private final StoredFileService storedFileService;
     private final AppMailService appMailService;
     private final TransactionTemplate transactionTemplate;
+    private final AdministrativeAuditService administrativeAuditService;
 
     @Value("${app.demande.public-base-url:http://localhost:5173}")
     private String publicBaseUrl;
@@ -328,6 +330,14 @@ public class ParoisseInscriptionService {
         inscription.setAdminPasswordHash(null);
         inscriptionRepository.save(inscription);
         storedFileService.deleteAfterCommit(mandatPath, cniPath);
+        administrativeAuditService.record(
+                AdministrativeAuditService.REGISTRATION_APPROVED,
+                "PARISH_REGISTRATION",
+                inscription.getPublicId(),
+                paroisse.getPublicId(),
+                "Paroisse=" + inscription.getNomParoisse()
+                        + "; plan=" + inscription.getPlanAbonnement()
+        );
 
         return new ApprovalResult(
                 toResponse(inscription),
@@ -370,6 +380,13 @@ public class ParoisseInscriptionService {
         inscription.setAdminPasswordHash(null);
         ParoisseInscription saved = inscriptionRepository.save(inscription);
         storedFileService.deleteAfterCommit(mandatPath, cniPath);
+        administrativeAuditService.record(
+                AdministrativeAuditService.REGISTRATION_REJECTED,
+                "PARISH_REGISTRATION",
+                saved.getPublicId(),
+                saved.getParoissePublicId(),
+                "Paroisse=" + saved.getNomParoisse() + "; motif=" + cleanedMotif
+        );
         notifyRejection(saved, cleanedMotif);
         return toResponse(saved);
     }

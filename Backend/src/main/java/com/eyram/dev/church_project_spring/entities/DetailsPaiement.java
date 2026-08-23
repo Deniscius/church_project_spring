@@ -63,7 +63,7 @@ public class DetailsPaiement extends BaseEntity implements Serializable {
     @Column(name = "payment_url", length = 500)
     private String paymentUrl;
 
-    @Column(name = "id_transaction", length = 150)
+    @Column(name = "id_transaction", length = 150, unique = true)
     private String idTransaction;
 
     @Column(name = "encaisseur_nom", length = 150)

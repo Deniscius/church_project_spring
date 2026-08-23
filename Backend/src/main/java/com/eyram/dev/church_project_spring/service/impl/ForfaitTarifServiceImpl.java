@@ -122,6 +122,7 @@ public class ForfaitTarifServiceImpl implements ForfaitTarifService {
     public List<ForfaitTarifResponse> getByTypeDemande(UUID typeDemandePublicId) {
         TypeDemande typeDemande = typeDemandeRepository.findByPublicIdAndStatusDelFalse(typeDemandePublicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Type de demande introuvable"));
+        tenantAccessService.checkParoisseAccess(typeDemande.getParoisse());
 
         return forfaitTarifRepository.findByTypeDemandeAndStatusDelFalse(typeDemande)
                 .stream()

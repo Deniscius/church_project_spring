@@ -29,11 +29,13 @@ import com.eyram.dev.church_project_spring.utils.exception.AlreadyExistException
 import com.eyram.dev.church_project_spring.utils.exception.BusinessRuleException;
 import com.eyram.dev.church_project_spring.utils.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -43,6 +45,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ParoisseInscriptionService {
@@ -61,6 +64,7 @@ public class ParoisseInscriptionService {
     private final InscriptionOtpService inscriptionOtpService;
     private final StoredFileService storedFileService;
     private final AppMailService appMailService;
+    private final TransactionTemplate transactionTemplate;
 
     @Value("${app.demande.public-base-url:http://localhost:5173}")
     private String publicBaseUrl;
@@ -178,8 +182,50 @@ public class ParoisseInscriptionService {
                 .toList();
     }
 
-    @Transactional
+    /**
+     * Valide et provisionne le tenant dans une transaction courte, puis crée
+     * le paiement une fois les données durablement validées.
+     */
     public Map<String, Object> approuver(UUID publicId) {
+        ApprovalResult approved = transactionTemplate.execute(status ->
+                approveInTransaction(publicId)
+        );
+        if (approved == null) {
+            throw new IllegalStateException("Impossible de finaliser l'approbation");
+        }
+
+        Map<String, Object> checkout;
+        try {
+            checkout = subscriptionBillingService.checkout(
+                    approved.paroissePublicId(),
+                    approved.planAbonnement()
+            );
+        } catch (RuntimeException ex) {
+            // L'approbation est déjà validée : ne pas présenter l'opération
+            // comme échouée ni inciter l'administrateur à la rejouer.
+            log.error(
+                    "Dossier {} approuvé, mais création du paiement impossible pour la paroisse {}",
+                    publicId,
+                    approved.paroissePublicId(),
+                    ex
+            );
+            checkout = Map.of(
+                    "paymentUrl", "",
+                    "message", "Dossier approuvé, mais le lien de paiement n'a pas pu être créé. "
+                            + "Vous pouvez le générer depuis la gestion des abonnements."
+            );
+        }
+
+        return Map.of(
+                "inscription", approved.inscription(),
+                "paroissePublicId", approved.paroissePublicId(),
+                "abonnementCheckout", checkout,
+                "emailParoisse", approved.emailParoisse(),
+                "emailAdmin", approved.emailAdmin()
+        );
+    }
+
+    private ApprovalResult approveInTransaction(UUID publicId) {
         ParoisseInscription inscription = inscriptionRepository.findByPublicIdForUpdate(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Inscription introuvable"));
         if (inscription.getStatut() != StatutInscription.SOUMISE) {
@@ -283,18 +329,22 @@ public class ParoisseInscriptionService {
         inscriptionRepository.save(inscription);
         storedFileService.deleteAfterCommit(mandatPath, cniPath);
 
-        Map<String, Object> checkout = subscriptionBillingService.checkout(
+        return new ApprovalResult(
+                toResponse(inscription),
                 paroisse.getPublicId(),
-                inscription.getPlanAbonnement()
+                inscription.getPlanAbonnement(),
+                paroisse.getEmail(),
+                admin.getEmail()
         );
+    }
 
-        return Map.of(
-                "inscription", toResponse(inscription),
-                "paroissePublicId", paroisse.getPublicId(),
-                "abonnementCheckout", checkout,
-                "emailParoisse", paroisse.getEmail(),
-                "emailAdmin", admin.getEmail()
-        );
+    private record ApprovalResult(
+            ParoisseInscriptionResponse inscription,
+            UUID paroissePublicId,
+            String planAbonnement,
+            String emailParoisse,
+            String emailAdmin
+    ) {
     }
 
     @Transactional

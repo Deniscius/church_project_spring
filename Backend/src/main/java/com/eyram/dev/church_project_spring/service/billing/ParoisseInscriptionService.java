@@ -34,8 +34,6 @@ import org.springframework.core.io.Resource;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -283,7 +281,7 @@ public class ParoisseInscriptionService {
         inscription.setAdminCniPath(null);
         inscription.setAdminPasswordHash(null);
         inscriptionRepository.save(inscription);
-        deleteDocumentsAfterCommit(mandatPath, cniPath);
+        storedFileService.deleteAfterCommit(mandatPath, cniPath);
 
         Map<String, Object> checkout = subscriptionBillingService.checkout(
                 paroisse.getPublicId(),
@@ -324,24 +322,6 @@ public class ParoisseInscriptionService {
         deleteDocumentsAfterCommit(mandatPath, cniPath);
         notifyRejection(saved, cleanedMotif);
         return toResponse(saved);
-    }
-
-    private void deleteDocumentsAfterCommit(String... paths) {
-        Runnable cleanup = () -> {
-            for (String path : paths) {
-                storedFileService.deleteQuietly(path);
-            }
-        };
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            cleanup.run();
-            return;
-        }
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                cleanup.run();
-            }
-        });
     }
 
     private void notifyRejection(ParoisseInscription inscription, String motif) {

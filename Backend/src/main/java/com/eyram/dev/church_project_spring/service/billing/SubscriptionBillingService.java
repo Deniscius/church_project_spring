@@ -105,6 +105,7 @@ public class SubscriptionBillingService {
     private SubscriptionCheckoutPrep prepareSubscriptionCheckout(UUID paroissePublicId, String plan) {
         Paroisse paroisse = paroisseRepository.findByPublicIdAndStatusDelFalse(paroissePublicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Paroisse introuvable"));
+        tenantAccessService.checkParoisseAccess(paroisse);
 
         String effectivePlan = StringUtils.hasText(plan)
                 ? planSaasService.requireActive(plan).getCode()

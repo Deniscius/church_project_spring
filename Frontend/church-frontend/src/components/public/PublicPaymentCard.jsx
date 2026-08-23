@@ -50,7 +50,7 @@ function FeeBreakdown({ quote, loading }) {
   );
 }
 
-export default function PublicPaymentCard({ demande, onStatusMaybeChanged }) {
+export default function PublicPaymentCard({ demande, onStatusMaybeChanged, loading = false }) {
   const [quote, setQuote] = useState(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -112,7 +112,7 @@ export default function PublicPaymentCard({ demande, onStatusMaybeChanged }) {
   }, [canPayOnline, demande?.codeSuivie, demande?.modePaiement, demande?.typePaiementPublicId]);
 
   async function startCheckout() {
-    if (!demande?.codeSuivie) return;
+    if (busy || changingMode || !demande?.codeSuivie) return;
     if (!isOnline) {
       setError('Choisissez d’abord un mode de paiement en ligne (TMoney, Flooz ou carte).');
       setShowModeEditor(true);
@@ -148,7 +148,7 @@ export default function PublicPaymentCard({ demande, onStatusMaybeChanged }) {
   }
 
   async function saveMode() {
-    if (!demande?.codeSuivie || !pendingModeId) return;
+    if (busy || changingMode || !demande?.codeSuivie || !pendingModeId) return;
     setChangingMode(true);
     setError(null);
     setInfo(null);
@@ -175,8 +175,8 @@ export default function PublicPaymentCard({ demande, onStatusMaybeChanged }) {
       subtitle="Mobile Money ou carte via FedaPay. Le paiement au comptant n’est pas proposé ici."
     >
       {!demande ? (
-        <p className="muted" style={{ margin: 0 }}>
-          Chargez une demande pour afficher le paiement.
+        <p className="muted" style={{ margin: 0 }} role="status" aria-live="polite">
+          {loading ? 'Chargement de la demande…' : 'Chargez une demande pour afficher le paiement.'}
         </p>
       ) : (
         <div className="stack" style={{ gap: 12 }}>
@@ -199,11 +199,15 @@ export default function PublicPaymentCard({ demande, onStatusMaybeChanged }) {
           ) : null}
 
           {error ? <FormError error={error} errorRef={errorRef} /> : null}
-          {info ? <p className="muted" style={{ margin: 0 }}>{info}</p> : null}
+          {info ? (
+            <p className="muted" style={{ margin: 0 }} role="status" aria-live="polite">
+              {info}
+            </p>
+          ) : null}
 
           <div className="button-row">
             {canPayOnline ? (
-              <AppButton type="button" onClick={startCheckout} loading={busy} disabled={quoteLoading}>
+              <AppButton type="button" onClick={startCheckout} loading={busy} disabled={quoteLoading || changingMode}>
                 {busy ? 'Redirection…' : payLabel}
               </AppButton>
             ) : null}
@@ -241,7 +245,7 @@ export default function PublicPaymentCard({ demande, onStatusMaybeChanged }) {
                   type="button"
                   onClick={saveMode}
                   loading={changingMode}
-                  disabled={!pendingModeId || pendingModeId === demande.typePaiementPublicId}
+                  disabled={busy || !pendingModeId || pendingModeId === demande.typePaiementPublicId}
                 >
                   Enregistrer le mode
                 </AppButton>

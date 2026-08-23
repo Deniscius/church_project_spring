@@ -7,11 +7,11 @@ import com.eyram.dev.church_project_spring.entities.Demande;
 import com.eyram.dev.church_project_spring.entities.DetailsPaiement;
 import com.eyram.dev.church_project_spring.entities.Facture;
 import com.eyram.dev.church_project_spring.enums.ModePaiement;
-import com.eyram.dev.church_project_spring.enums.StatutDemandeEnum;
 import com.eyram.dev.church_project_spring.enums.StatutPaiementEnum;
 import com.eyram.dev.church_project_spring.repositories.DemandeRepository;
 import com.eyram.dev.church_project_spring.repositories.DetailsPaiementRepository;
 import com.eyram.dev.church_project_spring.repositories.FactureRepository;
+import com.eyram.dev.church_project_spring.service.DemandePaymentEligibilityService;
 import com.eyram.dev.church_project_spring.service.accounting.ParishLedgerService;
 import com.eyram.dev.church_project_spring.service.billing.SubscriptionBillingService;
 import com.eyram.dev.church_project_spring.service.payment.fedapay.FedaPayClient;
@@ -58,6 +58,7 @@ public class FedaPayPaymentService {
     private final ParishLedgerService parishLedgerService;
     private final SubscriptionBillingService subscriptionBillingService;
     private final TransactionTemplate transactionTemplate;
+    private final DemandePaymentEligibilityService demandePaymentEligibilityService;
 
     @Transactional(readOnly = true)
     public PaymentFeeBreakdown quoteByTrackingCode(String codeSuivie) {
@@ -209,16 +210,7 @@ public class FedaPayPaymentService {
             ));
         }
 
-        if (demande.getStatutDemande() == StatutDemandeEnum.EN_ATTENTE) {
-            throw new BusinessRuleException(
-                    "Cette demande doit être validée par la paroisse avant le paiement"
-            );
-        }
-        if (demande.getStatutDemande() != StatutDemandeEnum.VALIDEE) {
-            throw new BusinessRuleException(
-                    "Cette demande n'est pas éligible au paiement"
-            );
-        }
+        demandePaymentEligibilityService.assertCanStartPayment(demande);
 
         if (mode == ModePaiement.ESPECES) {
             return CheckoutPrep.done(checkoutResponse(
@@ -280,6 +272,7 @@ public class FedaPayPaymentService {
     ) {
         Demande demande = requireDemande(prep.codeSuivie());
         Facture facture = requireFacture(demande);
+        demandePaymentEligibilityService.assertCanStartPayment(demande);
 
         DetailsPaiement details = prep.existingDetailsId() != null
                 ? detailsPaiementRepository.findById(prep.existingDetailsId()).orElseGet(DetailsPaiement::new)
@@ -316,6 +309,7 @@ public class FedaPayPaymentService {
     ) {
         Demande demande = requireDemande(prep.codeSuivie());
         Facture facture = requireFacture(demande);
+        demandePaymentEligibilityService.assertCanStartPayment(demande);
         DetailsPaiement details = prep.existingDetailsId() != null
                 ? detailsPaiementRepository.findById(prep.existingDetailsId()).orElse(null)
                 : detailsPaiementRepository.findByFacturePublicId(facture.getPublicId()).orElse(null);

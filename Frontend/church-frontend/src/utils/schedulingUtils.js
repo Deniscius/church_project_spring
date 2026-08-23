@@ -213,6 +213,20 @@ export function isTrentaineForfait(nombreCelebrations) {
  * en tenant compte des créneaux ponctuels et de la messe unique.
  * Aligné sur HoraireServiceImpl#buildProgrammeDay.
  */
+export function isCelebrationSlotAvailable(dateStr, timeStr, now = new Date()) {
+  if (!dateStr || !timeStr) return false;
+  const today = now.toLocaleDateString('en-CA', { timeZone: 'Africa/Lome' });
+  if (dateStr > today) return true;
+  if (dateStr < today) return false;
+  const currentTime = now.toLocaleTimeString('en-GB', {
+    timeZone: 'Africa/Lome',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).slice(0, 5);
+  return String(timeStr).slice(0, 5) > currentTime;
+}
+
 export function resolveHorairesForDate(horaires, dateStr) {
   if (!dateStr || !Array.isArray(horaires)) return [];
   const day = getDayEnumFromDateString(dateStr);

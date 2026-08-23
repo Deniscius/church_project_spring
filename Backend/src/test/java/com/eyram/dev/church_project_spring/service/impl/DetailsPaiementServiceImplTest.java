@@ -1,6 +1,7 @@
 package com.eyram.dev.church_project_spring.service.impl;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -19,6 +20,7 @@ import com.eyram.dev.church_project_spring.repositories.FactureRepository;
 import com.eyram.dev.church_project_spring.repositories.ParoisseRepository;
 import com.eyram.dev.church_project_spring.repositories.TypePaiementRepository;
 import com.eyram.dev.church_project_spring.security.TenantAccessService;
+import com.eyram.dev.church_project_spring.service.DemandePaymentEligibilityService;
 import com.eyram.dev.church_project_spring.service.accounting.ParishLedgerService;
 import com.eyram.dev.church_project_spring.service.payment.FedaPayPaymentService;
 import com.eyram.dev.church_project_spring.utils.exception.BusinessRuleException;
@@ -39,6 +41,7 @@ class DetailsPaiementServiceImplTest {
     @Mock private TenantAccessService tenantAccessService;
     @Mock private FedaPayPaymentService fedaPayPaymentService;
     @Mock private ParishLedgerService parishLedgerService;
+    @Mock private DemandePaymentEligibilityService demandePaymentEligibilityService;
 
     @Test
     void encaisserCaisseRejectsDemandAwaitingValidationBeforePaymentLookup() {
@@ -54,6 +57,8 @@ class DetailsPaiementServiceImplTest {
 
         when(demandeRepository.findByPublicIdAndStatusDelFalse(demandeId))
                 .thenReturn(Optional.of(demande));
+        doThrow(new BusinessRuleException("Validation requise"))
+                .when(demandePaymentEligibilityService).assertCanStartPayment(demande);
 
         DetailsPaiementServiceImpl service = new DetailsPaiementServiceImpl(
                 detailsPaiementRepository,
@@ -64,11 +69,13 @@ class DetailsPaiementServiceImplTest {
                 detailsPaiementMapper,
                 tenantAccessService,
                 fedaPayPaymentService,
-                parishLedgerService
+                parishLedgerService,
+                demandePaymentEligibilityService
         );
 
         assertThrows(BusinessRuleException.class, () -> service.encaisserCaisse(demandeId));
         verify(tenantAccessService).checkParoisseAccess(parish);
+        verify(demandePaymentEligibilityService).assertCanStartPayment(demande);
         verify(typePaiementRepository, never()).findByModeAndStatusDelFalse(org.mockito.ArgumentMatchers.any());
         verify(demandeRepository, never()).save(demande);
     }

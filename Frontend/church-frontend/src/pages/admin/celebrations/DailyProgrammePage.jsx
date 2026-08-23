@@ -13,6 +13,7 @@ import { usePermissions } from '../../../hooks/usePermissions';
 import { PERMISSIONS } from '../../../constants/roles';
 import { ROUTES } from '../../../constants/routes';
 import { formatParishTimeInUserZone } from '../../../utils/formatTime';
+import { isCelebrationSlotAvailable } from '../../../utils/schedulingUtils';
 import { dashboardService } from '../../../services/dashboard.service';
 import { scheduleService } from '../../../services/schedule.service';
 import {
@@ -99,8 +100,15 @@ export default function DailyProgrammePage() {
     [scheduleDays, date]
   );
 
+  const availableDaySlots = useMemo(
+    () => (daySchedule?.creneaux || []).filter((slot) =>
+      isCelebrationSlotAvailable(date, slot.heureCelebration)
+    ),
+    [daySchedule, date]
+  );
+
   const slotOptions = useMemo(
-    () => (daySchedule?.creneaux || []).map((slot) => ({
+    () => availableDaySlots.map((slot) => ({
       value: slot.horairePublicId,
       label: [
         slot.heureCelebration ? formatParishTimeInUserZone(slot.heureCelebration) : 'Heure non définie',
@@ -110,7 +118,7 @@ export default function DailyProgrammePage() {
         slot.uniqueSurParoisse ? 'messe unique' : null,
       ].filter(Boolean).join(' · '),
     })),
-    [daySchedule]
+    [availableDaySlots]
   );
 
   const isPastDay = Boolean(date && date < todayInParishZone());
@@ -323,6 +331,11 @@ export default function DailyProgrammePage() {
                         <AppBadge value={item.statutDemande} />
                         <AppBadge value={item.statutPaiement} />
                         {item.celebre ? <span className="badge badge-success">Célébrée</span> : null}
+                        {!item.disponible ? (
+                          <span className="badge badge-danger">
+                            {item.indisponibiliteMotif || 'Indisponible'}
+                          </span>
+                        ) : null}
                       </div>
                     </td>
                     <td data-label="Action">
@@ -336,7 +349,8 @@ export default function DailyProgrammePage() {
                         </AppButton>
                       ) : (
                         <span className="muted">
-                          {item.celebre || isPastDay ? 'Historique' : 'Lecture seule'}
+                          {item.indisponibiliteMotif
+                            || (item.celebre || isPastDay ? 'Historique' : 'Lecture seule')}
                         </span>
                       )}
                     </td>
@@ -356,8 +370,8 @@ export default function DailyProgrammePage() {
       </AppCard>
 
       <AppCard
-        title="Créneaux disponibles ce jour"
-        subtitle="Cette grille détermine les horaires proposés pour cette date."
+        title="Créneaux encore disponibles ce jour"
+        subtitle="Les horaires déjà dépassés ne sont plus proposés."
       >
         {scheduleLoading ? <p className="muted">Chargement des créneaux…</p> : null}
         {scheduleError ? (

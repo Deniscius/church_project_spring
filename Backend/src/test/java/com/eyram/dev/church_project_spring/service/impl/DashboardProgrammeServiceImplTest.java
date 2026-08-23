@@ -69,6 +69,7 @@ class DashboardProgrammeServiceImplTest {
 
         DemandeDate past = row(paroisse, LocalDate.of(2026, 8, 19), LocalTime.of(10, 0), "D-PAST");
         DemandeDate futureToday = row(paroisse, LocalDate.of(2026, 8, 19), LocalTime.of(15, 0), "D-TODAY");
+        DemandeDate exactNow = row(paroisse, LocalDate.of(2026, 8, 19), LocalTime.of(12, 0), "D-NOW");
         DemandeDate tomorrow = row(paroisse, LocalDate.of(2026, 8, 20), LocalTime.of(7, 0), "D-TOMORROW");
 
         when(paroisseRepository.findByPublicIdAndStatusDelFalse(paroissePublicId))
@@ -78,7 +79,7 @@ class DashboardProgrammeServiceImplTest {
                 eq(LocalDate.of(2026, 8, 19)),
                 eq(LocalDate.of(2026, 9, 1)),
                 any()
-        )).thenReturn(List.of(tomorrow, past, futureToday));
+        )).thenReturn(List.of(tomorrow, exactNow, past, futureToday));
 
         var result = service.findUpcoming(paroissePublicId, 14);
 
@@ -86,6 +87,7 @@ class DashboardProgrammeServiceImplTest {
         assertEquals("D-TODAY", result.get(0).codeSuivie());
         assertEquals(LocalTime.of(15, 0), result.get(0).heureCelebration());
         assertTrue(result.get(0).modifiable());
+        assertTrue(result.get(0).disponible());
         assertEquals("D-TOMORROW", result.get(1).codeSuivie());
         verify(tenantAccessService).checkParoisseAccess(paroisse);
     }
@@ -115,6 +117,8 @@ class DashboardProgrammeServiceImplTest {
         assertEquals("D-TODAY-PAST", result.get(0).codeSuivie());
         assertEquals("D-YESTERDAY", result.get(1).codeSuivie());
         assertFalse(result.get(0).modifiable());
+        assertFalse(result.get(0).disponible());
+        assertEquals("Heure de célébration dépassée", result.get(0).indisponibiliteMotif());
         assertTrue(result.get(1).celebre());
     }
 

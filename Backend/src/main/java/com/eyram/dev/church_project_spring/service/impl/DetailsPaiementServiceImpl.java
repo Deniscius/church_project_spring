@@ -11,7 +11,6 @@ import com.eyram.dev.church_project_spring.entities.Paroisse;
 import com.eyram.dev.church_project_spring.entities.TypePaiement;
 import com.eyram.dev.church_project_spring.enums.ModePaiement;
 import com.eyram.dev.church_project_spring.enums.StatutPaiementEnum;
-import com.eyram.dev.church_project_spring.enums.StatutValidationEnum;
 import com.eyram.dev.church_project_spring.mappers.DetailsPaiementMapper;
 import com.eyram.dev.church_project_spring.repositories.DemandeRepository;
 import com.eyram.dev.church_project_spring.repositories.DetailsPaiementRepository;
@@ -19,6 +18,7 @@ import com.eyram.dev.church_project_spring.repositories.FactureRepository;
 import com.eyram.dev.church_project_spring.repositories.ParoisseRepository;
 import com.eyram.dev.church_project_spring.repositories.TypePaiementRepository;
 import com.eyram.dev.church_project_spring.security.TenantAccessService;
+import com.eyram.dev.church_project_spring.service.DemandePaymentEligibilityService;
 import com.eyram.dev.church_project_spring.service.DetailsPaiementService;
 import com.eyram.dev.church_project_spring.service.accounting.ParishLedgerService;
 import com.eyram.dev.church_project_spring.service.payment.FedaPayPaymentService;
@@ -50,6 +50,7 @@ public class DetailsPaiementServiceImpl implements DetailsPaiementService {
     private final TenantAccessService tenantAccessService;
     private final FedaPayPaymentService fedaPayPaymentService;
     private final ParishLedgerService parishLedgerService;
+    private final DemandePaymentEligibilityService demandePaymentEligibilityService;
 
     @Override
     public DetailsPaiementResponse create(DetailsPaiementRequest request) {
@@ -61,6 +62,7 @@ public class DetailsPaiementServiceImpl implements DetailsPaiementService {
                 .orElseThrow(() -> new ResourceNotFoundException("Facture introuvable"));
         checkFactureAccess(facture);
         validatePaymentAmount(facture, request.montant());
+        demandePaymentEligibilityService.assertCanStartPayment(facture.getDemande());
 
         if (typePaiement.getMode() != ModePaiement.ESPECES) {
             throw new BusinessRuleException(
@@ -220,15 +222,10 @@ public class DetailsPaiementServiceImpl implements DetailsPaiementService {
                 .orElseThrow(() -> new ResourceNotFoundException("Demande introuvable"));
         tenantAccessService.checkParoisseAccess(demande.getParoisse());
 
-        if (demande.getStatutValidation() != StatutValidationEnum.VALIDEE) {
-            throw new BusinessRuleException(
-                    "Seule une demande validée peut être encaissée en caisse"
-            );
-        }
-
         if (demande.getStatutPaiement() == StatutPaiementEnum.PAYE) {
             throw new BusinessRuleException("Cette demande est déjà payée");
         }
+        demandePaymentEligibilityService.assertCanStartPayment(demande);
 
         TypePaiement especes = typePaiementRepository.findByModeAndStatusDelFalse(ModePaiement.ESPECES)
                 .orElseThrow(() -> new ResourceNotFoundException(

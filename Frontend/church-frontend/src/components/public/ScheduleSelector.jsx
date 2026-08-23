@@ -9,6 +9,7 @@ import {
   getDayEnumFromDateString,
   resolveAllowedDays,
   resolveHorairesForDate,
+  isCelebrationSlotAvailable,
 } from '../../utils/schedulingUtils';
 import { formatParishTimeInUserZone } from '../../utils/formatTime';
 
@@ -40,7 +41,11 @@ export default function ScheduleSelector() {
   const filteredHoraires = useMemo(() => {
     if (!draft.dateDebut) return [];
 
-    const byProgramme = resolveHorairesForDate(horaires, draft.dateDebut);
+    const byProgramme = resolveHorairesForDate(horaires, draft.dateDebut)
+      .filter((h) => isCelebrationSlotAvailable(
+        draft.dateDebut,
+        h.heureCelebration
+      ));
     const messeUnique = byProgramme.some((h) => h.uniqueSurParoisse);
     if (messeUnique) return byProgramme;
 

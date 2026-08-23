@@ -27,6 +27,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
@@ -57,7 +58,8 @@ public class DashboardProgrammeServiceImpl implements DashboardProgrammeService 
         LocalDate debut = now.toLocalDate();
         LocalDate fin = debut.plusDays(safeDays - 1L);
 
-        String cacheKey = "upcoming:" + paroissePublicId + ":" + safeDays + ":" + debut;
+        String cacheKey = "upcoming:" + paroissePublicId + ":" + safeDays + ":"
+                + now.truncatedTo(ChronoUnit.MINUTES);
         return cached(CacheConfig.DASHBOARD_PROGRAMMES, cacheKey, () ->
                 demandeDateRepository.findUpcomingByParoisse(
                                 paroisse,
@@ -66,7 +68,7 @@ public class DashboardProgrammeServiceImpl implements DashboardProgrammeService 
                                 EnumSet.of(StatutDemandeEnum.EN_ATTENTE, StatutDemandeEnum.VALIDEE)
                         )
                         .stream()
-                        .filter(row -> !celebrationAt(row).isBefore(now))
+                        .filter(row -> celebrationAt(row).isAfter(now))
                         .map(row -> toResponse(row, now))
                         .sorted(futureComparator())
                         .toList()
@@ -82,7 +84,8 @@ public class DashboardProgrammeServiceImpl implements DashboardProgrammeService 
         LocalDate fin = now.toLocalDate();
         LocalDate debut = fin.minusDays(safeDays - 1L);
 
-        String cacheKey = "past:" + paroissePublicId + ":" + safeDays + ":" + fin;
+        String cacheKey = "past:" + paroissePublicId + ":" + safeDays + ":"
+                + now.truncatedTo(ChronoUnit.MINUTES);
         return cached(CacheConfig.DASHBOARD_PROGRAMMES, cacheKey, () ->
                 demandeDateRepository.findPastByParoisse(
                                 paroisse,
@@ -91,7 +94,7 @@ public class DashboardProgrammeServiceImpl implements DashboardProgrammeService 
                                 readableStatuses()
                         )
                         .stream()
-                        .filter(row -> celebrationAt(row).isBefore(now))
+                        .filter(row -> !celebrationAt(row).isAfter(now))
                         .map(row -> toResponse(row, now))
                         .sorted(pastComparator())
                         .toList()
@@ -107,7 +110,8 @@ public class DashboardProgrammeServiceImpl implements DashboardProgrammeService 
         Paroisse paroisse = requireParoisse(paroissePublicId);
         LocalDateTime now = LocalDateTime.now(clock);
 
-        String cacheKey = "day:" + paroissePublicId + ":" + date;
+        String cacheKey = "day:" + paroissePublicId + ":" + date + ":"
+                + now.truncatedTo(ChronoUnit.MINUTES);
         return cached(CacheConfig.DASHBOARD_PROGRAMMES, cacheKey, () ->
                 demandeDateRepository.findProgrammeByParoisseAndDate(
                                 paroisse,
@@ -228,8 +232,29 @@ public class DashboardProgrammeServiceImpl implements DashboardProgrammeService 
                 demande.getStatutPaiement(),
                 Boolean.TRUE.equals(row.getCelebre()),
                 row.getCelebreAt(),
-                isModifiable(row, now)
+                isModifiable(row, now),
+                isAvailable(row, now),
+                unavailabilityReason(row, now)
         );
+    }
+
+    private boolean isAvailable(DemandeDate row, LocalDateTime now) {
+        return !Boolean.TRUE.equals(row.getCelebre())
+                && celebrationAt(row).isAfter(now);
+    }
+
+    private String unavailabilityReason(DemandeDate row, LocalDateTime now) {
+        if (Boolean.TRUE.equals(row.getCelebre())) {
+            return "Célébration effectuée";
+        }
+        if (!celebrationAt(row).isAfter(now)) {
+            return "Heure de célébration dépassée";
+        }
+        Demande demande = row.getDemande();
+        if (demande == null || !isEditableStatus(demande.getStatutDemande())) {
+            return "Demande clôturée";
+        }
+        return null;
     }
 
     private boolean isModifiable(DemandeDate row, LocalDateTime now) {

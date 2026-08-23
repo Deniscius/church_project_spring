@@ -22,6 +22,7 @@ import com.eyram.dev.church_project_spring.mappers.DemandeMapper;
 import com.eyram.dev.church_project_spring.repositories.*;
 import com.eyram.dev.church_project_spring.repositories.projection.DemandeParoisseStatsProjection;
 import com.eyram.dev.church_project_spring.security.TenantAccessService;
+import com.eyram.dev.church_project_spring.service.DemandePaymentEligibilityService;
 import com.eyram.dev.church_project_spring.service.DemandeService;
 import com.eyram.dev.church_project_spring.service.DemandeSchedulingPolicy;
 import com.eyram.dev.church_project_spring.service.HoraireService;
@@ -75,6 +76,8 @@ public class DemandeServiceImpl implements DemandeService {
 
     private static final String SYSTEM_UNPAID_CANCEL_ACTOR =
             "Système — impayé avant célébration";
+    private static final String SYSTEM_AUTO_VALIDATION_ACTOR =
+            "Système — validation non requise";
 
     private static final DateTimeFormatter REMINDER_DATE_FORMAT =
             DateTimeFormatter.ofPattern("dd/MM/yyyy");
@@ -101,6 +104,7 @@ public class DemandeServiceImpl implements DemandeService {
     private final DemandeDateRepository demandeDateRepository;
     private final TenantAccessService tenantAccessService;
     private final DemandeSchedulingPolicy demandeSchedulingPolicy;
+    private final DemandePaymentEligibilityService demandePaymentEligibilityService;
     private final HoraireService horaireService;
     private final DemandePaymentProperties demandePaymentProperties;
     private final Clock clock;
@@ -436,6 +440,12 @@ public class DemandeServiceImpl implements DemandeService {
         Demande demande = demandeRepository.findByPublicIdAndStatusDelFalse(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Demande introuvable"));
         tenantAccessService.checkParoisseAccess(demande.getParoisse());
+
+        if (!demandePaymentEligibilityService.requiresValidation(demande)) {
+            throw new BusinessRuleException(
+                    "La validation manuelle est réservée aux demandes spéciales"
+            );
+        }
 
         if (demande.getStatutDemande() == StatutDemandeEnum.ANNULEE) {
             throw new BusinessRuleException("Une demande annulée ne peut plus être validée ou rejetée");
@@ -1009,6 +1019,7 @@ public class DemandeServiceImpl implements DemandeService {
         } else {
             demande.setStatutValidation(StatutValidationEnum.VALIDEE);
             demande.setStatutDemande(StatutDemandeEnum.VALIDEE);
+            demande.setValidateBy(SYSTEM_AUTO_VALIDATION_ACTOR);
         }
     }
 
@@ -1582,6 +1593,8 @@ public class DemandeServiceImpl implements DemandeService {
                     List<CelebrationSlotResponse> celebrationSlots = dateRows.stream()
                             .map(this::toCelebrationSlot)
                             .toList();
+                    DemandePaymentEligibilityService.PaymentEligibility paymentEligibility =
+                            demandePaymentEligibilityService.evaluate(demande, dateRows);
 
                     return new DemandeResponse(
                             base.publicId(),
@@ -1604,6 +1617,11 @@ public class DemandeServiceImpl implements DemandeService {
                             base.typeDemandeLibelle(),
                             base.forfaitTarifPublicId(),
                             base.forfaitTarifNom(),
+                            base.natureForfait(),
+                            paymentEligibility.validationRequired(),
+                            paymentEligibility.paymentAvailable(),
+                            paymentEligibility.unavailableReason(),
+                            paymentEligibility.firstCelebrationAt(),
                             base.horairePublicId(),
                             base.horaireLibelle(),
                             base.horaireHeure(),

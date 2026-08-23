@@ -12,6 +12,7 @@ import {
   useParishUpcomingCelebrations,
 } from '../../hooks/queries/useParishUpcomingCelebrations';
 import { WEEK_DAY_LABELS } from '../../constants/enums';
+import { isCelebrationSlotAvailable } from '../../utils/schedulingUtils';
 import { ROUTES, routePath } from '../../constants/routes';
 import { formatFideleName } from '../../utils/personName';
 import './DashboardPage.css';
@@ -65,6 +66,11 @@ function CelebrationStatusStack({ item, includeCelebrated = false }) {
       {includeCelebrated && item.celebre ? (
         <span className="badge badge-success">Célébrée</span>
       ) : null}
+      {item.disponible === false ? (
+        <span className="badge badge-danger">
+          {item.indisponibiliteMotif || 'Indisponible'}
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -113,10 +119,16 @@ export default function DashboardPage() {
   }));
 
   const programmeRows = useMemo(
-    () =>
-      (programme || []).filter(
-        (day) => Array.isArray(day.creneaux) && day.creneaux.length > 0
-      ),
+    () => (programme || [])
+      .map((day) => ({
+        ...day,
+        creneaux: Array.isArray(day.creneaux)
+          ? day.creneaux.filter((slot) =>
+            isCelebrationSlotAvailable(day.date, slot.heureCelebration)
+          )
+          : [],
+      }))
+      .filter((day) => day.creneaux.length > 0),
     [programme]
   );
 

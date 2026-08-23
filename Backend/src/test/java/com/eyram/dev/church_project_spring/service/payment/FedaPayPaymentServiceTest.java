@@ -19,6 +19,7 @@ import com.eyram.dev.church_project_spring.enums.StatutPaiementEnum;
 import com.eyram.dev.church_project_spring.repositories.DemandeRepository;
 import com.eyram.dev.church_project_spring.repositories.DetailsPaiementRepository;
 import com.eyram.dev.church_project_spring.repositories.FactureRepository;
+import com.eyram.dev.church_project_spring.service.DemandePaymentEligibilityService;
 import com.eyram.dev.church_project_spring.service.accounting.ParishLedgerService;
 import com.eyram.dev.church_project_spring.service.billing.SubscriptionBillingService;
 import com.eyram.dev.church_project_spring.service.payment.fedapay.FedaPayClient;
@@ -46,6 +47,7 @@ class FedaPayPaymentServiceTest {
     @Mock private ParishLedgerService parishLedgerService;
     @Mock private SubscriptionBillingService subscriptionBillingService;
     @Mock private TransactionTemplate transactionTemplate;
+    @Mock private DemandePaymentEligibilityService demandePaymentEligibilityService;
 
 
     @Test
@@ -88,7 +90,8 @@ class FedaPayPaymentServiceTest {
                 new ObjectMapper(),
                 parishLedgerService,
                 subscriptionBillingService,
-                transactionTemplate
+                transactionTemplate,
+                demandePaymentEligibilityService
         );
 
         assertThrows(
@@ -123,7 +126,8 @@ class FedaPayPaymentServiceTest {
                 new ObjectMapper(),
                 parishLedgerService,
                 subscriptionBillingService,
-                transactionTemplate
+                transactionTemplate,
+                demandePaymentEligibilityService
         );
 
         service.handleWebhook(payload, signature);

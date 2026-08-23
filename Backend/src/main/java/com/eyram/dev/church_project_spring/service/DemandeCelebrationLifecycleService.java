@@ -57,6 +57,12 @@ public class DemandeCelebrationLifecycleService {
         }
         tenantAccessService.checkParoisseAccess(demande.getParoisse());
 
+        if (demande.getStatutPaiement() != StatutPaiementEnum.PAYE) {
+            throw new BusinessRuleException(
+                    "Une célébration ne peut être confirmée que pour une demande payée."
+            );
+        }
+
         if (demande.getStatutDemande() == StatutDemandeEnum.ANNULEE
                 || demande.getStatutDemande() == StatutDemandeEnum.REJETEE) {
             throw new BusinessRuleException("Cette demande ne peut plus être marquée célébrée.");

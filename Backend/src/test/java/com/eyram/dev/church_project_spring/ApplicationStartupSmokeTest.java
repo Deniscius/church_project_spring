@@ -119,6 +119,6 @@ class ApplicationStartupSmokeTest {
         assertThat(meResponse.getStatusCode().is2xxSuccessful()).isTrue();
         assertThat(meResponse.getBody())
                 .contains(USERNAME)
-                .contains("\"global\":true");
+                .contains("\"isGlobal\":true");
     }
 }

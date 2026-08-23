@@ -16,7 +16,7 @@
     <artifactId>church_project_spring</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>church_project_spring</name>
-    <description>Demo project for Spring Boot</description>
+    <description>API multi-tenant de gestion des demandes de messe Missanye</description>
 
     <properties>
         <java.version>17</java.version>

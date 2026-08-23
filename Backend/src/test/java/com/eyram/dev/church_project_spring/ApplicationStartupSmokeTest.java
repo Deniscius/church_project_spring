@@ -208,16 +208,11 @@ class ApplicationStartupSmokeTest {
         cashHeaders.setContentType(MediaType.APPLICATION_JSON);
         String demandPublicId = created.path("publicId").asText();
 
-        ResponseEntity<String> validation = restTemplate.exchange(
-                "/demandes/" + demandPublicId + "/validation",
-                HttpMethod.PATCH,
-                new HttpEntity<>(Map.of("statut", "VALIDEE"), cashHeaders),
-                String.class
-        );
-        assertThat(validation.getStatusCode().is2xxSuccessful()).isTrue();
-        assertThat(validation.getBody())
-                .contains("\"statutValidation\":\"VALIDEE\"")
-                .contains("\"statutDemande\":\"VALIDEE\"");
+        assertThat(created.path("natureForfait").asText()).isEqualTo("NORMALE");
+        assertThat(created.path("validationRequise").asBoolean()).isFalse();
+        assertThat(created.path("statutValidation").asText()).isEqualTo("VALIDEE");
+        assertThat(created.path("statutDemande").asText()).isEqualTo("VALIDEE");
+        assertThat(created.path("paiementDisponible").asBoolean()).isTrue();
 
         ResponseEntity<String> cashPayment = restTemplate.exchange(
                 "/details-paiement/caisse/" + demandPublicId,

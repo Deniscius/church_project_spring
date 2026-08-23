@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PageHeader from '../../components/ui/PageHeader';
 import AppCard from '../../components/ui/AppCard';
@@ -53,8 +53,9 @@ export default function TrackingPage() {
   const [phoneRequests, setPhoneRequests] = useState([]);
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState('');
-  const [emailMasked, setEmailMasked] = useState('');
+  const [challengeMessage, setChallengeMessage] = useState('');
   const [pendingPhone, setPendingPhone] = useState('');
+  const phoneBusyRef = useRef(false);
 
   const submit = (e) => {
     e.preventDefault();
@@ -68,6 +69,7 @@ export default function TrackingPage() {
     setPhoneRequests(requests);
     setOtpSent(false);
     setOtpCode('');
+    setChallengeMessage('');
     if (!requests.length) {
       setPhoneError('Aucune demande trouvée pour ce numéro.');
     }
@@ -75,44 +77,44 @@ export default function TrackingPage() {
 
   const requestPhoneOtp = async (e) => {
     e.preventDefault();
+    if (phoneBusyRef.current) return;
     setPhoneError('');
     setPhoneRequests([]);
     setOtpSent(false);
     setOtpCode('');
+    setChallengeMessage('');
     const e164 = toE164(telCountryIso, telNational);
     if (!e164) {
       setPhoneError('Indiquez un numéro de téléphone valide.');
       return;
     }
+    phoneBusyRef.current = true;
     setPhoneBusy(true);
     try {
       const res = await requestService.lookupByPhone(e164);
-      const directResults = normalizePhoneResults(res);
       setPendingPhone(e164);
-
-      // Sans e-mail au dépôt : afficher immédiatement toutes les demandes.
-      if (directResults.length > 0 && !res?.emailMasked) {
-        setEmailMasked('');
-        showPhoneResults(res);
-        return;
-      }
-
-      setEmailMasked(res?.emailMasked || '');
+      setChallengeMessage(
+        res?.message
+          || 'Si une adresse e-mail est associée à ce numéro, un code de vérification a été envoyé.'
+      );
       setOtpSent(true);
     } catch (err) {
       setPhoneError(err instanceof Error ? err.message : 'Recherche impossible');
     } finally {
+      phoneBusyRef.current = false;
       setPhoneBusy(false);
     }
   };
 
   const verifyPhoneOtp = async (e) => {
     e.preventDefault();
+    if (phoneBusyRef.current) return;
     setPhoneError('');
     if (!pendingPhone || !otpCode.trim()) {
       setPhoneError('Saisissez le code reçu par e-mail.');
       return;
     }
+    phoneBusyRef.current = true;
     setPhoneBusy(true);
     try {
       const res = await requestService.verifyPhoneLookup(pendingPhone, otpCode.trim());
@@ -120,6 +122,7 @@ export default function TrackingPage() {
     } catch (err) {
       setPhoneError(err instanceof Error ? err.message : 'Code incorrect');
     } finally {
+      phoneBusyRef.current = false;
       setPhoneBusy(false);
     }
   };
@@ -181,6 +184,7 @@ export default function TrackingPage() {
                   setOtpCode('');
                   setPhoneRequests([]);
                   setPhoneError('');
+                  setChallengeMessage('');
                 }}
               />
             </div>
@@ -189,8 +193,8 @@ export default function TrackingPage() {
                 <FieldLabel htmlFor="track-phone-otp" required>
                   Code reçu par e-mail
                 </FieldLabel>
-                <p className="muted text-sm" style={{ marginTop: 0 }}>
-                  Envoyé à {emailMasked || 'votre adresse e-mail'}.
+                <p className="muted text-sm" style={{ marginTop: 0 }} role="status" aria-live="polite">
+                  {challengeMessage}
                 </p>
                 <AppInput
                   id="track-phone-otp"

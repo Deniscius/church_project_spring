@@ -81,7 +81,10 @@ public class ParoisseInscriptionService {
         var proof = inscriptionOtpService.requireValidProof(
                 request.adminEmail(),
                 request.otpProof(),
-                request.adminUsername()
+                request.adminUsername(),
+                request.adminPrenom(),
+                request.adminNom(),
+                request.nomParoisse()
         );
 
         if (userRepository.existsByUsernameIgnoreCaseAndStatusDelFalse(proof.username())
@@ -145,7 +148,6 @@ public class ParoisseInscriptionService {
             }
 
             ParoisseInscriptionResponse response = toResponse(inscriptionRepository.save(inscription));
-            inscriptionOtpService.consumeProof(request.otpProof());
             return response;
         } catch (RuntimeException ex) {
             storedFileService.deleteQuietly(mandatPath);

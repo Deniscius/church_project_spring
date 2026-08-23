@@ -7,6 +7,7 @@ import com.eyram.dev.church_project_spring.entities.Demande;
 import com.eyram.dev.church_project_spring.entities.DetailsPaiement;
 import com.eyram.dev.church_project_spring.entities.Facture;
 import com.eyram.dev.church_project_spring.enums.ModePaiement;
+import com.eyram.dev.church_project_spring.enums.StatutDemandeEnum;
 import com.eyram.dev.church_project_spring.enums.StatutPaiementEnum;
 import com.eyram.dev.church_project_spring.repositories.DemandeRepository;
 import com.eyram.dev.church_project_spring.repositories.DetailsPaiementRepository;
@@ -195,13 +196,6 @@ public class FedaPayPaymentService {
         ModePaiement mode = resolveMode(demande);
         PaymentFeeBreakdown fees = feeCalculator.calculate(facture.getMontant(), mode);
 
-        if (mode == ModePaiement.ESPECES) {
-            return CheckoutPrep.done(checkoutResponse(
-                    demande, mode, fees, false, null, null,
-                    "Paiement au comptant en paroisse — aucun paiement en ligne."
-            ));
-        }
-
         if (demande.getStatutPaiement() == StatutPaiementEnum.PAYE
                 || facture.getStatutPaiement() == StatutPaiementEnum.PAYE) {
             DetailsPaiement existing = detailsPaiementRepository
@@ -212,6 +206,24 @@ public class FedaPayPaymentService {
                     existing != null ? existing.getPaymentUrl() : null,
                     existing != null ? existing.getIdTransaction() : null,
                     "Paiement déjà confirmé."
+            ));
+        }
+
+        if (demande.getStatutDemande() == StatutDemandeEnum.EN_ATTENTE) {
+            throw new BusinessRuleException(
+                    "Cette demande doit être validée par la paroisse avant le paiement"
+            );
+        }
+        if (demande.getStatutDemande() != StatutDemandeEnum.VALIDEE) {
+            throw new BusinessRuleException(
+                    "Cette demande n'est pas éligible au paiement"
+            );
+        }
+
+        if (mode == ModePaiement.ESPECES) {
+            return CheckoutPrep.done(checkoutResponse(
+                    demande, mode, fees, false, null, null,
+                    "Paiement au comptant en paroisse — aucun paiement en ligne."
             ));
         }
 

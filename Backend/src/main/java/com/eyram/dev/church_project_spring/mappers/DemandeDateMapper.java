@@ -18,6 +18,12 @@ public interface DemandeDateMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "demande", ignore = true)
+    @Mapping(target = "horaire", ignore = true)
+    @Mapping(target = "heurePersonnalisee", ignore = true)
+    @Mapping(target = "celebre", ignore = true)
+    @Mapping(target = "celebreAt", ignore = true)
+    @Mapping(target = "lastReminderJ1At", ignore = true)
+    @Mapping(target = "lastReminderH2At", ignore = true)
     DemandeDate dtoToModel(DemandeDateRequest request);
 
     @Mapping(target = "demandePublicId", source = "demande.publicId")
@@ -31,5 +37,11 @@ public interface DemandeDateMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "demande", ignore = true)
+    @Mapping(target = "horaire", ignore = true)
+    @Mapping(target = "heurePersonnalisee", ignore = true)
+    @Mapping(target = "celebre", ignore = true)
+    @Mapping(target = "celebreAt", ignore = true)
+    @Mapping(target = "lastReminderJ1At", ignore = true)
+    @Mapping(target = "lastReminderH2At", ignore = true)
     void updateEntityFromDto(DemandeDateRequest request, @MappingTarget DemandeDate entity);
 }

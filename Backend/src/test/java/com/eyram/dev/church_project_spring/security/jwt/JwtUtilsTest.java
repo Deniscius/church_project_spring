@@ -66,6 +66,7 @@ class JwtUtilsTest {
                 username,
                 null,
                 true,
+                0L,
                 "unused",
                 Set.of(),
                 true

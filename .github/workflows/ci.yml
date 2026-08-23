@@ -44,7 +44,16 @@ jobs:
           -Dflyway.user=church_ci
           -Dflyway.password=church_ci_password
           flyway:migrate flyway:validate
-      - name: Unit tests
+      - name: Unit and application smoke tests
+        env:
+          CI_POSTGRES_SMOKE: "true"
+          SPRING_PROFILES_ACTIVE: dev
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/church_project_ci
+          SPRING_DATASOURCE_USERNAME: church_ci
+          SPRING_DATASOURCE_PASSWORD: church_ci_password
+          JWT_SECRET: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+          FEDAPAY_ENABLED: "false"
+          APP_ADMIN_SEED_ENABLED: "false"
         run: ./mvnw -B -DskipITs test
 
   frontend:

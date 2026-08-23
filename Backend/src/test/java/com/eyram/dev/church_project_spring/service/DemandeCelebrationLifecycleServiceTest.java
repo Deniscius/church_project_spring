@@ -109,6 +109,23 @@ class DemandeCelebrationLifecycleServiceTest {
         verify(demandeDateRepository, never()).save(any(DemandeDate.class));
     }
 
+
+    @Test
+    void markCelebrated_rejectsPaidDemandBeforeScheduledTime() {
+        UUID slotId = UUID.randomUUID();
+        DemandeDate slot = slotAt(LocalDate.of(2026, 8, 18), LocalTime.of(10, 0));
+        slot.setPublicId(slotId);
+        slot.getDemande().setStatutPaiement(StatutPaiementEnum.PAYE);
+        when(demandeDateRepository.findByPublicIdAndStatusDelFalse(slotId))
+                .thenReturn(Optional.of(slot));
+
+        DemandeCelebrationLifecycleService service = serviceAt("2026-08-17T15:00:00Z");
+
+        assertThrows(BusinessRuleException.class, () -> service.markCelebrated(slotId));
+        assertFalse(Boolean.TRUE.equals(slot.getCelebre()));
+        verify(demandeDateRepository, never()).save(any(DemandeDate.class));
+    }
+
     private DemandeDate slotAt(LocalDate date, LocalTime time) {
         Demande demande = new Demande();
         demande.setStatutDemande(StatutDemandeEnum.VALIDEE);

@@ -319,7 +319,7 @@ public class ParoisseInscriptionService {
         inscription.setAdminCniPath(null);
         inscription.setAdminPasswordHash(null);
         ParoisseInscription saved = inscriptionRepository.save(inscription);
-        deleteDocumentsAfterCommit(mandatPath, cniPath);
+        storedFileService.deleteAfterCommit(mandatPath, cniPath);
         notifyRejection(saved, cleanedMotif);
         return toResponse(saved);
     }

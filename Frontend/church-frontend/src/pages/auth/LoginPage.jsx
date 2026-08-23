@@ -23,6 +23,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const resetOk = Boolean(location.state?.resetOk);
+  const sessionExpired = Boolean(location.state?.sessionExpired);
   const errorRef = useScrollToError(error);
 
   const handleSubmit = async (e) => {
@@ -48,7 +49,13 @@ export default function LoginPage() {
       } else if (user?.isGlobal === true && user?.role === 'SUPER_ADMIN') {
         home = '/admin/paroisses';
       }
-      navigate(home, { replace: true });
+      const requestedPath = location.state?.from;
+      const safeDestination = typeof requestedPath === 'string'
+        && requestedPath.startsWith('/admin/')
+        && requestedPath !== '/admin/login'
+        ? requestedPath
+        : home;
+      navigate(safeDestination, { replace: true });
     } catch (err) {
       const messages = normalizeFormErrors(err);
       setError(messages.join(' ; '));
@@ -69,6 +76,12 @@ export default function LoginPage() {
       {resetOk ? (
         <p className="auth-form-success" role="status">
           Mot de passe mis à jour. Vous pouvez vous connecter.
+        </p>
+      ) : null}
+
+      {sessionExpired ? (
+        <p className="auth-form-info" role="status">
+          Votre session a expiré. Reconnectez-vous pour reprendre votre activité.
         </p>
       ) : null}
 

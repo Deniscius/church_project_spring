@@ -9,19 +9,14 @@ export default function RouteProgressBar() {
   const location = useLocation();
   const navType = useNavigationType();
   const routeKey = `${location.key}:${navType}`;
-  const [progressKey, setProgressKey] = useState(routeKey);
-  const [visible, setVisible] = useState(true);
-  const [width, setWidth] = useState(12);
+  const [visible, setVisible] = useState(false);
+  const [width, setWidth] = useState(0);
   const timersRef = useRef([]);
-
-  if (routeKey !== progressKey) {
-    setProgressKey(routeKey);
-    setVisible(true);
-    setWidth(12);
-  }
 
   useEffect(() => {
     timersRef.current.forEach((id) => window.clearTimeout(id));
+    setVisible(true);
+    setWidth(12);
     timersRef.current = [];
 
     const t1 = window.setTimeout(() => setWidth(55), 80);

@@ -41,6 +41,8 @@ jobs:
           cache-dependency-path: Frontend/church-frontend/package-lock.json
       - name: Install
         run: npm ci
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
       - name: Lint
         run: npm run lint
       - name: Build

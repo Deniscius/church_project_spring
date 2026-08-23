@@ -57,6 +57,7 @@ export const ROUTES = {
   CATALOGUE_MODELE: '/admin/catalogue-modele',
   /** Audit global des demandes (toutes paroisses, y compris archivées). */
   PLATFORM_DEMANDES: '/admin/demandes-plateforme',
+  ADMINISTRATIVE_AUDIT: '/admin/journal-administratif',
   PARISHES: '/admin/paroisses',
   PARISH_CREATE: '/admin/paroisses/nouvelle',
   PARISH_EDIT: '/admin/paroisses/:id/modifier',

@@ -54,7 +54,7 @@ class TrackingPhoneOtpServiceTest {
     void requestOtpNeverReturnsTrackingDataBeforeVerification() {
         String phone = "+22890123456";
         Demande demande = mock(Demande.class);
-        when(demande.getId()).thenReturn(null);
+        when(demande.getId()).thenReturn(1L);
         when(demande.getCodeSuivie()).thenReturn("MS-TEST-ABC234");
         when(demande.getEmailFidele()).thenReturn("fidele@example.com");
         when(demandeDateRepository.findByDemande_IdInAndStatusDelFalseOrderByOrdreAsc(List.of(1L)))

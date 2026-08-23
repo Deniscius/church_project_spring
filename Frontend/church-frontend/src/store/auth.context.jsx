@@ -16,6 +16,7 @@ function initialSession() {
       token: 'cookie',
       paroisses: authService.getSessionParoisses(),
       selectedParoisse: authService.getSelectedParoisse(),
+      sessionExpired: false,
     };
   }
   return {
@@ -84,7 +85,7 @@ export function AuthProvider({ children }) {
           token: null,
           paroisses: [],
           selectedParoisse: null,
-    sessionExpired: false,
+          sessionExpired: false,
         });
       }
     }
@@ -135,7 +136,7 @@ export function AuthProvider({ children }) {
         token: 'cookie',
         paroisses: [],
         selectedParoisse: null,
-    sessionExpired: false,
+        sessionExpired: false,
       });
       return { user };
     } catch (error) {
@@ -154,7 +155,7 @@ export function AuthProvider({ children }) {
       token: null,
       paroisses: [],
       selectedParoisse: null,
-    sessionExpired: false,
+      sessionExpired: false,
     });
   }, []);
 

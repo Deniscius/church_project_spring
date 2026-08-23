@@ -25,11 +25,29 @@ function initialSession() {
     token: null,
     paroisses: [],
     selectedParoisse: null,
+    sessionExpired: false,
   };
 }
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(initialSession);
+
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      clearAuthStorage();
+      setSession({
+        isAuthenticated: false,
+        authReady: true,
+        user: null,
+        token: null,
+        paroisses: [],
+        selectedParoisse: null,
+        sessionExpired: true,
+      });
+    };
+    window.addEventListener('church:session-expired', handleSessionExpired);
+    return () => window.removeEventListener('church:session-expired', handleSessionExpired);
+  }, []);
 
   // Valide le cookie HttpOnly au démarrage (purge si expiré / révoqué).
   useEffect(() => {
@@ -54,6 +72,7 @@ export function AuthProvider({ children }) {
           token: 'cookie',
           paroisses: live.paroisses,
           selectedParoisse: live.selectedParoisse,
+          sessionExpired: false,
         });
       } catch {
         if (cancelled) return;
@@ -65,6 +84,7 @@ export function AuthProvider({ children }) {
           token: null,
           paroisses: [],
           selectedParoisse: null,
+    sessionExpired: false,
         });
       }
     }
@@ -91,6 +111,7 @@ export function AuthProvider({ children }) {
         token: 'cookie',
         paroisses,
         selectedParoisse,
+        sessionExpired: false,
       });
       return { user, paroisses, selectedParoisse };
     } catch (error) {
@@ -114,6 +135,7 @@ export function AuthProvider({ children }) {
         token: 'cookie',
         paroisses: [],
         selectedParoisse: null,
+    sessionExpired: false,
       });
       return { user };
     } catch (error) {
@@ -132,6 +154,7 @@ export function AuthProvider({ children }) {
       token: null,
       paroisses: [],
       selectedParoisse: null,
+    sessionExpired: false,
     });
   }, []);
 

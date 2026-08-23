@@ -16,6 +16,7 @@ import com.eyram.dev.church_project_spring.repositories.ParoisseRepository;
 import com.eyram.dev.church_project_spring.repositories.UserRepository;
 import com.eyram.dev.church_project_spring.security.TenantAccessService;
 import com.eyram.dev.church_project_spring.service.PlanSaasService;
+import com.eyram.dev.church_project_spring.service.audit.AdministrativeAuditService;
 import com.eyram.dev.church_project_spring.service.ProfessionalEmailService;
 import com.eyram.dev.church_project_spring.service.payment.fedapay.FedaPayClient;
 import com.eyram.dev.church_project_spring.service.tenant.TenantCatalogBootstrapService;
@@ -57,6 +58,7 @@ public class SubscriptionBillingService {
     private final UserRepository userRepository;
     private final TransactionTemplate transactionTemplate;
     private final CacheManager cacheManager;
+    private final AdministrativeAuditService administrativeAuditService;
 
     @Transactional
     public ParoisseAbonnement createPending(Paroisse paroisse, String plan) {
@@ -256,6 +258,13 @@ public class SubscriptionBillingService {
             // Activation hors contexte utilisateur (job) : libellé générique.
         }
         activateAbonnement(abonnement, "MANUEL", by);
+        administrativeAuditService.record(
+                AdministrativeAuditService.SUBSCRIPTION_MANUALLY_ACTIVATED,
+                "SUBSCRIPTION",
+                abonnement.getPublicId(),
+                paroisse.getPublicId(),
+                "Plan=" + abonnement.getPlan() + "; montantXof=" + abonnement.getMontant()
+        );
         return Map.of(
                 "paroissePublicId", paroisse.getPublicId(),
                 "statut", "ACTIF",
@@ -445,6 +454,13 @@ public class SubscriptionBillingService {
         paroisse.setSubscriptionExpiresAt(nouvelleFin);
         paroisseRepository.save(paroisse);
         evictPublicHorairesCache();
+        administrativeAuditService.record(
+                AdministrativeAuditService.SUBSCRIPTION_EXTENDED,
+                "SUBSCRIPTION",
+                abonnement.getPublicId(),
+                paroisse.getPublicId(),
+                "Prolongation gracieuse=" + jours + " jour(s); nouvelleEcheance=" + nouvelleFin
+        );
 
         return Map.of(
                 "paroissePublicId", paroisse.getPublicId(),
@@ -468,6 +484,13 @@ public class SubscriptionBillingService {
         }
         abonnement.setStatut(StatutAbonnement.ANNULE);
         abonnementRepository.save(abonnement);
+        administrativeAuditService.record(
+                AdministrativeAuditService.SUBSCRIPTION_PENDING_CANCELLED,
+                "SUBSCRIPTION",
+                abonnement.getPublicId(),
+                abonnement.getParoisse().getPublicId(),
+                "Paiement fournisseur abandonné; plan=" + abonnement.getPlan()
+        );
         return Map.of(
                 "abonnementPublicId", abonnement.getPublicId(),
                 "statut", "ANNULE",
@@ -496,6 +519,13 @@ public class SubscriptionBillingService {
         paroisse.appliquerStatut(StatutTenant.RESILIEE);
         paroisseRepository.save(paroisse);
         evictPublicHorairesCache();
+        administrativeAuditService.record(
+                AdministrativeAuditService.SUBSCRIPTION_TERMINATED,
+                "PARISH",
+                paroisse.getPublicId(),
+                paroisse.getPublicId(),
+                "Accès SaaS résilié; historique conservé"
+        );
         return Map.of(
                 "paroissePublicId", paroisse.getPublicId(),
                 "statut", "RESILIEE",

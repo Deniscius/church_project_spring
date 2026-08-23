@@ -1099,8 +1099,16 @@ public class DemandeServiceImpl implements DemandeService {
         String label = ForfaitDureeLabels.labelFor(forfaitTarif.getNombreCelebration());
         boolean hp = Boolean.TRUE.equals(forfaitTarif.getHeurePersonnalise());
 
-        Map<LocalDate, CelebrationSlotRequest> byDate = request.celebrationSlots().stream()
-                .filter(slot -> slot != null && slot.date() != null)
+        List<CelebrationSlotRequest> submittedSlots = request.celebrationSlots();
+        if (submittedSlots.size() != celebrationDates.size()
+                || submittedSlots.stream().anyMatch(slot -> slot == null || slot.date() == null)) {
+            throw new BusinessRuleException(
+                    "Le " + label + " nécessite exactement " + celebrationDates.size()
+                            + " créneau(x) complet(s)"
+            );
+        }
+
+        Map<LocalDate, CelebrationSlotRequest> byDate = submittedSlots.stream()
                 .collect(Collectors.toMap(
                         CelebrationSlotRequest::date,
                         slot -> slot,
@@ -1138,9 +1146,9 @@ public class DemandeServiceImpl implements DemandeService {
             );
 
             if (hp) {
-                if (heurePerso == null && slotHoraire == null) {
+                if ((heurePerso == null) == (slotHoraire == null)) {
                     throw new BusinessRuleException(
-                            "Indiquez un horaire ou une heure personnalisée pour le " + date
+                            "Choisissez soit un horaire paroissial, soit une heure personnalisée pour le " + date
                     );
                 }
             } else {

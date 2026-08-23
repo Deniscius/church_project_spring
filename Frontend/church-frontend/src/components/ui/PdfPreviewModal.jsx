@@ -1,4 +1,5 @@
-import React, { useEffect, useId } from 'react';
+import React, { useEffect, useId, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import AppButton from './AppButton';
 import PdfCanvasViewer from './PdfCanvasViewer';
 
@@ -22,27 +23,61 @@ export default function PdfPreviewModal({
   onOpenInTab,
 }) {
   const titleId = useId();
+  const dialogRef = useRef(null);
   const source = pdfBlob || blobUrl || pdfUrl || '';
 
   useEffect(() => {
     if (!open) return undefined;
-    const onKey = (e) => {
-      if (e.key === 'Escape') onClose?.();
-    };
-    window.addEventListener('keydown', onKey);
+    const previous = document.activeElement;
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+
+    const focusableSelector =
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const focusId = window.requestAnimationFrame(() => {
+      dialogRef.current?.querySelector(focusableSelector)?.focus();
+    });
+
+    const onKey = (event) => {
+      if (event.key === 'Escape') {
+        onClose?.();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+
+      const focusable = [...(dialogRef.current?.querySelectorAll(focusableSelector) || [])];
+      if (!focusable.length) {
+        event.preventDefault();
+        dialogRef.current?.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener('keydown', onKey);
     return () => {
-      window.removeEventListener('keydown', onKey);
+      window.cancelAnimationFrame(focusId);
+      document.removeEventListener('keydown', onKey);
       document.body.style.overflow = prev;
+      if (previous instanceof HTMLElement) previous.focus();
     };
   }, [open, onClose]);
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div className="pdf-preview-overlay" role="presentation" onClick={onClose}>
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         className="pdf-preview-dialog"
         role="dialog"
         aria-modal="true"
@@ -83,6 +118,7 @@ export default function PdfPreviewModal({
           ) : null}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

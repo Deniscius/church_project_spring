@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import PageHeader from '../../../components/ui/PageHeader';
 import AppCard from '../../../components/ui/AppCard';
 import AppInput from '../../../components/ui/AppInput';
@@ -11,7 +12,8 @@ import { profileService } from '../../../services/user.service';
 const EMPTY_PASSWORD_FORM = { currentPassword: '', newPassword: '', confirmPassword: '' };
 
 export default function ProfilePage() {
-  const { user, patchCurrentUser } = useAuth();
+  const navigate = useNavigate();
+  const { user, patchCurrentUser, logout } = useAuth();
   const { activeParish } = useTenant();
 
   const [profile, setProfile] = useState(null);
@@ -85,7 +87,11 @@ export default function ProfilePage() {
         newPassword: passwords.newPassword,
       });
       setPasswords(EMPTY_PASSWORD_FORM);
-      setNotice('Mot de passe modifié.');
+      await logout();
+      navigate('/admin/login', {
+        replace: true,
+        state: { resetOk: true },
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Changement impossible');
     } finally {
@@ -196,6 +202,7 @@ export default function ProfilePage() {
                 id="profile-current-password"
                 type="password"
                 autoComplete="current-password"
+                maxLength={200}
                 required
                 value={passwords.currentPassword}
                 onChange={(e) => setPasswords({ ...passwords, currentPassword: e.target.value })}
@@ -209,6 +216,7 @@ export default function ProfilePage() {
                 autoComplete="new-password"
                 required
                 minLength={8}
+                maxLength={200}
                 value={passwords.newPassword}
                 onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })}
               />
@@ -222,6 +230,7 @@ export default function ProfilePage() {
                 autoComplete="new-password"
                 required
                 minLength={8}
+                maxLength={200}
                 value={passwords.confirmPassword}
                 onChange={(e) => setPasswords({ ...passwords, confirmPassword: e.target.value })}
               />

@@ -58,17 +58,27 @@ export async function apiClient(path, options = {}, clientOptions = {}) {
     });
   } catch (err) {
     const raw = err instanceof Error ? err.message : String(err || '');
+    if (import.meta.env.DEV) {
+      console.error('Échec de la requête API', err);
+    }
     throw new Error(
       /failed to fetch|networkerror|load failed/i.test(raw)
-        ? 'Impossible de joindre l’API. Vérifiez l’URL du backend Render, sa disponibilité et la configuration CORS.'
-        : (raw || 'Erreur réseau')
+        ? 'Le service est momentanément indisponible. Vérifiez votre connexion puis réessayez.'
+        : 'La requête n’a pas pu aboutir. Veuillez réessayer.'
     );
   }
 
   if (!response.ok) {
-    let message = `Erreur HTTP ${response.status}`;
+    if (response.status === 401 && auth && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('church:session-expired'));
+    }
+    let message = response.status >= 500
+      ? 'Une erreur interne est survenue. Veuillez réessayer plus tard.'
+      : `La requête a échoué (HTTP ${response.status}).`;
+    let traceId = response.headers.get('x-request-id') || null;
     try {
       const err = await response.json();
+      traceId = err?.traceId || traceId;
       if (typeof err === 'string') {
         message = err;
       } else if (err?.message) {
@@ -82,8 +92,12 @@ export async function apiClient(path, options = {}, clientOptions = {}) {
     } catch {
       /* corps non JSON */
     }
+    if (response.status >= 500 && traceId) {
+      message = `${message} Référence support : ${traceId}.`;
+    }
     const error = new Error(message);
     error.status = response.status;
+    error.traceId = traceId;
     error.messages = String(message)
       .split(/\s*;\s*/)
       .map((part) => part.trim())

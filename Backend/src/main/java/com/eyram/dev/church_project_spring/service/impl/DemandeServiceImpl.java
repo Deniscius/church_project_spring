@@ -22,6 +22,7 @@ import com.eyram.dev.church_project_spring.mappers.DemandeMapper;
 import com.eyram.dev.church_project_spring.repositories.*;
 import com.eyram.dev.church_project_spring.repositories.projection.DemandeParoisseStatsProjection;
 import com.eyram.dev.church_project_spring.security.TenantAccessService;
+import com.eyram.dev.church_project_spring.service.DemandePaymentEligibilityService;
 import com.eyram.dev.church_project_spring.service.DemandeService;
 import com.eyram.dev.church_project_spring.service.DemandeSchedulingPolicy;
 import com.eyram.dev.church_project_spring.service.HoraireService;
@@ -75,6 +76,8 @@ public class DemandeServiceImpl implements DemandeService {
 
     private static final String SYSTEM_UNPAID_CANCEL_ACTOR =
             "Système — impayé avant célébration";
+    private static final String SYSTEM_AUTO_VALIDATION_ACTOR =
+            "Système — validation non requise";
 
     private static final DateTimeFormatter REMINDER_DATE_FORMAT =
             DateTimeFormatter.ofPattern("dd/MM/yyyy");
@@ -101,6 +104,7 @@ public class DemandeServiceImpl implements DemandeService {
     private final DemandeDateRepository demandeDateRepository;
     private final TenantAccessService tenantAccessService;
     private final DemandeSchedulingPolicy demandeSchedulingPolicy;
+    private final DemandePaymentEligibilityService demandePaymentEligibilityService;
     private final HoraireService horaireService;
     private final DemandePaymentProperties demandePaymentProperties;
     private final Clock clock;
@@ -219,12 +223,45 @@ public class DemandeServiceImpl implements DemandeService {
 
         tenantAccessService.checkParoisseAccess(existingDemande.getParoisse());
 
+        if (existingDemande.getStatutDemande() == StatutDemandeEnum.ANNULEE
+                || existingDemande.getStatutDemande() == StatutDemandeEnum.REJETEE
+                || existingDemande.getStatutDemande() == StatutDemandeEnum.TERMINEE) {
+            throw new BusinessRuleException(
+                    "Cette demande est dans un état définitif et ne peut plus être restructurée"
+            );
+        }
+        if (existingDemande.getStatutPaiement() == StatutPaiementEnum.PAYE) {
+            throw new BusinessRuleException(
+                    "Une demande payée ne peut plus changer de paroisse, forfait, montant ou dates"
+            );
+        }
+        if (existingDemande.getStatutPaiement() == StatutPaiementEnum.EN_ATTENTE) {
+            throw new BusinessRuleException(
+                    "Une session de paiement est en cours. Attendez son expiration avant de modifier la demande"
+            );
+        }
+        boolean hasCelebratedSlot = demandeDateRepository
+                .findByDemande_IdAndStatusDelFalse(existingDemande.getId())
+                .stream()
+                .anyMatch(date -> Boolean.TRUE.equals(date.getCelebre()));
+        if (hasCelebratedSlot) {
+            throw new BusinessRuleException(
+                    "Une demande comportant une célébration confirmée ne peut plus être restructurée"
+            );
+        }
+
         Paroisse paroisse = paroisseRepository.findByPublicIdAndStatusDelFalse(request.paroissePublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Paroisse introuvable"));
         requireActive(Boolean.TRUE.equals(paroisse.getIsActive()),
                 "Cette paroisse n'accepte plus de modifications de demandes");
 
         tenantAccessService.checkParoisseAccess(paroisse);
+
+        if (!existingDemande.getParoisse().getPublicId().equals(paroisse.getPublicId())) {
+            throw new BusinessRuleException(
+                    "Une demande ne peut pas être transférée vers une autre paroisse"
+            );
+        }
 
         TypeDemande typeDemande = typeDemandeRepository.findByPublicIdAndStatusDelFalse(request.typeDemandePublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Type de demande introuvable"));
@@ -403,6 +440,25 @@ public class DemandeServiceImpl implements DemandeService {
         Demande demande = demandeRepository.findByPublicIdAndStatusDelFalse(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Demande introuvable"));
         tenantAccessService.checkParoisseAccess(demande.getParoisse());
+
+        if (!demandePaymentEligibilityService.requiresValidation(demande)) {
+            throw new BusinessRuleException(
+                    "La validation manuelle est réservée aux demandes spéciales"
+            );
+        }
+
+        if (demande.getStatutDemande() == StatutDemandeEnum.ANNULEE) {
+            throw new BusinessRuleException("Une demande annulée ne peut plus être validée ou rejetée");
+        }
+        if (demande.getStatutDemande() == StatutDemandeEnum.TERMINEE) {
+            throw new BusinessRuleException("Une demande terminée ne peut plus changer de validation");
+        }
+        if (request.statut() == StatutValidationEnum.REJETEE
+                && demande.getStatutPaiement() == StatutPaiementEnum.PAYE) {
+            throw new BusinessRuleException(
+                    "Une demande payée ne peut pas être rejetée sans procédure de remboursement"
+            );
+        }
 
         User validator = tenantAccessService.getCurrentUser();
         demande.setStatutValidation(request.statut());
@@ -657,7 +713,20 @@ public class DemandeServiceImpl implements DemandeService {
 
         tenantAccessService.checkParoisseAccess(demande.getParoisse());
 
-        softDeleteRelatedEntities(demande);
+        if (demande.getStatutPaiement() == StatutPaiementEnum.PAYE) {
+            throw new BusinessRuleException(
+                    "Une demande payée ne peut pas être supprimée sans procédure de remboursement"
+            );
+        }
+        boolean hasCelebratedSlot = demandeDateRepository
+                .findByDemande_IdAndStatusDelFalse(demande.getId())
+                .stream()
+                .anyMatch(date -> Boolean.TRUE.equals(date.getCelebre()));
+        if (hasCelebratedSlot) {
+            throw new BusinessRuleException(
+                    "Une demande comportant une célébration confirmée ne peut pas être supprimée"
+            );
+        }
 
         User actor = tenantAccessService.getCurrentUser();
         cancelDemande(demande, actor != null ? actor.getFullName() : "Système");
@@ -793,11 +862,19 @@ public class DemandeServiceImpl implements DemandeService {
     }
 
     private LocalDateTime resolveCelebrationAt(Demande demande, DemandeDate firstDate) {
-        LocalTime celebrationTime = demande.getHeurePersonnalisee() != null
-                ? demande.getHeurePersonnalisee()
-                : (demande.getHoraire() != null
-                        ? demande.getHoraire().getHeureCelebration()
-                        : LocalTime.MIDNIGHT);
+        LocalTime celebrationTime = firstDate.getHeurePersonnalisee();
+        if (celebrationTime == null && firstDate.getHoraire() != null) {
+            celebrationTime = firstDate.getHoraire().getHeureCelebration();
+        }
+        if (celebrationTime == null) {
+            celebrationTime = demande.getHeurePersonnalisee();
+        }
+        if (celebrationTime == null && demande.getHoraire() != null) {
+            celebrationTime = demande.getHoraire().getHeureCelebration();
+        }
+        if (celebrationTime == null) {
+            celebrationTime = LocalTime.MIDNIGHT;
+        }
         return LocalDateTime.of(firstDate.getDateCelebration(), celebrationTime);
     }
 
@@ -835,7 +912,7 @@ public class DemandeServiceImpl implements DemandeService {
         );
 
         appMailService.sendText(demande.getEmailFidele().trim(), subject, body);
-        log.info("Rappel impayé envoyé pour {} → {}", demande.getCodeSuivie(), demande.getEmailFidele());
+        log.info("Rappel impayé envoyé pour la demande {}", demande.getCodeSuivie());
     }
 
     private void cancelDemande(Demande demande, String deletedByNom) {
@@ -942,6 +1019,7 @@ public class DemandeServiceImpl implements DemandeService {
         } else {
             demande.setStatutValidation(StatutValidationEnum.VALIDEE);
             demande.setStatutDemande(StatutDemandeEnum.VALIDEE);
+            demande.setValidateBy(SYSTEM_AUTO_VALIDATION_ACTOR);
         }
     }
 
@@ -1086,8 +1164,16 @@ public class DemandeServiceImpl implements DemandeService {
         String label = ForfaitDureeLabels.labelFor(forfaitTarif.getNombreCelebration());
         boolean hp = Boolean.TRUE.equals(forfaitTarif.getHeurePersonnalise());
 
-        Map<LocalDate, CelebrationSlotRequest> byDate = request.celebrationSlots().stream()
-                .filter(slot -> slot != null && slot.date() != null)
+        List<CelebrationSlotRequest> submittedSlots = request.celebrationSlots();
+        if (submittedSlots.size() != celebrationDates.size()
+                || submittedSlots.stream().anyMatch(slot -> slot == null || slot.date() == null)) {
+            throw new BusinessRuleException(
+                    "Le " + label + " nécessite exactement " + celebrationDates.size()
+                            + " créneau(x) complet(s)"
+            );
+        }
+
+        Map<LocalDate, CelebrationSlotRequest> byDate = submittedSlots.stream()
                 .collect(Collectors.toMap(
                         CelebrationSlotRequest::date,
                         slot -> slot,
@@ -1125,9 +1211,9 @@ public class DemandeServiceImpl implements DemandeService {
             );
 
             if (hp) {
-                if (heurePerso == null && slotHoraire == null) {
+                if ((heurePerso == null) == (slotHoraire == null)) {
                     throw new BusinessRuleException(
-                            "Indiquez un horaire ou une heure personnalisée pour le " + date
+                            "Choisissez soit un horaire paroissial, soit une heure personnalisée pour le " + date
                     );
                 }
             } else {
@@ -1507,6 +1593,8 @@ public class DemandeServiceImpl implements DemandeService {
                     List<CelebrationSlotResponse> celebrationSlots = dateRows.stream()
                             .map(this::toCelebrationSlot)
                             .toList();
+                    DemandePaymentEligibilityService.PaymentEligibility paymentEligibility =
+                            demandePaymentEligibilityService.evaluate(demande, dateRows);
 
                     return new DemandeResponse(
                             base.publicId(),
@@ -1529,6 +1617,11 @@ public class DemandeServiceImpl implements DemandeService {
                             base.typeDemandeLibelle(),
                             base.forfaitTarifPublicId(),
                             base.forfaitTarifNom(),
+                            base.natureForfait(),
+                            paymentEligibility.validationRequired(),
+                            paymentEligibility.paymentAvailable(),
+                            paymentEligibility.unavailableReason(),
+                            paymentEligibility.firstCelebrationAt(),
                             base.horairePublicId(),
                             base.horaireLibelle(),
                             base.horaireHeure(),

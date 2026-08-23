@@ -36,6 +36,12 @@ export default function RequestDetailsPage() {
   const canValidate = has(PERMISSIONS.DEMAND_VALIDATE);
   const canCash = has(PERMISSIONS.PAYMENT_MANAGE);
   const unpaid = request && request.statutPaiement !== 'PAYE';
+  const validationLocked = ['ANNULEE', 'TERMINEE'].includes(request?.statutDemande);
+  const canReject = !validationLocked && request?.statutPaiement !== 'PAYE';
+  const validationRequired = request?.validationRequise
+    ?? request?.natureForfait === 'SPECIALE';
+  const paymentAvailable = request?.paiementDisponible !== false;
+  const paymentUnavailableReason = request?.paiementIndisponibleMotif || null;
 
   const updateValidation = async (statut) => {
     if (!id) return;
@@ -255,7 +261,11 @@ export default function RequestDetailsPage() {
               </div>
               <div className="info-row">
                 <span>Validation</span>
-                <AppBadge value={request.statutValidation} />
+                {validationRequired ? (
+                  <AppBadge value={request.statutValidation} />
+                ) : (
+                  <span className="badge badge-success">Non requise</span>
+                )}
               </div>
               {request.validateBy ? (
                 <div className="info-row">
@@ -293,17 +303,25 @@ export default function RequestDetailsPage() {
               {request.codeSuivie ? (
                 <ReceiptPreviewButton codeSuivie={request.codeSuivie} label="Aperçu / imprimer le reçu" />
               ) : null}
-              {canValidate ? (
+              {canValidate && validationRequired ? (
                 <>
                   <AppButton
-                    disabled={validating || request.statutValidation === 'VALIDEE'}
+                    disabled={
+                      validating
+                      || validationLocked
+                      || request.statutValidation === 'VALIDEE'
+                    }
                     onClick={() => updateValidation('VALIDEE')}
                   >
                     {validating ? 'Traitement…' : 'Valider'}
                   </AppButton>
                   <AppButton
                     variant="secondary"
-                    disabled={validating || request.statutValidation === 'REJETEE'}
+                    disabled={
+                      validating
+                      || !canReject
+                      || request.statutValidation === 'REJETEE'
+                    }
                     onClick={() => updateValidation('REJETEE')}
                   >
                     Rejeter
@@ -313,7 +331,8 @@ export default function RequestDetailsPage() {
               {canCash && unpaid ? (
                 <AppButton
                   variant="secondary"
-                  disabled={encaissing}
+                  disabled={encaissing || !paymentAvailable}
+                  title={!paymentAvailable ? paymentUnavailableReason || 'Paiement indisponible' : undefined}
                   onClick={() => setConfirmCaisse(true)}
                 >
                   {encaissing ? 'Encaissement…' : 'Encaisser en caisse'}
@@ -321,9 +340,13 @@ export default function RequestDetailsPage() {
               ) : null}
             </div>
             {canCash && unpaid ? (
-              <p className="muted" style={{ marginTop: 10, marginBottom: 0 }}>
-                L’encaissement espèces reste dans la caisse de la paroisse et n’alimente pas
-                le solde à reverser en ligne.
+              <p
+                className={!paymentAvailable ? 'text-red-600' : 'muted'}
+                style={{ marginTop: 10, marginBottom: 0 }}
+              >
+                {!paymentAvailable
+                  ? paymentUnavailableReason || 'Cette demande ne peut plus être encaissée.'
+                  : 'L’encaissement espèces reste dans la caisse de la paroisse et n’alimente pas le solde à reverser en ligne.'}
               </p>
             ) : null}
           </AppCard>

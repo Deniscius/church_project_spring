@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import PageHeader from '../../../components/ui/PageHeader';
@@ -68,9 +68,23 @@ export default function InscriptionsPage() {
   const [info, setInfo] = useState(null);
   const [busy, setBusy] = useState(false);
   const [paymentUrl, setPaymentUrl] = useState('');
+  const [pendingApprove, setPendingApprove] = useState(null);
   const [pendingReject, setPendingReject] = useState(null);
   const [rejectMotif, setRejectMotif] = useState('');
   const [pendingActivate, setPendingActivate] = useState(null);
+  const actionBusyRef = useRef(false);
+
+  function beginAction() {
+    if (actionBusyRef.current) return false;
+    actionBusyRef.current = true;
+    setBusy(true);
+    return true;
+  }
+
+  function endAction() {
+    actionBusyRef.current = false;
+    setBusy(false);
+  }
 
   async function load() {
     try {
@@ -111,14 +125,14 @@ export default function InscriptionsPage() {
   }, [visible, selected]);
 
   async function approuver(row) {
-    if (!canManageRegistration) return;
-    setBusy(true);
+    if (!canManageRegistration || !beginAction()) return;
     setInfo(null);
     setPaymentUrl('');
     try {
       const res = await inscriptionService.approuver(row.publicId);
       const url = res?.abonnementCheckout?.paymentUrl || '';
       setPaymentUrl(url);
+      setPendingApprove(null);
       const emailsHint = [res?.emailParoisse, res?.emailAdmin].filter(Boolean).length
         ? ` E-mails pro : paroisse ${res.emailParoisse || '—'} · admin ${res.emailAdmin || '—'}.`
         : '';
@@ -140,7 +154,7 @@ export default function InscriptionsPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Échec approbation');
     } finally {
-      setBusy(false);
+      endAction();
     }
   }
 
@@ -151,7 +165,7 @@ export default function InscriptionsPage() {
       setError('Indiquez un motif de rejet (au moins 8 caractères).');
       return;
     }
-    setBusy(true);
+    if (!beginAction()) return;
     setError(null);
     try {
       await inscriptionService.rejeter(pendingReject.publicId, motif);
@@ -163,7 +177,7 @@ export default function InscriptionsPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Échec rejet');
     } finally {
-      setBusy(false);
+      endAction();
     }
   }
 
@@ -173,7 +187,7 @@ export default function InscriptionsPage() {
       setError('Paroisse pas encore créée — approuvez d’abord le dossier.');
       return;
     }
-    setBusy(true);
+    if (!beginAction()) return;
     setError(null);
     try {
       const res = await comptabiliteService.checkoutAbonnement(row.paroissePublicId, row.planAbonnement);
@@ -187,7 +201,7 @@ export default function InscriptionsPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Échec génération lien');
     } finally {
-      setBusy(false);
+      endAction();
     }
   }
 
@@ -197,7 +211,7 @@ export default function InscriptionsPage() {
       setError('Paroisse introuvable sur ce dossier.');
       return;
     }
-    setBusy(true);
+    if (!beginAction()) return;
     setError(null);
     try {
       const res = await comptabiliteService.activerAbonnement(
@@ -211,7 +225,7 @@ export default function InscriptionsPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Échec activation');
     } finally {
-      setBusy(false);
+      endAction();
     }
   }
 
@@ -226,7 +240,7 @@ export default function InscriptionsPage() {
   }
 
   async function openDocument(publicId, type) {
-    setBusy(true);
+    if (!beginAction()) return;
     setError(null);
     try {
       const blob = await inscriptionService.downloadDocument(publicId, type);
@@ -236,7 +250,7 @@ export default function InscriptionsPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Document inaccessible');
     } finally {
-      setBusy(false);
+      endAction();
     }
   }
 
@@ -457,7 +471,7 @@ export default function InscriptionsPage() {
 
               {canManageRegistration && selected.statut === 'SOUMISE' ? (
                 <div className="button-row">
-                  <button type="button" className="btn btn-primary" disabled={busy} onClick={() => approuver(selected)}>
+                  <button type="button" className="btn btn-primary" disabled={busy} onClick={() => setPendingApprove(selected)}>
                     Approuver le dossier
                   </button>
                   <button
@@ -491,7 +505,7 @@ export default function InscriptionsPage() {
                     <ol>
                       <li>Activez l’accès après paiement ou générez le lien FedaPay.</li>
                       <li>L’admin ouvre <code>/admin/login</code>.</li>
-                      <li>Identifiant : <strong>{selected.adminUsername}</strong> + mot de passe choisi à l’inscription.</li>
+                      <li>Identifiant : <strong>{selected.adminUsername}</strong> + mot de passe temporaire reçu par e-mail.</li>
                     </ol>
                   </div>
                   {canActivate || canCheckout ? (
@@ -542,6 +556,24 @@ export default function InscriptionsPage() {
       </div>
 
       <AppDialog
+        open={Boolean(pendingApprove) && canManageRegistration}
+        title="Approuver l'inscription"
+        confirmLabel="Approuver et créer la paroisse"
+        cancelLabel="Annuler"
+        busy={busy}
+        onCancel={() => setPendingApprove(null)}
+        onConfirm={() => pendingApprove && approuver(pendingApprove)}
+      >
+        {pendingApprove ? (
+          <p style={{ margin: 0 }}>
+            Approuver le dossier « {pendingApprove.nomParoisse} » ?
+            La paroisse et son compte administrateur seront créés, puis le paiement
+            de l’abonnement sera préparé.
+          </p>
+        ) : null}
+      </AppDialog>
+
+      <AppDialog
         open={Boolean(pendingReject) && canManageRegistration}
         title="Rejeter l'inscription"
         confirmLabel="Rejeter"
@@ -576,7 +608,7 @@ export default function InscriptionsPage() {
       >
         {pendingActivate ? (
           <p style={{ margin: 0 }}>
-            Activer « {pendingActivate.nomParoisse} » ?
+            Confirmez que le paiement a bien été reçu avant d’activer « {pendingActivate.nomParoisse} ».
             L’admin <strong>{pendingActivate.adminUsername}</strong> pourra se connecter immédiatement.
           </p>
         ) : null}

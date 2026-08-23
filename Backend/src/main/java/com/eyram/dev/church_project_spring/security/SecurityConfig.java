@@ -26,6 +26,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
+import org.springframework.security.web.header.writers.StaticHeadersWriter;
 import org.springframework.web.cors.CorsConfigurationSource;
 
 @Configuration
@@ -82,7 +83,8 @@ public class SecurityConfig {
                     headers.referrerPolicy(referrer -> referrer.policy(
                             ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER
                     ));
-                    headers.permissionsPolicy(permissions -> permissions.policy(
+                    headers.addHeaderWriter(new StaticHeadersWriter(
+                            "Permissions-Policy",
                             "camera=(), microphone=(), geolocation=()"
                     ));
                     headers.contentSecurityPolicy(csp -> csp.policyDirectives(

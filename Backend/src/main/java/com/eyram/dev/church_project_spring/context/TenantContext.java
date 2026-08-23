@@ -1,5 +1,7 @@
 package com.eyram.dev.church_project_spring.context;
 
+import java.util.function.Supplier;
+
 /**
  * TenantContext — Gestionnaire du tenant actif par requête
  *
@@ -53,5 +55,26 @@ public class TenantContext {
 
     public static void clear() {
         CURRENT_TENANT.remove();
+    }
+
+    /**
+     * Exécute une lecture explicitement globale sans laisser fuiter le contexte
+     * courant. À réserver aux endpoints publics ou aux traitements plateforme.
+     */
+    public static <T> T withoutTenant(Supplier<T> action) {
+        if (action == null) {
+            throw new IllegalArgumentException("L’action à exécuter est obligatoire");
+        }
+        Long previousTenant = CURRENT_TENANT.get();
+        CURRENT_TENANT.remove();
+        try {
+            return action.get();
+        } finally {
+            if (previousTenant == null) {
+                CURRENT_TENANT.remove();
+            } else {
+                CURRENT_TENANT.set(previousTenant);
+            }
+        }
     }
 }

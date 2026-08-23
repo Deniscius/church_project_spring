@@ -44,6 +44,7 @@ const platformMenu = [
   { to: ROUTES.SAAS_PRICING, label: 'Tarification SaaS', icon: 'pricing', permission: PERMISSIONS.SAAS_PLAN_READ },
   { to: ROUTES.REVERSEMENTS, label: 'Reversements', icon: 'payments', permission: PERMISSIONS.FINANCE_READ },
   { to: ROUTES.PLATFORM_DEMANDES, label: 'Audit demandes', icon: 'requests', permission: PERMISSIONS.DEMAND_AUDIT },
+  { to: ROUTES.ADMINISTRATIVE_AUDIT, label: 'Journal administratif', icon: 'requests', permission: PERMISSIONS.ADMINISTRATIVE_AUDIT_READ },
   { to: ROUTES.CATALOGUE_MODELE, label: 'Catalogue', icon: 'pricing', permission: PERMISSIONS.SCHEDULE_MANAGE },
   { to: ROUTES.USERS, label: 'Utilisateurs', icon: 'users', permission: PERMISSIONS.USER_MANAGE },
   { to: ROUTES.PARISH_ACCESS, label: 'Accès paroisses', icon: 'access', permission: PERMISSIONS.PARISH_ACCESS_MANAGE },

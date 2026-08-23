@@ -29,6 +29,8 @@ public record UpcomingCelebrationResponse(
         StatutPaiementEnum statutPaiement,
         boolean celebre,
         LocalDateTime celebreAt,
-        boolean modifiable
+        boolean modifiable,
+        boolean disponible,
+        String indisponibiliteMotif
 ) {
 }

@@ -4,15 +4,50 @@ updates:
     directory: /Backend
     schedule:
       interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Africa/Lome
+    groups:
+      backend-dependencies:
+        patterns:
+          - "*"
     open-pull-requests-limit: 5
 
   - package-ecosystem: npm
     directory: /Frontend/church-frontend
     schedule:
       interval: weekly
+      day: monday
+      time: "06:15"
+      timezone: Africa/Lome
+    groups:
+      frontend-dependencies:
+        patterns:
+          - "*"
     open-pull-requests-limit: 5
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: monthly
+      day: monday
+      time: "06:30"
+      timezone: Africa/Lome
+    groups:
+      ci-actions:
+        patterns:
+          - "*"
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: docker
+    directory: /Backend
+    schedule:
+      interval: monthly
+      day: monday
+      time: "06:45"
+      timezone: Africa/Lome
+    groups:
+      backend-container:
+        patterns:
+          - "*"
+    open-pull-requests-limit: 3

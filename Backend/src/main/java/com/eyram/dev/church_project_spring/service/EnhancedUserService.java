@@ -880,6 +880,7 @@ public class EnhancedUserService {
         validatePasswordLength(request.newPassword());
 
         user.setPassword(passwordEncoder.encode(request.newPassword()));
+        user.setTokenVersion(user.getTokenVersion() == null ? 1L : user.getTokenVersion() + 1L);
         userRepository.save(user);
         log.info("Mot de passe changé en libre-service : {}", user.getUsername());
     }

@@ -1,6 +1,7 @@
 package com.eyram.dev.church_project_spring.controller;
 
 import com.eyram.dev.church_project_spring.DTO.request.HoraireRequest;
+import com.eyram.dev.church_project_spring.context.TenantContext;
 import com.eyram.dev.church_project_spring.DTO.request.ProgrammeJourUpdateRequest;
 import com.eyram.dev.church_project_spring.DTO.response.HoraireResponse;
 import com.eyram.dev.church_project_spring.DTO.response.ParoisseHorairesPublicResponse;
@@ -48,7 +49,9 @@ public class HoraireController {
 
     @GetMapping("/public/paroisses-actives")
     public ResponseEntity<List<ParoisseHorairesPublicResponse>> listPublicForActiveParishes() {
-        return ResponseEntity.ok(horaireService.listPublicHorairesForActiveParishes());
+        return ResponseEntity.ok(TenantContext.withoutTenant(
+                horaireService::listPublicHorairesForActiveParishes
+        ));
     }
 
     @GetMapping("/{publicId}")
@@ -60,7 +63,9 @@ public class HoraireController {
     /** Public : horaires actifs d'une paroisse. */
     @GetMapping("/paroisse/{paroissePublicId}")
     public ResponseEntity<List<HoraireResponse>> getByParoisse(@PathVariable UUID paroissePublicId) {
-        return ResponseEntity.ok(horaireService.getByParoisse(paroissePublicId));
+        return ResponseEntity.ok(TenantContext.withoutTenant(
+                () -> horaireService.getByParoisse(paroissePublicId)
+        ));
     }
 
     /** Public : programme résolu (défaut hebdomadaire + exceptions de date). */
@@ -70,7 +75,9 @@ public class HoraireController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate debut,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fin
     ) {
-        return ResponseEntity.ok(horaireService.getProgramme(paroissePublicId, debut, fin));
+        return ResponseEntity.ok(TenantContext.withoutTenant(
+                () -> horaireService.getProgramme(paroissePublicId, debut, fin)
+        ));
     }
 
     @PutMapping("/paroisse/{paroissePublicId}/programme/{date}")

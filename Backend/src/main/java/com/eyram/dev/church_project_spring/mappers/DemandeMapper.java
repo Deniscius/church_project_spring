@@ -31,6 +31,7 @@ public interface DemandeMapper {
     @Mapping(target = "horaire", ignore = true)
     @Mapping(target = "user", ignore = true)
     @Mapping(target = "typePaiement", ignore = true)
+    @Mapping(target = "lastUnpaidReminderAt", ignore = true)
     Demande dtoToModel(DemandeRequest request);
 
     @Mapping(target = "paroissePublicId", source = "paroisse.publicId")
@@ -39,6 +40,11 @@ public interface DemandeMapper {
     @Mapping(target = "typeDemandeLibelle", source = "typeDemande.libelle")
     @Mapping(target = "forfaitTarifPublicId", source = "forfaitTarif.publicId")
     @Mapping(target = "forfaitTarifNom", source = "forfaitTarif.nomForfait")
+    @Mapping(target = "natureForfait", source = "forfaitTarif.natureForfait")
+    @Mapping(target = "validationRequise", ignore = true)
+    @Mapping(target = "paiementDisponible", ignore = true)
+    @Mapping(target = "paiementIndisponibleMotif", ignore = true)
+    @Mapping(target = "premiereCelebrationAt", ignore = true)
     @Mapping(target = "horairePublicId", source = "horaire.publicId")
     @Mapping(target = "horaireLibelle", source = "horaire.libelle")
     @Mapping(target = "horaireHeure", source = "horaire.heureCelebration")
@@ -48,6 +54,7 @@ public interface DemandeMapper {
     @Mapping(target = "typePaiementLibelle", source = "typePaiement.libelle")
     @Mapping(target = "modePaiement", source = "typePaiement.mode")
     @Mapping(target = "datesCelebration", ignore = true)
+    @Mapping(target = "celebrationSlots", ignore = true)
     @Mapping(target = "facturePublicId", ignore = true)
     @Mapping(target = "refFacture", ignore = true)
     @Mapping(target = "dateDetailsPaiement", ignore = true)
@@ -75,5 +82,6 @@ public interface DemandeMapper {
     @Mapping(target = "horaire", ignore = true)
     @Mapping(target = "user", ignore = true)
     @Mapping(target = "typePaiement", ignore = true)
+    @Mapping(target = "lastUnpaidReminderAt", ignore = true)
     void updateEntityFromDto(DemandeRequest request, @MappingTarget Demande entity);
 }

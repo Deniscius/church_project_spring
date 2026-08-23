@@ -3,8 +3,10 @@ package com.eyram.dev.church_project_spring.repositories;
 import com.eyram.dev.church_project_spring.entities.Doyenne;
 import com.eyram.dev.church_project_spring.entities.Paroisse;
 import com.eyram.dev.church_project_spring.enums.StatutTenant;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -17,6 +19,18 @@ public interface ParoisseRepository extends JpaRepository<Paroisse, Long> {
 
     @EntityGraph(attributePaths = {"doyenne"})
     Optional<Paroisse> findByPublicIdAndStatusDelFalse(UUID publicId);
+
+    /**
+     * Verrou métier commun aux paiements, activations, prolongations et
+     * résiliations d'une même paroisse.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT p FROM Paroisse p
+            WHERE p.publicId = :publicId
+              AND p.statusDel = false
+            """)
+    Optional<Paroisse> findByPublicIdForUpdate(@Param("publicId") UUID publicId);
 
     @Query("""
             SELECT p FROM Paroisse p

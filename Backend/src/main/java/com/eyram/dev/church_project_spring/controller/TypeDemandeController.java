@@ -1,6 +1,7 @@
 package com.eyram.dev.church_project_spring.controller;
 
 import com.eyram.dev.church_project_spring.DTO.request.TypeDemandeRequest;
+import com.eyram.dev.church_project_spring.context.TenantContext;
 import com.eyram.dev.church_project_spring.DTO.response.TypeDemandeResponse;
 import com.eyram.dev.church_project_spring.enums.TypeDemandeEnum;
 import com.eyram.dev.church_project_spring.service.TypeDemandeService;
@@ -43,7 +44,9 @@ public class TypeDemandeController {
 
     @GetMapping("/paroisse/{paroissePublicId}")
     public ResponseEntity<List<TypeDemandeResponse>> getByParoisse(@PathVariable UUID paroissePublicId) {
-        return ResponseEntity.ok(typeDemandeService.getByParoisse(paroissePublicId));
+        return ResponseEntity.ok(TenantContext.withoutTenant(
+                () -> typeDemandeService.getByParoisse(paroissePublicId)
+        ));
     }
 
     @GetMapping("/type/{typeDemandeEnum}")
@@ -56,7 +59,9 @@ public class TypeDemandeController {
             @PathVariable UUID paroissePublicId,
             @PathVariable TypeDemandeEnum typeDemandeEnum
     ) {
-        return ResponseEntity.ok(typeDemandeService.getByParoisseAndTypeDemandeEnum(paroissePublicId, typeDemandeEnum));
+        return ResponseEntity.ok(TenantContext.withoutTenant(
+                () -> typeDemandeService.getByParoisseAndTypeDemandeEnum(paroissePublicId, typeDemandeEnum)
+        ));
     }
 
     @DeleteMapping("/{publicId}")

@@ -8,6 +8,8 @@ import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -83,6 +85,31 @@ public class StoredFileService {
                 "logos/" + paroissePublicId,
                 optimized.extension()
         );
+    }
+
+    /**
+     * Programme la suppression après commit afin qu'un rollback SQL ne laisse
+     * jamais la base pointer vers un fichier déjà supprimé.
+     */
+    public void deleteAfterCommit(String... relativePaths) {
+        Runnable cleanup = () -> {
+            if (relativePaths == null) {
+                return;
+            }
+            for (String relativePath : relativePaths) {
+                deleteQuietly(relativePath);
+            }
+        };
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            cleanup.run();
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                cleanup.run();
+            }
+        });
     }
 
     public void deleteQuietly(String relativePath) {

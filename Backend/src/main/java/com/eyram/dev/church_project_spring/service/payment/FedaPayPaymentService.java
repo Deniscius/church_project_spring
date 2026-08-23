@@ -11,6 +11,7 @@ import com.eyram.dev.church_project_spring.enums.StatutPaiementEnum;
 import com.eyram.dev.church_project_spring.repositories.DemandeRepository;
 import com.eyram.dev.church_project_spring.repositories.DetailsPaiementRepository;
 import com.eyram.dev.church_project_spring.repositories.FactureRepository;
+import com.eyram.dev.church_project_spring.service.DemandePaymentEligibilityService;
 import com.eyram.dev.church_project_spring.service.accounting.ParishLedgerService;
 import com.eyram.dev.church_project_spring.service.billing.SubscriptionBillingService;
 import com.eyram.dev.church_project_spring.service.payment.fedapay.FedaPayClient;
@@ -57,6 +58,7 @@ public class FedaPayPaymentService {
     private final ParishLedgerService parishLedgerService;
     private final SubscriptionBillingService subscriptionBillingService;
     private final TransactionTemplate transactionTemplate;
+    private final DemandePaymentEligibilityService demandePaymentEligibilityService;
 
     @Transactional(readOnly = true)
     public PaymentFeeBreakdown quoteByTrackingCode(String codeSuivie) {
@@ -165,10 +167,18 @@ public class FedaPayPaymentService {
                     .orElse(null);
         });
 
-        String txId = StringUtils.hasText(providerTransactionIdHint)
-                ? providerTransactionIdHint.trim()
-                : (details != null ? details.getIdTransaction() : null);
+        String storedTransactionId = details != null ? details.getIdTransaction() : null;
+        if (StringUtils.hasText(providerTransactionIdHint)) {
+            String hintedTransactionId = providerTransactionIdHint.trim();
+            if (!StringUtils.hasText(storedTransactionId)
+                    || !storedTransactionId.equals(hintedTransactionId)) {
+                throw new BusinessRuleException(
+                        "La transaction reçue ne correspond pas à cette facture"
+                );
+            }
+        }
 
+        String txId = storedTransactionId;
         if (StringUtils.hasText(txId)) {
             String remoteStatus = fetchRemoteStatus(txId);
             if (isApprovedStatus(remoteStatus)) {
@@ -187,13 +197,6 @@ public class FedaPayPaymentService {
         ModePaiement mode = resolveMode(demande);
         PaymentFeeBreakdown fees = feeCalculator.calculate(facture.getMontant(), mode);
 
-        if (mode == ModePaiement.ESPECES) {
-            return CheckoutPrep.done(checkoutResponse(
-                    demande, mode, fees, false, null, null,
-                    "Paiement au comptant en paroisse — aucun paiement en ligne."
-            ));
-        }
-
         if (demande.getStatutPaiement() == StatutPaiementEnum.PAYE
                 || facture.getStatutPaiement() == StatutPaiementEnum.PAYE) {
             DetailsPaiement existing = detailsPaiementRepository
@@ -204,6 +207,15 @@ public class FedaPayPaymentService {
                     existing != null ? existing.getPaymentUrl() : null,
                     existing != null ? existing.getIdTransaction() : null,
                     "Paiement déjà confirmé."
+            ));
+        }
+
+        demandePaymentEligibilityService.assertCanStartPayment(demande);
+
+        if (mode == ModePaiement.ESPECES) {
+            return CheckoutPrep.done(checkoutResponse(
+                    demande, mode, fees, false, null, null,
+                    "Paiement au comptant en paroisse — aucun paiement en ligne."
             ));
         }
 
@@ -260,6 +272,7 @@ public class FedaPayPaymentService {
     ) {
         Demande demande = requireDemande(prep.codeSuivie());
         Facture facture = requireFacture(demande);
+        demandePaymentEligibilityService.assertCanStartPayment(demande);
 
         DetailsPaiement details = prep.existingDetailsId() != null
                 ? detailsPaiementRepository.findById(prep.existingDetailsId()).orElseGet(DetailsPaiement::new)
@@ -296,6 +309,7 @@ public class FedaPayPaymentService {
     ) {
         Demande demande = requireDemande(prep.codeSuivie());
         Facture facture = requireFacture(demande);
+        demandePaymentEligibilityService.assertCanStartPayment(demande);
         DetailsPaiement details = prep.existingDetailsId() != null
                 ? detailsPaiementRepository.findById(prep.existingDetailsId()).orElse(null)
                 : detailsPaiementRepository.findByFacturePublicId(facture.getPublicId()).orElse(null);

@@ -58,6 +58,8 @@ public class CelebrationController {
         String filename = "feuille-intentions-" + date + ".pdf";
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .header(HttpHeaders.CACHE_CONTROL, "no-store, private")
+                .header(HttpHeaders.PRAGMA, "no-cache")
                 .contentType(MediaType.APPLICATION_PDF)
                 .body(pdf);
     }

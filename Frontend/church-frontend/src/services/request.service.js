@@ -73,12 +73,13 @@ export const requestService = {
    * Public : reçu PDF.
    * Requête GET CORS simple, sans cookie ni header CSRF inutile.
    */
-  fetchReceiptPdf: async (code) => {
+  fetchReceiptPdf: async (code, options = {}) => {
     const headers = { Accept: 'application/pdf' };
     const clientOptions = {
       auth: false,
       parse: 'blob',
       credentials: 'omit',
+      signal: options.signal,
     };
 
     try {
@@ -99,7 +100,7 @@ export const requestService = {
     }
   },
 
-  /** Étape 1 : téléphone (E.164) → codes directs, ou OTP e-mail si adresse liée. */
+  /** Étape 1 : téléphone (E.164) → réponse uniforme ; résultats uniquement après OTP. */
   lookupByPhone: (telephone) =>
     apiClient(
       '/demandes/suivi/par-telephone',

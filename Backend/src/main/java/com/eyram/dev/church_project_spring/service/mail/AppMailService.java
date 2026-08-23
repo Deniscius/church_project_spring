@@ -42,10 +42,10 @@ public class AppMailService {
         try {
             doSend(to, subject, body);
         } catch (BusinessRuleException ex) {
-            log.error("E-mail non envoyé (fail-closed) vers {}: {}", to, ex.getMessage());
+            log.error("E-mail non envoyé (fail-closed) vers {}: {}", maskRecipient(to), ex.getMessage());
             throw ex;
         } catch (Exception ex) {
-            log.error("Échec envoi e-mail async vers {}: {}", to, ex.getMessage());
+            log.error("Échec envoi e-mail async vers {}: {}", maskRecipient(to), ex.getMessage());
             if (failClosed) {
                 throw new BusinessRuleException(
                         "Service e-mail indisponible. Réessayez plus tard ou contactez le support."
@@ -65,14 +65,11 @@ public class AppMailService {
                         "Service e-mail non configuré. Contactez l'administrateur de la plateforme."
                 );
             }
-            log.info("""
-                    [MAIL-DEV] SMTP non configuré — message non expédié
-                    To: {}
-                    Subject: {}
-                    ---
-                    {}
-                    ---
-                    """, to, subject, redactBodyForLog(body));
+            log.info(
+                    "[MAIL-DEV] SMTP non configuré — message non expédié vers {} (sujet: {})",
+                    maskRecipient(to),
+                    subject
+            );
             return;
         }
         SimpleMailMessage message = new SimpleMailMessage();
@@ -81,17 +78,18 @@ public class AppMailService {
         message.setSubject(subject);
         message.setText(body);
         sender.send(message);
-        log.info("E-mail envoyé à {}", to);
+        log.info("E-mail envoyé à {}", maskRecipient(to));
     }
 
-    /** Évite de journaliser OTP / mots de passe en clair même en mode dev. */
-    static String redactBodyForLog(String body) {
-        if (body == null) {
-            return "";
+    static String maskRecipient(String value) {
+        if (!StringUtils.hasText(value)) {
+            return "[absent]";
         }
-        return body
-                .replaceAll("(?i)(mot de passe temporaire\\s*:\\s*)\\S+", "$1[REDACTED]")
-                .replaceAll("(?i)(code(?: de (?:vérification|suivi))?\\s*:\\s*)\\d{4,8}", "$1[REDACTED]")
-                .replaceAll("(?i)(votre code[^:]*:\\s*)\\d{4,8}", "$1[REDACTED]");
+        String normalized = value.trim();
+        int at = normalized.indexOf('@');
+        if (at <= 0) {
+            return normalized.substring(0, Math.min(2, normalized.length())) + "***";
+        }
+        return normalized.substring(0, 1) + "***" + normalized.substring(at);
     }
 }

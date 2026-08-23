@@ -1,6 +1,7 @@
 package com.eyram.dev.church_project_spring.utils.exception;
 
 import java.util.Date;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.springframework.dao.DataIntegrityViolationException;
@@ -89,14 +90,13 @@ public class GlobalExceptionHandler {
                 .stream()
                 .map(error -> {
                     if (error instanceof FieldError fieldError) {
-                        Object rejectedValue = fieldError.getRejectedValue();
                         String fieldName = fieldError.getField();
                         String message = fieldError.getDefaultMessage();
                         if (fieldName == null || fieldName.isBlank()) {
                             fieldName = "champ";
                         }
                         if (message == null || message.isBlank()) {
-                            message = rejectedValue != null ? "Valeur invalide: " + rejectedValue : "Valeur invalide";
+                            message = "Valeur invalide";
                         }
                         return fieldName + ": " + message;
                     }
@@ -192,8 +192,9 @@ public class GlobalExceptionHandler {
             AuthenticationServiceException ex,
             WebRequest request
     ) {
-        log.error("Authentication service failure on {}", request.getDescription(false), ex);
-        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, INTERNAL_ERROR_MESSAGE, request);
+        String traceId = UUID.randomUUID().toString();
+        log.error("Authentication service failure on {} [traceId={}]", request.getDescription(false), traceId, ex);
+        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, INTERNAL_ERROR_MESSAGE, request, traceId);
     }
 
     @ExceptionHandler(Exception.class)
@@ -201,14 +202,24 @@ public class GlobalExceptionHandler {
             Exception ex,
             WebRequest request
     ) {
-        log.error("Unhandled exception on {}", request.getDescription(false), ex);
-        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, INTERNAL_ERROR_MESSAGE, request);
+        String traceId = UUID.randomUUID().toString();
+        log.error("Unhandled exception on {} [traceId={}]", request.getDescription(false), traceId, ex);
+        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, INTERNAL_ERROR_MESSAGE, request, traceId);
     }
 
     private ResponseEntity<ErrorMessage> buildResponse(
             HttpStatus status,
             String message,
             WebRequest request
+    ) {
+        return buildResponse(status, message, request, UUID.randomUUID().toString());
+    }
+
+    private ResponseEntity<ErrorMessage> buildResponse(
+            HttpStatus status,
+            String message,
+            WebRequest request,
+            String traceId
     ) {
         String path = request.getDescription(false);
         if (path != null && path.startsWith("uri=")) {
@@ -219,8 +230,11 @@ public class GlobalExceptionHandler {
                 status.value(),
                 new Date(),
                 message,
-                path
+                path,
+                traceId
         );
-        return ResponseEntity.status(status).body(response);
+        return ResponseEntity.status(status)
+                .header("X-Request-Id", traceId)
+                .body(response);
     }
 }

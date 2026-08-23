@@ -7,14 +7,17 @@ import com.eyram.dev.church_project_spring.entities.DemandeDate;
 import com.eyram.dev.church_project_spring.mappers.DemandeDateMapper;
 import com.eyram.dev.church_project_spring.repositories.DemandeDateRepository;
 import com.eyram.dev.church_project_spring.repositories.DemandeRepository;
+import com.eyram.dev.church_project_spring.service.DemandeSchedulingPolicy;
 import com.eyram.dev.church_project_spring.security.TenantAccessService;
 import com.eyram.dev.church_project_spring.service.DemandeDateService;
 import com.eyram.dev.church_project_spring.utils.exception.AlreadyExistException;
+import com.eyram.dev.church_project_spring.utils.exception.BusinessRuleException;
 import com.eyram.dev.church_project_spring.utils.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -27,6 +30,7 @@ public class DemandeDateServiceImpl implements DemandeDateService {
     private final DemandeRepository demandeRepository;
     private final DemandeDateMapper demandeDateMapper;
     private final TenantAccessService tenantAccessService;
+    private final DemandeSchedulingPolicy schedulingPolicy;
 
     @Override
     public DemandeDateResponse create(DemandeDateRequest request) {
@@ -34,6 +38,7 @@ public class DemandeDateServiceImpl implements DemandeDateService {
         Demande demande = demandeRepository.findByPublicIdAndStatusDelFalse(request.demandePublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Demande introuvable"));
         tenantAccessService.checkParoisseAccess(demande.getParoisse());
+        validateSchedule(demande, request.dateCelebration(), resolveTime(demande));
 
         if (demandeDateRepository.existsByDemandeAndOrdreAndStatusDelFalse(demande, request.ordre())) {
             throw new AlreadyExistException("Cet ordre existe déjà pour cette demande");
@@ -45,6 +50,8 @@ public class DemandeDateServiceImpl implements DemandeDateService {
 
         DemandeDate demandeDate = demandeDateMapper.dtoToModel(request);
         demandeDate.setDemande(demande);
+        demandeDate.setHoraire(demande.getHoraire());
+        demandeDate.setHeurePersonnalisee(demande.getHeurePersonnalisee());
 
         DemandeDate savedDemandeDate = demandeDateRepository.save(demandeDate);
         return demandeDateMapper.modelToDto(savedDemandeDate);
@@ -60,6 +67,7 @@ public class DemandeDateServiceImpl implements DemandeDateService {
         Demande demande = demandeRepository.findByPublicIdAndStatusDelFalse(request.demandePublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Demande introuvable"));
         tenantAccessService.checkParoisseAccess(demande.getParoisse());
+        validateSchedule(demande, request.dateCelebration(), resolveTime(existingDemandeDate));
 
         boolean ordreChanged =
                 !existingDemandeDate.getOrdre().equals(request.ordre()) ||
@@ -105,9 +113,9 @@ public class DemandeDateServiceImpl implements DemandeDateService {
 
     @Override
     public List<DemandeDateResponse> getByDemande(UUID demandePublicId) {
-        // Endpoint public (suivi) : pas de contrôle tenant.
         Demande demande = demandeRepository.findByPublicIdAndStatusDelFalse(demandePublicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Demande introuvable"));
+        tenantAccessService.checkParoisseAccess(demande.getParoisse());
 
         return demandeDateRepository.findByDemandeAndStatusDelFalseOrderByOrdreAsc(demande)
                 .stream()
@@ -121,7 +129,41 @@ public class DemandeDateServiceImpl implements DemandeDateService {
                 .orElseThrow(() -> new ResourceNotFoundException("Date de demande introuvable"));
         tenantAccessService.checkParoisseAccess(demandeDate.getDemande().getParoisse());
 
+        if (Boolean.TRUE.equals(demandeDate.getCelebre())) {
+            throw new BusinessRuleException("Une célébration déjà confirmée ne peut pas être supprimée");
+        }
+        if (demandeDate.getDemande().getStatutPaiement()
+                == com.eyram.dev.church_project_spring.enums.StatutPaiementEnum.PAYE) {
+            throw new BusinessRuleException(
+                    "Une date déjà payée ne peut pas être supprimée sans procédure de remboursement"
+            );
+        }
+
         demandeDate.setStatusDel(true);
         demandeDateRepository.save(demandeDate);
     }
+    private void validateSchedule(Demande demande, java.time.LocalDate date, LocalTime time) {
+        Integer leadHours = demande.getTypeDemande() != null
+                ? demande.getTypeDemande().getDelaiMinimumHeures()
+                : null;
+        schedulingPolicy.validate(date, time, leadHours);
+    }
+
+    private LocalTime resolveTime(Demande demande) {
+        if (demande.getHeurePersonnalisee() != null) {
+            return demande.getHeurePersonnalisee();
+        }
+        return demande.getHoraire() != null ? demande.getHoraire().getHeureCelebration() : null;
+    }
+
+    private LocalTime resolveTime(DemandeDate demandeDate) {
+        if (demandeDate.getHeurePersonnalisee() != null) {
+            return demandeDate.getHeurePersonnalisee();
+        }
+        if (demandeDate.getHoraire() != null) {
+            return demandeDate.getHoraire().getHeureCelebration();
+        }
+        return resolveTime(demandeDate.getDemande());
+    }
+
 }

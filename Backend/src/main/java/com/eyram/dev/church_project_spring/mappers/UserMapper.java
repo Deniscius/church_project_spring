@@ -17,6 +17,7 @@ public interface UserMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "statusDel", ignore = true)
+    @Mapping(target = "tokenVersion", ignore = true)
     User toEntity(UserRequest request);
 
     default UserResponse toResponse(User user) {
@@ -43,6 +44,7 @@ public interface UserMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "statusDel", ignore = true)
+    @Mapping(target = "tokenVersion", ignore = true)
     @Mapping(
             target = "role",
             expression = "java(request.role() != null ? request.role() : user.getRole())"

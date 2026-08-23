@@ -1,5 +1,7 @@
 package com.eyram.dev.church_project_spring.config;
 
+import com.eyram.dev.church_project_spring.context.TenantContext;
+
 import com.eyram.dev.church_project_spring.service.billing.SubscriptionBillingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,7 +35,7 @@ public class SubscriptionExpiryJob implements ApplicationRunner {
 
     private void sweep(String origine) {
         try {
-            int changed = subscriptionBillingService.sweepEcheances();
+            int changed = TenantContext.withoutTenant(subscriptionBillingService::sweepEcheances);
             if (changed > 0) {
                 log.info("Balayage {} des échéances : {} état(s) mis à jour", origine, changed);
             }

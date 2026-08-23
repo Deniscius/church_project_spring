@@ -1,9 +1,5 @@
 package com.eyram.dev.church_project_spring.utils.exception;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
 import java.util.Date;
 
 
@@ -12,15 +8,21 @@ public class ErrorMessage {
     private Date timestamp;
     private String message;
     private String details;
+    private String traceId;
 
     public ErrorMessage() {
     }
 
     public ErrorMessage(int statusCode, Date timestamp, String message, String details) {
+        this(statusCode, timestamp, message, details, null);
+    }
+
+    public ErrorMessage(int statusCode, Date timestamp, String message, String details, String traceId) {
         this.statusCode = statusCode;
         this.timestamp = timestamp;
         this.message = message;
         this.details = details;
+        this.traceId = traceId;
     }
 
     public int getStatusCode() {
@@ -53,5 +55,13 @@ public class ErrorMessage {
 
     public void setDetails(String details) {
         this.details = details;
+    }
+
+    public String getTraceId() {
+        return traceId;
+    }
+
+    public void setTraceId(String traceId) {
+        this.traceId = traceId;
     }
 }

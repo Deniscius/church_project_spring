@@ -1,6 +1,7 @@
 package com.eyram.dev.church_project_spring.controller;
 
 import com.eyram.dev.church_project_spring.DTO.request.ForfaitTarifRequest;
+import com.eyram.dev.church_project_spring.context.TenantContext;
 import com.eyram.dev.church_project_spring.DTO.response.ForfaitTarifResponse;
 import com.eyram.dev.church_project_spring.service.ForfaitTarifService;
 import jakarta.validation.Valid;
@@ -47,7 +48,9 @@ public class ForfaitTarifController {
 
     @GetMapping("/type-demande/{typeDemandePublicId}/actifs")
     public ResponseEntity<List<ForfaitTarifResponse>> getActiveByTypeDemande(@PathVariable UUID typeDemandePublicId) {
-        return ResponseEntity.ok(forfaitTarifService.getActiveByTypeDemande(typeDemandePublicId));
+        return ResponseEntity.ok(TenantContext.withoutTenant(
+                () -> forfaitTarifService.getActiveByTypeDemande(typeDemandePublicId)
+        ));
     }
 
     @DeleteMapping("/{publicId}")

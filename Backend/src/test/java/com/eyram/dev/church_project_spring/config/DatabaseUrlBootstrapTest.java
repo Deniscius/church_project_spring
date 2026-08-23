@@ -21,6 +21,15 @@ class DatabaseUrlBootstrapTest {
     }
 
     @Test
+    void preservesLiteralPlusInCredentials() {
+        var parsed = DatabaseUrlBootstrap.parse(
+                "postgres://user%2Bprod:p+a%2Bss@localhost:5432/db");
+        assertNotNull(parsed);
+        assertEquals("user+prod", parsed.username());
+        assertEquals("p+a+ss", parsed.password());
+    }
+
+    @Test
     void preservesExistingSslMode() {
         var parsed = DatabaseUrlBootstrap.parse(
                 "postgresql://u:p@localhost:5432/db?sslmode=disable");

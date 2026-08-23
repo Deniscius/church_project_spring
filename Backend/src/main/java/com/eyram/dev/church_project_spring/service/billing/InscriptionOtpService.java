@@ -97,7 +97,15 @@ public class InscriptionOtpService {
         String password = generatePassword();
         String proof = UUID.randomUUID().toString();
         // Mot de passe uniquement en mémoire serveur + e-mail — jamais dans la réponse HTTP.
-        proofs.put(proof, new ProofEntry(email, username, password, Instant.now().plusSeconds(PROOF_TTL_SECONDS)));
+        proofs.put(proof, new ProofEntry(
+                email,
+                username,
+                password,
+                normalizeBinding(prenom),
+                normalizeBinding(nom),
+                normalizeBinding(nomParoisse),
+                Instant.now().plusSeconds(PROOF_TTL_SECONDS)
+        ));
 
         mailService.sendText(
                 email,
@@ -131,14 +139,22 @@ public class InscriptionOtpService {
         );
     }
 
-    public ProofEntry requireValidProof(String emailRaw, String proof, String expectedUsername) {
+    public ProofEntry requireValidProof(
+            String emailRaw,
+            String proof,
+            String expectedUsername,
+            String expectedPrenom,
+            String expectedNom,
+            String expectedNomParoisse
+    ) {
         String email = normalizeEmail(emailRaw);
         if (!StringUtils.hasText(proof)) {
             throw new BusinessRuleException("Vérification e-mail requise (OTP).");
         }
-        ProofEntry entry = proofs.get(proof.strip());
+        String proofKey = proof.strip();
+        ProofEntry entry = proofs.get(proofKey);
         if (entry == null || entry.expiresAt().isBefore(Instant.now())) {
-            proofs.remove(proof);
+            proofs.remove(proofKey);
             throw new BusinessRuleException("Session de vérification expirée. Recommencez la validation OTP.");
         }
         if (!entry.email().equals(email)) {
@@ -147,6 +163,18 @@ public class InscriptionOtpService {
         if (StringUtils.hasText(expectedUsername)
                 && !entry.username().equalsIgnoreCase(expectedUsername.strip())) {
             throw new BusinessRuleException("Identifiant incohérent avec la vérification OTP.");
+        }
+        if (!entry.prenom().equals(normalizeBinding(expectedPrenom))
+                || !entry.nom().equals(normalizeBinding(expectedNom))
+                || !entry.nomParoisse().equals(normalizeBinding(expectedNomParoisse))) {
+            throw new BusinessRuleException(
+                    "L'identité ou la paroisse a changé depuis la vérification OTP. Vérifiez de nouveau l'e-mail."
+            );
+        }
+        if (!proofs.remove(proofKey, entry)) {
+            throw new BusinessRuleException(
+                    "Cette preuve de vérification a déjà été utilisée. Demandez un nouveau code."
+            );
         }
         return entry;
     }
@@ -239,6 +267,12 @@ public class InscriptionOtpService {
         return sb.toString();
     }
 
+    private static String normalizeBinding(String value) {
+        return value == null
+                ? ""
+                : value.strip().replaceAll("\\s+", " ").toLowerCase(Locale.ROOT);
+    }
+
     private static String normalizeEmail(String email) {
         if (!StringUtils.hasText(email)) {
             throw new BusinessRuleException("E-mail personnel requis.");
@@ -253,6 +287,14 @@ public class InscriptionOtpService {
     public record OtpEntry(String code, Instant expiresAt, int attempts) {
     }
 
-    public record ProofEntry(String email, String username, String password, Instant expiresAt) {
+    public record ProofEntry(
+            String email,
+            String username,
+            String password,
+            String prenom,
+            String nom,
+            String nomParoisse,
+            Instant expiresAt
+    ) {
     }
 }

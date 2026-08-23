@@ -75,9 +75,12 @@ public class DemandeSchedulingPolicy {
             if (typeDays != null && !typeDays.isEmpty()) {
                 Set<JourSemaine> intersection = EnumSet.copyOf(forfaitDays);
                 intersection.retainAll(typeDays);
-                if (!intersection.isEmpty()) {
-                    return intersection;
+                if (intersection.isEmpty()) {
+                    throw new BusinessRuleException(
+                            "La configuration du forfait ne partage aucun jour de célébration avec son type de demande"
+                    );
                 }
+                return intersection;
             }
             return EnumSet.copyOf(forfaitDays);
         }

@@ -22,6 +22,7 @@ import com.eyram.dev.church_project_spring.repositories.UserRepository;
 import com.eyram.dev.church_project_spring.service.PlanSaasService;
 import com.eyram.dev.church_project_spring.service.ProfessionalEmailService;
 import com.eyram.dev.church_project_spring.service.accounting.ParishLedgerService;
+import com.eyram.dev.church_project_spring.service.audit.AdministrativeAuditService;
 import com.eyram.dev.church_project_spring.service.mail.AppMailService;
 import com.eyram.dev.church_project_spring.service.storage.StoredFileService;
 import com.eyram.dev.church_project_spring.service.tenant.TenantCatalogBootstrapService;
@@ -29,11 +30,13 @@ import com.eyram.dev.church_project_spring.utils.exception.AlreadyExistException
 import com.eyram.dev.church_project_spring.utils.exception.BusinessRuleException;
 import com.eyram.dev.church_project_spring.utils.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -43,6 +46,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ParoisseInscriptionService {
@@ -61,6 +65,8 @@ public class ParoisseInscriptionService {
     private final InscriptionOtpService inscriptionOtpService;
     private final StoredFileService storedFileService;
     private final AppMailService appMailService;
+    private final TransactionTemplate transactionTemplate;
+    private final AdministrativeAuditService administrativeAuditService;
 
     @Value("${app.demande.public-base-url:http://localhost:5173}")
     private String publicBaseUrl;
@@ -81,7 +87,10 @@ public class ParoisseInscriptionService {
         var proof = inscriptionOtpService.requireValidProof(
                 request.adminEmail(),
                 request.otpProof(),
-                request.adminUsername()
+                request.adminUsername(),
+                request.adminPrenom(),
+                request.adminNom(),
+                request.nomParoisse()
         );
 
         if (userRepository.existsByUsernameIgnoreCaseAndStatusDelFalse(proof.username())
@@ -145,7 +154,6 @@ public class ParoisseInscriptionService {
             }
 
             ParoisseInscriptionResponse response = toResponse(inscriptionRepository.save(inscription));
-            inscriptionOtpService.consumeProof(request.otpProof());
             return response;
         } catch (RuntimeException ex) {
             storedFileService.deleteQuietly(mandatPath);
@@ -176,9 +184,51 @@ public class ParoisseInscriptionService {
                 .toList();
     }
 
-    @Transactional
+    /**
+     * Valide et provisionne le tenant dans une transaction courte, puis crée
+     * le paiement une fois les données durablement validées.
+     */
     public Map<String, Object> approuver(UUID publicId) {
-        ParoisseInscription inscription = inscriptionRepository.findByPublicIdAndStatusDelFalse(publicId)
+        ApprovalResult approved = transactionTemplate.execute(status ->
+                approveInTransaction(publicId)
+        );
+        if (approved == null) {
+            throw new IllegalStateException("Impossible de finaliser l'approbation");
+        }
+
+        Map<String, Object> checkout;
+        try {
+            checkout = subscriptionBillingService.checkout(
+                    approved.paroissePublicId(),
+                    approved.planAbonnement()
+            );
+        } catch (RuntimeException ex) {
+            // L'approbation est déjà validée : ne pas présenter l'opération
+            // comme échouée ni inciter l'administrateur à la rejouer.
+            log.error(
+                    "Dossier {} approuvé, mais création du paiement impossible pour la paroisse {}",
+                    publicId,
+                    approved.paroissePublicId(),
+                    ex
+            );
+            checkout = Map.of(
+                    "paymentUrl", "",
+                    "message", "Dossier approuvé, mais le lien de paiement n'a pas pu être créé. "
+                            + "Vous pouvez le générer depuis la gestion des abonnements."
+            );
+        }
+
+        return Map.of(
+                "inscription", approved.inscription(),
+                "paroissePublicId", approved.paroissePublicId(),
+                "abonnementCheckout", checkout,
+                "emailParoisse", approved.emailParoisse(),
+                "emailAdmin", approved.emailAdmin()
+        );
+    }
+
+    private ApprovalResult approveInTransaction(UUID publicId) {
+        ParoisseInscription inscription = inscriptionRepository.findByPublicIdForUpdate(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Inscription introuvable"));
         if (inscription.getStatut() != StatutInscription.SOUMISE) {
             throw new BusinessRuleException("Cette inscription n'est plus en attente");
@@ -279,26 +329,37 @@ public class ParoisseInscriptionService {
         inscription.setAdminCniPath(null);
         inscription.setAdminPasswordHash(null);
         inscriptionRepository.save(inscription);
-        storedFileService.deleteQuietly(mandatPath);
-        storedFileService.deleteQuietly(cniPath);
-
-        Map<String, Object> checkout = subscriptionBillingService.checkout(
+        storedFileService.deleteAfterCommit(mandatPath, cniPath);
+        administrativeAuditService.record(
+                AdministrativeAuditService.REGISTRATION_APPROVED,
+                "PARISH_REGISTRATION",
+                inscription.getPublicId(),
                 paroisse.getPublicId(),
-                inscription.getPlanAbonnement()
+                "Paroisse=" + inscription.getNomParoisse()
+                        + "; plan=" + inscription.getPlanAbonnement()
         );
 
-        return Map.of(
-                "inscription", toResponse(inscription),
-                "paroissePublicId", paroisse.getPublicId(),
-                "abonnementCheckout", checkout,
-                "emailParoisse", paroisse.getEmail(),
-                "emailAdmin", admin.getEmail()
+        return new ApprovalResult(
+                toResponse(inscription),
+                paroisse.getPublicId(),
+                inscription.getPlanAbonnement(),
+                paroisse.getEmail(),
+                admin.getEmail()
         );
+    }
+
+    private record ApprovalResult(
+            ParoisseInscriptionResponse inscription,
+            UUID paroissePublicId,
+            String planAbonnement,
+            String emailParoisse,
+            String emailAdmin
+    ) {
     }
 
     @Transactional
     public ParoisseInscriptionResponse rejeter(UUID publicId, String motif) {
-        ParoisseInscription inscription = inscriptionRepository.findByPublicIdAndStatusDelFalse(publicId)
+        ParoisseInscription inscription = inscriptionRepository.findByPublicIdForUpdate(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Inscription introuvable"));
         if (inscription.getStatut() != StatutInscription.SOUMISE) {
             throw new BusinessRuleException("Cette inscription n'est plus en attente");
@@ -318,8 +379,14 @@ public class ParoisseInscriptionService {
         inscription.setAdminCniPath(null);
         inscription.setAdminPasswordHash(null);
         ParoisseInscription saved = inscriptionRepository.save(inscription);
-        storedFileService.deleteQuietly(mandatPath);
-        storedFileService.deleteQuietly(cniPath);
+        storedFileService.deleteAfterCommit(mandatPath, cniPath);
+        administrativeAuditService.record(
+                AdministrativeAuditService.REGISTRATION_REJECTED,
+                "PARISH_REGISTRATION",
+                saved.getPublicId(),
+                saved.getParoissePublicId(),
+                "Paroisse=" + saved.getNomParoisse() + "; motif=" + cleanedMotif
+        );
         notifyRejection(saved, cleanedMotif);
         return toResponse(saved);
     }

@@ -18,6 +18,7 @@ import com.eyram.dev.church_project_spring.repositories.FactureRepository;
 import com.eyram.dev.church_project_spring.repositories.ParoisseRepository;
 import com.eyram.dev.church_project_spring.repositories.TypePaiementRepository;
 import com.eyram.dev.church_project_spring.security.TenantAccessService;
+import com.eyram.dev.church_project_spring.service.DemandePaymentEligibilityService;
 import com.eyram.dev.church_project_spring.service.DetailsPaiementService;
 import com.eyram.dev.church_project_spring.service.accounting.ParishLedgerService;
 import com.eyram.dev.church_project_spring.service.payment.FedaPayPaymentService;
@@ -49,6 +50,7 @@ public class DetailsPaiementServiceImpl implements DetailsPaiementService {
     private final TenantAccessService tenantAccessService;
     private final FedaPayPaymentService fedaPayPaymentService;
     private final ParishLedgerService parishLedgerService;
+    private final DemandePaymentEligibilityService demandePaymentEligibilityService;
 
     @Override
     public DetailsPaiementResponse create(DetailsPaiementRequest request) {
@@ -60,6 +62,13 @@ public class DetailsPaiementServiceImpl implements DetailsPaiementService {
                 .orElseThrow(() -> new ResourceNotFoundException("Facture introuvable"));
         checkFactureAccess(facture);
         validatePaymentAmount(facture, request.montant());
+        demandePaymentEligibilityService.assertCanStartPayment(facture.getDemande());
+
+        if (typePaiement.getMode() != ModePaiement.ESPECES) {
+            throw new BusinessRuleException(
+                    "Un paiement électronique doit être confirmé par le fournisseur de paiement"
+            );
+        }
 
         if (facture.getDemande() == null
                 || facture.getDemande().getTypePaiement() == null
@@ -123,6 +132,12 @@ public class DetailsPaiementServiceImpl implements DetailsPaiementService {
                 .orElseThrow(() -> new ResourceNotFoundException("Détail paiement introuvable"));
         checkFactureAccess(detailsPaiement.getFacture());
 
+        if (detailsPaiement.getStatutPaiement() == StatutPaiementEnum.PAYE) {
+            throw new BusinessRuleException(
+                    "Un paiement confirmé est immuable. Utilisez une procédure de remboursement."
+            );
+        }
+
         return detailsPaiementMapper.modelToDto(detailsPaiement);
     }
 
@@ -156,24 +171,25 @@ public class DetailsPaiementServiceImpl implements DetailsPaiementService {
             throw new IllegalArgumentException("Le type de paiement ne correspond pas à la demande");
         }
 
-        detailsPaiementRepository.findByFacturePublicIdAndStatusDelFalse(request.facturePublicId())
-                .ifPresent(existing -> {
-                    if (!existing.getPublicId().equals(publicId)) {
-                        throw new AlreadyExistException("Un détail paiement existe déjà pour cette facture");
-                    }
-                });
+        if (!detailsPaiement.getFacture().getPublicId().equals(facture.getPublicId())) {
+            throw new BusinessRuleException("Un paiement ne peut pas être réaffecté à une autre facture");
+        }
+
+        String transactionId = detailsPaiement.getIdTransaction();
+        StatutPaiementEnum currentStatus = detailsPaiement.getStatutPaiement();
+        LocalDateTime paymentDate = detailsPaiement.getDateDetailsPaiement();
 
         detailsPaiementMapper.dtoToModel(request, detailsPaiement);
         detailsPaiement.setTypePaiement(typePaiement);
         detailsPaiement.setFacture(facture);
+        detailsPaiement.setIdTransaction(transactionId);
+        detailsPaiement.setStatutPaiement(currentStatus);
+        detailsPaiement.setDateDetailsPaiement(paymentDate);
+        detailsPaiement.setMontant(facture.getMontant());
 
-        if (detailsPaiement.getIdTransaction() == null || detailsPaiement.getIdTransaction().isBlank()) {
-            detailsPaiement.setIdTransaction(generateTransactionId(facture));
-        }
-
-        fedaPayPaymentService.applyFeeSnapshot(detailsPaiement, typePaiement.getMode(), request.montant());
+        fedaPayPaymentService.applyFeeSnapshot(detailsPaiement, typePaiement.getMode(), facture.getMontant());
         DetailsPaiement updatedDetailsPaiement = detailsPaiementRepository.save(detailsPaiement);
-        syncPaymentStatus(facture, request.statutPaiement(), request.dateDetailsPaiement());
+        syncPaymentStatus(facture, currentStatus, paymentDate);
 
         return detailsPaiementMapper.modelToDto(updatedDetailsPaiement);
     }
@@ -184,6 +200,12 @@ public class DetailsPaiementServiceImpl implements DetailsPaiementService {
         DetailsPaiement detailsPaiement = detailsPaiementRepository.findByPublicIdAndStatusDelFalse(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Détail paiement introuvable"));
         checkFactureAccess(detailsPaiement.getFacture());
+
+        if (detailsPaiement.getStatutPaiement() == StatutPaiementEnum.PAYE) {
+            throw new BusinessRuleException(
+                    "Un paiement confirmé ne peut pas être supprimé. Utilisez une procédure de remboursement."
+            );
+        }
 
         detailsPaiement.setStatusDel(true);
         detailsPaiementRepository.save(detailsPaiement);
@@ -203,6 +225,7 @@ public class DetailsPaiementServiceImpl implements DetailsPaiementService {
         if (demande.getStatutPaiement() == StatutPaiementEnum.PAYE) {
             throw new BusinessRuleException("Cette demande est déjà payée");
         }
+        demandePaymentEligibilityService.assertCanStartPayment(demande);
 
         TypePaiement especes = typePaiementRepository.findByModeAndStatusDelFalse(ModePaiement.ESPECES)
                 .orElseThrow(() -> new ResourceNotFoundException(

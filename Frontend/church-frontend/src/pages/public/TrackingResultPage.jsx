@@ -20,6 +20,7 @@ import ReceiptPreviewButton from '../../components/ui/ReceiptPreviewButton';
 
 function canOfferPayment(demande) {
   if (!demande?.codeSuivie) return false;
+  if (demande.paiementDisponible === false) return false;
   const statutDemande = String(demande.statutDemande || '').toUpperCase();
   if (statutDemande === 'ANNULEE' || statutDemande === 'REJETEE') return false;
   const statutPaiement = String(demande.statutPaiement || '').toUpperCase();
@@ -57,25 +58,32 @@ export default function TrackingResultPage() {
       setError(null);
       return;
     }
-    let cancelled = false;
+    const controller = new AbortController();
     (async () => {
       try {
         setLoading(true);
         setError(null);
-        const data = await requestService.getByTrackingCode(code);
-        if (!cancelled) setDemande(data);
+        setDemande(null);
+        const data = await requestService.getByTrackingCode(
+          code,
+          { signal: controller.signal }
+        );
+        if (!controller.signal.aborted) setDemande(data);
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Introuvable');
+        if (!controller.signal.aborted) {
+          setError(e instanceof Error ? e.message : 'Introuvable');
+        }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => controller.abort();
   }, [code]);
 
   const offerPayment = canOfferPayment(demande);
+  const paymentUnavailableReason = demande?.paiementIndisponibleMotif || null;
+  const validationRequired = demande?.validationRequise
+    ?? demande?.natureForfait === 'SPECIALE';
   const alreadyPaid = String(demande?.statutPaiement || '').toUpperCase() === 'PAYE';
   const mode = String(demande?.modePaiement || '').toUpperCase();
   const isOnline = mode === 'TMONEY' || mode === 'FLOOZ' || mode === 'CARTE';
@@ -120,8 +128,10 @@ export default function TrackingResultPage() {
           {' '}pour consulter une demande.
         </p>
       ) : null}
-      {loading ? <p className="muted">Chargement…</p> : null}
-      {error ? <p className="text-red-600">{error}</p> : null}
+      {loading ? (
+        <p className="muted" role="status" aria-live="polite">Chargement…</p>
+      ) : null}
+      {error ? <p className="text-red-600" role="alert">{error}</p> : null}
       {demande ? (
         <div className="grid-2">
           <AppCard title="Statuts de la demande">
@@ -161,8 +171,12 @@ export default function TrackingResultPage() {
                 <AppBadge value={demande.statutDemande} />
               </div>
               <div className="info-row">
-                <span>Statut validation</span>
-                <AppBadge value={demande.statutValidation} />
+                <span>Validation</span>
+                {validationRequired ? (
+                  <AppBadge value={demande.statutValidation} />
+                ) : (
+                  <span className="badge badge-success">Non requise</span>
+                )}
               </div>
               <div className="info-row">
                 <span>Statut paiement</span>
@@ -197,13 +211,15 @@ export default function TrackingResultPage() {
                 ? 'Réglez en ligne (Mobile Money / carte). Le paiement au comptant n’est pas proposé ici.'
                 : alreadyPaid
                   ? 'Cette demande est déjà payée.'
-                  : 'Consultation et documents liés à votre demande.'
+                  : paymentUnavailableReason || 'Consultation et documents liés à votre demande.'
             }
           >
             {offerPayment ? (
               <div className="stack" style={{ gap: 12 }}>
                 {quoteLoading && !quote ? (
-                  <p className="muted" style={{ margin: 0 }}>Calcul du total…</p>
+                  <p className="muted" style={{ margin: 0 }} role="status" aria-live="polite">
+                    Calcul du total…
+                  </p>
                 ) : null}
                 {quote ? (
                   <div className="payment-fee-breakdown">
@@ -252,7 +268,13 @@ export default function TrackingResultPage() {
                 </p>
               </div>
             ) : (
-              <div className="button-row">
+              <div className="stack" style={{ gap: 12 }}>
+                {!alreadyPaid && paymentUnavailableReason ? (
+                  <div className="alert-danger" role="status">
+                    {paymentUnavailableReason}
+                  </div>
+                ) : null}
+                <div className="button-row">
                 {alreadyPaid ? (
                   <AppButton
                     type="button"
@@ -273,6 +295,7 @@ export default function TrackingResultPage() {
                 <Link to="/suivi" className="btn btn-secondary" style={{ textDecoration: 'none' }}>
                   Nouvelle consultation
                 </Link>
+                </div>
               </div>
             )}
           </AppCard>

@@ -30,7 +30,14 @@ export default function AppDialog({
   const descId = useId();
   const promptId = useId();
   const dialogRef = useRef(null);
+  const busyRef = useRef(busy);
+  const cancelRef = useRef(onCancel);
   const resolvedVariant = danger ? 'danger' : variant;
+
+  useEffect(() => {
+    busyRef.current = busy;
+    cancelRef.current = onCancel;
+  }, [busy, onCancel]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -38,22 +45,46 @@ export default function AppDialog({
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
-    const node = dialogRef.current;
-    const focusable = node?.querySelector(
-      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled])'
-    );
-    focusable?.focus();
+    const focusableSelector =
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const focusId = window.requestAnimationFrame(() => {
+      const node = dialogRef.current;
+      node?.querySelector(focusableSelector)?.focus();
+      if (node && !node.contains(document.activeElement)) node.focus();
+    });
 
     const onKey = (event) => {
-      if (event.key === 'Escape' && !busy) onCancel?.();
+      if (event.key === 'Escape' && !busyRef.current) {
+        cancelRef.current?.();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+
+      const focusable = [...(dialogRef.current?.querySelectorAll(focusableSelector) || [])];
+      if (!focusable.length) {
+        event.preventDefault();
+        dialogRef.current?.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
+
     document.addEventListener('keydown', onKey);
     return () => {
+      window.cancelAnimationFrame(focusId);
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = prevOverflow;
       if (previous instanceof HTMLElement) previous.focus();
     };
-  }, [open, busy, onCancel]);
+  }, [open]);
 
   if (!open) return null;
 
@@ -66,6 +97,7 @@ export default function AppDialog({
     >
       <div
         ref={dialogRef}
+        tabIndex={-1}
         className={`dialog-panel dialog-panel--${size} dialog-panel--${resolvedVariant}`}
         role="dialog"
         aria-modal="true"

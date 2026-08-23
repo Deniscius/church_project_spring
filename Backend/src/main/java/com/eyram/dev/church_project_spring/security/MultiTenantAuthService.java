@@ -46,7 +46,7 @@ public class MultiTenantAuthService {
         }
 
         String username = request.username().strip().toLowerCase(Locale.ROOT);
-        log.info("Authentication attempt for user: {}", username);
+        log.info("Authentication attempt for user: {}", maskIdentifier(username));
 
         try {
             Authentication authentication = authenticationManager.authenticate(
@@ -77,15 +77,15 @@ public class MultiTenantAuthService {
                     .build();
 
         } catch (BadCredentialsException ex) {
-            log.warn("Failed authentication attempt for user: {} - Bad credentials", request.username());
+            log.warn("Failed authentication attempt for user: {} - Bad credentials", maskIdentifier(request.username()));
             throw new InvalidCredentialsException("Identifiants incorrects");
         } catch (DisabledException ex) {
-            log.warn("Authentication attempt for disabled account: {}", request.username());
+            log.warn("Authentication attempt for disabled account: {}", maskIdentifier(request.username()));
             throw new AccountDisabledException("Compte désactivé. Contactez un administrateur.");
         } catch (InvalidCredentialsException | AccountDisabledException ex) {
             throw ex;
         } catch (AuthenticationServiceException ex) {
-            log.error("Authentication provider failure for user: {}", request.username(), ex);
+            log.error("Authentication provider failure for user: {}", maskIdentifier(request.username()), ex);
             throw ex;
         }
     }
@@ -197,4 +197,13 @@ public class MultiTenantAuthService {
                 .subscriptionExpiresAt(access.getParoisse().getSubscriptionExpiresAt())
                 .build();
     }
+    private static String maskIdentifier(String value) {
+        if (value == null || value.isBlank()) {
+            return "[absent]";
+        }
+        String normalized = value.strip();
+        int visible = Math.min(2, normalized.length());
+        return normalized.substring(0, visible) + "***";
+    }
+
 }

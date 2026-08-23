@@ -13,17 +13,47 @@ jobs:
   backend:
     name: Backend (Maven)
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: church_project_ci
+          POSTGRES_USER: church_ci
+          POSTGRES_PASSWORD: church_ci_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U church_ci -d church_project_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     defaults:
       run:
         working-directory: Backend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
           cache: maven
-      - name: Unit tests
+      - name: Validate Flyway migrations on PostgreSQL
+        run: >-
+          ./mvnw -B
+          -Dflyway.url=jdbc:postgresql://localhost:5432/church_project_ci
+          -Dflyway.user=church_ci
+          -Dflyway.password=church_ci_password
+          flyway:migrate flyway:validate
+      - name: Unit and application smoke tests
+        env:
+          CI_POSTGRES_SMOKE: "true"
+          SPRING_PROFILES_ACTIVE: dev
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/church_project_ci
+          SPRING_DATASOURCE_USERNAME: church_ci
+          SPRING_DATASOURCE_PASSWORD: church_ci_password
+          JWT_SECRET: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+          FEDAPAY_ENABLED: "false"
+          APP_ADMIN_SEED_ENABLED: "false"
         run: ./mvnw -B -DskipITs test
 
   frontend:
@@ -33,14 +63,16 @@ jobs:
       run:
         working-directory: Frontend/church-frontend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: npm
           cache-dependency-path: Frontend/church-frontend/package-lock.json
       - name: Install
         run: npm ci
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
       - name: Lint
         run: npm run lint
       - name: Build

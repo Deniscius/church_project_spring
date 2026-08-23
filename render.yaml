@@ -49,6 +49,10 @@ services:
         value: "10000"
       - key: TOMCAT_MAX_THREADS
         value: "40"
+      - key: JWT_ISSUER
+        value: missanye-api
+      - key: JWT_AUDIENCE
+        value: missanye-web
       - key: JWT_COOKIE_SECURE
         value: "true"
       # *.onrender.com est un public suffix → front et API sont cross-site

@@ -2,28 +2,15 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigationType } from 'react-router-dom';
 
 /**
- * Barre de progression fine en haut de l'écran pendant les navigations /
- * chargements de chunks lazy. Plus légère et lisible qu'un spinner plein écran.
+ * Un cycle est remonté à chaque changement de route grâce à sa key.
+ * Cela réinitialise proprement la progression sans modifier l'état pendant le rendu.
  */
-export default function RouteProgressBar() {
-  const location = useLocation();
-  const navType = useNavigationType();
-  const routeKey = `${location.key}:${navType}`;
-  const [progressKey, setProgressKey] = useState(routeKey);
+function RouteProgressCycle() {
   const [visible, setVisible] = useState(true);
   const [width, setWidth] = useState(12);
   const timersRef = useRef([]);
 
-  if (routeKey !== progressKey) {
-    setProgressKey(routeKey);
-    setVisible(true);
-    setWidth(12);
-  }
-
   useEffect(() => {
-    timersRef.current.forEach((id) => window.clearTimeout(id));
-    timersRef.current = [];
-
     const t1 = window.setTimeout(() => setWidth(55), 80);
     const t2 = window.setTimeout(() => setWidth(78), 220);
     const t3 = window.setTimeout(() => setWidth(92), 480);
@@ -41,7 +28,7 @@ export default function RouteProgressBar() {
       timersRef.current.forEach((id) => window.clearTimeout(id));
       timersRef.current = [];
     };
-  }, [routeKey]);
+  }, []);
 
   if (!visible && width === 0) return null;
 
@@ -57,4 +44,15 @@ export default function RouteProgressBar() {
       <div className="route-progress-bar" style={{ width: `${width}%` }} />
     </div>
   );
+}
+
+/**
+ * Barre de progression fine en haut de l'écran pendant les changements de route.
+ */
+export default function RouteProgressBar() {
+  const location = useLocation();
+  const navType = useNavigationType();
+  const routeKey = `${location.key}:${navType}`;
+
+  return <RouteProgressCycle key={routeKey} />;
 }

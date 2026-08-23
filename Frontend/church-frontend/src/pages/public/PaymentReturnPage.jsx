@@ -65,7 +65,7 @@ export default function PaymentReturnPage() {
     return (
       <div className="stack public-page">
         <PageHeader title="Retour paiement" subtitle="Impossible de reprendre la session." />
-        <p className="text-red-600">{error}</p>
+        <p className="text-red-600" role="alert">{error}</p>
         <Link to="/suivi" className="btn btn-primary" style={{ textDecoration: 'none', width: 'fit-content' }}>
           Aller au suivi
         </Link>

@@ -30,11 +30,3 @@ export function normalizeFormErrors(err) {
 export function sanitizeAuthUsernameInput(value) {
   return String(value ?? '').replace(/^\s+|\s+$/g, '');
 }
-
-/**
- * Mot de passe : retire uniquement les espaces de début/fin
- * (les espaces au milieu restent possibles).
- */
-export function sanitizeAuthPasswordEdges(value) {
-  return String(value ?? '').replace(/^\s+|\s+$/g, '');
-}

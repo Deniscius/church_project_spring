@@ -116,7 +116,7 @@ export default function PublicPaymentPage() {
         subtitle="Mobile Money ou carte via FedaPay. Le paiement au comptant n’est pas proposé sur le suivi."
       />
       {returnBanner ? (
-        <p className="muted">{returnBanner}</p>
+        <p className="muted" role="status" aria-live="polite">{returnBanner}</p>
       ) : null}
       {!codeSuivie && !loading ? (
         <p className="muted">
@@ -126,10 +126,12 @@ export default function PublicPaymentPage() {
         </p>
       ) : null}
       <div className="grid-2">
-        <PublicPaymentCard demande={demande} onStatusMaybeChanged={load} />
+        <PublicPaymentCard demande={demande} loading={loading} onStatusMaybeChanged={load} />
         <AppCard title="Détails">
-          {loading ? <p className="muted">Chargement…</p> : null}
-          {error ? <p className="text-red-600">{error}</p> : null}
+          {loading ? (
+            <p className="muted" role="status" aria-live="polite">Chargement…</p>
+          ) : null}
+          {error ? <p className="text-red-600" role="alert">{error}</p> : null}
           {demande ? (
             <div className="info-list">
               <div className="info-row">

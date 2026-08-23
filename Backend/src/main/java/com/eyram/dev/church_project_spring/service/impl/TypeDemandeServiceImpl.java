@@ -99,6 +99,7 @@ public class TypeDemandeServiceImpl implements TypeDemandeService {
     public TypeDemandeResponse getByPublicId(UUID publicId) {
         TypeDemande typeDemande = typeDemandeRepository.findByPublicIdAndStatusDelFalse(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Type de demande introuvable"));
+        tenantAccessService.checkParoisseAccess(typeDemande.getParoisse());
 
         return typeDemandeMapper.modelToDto(typeDemande);
     }

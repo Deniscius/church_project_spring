@@ -86,6 +86,7 @@ public class ProfessionalEmailService {
     }
 
     /** @deprecated Prefer {@link #platformDomain()} — conservé pour compatibilité. */
+    @Deprecated(forRemoval = false)
     public String parishMailboxDomain(String parishName) {
         return platformDomain();
     }

@@ -25,8 +25,17 @@ public interface ParoisseAccessMapper {
     @Mapping(target = "userNom", source = "user.nom")
     @Mapping(target = "userPrenom", source = "user.prenom")
     @Mapping(target = "username", source = "user.username")
+    @Mapping(target = "userEmail", source = "user.email")
+    @Mapping(target = "userTelephone", source = "user.telephone")
+    @Mapping(target = "userRole", source = "user.role")
+    @Mapping(target = "userActive", source = "user.isActive")
     @Mapping(target = "paroissePublicId", source = "paroisse.publicId")
     @Mapping(target = "paroisseNom", source = "paroisse.nom")
+    @Mapping(target = "paroisseEmail", source = "paroisse.email")
+    @Mapping(target = "paroisseTelephone", source = "paroisse.telephone")
+    @Mapping(target = "doyenneNom", source = "paroisse.doyenne.nom")
+    @Mapping(target = "paroisseActive", source = "paroisse.isActive")
+    @Mapping(target = "paroisseSubscriptionExpiresAt", source = "paroisse.subscriptionExpiresAt")
     ParoisseAccessResponse modelToDto(ParoisseAccess entity);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)

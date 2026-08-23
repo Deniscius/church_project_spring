@@ -79,9 +79,20 @@ public class ParoisseInscriptionController {
     ) {
         Resource resource = inscriptionService.loadDocument(publicId, type);
         String contentType = inscriptionService.documentContentType(publicId, type);
+        String extension = switch (contentType) {
+            case MediaType.APPLICATION_PDF_VALUE -> ".pdf";
+            case MediaType.IMAGE_PNG_VALUE -> ".png";
+            default -> ".jpg";
+        };
+        String normalizedType = type == null ? "" : type.toLowerCase();
+        String filename = normalizedType.contains("cni")
+                ? "piece-identite-administrateur" + extension
+                : "mandat-cure" + extension;
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + type + "\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + filename + "\"")
                 .header(HttpHeaders.CACHE_CONTROL, "private, no-store")
+                .header(HttpHeaders.PRAGMA, "no-cache")
+                .header("X-Content-Type-Options", "nosniff")
                 .contentType(MediaType.parseMediaType(contentType))
                 .body(resource);
     }

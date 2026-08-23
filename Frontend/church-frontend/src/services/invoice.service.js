@@ -5,8 +5,12 @@ export const invoiceService = {
 
   getById: (publicId) => apiClient(`/facture/${publicId}`, {}, { auth: true }),
 
-  getByTrackingCode: (code) =>
-    apiClient(`/facture/code-suivie/${encodeURIComponent(code)}`, {}, { auth: false }),
+  getByTrackingCode: (code, options = {}) =>
+    apiClient(
+      `/facture/code-suivie/${encodeURIComponent(code)}`,
+      {},
+      { auth: false, signal: options.signal }
+    ),
 
   /** Factures de la paroisse (endpoint dédié, sans double fetch global). */
   listForParish: (paroissePublicId, options = {}) =>

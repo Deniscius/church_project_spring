@@ -151,7 +151,7 @@ docker run --rm -p 8081:8081 \
   -e PORT=8081 \
   -e SPRING_PROFILES_ACTIVE=prod \
   -e DATABASE_URL="postgres://user:pass@host:5432/missanye" \
-  -e JWT_SECRET="replace-with-base64-32bytes-minimum-secret!!" \
+  -e JWT_SECRET="MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=" \
   -e APP_CORS_ALLOWED_ORIGINS="http://localhost:5173" \
   -e FEDAPAY_CALLBACK_BASE_URL="http://localhost:5173/paiement" \
   missanye-api

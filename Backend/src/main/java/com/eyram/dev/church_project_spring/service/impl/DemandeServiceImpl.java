@@ -219,12 +219,45 @@ public class DemandeServiceImpl implements DemandeService {
 
         tenantAccessService.checkParoisseAccess(existingDemande.getParoisse());
 
+        if (existingDemande.getStatutDemande() == StatutDemandeEnum.ANNULEE
+                || existingDemande.getStatutDemande() == StatutDemandeEnum.REJETEE
+                || existingDemande.getStatutDemande() == StatutDemandeEnum.TERMINEE) {
+            throw new BusinessRuleException(
+                    "Cette demande est dans un état définitif et ne peut plus être restructurée"
+            );
+        }
+        if (existingDemande.getStatutPaiement() == StatutPaiementEnum.PAYE) {
+            throw new BusinessRuleException(
+                    "Une demande payée ne peut plus changer de paroisse, forfait, montant ou dates"
+            );
+        }
+        if (existingDemande.getStatutPaiement() == StatutPaiementEnum.EN_ATTENTE) {
+            throw new BusinessRuleException(
+                    "Une session de paiement est en cours. Attendez son expiration avant de modifier la demande"
+            );
+        }
+        boolean hasCelebratedSlot = demandeDateRepository
+                .findByDemande_IdAndStatusDelFalse(existingDemande.getId())
+                .stream()
+                .anyMatch(date -> Boolean.TRUE.equals(date.getCelebre()));
+        if (hasCelebratedSlot) {
+            throw new BusinessRuleException(
+                    "Une demande comportant une célébration confirmée ne peut plus être restructurée"
+            );
+        }
+
         Paroisse paroisse = paroisseRepository.findByPublicIdAndStatusDelFalse(request.paroissePublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Paroisse introuvable"));
         requireActive(Boolean.TRUE.equals(paroisse.getIsActive()),
                 "Cette paroisse n'accepte plus de modifications de demandes");
 
         tenantAccessService.checkParoisseAccess(paroisse);
+
+        if (!existingDemande.getParoisse().getPublicId().equals(paroisse.getPublicId())) {
+            throw new BusinessRuleException(
+                    "Une demande ne peut pas être transférée vers une autre paroisse"
+            );
+        }
 
         TypeDemande typeDemande = typeDemandeRepository.findByPublicIdAndStatusDelFalse(request.typeDemandePublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Type de demande introuvable"));

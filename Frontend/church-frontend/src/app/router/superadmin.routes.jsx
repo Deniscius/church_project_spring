@@ -23,6 +23,7 @@ const AbonnementsPage = lazy(() => import('../../pages/superadmin/comptabilite/A
 const CatalogueModelePage = lazy(() => import('../../pages/superadmin/comptabilite/CatalogueModelePage'));
 const PlatformDemandesPage = lazy(() => import('../../pages/superadmin/comptabilite/PlatformDemandesPage'));
 const SaasPricingPage = lazy(() => import('../../pages/superadmin/settings/SaasPricingPage'));
+const AdministrativeAuditPage = lazy(() => import('../../pages/superadmin/audit/AdministrativeAuditPage'));
 
 function LazyOutlet() {
   return (
@@ -52,6 +53,9 @@ export function SuperAdminRoutes() {
             </Route>
             <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.DEMAND_AUDIT]} />}>
               <Route path={ROUTES.PLATFORM_DEMANDES} element={<PlatformDemandesPage />} />
+            </Route>
+            <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.ADMINISTRATIVE_AUDIT_READ]} />}>
+              <Route path={ROUTES.ADMINISTRATIVE_AUDIT} element={<AdministrativeAuditPage />} />
             </Route>
             <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.SAAS_PLAN_READ]} />}>
               <Route path={ROUTES.SAAS_PRICING} element={<SaasPricingPage />} />

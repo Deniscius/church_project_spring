@@ -8,14 +8,17 @@ import TenantInterventionBanner from '../components/admin/TenantInterventionBann
 export default function AdminLayout() {
   return (
     <div className="admin-shell">
+      <a className="skip-link" href="#contenu-principal-admin">
+        Aller au contenu
+      </a>
       <Sidebar />
       <div className="admin-main">
         <Topbar />
-        <div className="page-section">
+        <main id="contenu-principal-admin" className="page-section">
           <TenantInterventionBanner />
           <SubscriptionBanner />
           <Outlet />
-        </div>
+        </main>
       </div>
     </div>
   );

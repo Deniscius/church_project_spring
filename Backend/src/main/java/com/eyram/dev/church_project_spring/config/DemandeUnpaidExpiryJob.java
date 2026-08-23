@@ -1,5 +1,7 @@
 package com.eyram.dev.church_project_spring.config;
 
+import com.eyram.dev.church_project_spring.context.TenantContext;
+
 import com.eyram.dev.church_project_spring.service.DemandeService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -49,7 +51,7 @@ public class DemandeUnpaidExpiryJob implements ApplicationRunner {
 
     private void remind(String origine) {
         try {
-            int sent = demandeService.remindUnpaidApproachingCelebrations();
+            int sent = TenantContext.withoutTenant(demandeService::remindUnpaidApproachingCelebrations);
             if (sent > 0) {
                 log.info("Rappels {} des impayés : {} e-mail(s) envoyé(s)", origine, sent);
             }
@@ -60,7 +62,7 @@ public class DemandeUnpaidExpiryJob implements ApplicationRunner {
 
     private void sweepCancel(String origine) {
         try {
-            int cancelled = demandeService.cancelUnpaidApproachingCelebrations();
+            int cancelled = TenantContext.withoutTenant(demandeService::cancelUnpaidApproachingCelebrations);
             if (cancelled > 0) {
                 log.info("Balayage {} des impayés : {} demande(s) annulée(s)", origine, cancelled);
             }

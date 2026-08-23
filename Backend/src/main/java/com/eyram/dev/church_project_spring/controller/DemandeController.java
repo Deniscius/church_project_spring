@@ -123,6 +123,8 @@ public class DemandeController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                         "inline; filename=\"recu-" + codeSuivie + ".pdf\"")
+                .header(HttpHeaders.CACHE_CONTROL, "no-store, private")
+                .header(HttpHeaders.PRAGMA, "no-cache")
                 .contentType(MediaType.APPLICATION_PDF)
                 .contentLength(pdf.length)
                 .body(pdf);

@@ -25,6 +25,7 @@ public class UserDetailsImpl implements UserDetails {
     private final String username;
     private final Long tenantId;
     private final boolean isGlobal;
+    private final long tokenVersion;
     @JsonIgnore
     private final String password;
     private final Collection<? extends GrantedAuthority> authorities;
@@ -35,6 +36,7 @@ public class UserDetailsImpl implements UserDetails {
                            String username,
                            Long tenantId,
                            boolean isGlobal,
+                           long tokenVersion,
                            String password,
                            Collection<? extends GrantedAuthority> authorities,
                            boolean enabled) {
@@ -43,6 +45,7 @@ public class UserDetailsImpl implements UserDetails {
         this.username = username;
         this.tenantId = tenantId;
         this.isGlobal = isGlobal;
+        this.tokenVersion = tokenVersion;
         this.password = password;
         this.authorities = authorities;
         this.enabled = enabled;
@@ -65,6 +68,7 @@ public class UserDetailsImpl implements UserDetails {
                 user.getUsername(),
                 tenantId,
                 Boolean.TRUE.equals(user.getIsGlobal()),
+                user.getTokenVersion() == null ? 0L : user.getTokenVersion(),
                 user.getPassword(),
                 Set.copyOf(authorities),
                 Boolean.TRUE.equals(user.getIsActive())

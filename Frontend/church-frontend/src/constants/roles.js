@@ -72,6 +72,7 @@ export const PERMISSIONS = {
   SAAS_PLAN_READ: 'saas-plan:read',
   SAAS_PLAN_MANAGE: 'saas-plan:manage',
   PROFILE_READ: 'profile:read',
+  ADMINISTRATIVE_AUDIT_READ: 'administrative-audit:read',
   SYSTEM_ADMIN: 'system:admin',
 };
 

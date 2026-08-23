@@ -37,6 +37,7 @@ public final class RolePermissions {
 
         EnumSet<Permission> superAdmin = EnumSet.of(
                 Permission.SYSTEM_ADMIN,
+                Permission.ADMINISTRATIVE_AUDIT_READ,
                 Permission.USER_MANAGE,
                 Permission.PARISH_MANAGE,
                 Permission.PARISH_SETTINGS_MANAGE,
@@ -71,6 +72,7 @@ public final class RolePermissions {
 
         EnumSet<Permission> platformAccountant = EnumSet.of(
                 Permission.FINANCE_READ,
+                Permission.ADMINISTRATIVE_AUDIT_READ,
                 Permission.PAYOUT_MANAGE,
                 Permission.SUBSCRIPTION_READ,
                 Permission.SUBSCRIPTION_CHECKOUT,

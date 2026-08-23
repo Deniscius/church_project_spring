@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useTransition } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import PageHeader from '../../components/ui/PageHeader';
@@ -53,7 +53,12 @@ function validateFile(file, label) {
   if (!file) return `${label} requis (scan PDF, JPEG ou PNG).`;
   if (file.size > MAX_DOC_BYTES) return `${label} trop volumineux (max 5 Mo).`;
   const type = (file.type || '').toLowerCase();
-  const ok = type.includes('pdf') || type.includes('jpeg') || type.includes('jpg') || type.includes('png');
+  const extension = (file.name || '').toLowerCase().match(/\.(pdf|jpe?g|png)$/)?.[1] || '';
+  const ok = type.includes('pdf')
+    || type.includes('jpeg')
+    || type.includes('jpg')
+    || type.includes('png')
+    || Boolean(extension);
   if (!ok) return `${label} : formats acceptés PDF, JPEG, PNG.`;
   return null;
 }
@@ -109,6 +114,8 @@ export default function ParishRegistrationPage() {
   const [done, setDone] = useState(null);
   const [horsAnnuaire, setHorsAnnuaire] = useState(false);
   const [annuairePublicId, setAnnuairePublicId] = useState('');
+  const otpBusyRef = useRef(false);
+  const submitBusyRef = useRef(false);
 
   const [, startTransition] = useTransition();
 
@@ -185,7 +192,10 @@ export default function ParishRegistrationPage() {
   }
 
   function setField(key, value) {
-    const resetsOtp = key === 'adminEmail' || key === 'adminNom' || key === 'adminPrenom';
+    const resetsOtp = key === 'adminEmail'
+      || key === 'adminNom'
+      || key === 'adminPrenom'
+      || key === 'nomParoisse';
     setForm((prev) => {
       const next = { ...prev, [key]: value };
       if (resetsOtp) {
@@ -200,20 +210,31 @@ export default function ParishRegistrationPage() {
   }
 
   function selectDoyenne(doyennePublicId) {
+    resetOtpState();
     setHorsAnnuaire(false);
     setAnnuairePublicId('');
-    setForm((prev) => ({ ...prev, doyennePublicId, nomParoisse: '', adresse: '' }));
+    setForm((prev) => ({
+      ...prev,
+      doyennePublicId,
+      nomParoisse: '',
+      adresse: '',
+      otpProof: '',
+      adminUsername: '',
+    }));
   }
 
   function selectParoisseAnnuaire(value) {
     const entree = annuaire.find(
       (p) => p.publicId === value || p.nom === value
     );
+    resetOtpState();
     setAnnuairePublicId(entree?.publicId || value || '');
     setForm((prev) => ({
       ...prev,
       nomParoisse: entree?.nom || value || '',
       adresse: (entree?.adresse || '').trim(),
+      otpProof: '',
+      adminUsername: '',
     }));
   }
 
@@ -266,14 +287,20 @@ export default function ParishRegistrationPage() {
   }
 
   async function sendOtp() {
+    if (otpBusyRef.current) return;
     if (!form.adminEmail.trim()) {
       setError('Indiquez votre e-mail personnel.');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.adminEmail.trim())) {
+      setError('Indiquez une adresse e-mail personnelle valide.');
       return;
     }
     if (!form.adminNom.trim() || !form.adminPrenom.trim()) {
       setError('Renseignez d’abord le nom et le prénom.');
       return;
     }
+    otpBusyRef.current = true;
     setOtpBusy(true);
     setError(null);
     try {
@@ -282,11 +309,13 @@ export default function ParishRegistrationPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Envoi du code impossible');
     } finally {
+      otpBusyRef.current = false;
       setOtpBusy(false);
     }
   }
 
   async function verifyOtp() {
+    if (otpBusyRef.current) return;
     if (!otpCode.trim()) {
       setError('Saisissez le code reçu par e-mail.');
       return;
@@ -295,6 +324,7 @@ export default function ParishRegistrationPage() {
       setError('Indiquez d’abord la paroisse (étape 1) pour générer un identifiant cohérent.');
       return;
     }
+    otpBusyRef.current = true;
     setOtpBusy(true);
     setError(null);
     try {
@@ -315,6 +345,7 @@ export default function ParishRegistrationPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Code incorrect');
     } finally {
+      otpBusyRef.current = false;
       setOtpBusy(false);
     }
   }
@@ -336,9 +367,16 @@ export default function ParishRegistrationPage() {
 
   async function onSubmit(e) {
     e.preventDefault();
+    if (submitBusyRef.current) return;
+    const parishMsg = validateStep(1);
     const planMsg = validateStep(2);
     const adminMsg = validateStep(3);
     const docsMsg = validateStep(4);
+    if (parishMsg) {
+      setError(parishMsg);
+      setStep(1);
+      return;
+    }
     if (planMsg) {
       setError(planMsg);
       setStep(2);
@@ -354,6 +392,7 @@ export default function ParishRegistrationPage() {
       setStep(4);
       return;
     }
+    submitBusyRef.current = true;
     setBusy(true);
     setError(null);
     try {
@@ -378,6 +417,7 @@ export default function ParishRegistrationPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Échec de l’inscription');
     } finally {
+      submitBusyRef.current = false;
       setBusy(false);
     }
   }

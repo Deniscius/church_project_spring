@@ -36,6 +36,8 @@ export default function RequestDetailsPage() {
   const canValidate = has(PERMISSIONS.DEMAND_VALIDATE);
   const canCash = has(PERMISSIONS.PAYMENT_MANAGE);
   const unpaid = request && request.statutPaiement !== 'PAYE';
+  const validationLocked = ['ANNULEE', 'TERMINEE'].includes(request?.statutDemande);
+  const canReject = !validationLocked && request?.statutPaiement !== 'PAYE';
 
   const updateValidation = async (statut) => {
     if (!id) return;
@@ -296,14 +298,22 @@ export default function RequestDetailsPage() {
               {canValidate ? (
                 <>
                   <AppButton
-                    disabled={validating || request.statutValidation === 'VALIDEE'}
+                    disabled={
+                      validating
+                      || validationLocked
+                      || request.statutValidation === 'VALIDEE'
+                    }
                     onClick={() => updateValidation('VALIDEE')}
                   >
                     {validating ? 'Traitement…' : 'Valider'}
                   </AppButton>
                   <AppButton
                     variant="secondary"
-                    disabled={validating || request.statutValidation === 'REJETEE'}
+                    disabled={
+                      validating
+                      || !canReject
+                      || request.statutValidation === 'REJETEE'
+                    }
                     onClick={() => updateValidation('REJETEE')}
                   >
                     Rejeter

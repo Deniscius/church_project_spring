@@ -202,6 +202,7 @@ export default function ProfilePage() {
                 id="profile-current-password"
                 type="password"
                 autoComplete="current-password"
+                maxLength={200}
                 required
                 value={passwords.currentPassword}
                 onChange={(e) => setPasswords({ ...passwords, currentPassword: e.target.value })}
@@ -215,6 +216,7 @@ export default function ProfilePage() {
                 autoComplete="new-password"
                 required
                 minLength={8}
+                maxLength={200}
                 value={passwords.newPassword}
                 onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })}
               />
@@ -228,6 +230,7 @@ export default function ProfilePage() {
                 autoComplete="new-password"
                 required
                 minLength={8}
+                maxLength={200}
                 value={passwords.confirmPassword}
                 onChange={(e) => setPasswords({ ...passwords, confirmPassword: e.target.value })}
               />

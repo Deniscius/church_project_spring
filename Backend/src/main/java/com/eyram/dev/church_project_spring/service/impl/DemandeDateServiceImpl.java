@@ -113,9 +113,9 @@ public class DemandeDateServiceImpl implements DemandeDateService {
 
     @Override
     public List<DemandeDateResponse> getByDemande(UUID demandePublicId) {
-        // Endpoint public (suivi) : pas de contrôle tenant.
         Demande demande = demandeRepository.findByPublicIdAndStatusDelFalse(demandePublicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Demande introuvable"));
+        tenantAccessService.checkParoisseAccess(demande.getParoisse());
 
         return demandeDateRepository.findByDemandeAndStatusDelFalseOrderByOrdreAsc(demande)
                 .stream()

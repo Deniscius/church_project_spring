@@ -16,6 +16,7 @@ public interface FactureMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "demande", ignore = true)
+    @Mapping(target = "montant", ignore = true)
     Facture dtoToModel(FactureRequest request);
 
     @Mapping(target = "dateEmission", source = "createdAt")
@@ -33,6 +34,7 @@ public interface FactureMapper {
     @Mapping(target = "typePaiementLibelle", source = "demande.typePaiement.libelle")
     @Mapping(target = "modePaiement", source = "demande.typePaiement.mode")
     @Mapping(target = "reglement", ignore = true)
+    @Mapping(target = "withReglement", ignore = true)
     FactureResponse modelToDto(Facture facture);
 
     @Mapping(target = "id", ignore = true)
@@ -41,5 +43,6 @@ public interface FactureMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "demande", ignore = true)
+    @Mapping(target = "montant", ignore = true)
     void dtoToModel(FactureRequest request, @MappingTarget Facture facture);
 }

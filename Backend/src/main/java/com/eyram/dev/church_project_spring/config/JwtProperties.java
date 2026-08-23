@@ -9,6 +9,8 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 @ConfigurationProperties(prefix = "jwt")
 public record JwtProperties(
         String secret,
+        @DefaultValue("missanye-api") String issuer,
+        @DefaultValue("missanye-web") String audience,
         @DefaultValue("28800000") long expirationMs,
         @DefaultValue("MS_AT") String cookieName,
         @DefaultValue("false") boolean cookieSecure,

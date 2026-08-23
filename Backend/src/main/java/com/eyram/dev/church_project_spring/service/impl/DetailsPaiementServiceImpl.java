@@ -11,6 +11,7 @@ import com.eyram.dev.church_project_spring.entities.Paroisse;
 import com.eyram.dev.church_project_spring.entities.TypePaiement;
 import com.eyram.dev.church_project_spring.enums.ModePaiement;
 import com.eyram.dev.church_project_spring.enums.StatutPaiementEnum;
+import com.eyram.dev.church_project_spring.enums.StatutValidationEnum;
 import com.eyram.dev.church_project_spring.mappers.DetailsPaiementMapper;
 import com.eyram.dev.church_project_spring.repositories.DemandeRepository;
 import com.eyram.dev.church_project_spring.repositories.DetailsPaiementRepository;
@@ -218,6 +219,12 @@ public class DetailsPaiementServiceImpl implements DetailsPaiementService {
         Demande demande = demandeRepository.findByPublicIdAndStatusDelFalse(demandePublicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Demande introuvable"));
         tenantAccessService.checkParoisseAccess(demande.getParoisse());
+
+        if (demande.getStatutValidation() != StatutValidationEnum.VALIDEE) {
+            throw new BusinessRuleException(
+                    "Seule une demande validée peut être encaissée en caisse"
+            );
+        }
 
         if (demande.getStatutPaiement() == StatutPaiementEnum.PAYE) {
             throw new BusinessRuleException("Cette demande est déjà payée");

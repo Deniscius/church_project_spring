@@ -69,6 +69,9 @@ export async function apiClient(path, options = {}, clientOptions = {}) {
   }
 
   if (!response.ok) {
+    if (response.status === 401 && auth && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('church:session-expired'));
+    }
     let message = response.status >= 500
       ? 'Une erreur interne est survenue. Veuillez réessayer plus tard.'
       : `La requête a échoué (HTTP ${response.status}).`;

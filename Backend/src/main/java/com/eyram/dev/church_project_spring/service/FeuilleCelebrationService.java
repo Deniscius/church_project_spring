@@ -401,6 +401,7 @@ public class FeuilleCelebrationService {
     }
 
     /** @deprecated conservé pour compatibilité des tests éventuels */
+    @Deprecated(forRemoval = false)
     static String buildProgressionLabel(Integer ordre, Integer nombreCelebration, String dureeLabel) {
         int deja = ordre == null ? 0 : Math.max(0, ordre - 1);
         return buildProgressionLabel(ordre, nombreCelebration, dureeLabel, deja, false);

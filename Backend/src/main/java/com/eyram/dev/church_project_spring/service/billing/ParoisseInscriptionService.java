@@ -180,7 +180,7 @@ public class ParoisseInscriptionService {
 
     @Transactional
     public Map<String, Object> approuver(UUID publicId) {
-        ParoisseInscription inscription = inscriptionRepository.findByPublicIdAndStatusDelFalse(publicId)
+        ParoisseInscription inscription = inscriptionRepository.findByPublicIdForUpdate(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Inscription introuvable"));
         if (inscription.getStatut() != StatutInscription.SOUMISE) {
             throw new BusinessRuleException("Cette inscription n'est plus en attente");
@@ -299,7 +299,7 @@ public class ParoisseInscriptionService {
 
     @Transactional
     public ParoisseInscriptionResponse rejeter(UUID publicId, String motif) {
-        ParoisseInscription inscription = inscriptionRepository.findByPublicIdAndStatusDelFalse(publicId)
+        ParoisseInscription inscription = inscriptionRepository.findByPublicIdForUpdate(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Inscription introuvable"));
         if (inscription.getStatut() != StatutInscription.SOUMISE) {
             throw new BusinessRuleException("Cette inscription n'est plus en attente");

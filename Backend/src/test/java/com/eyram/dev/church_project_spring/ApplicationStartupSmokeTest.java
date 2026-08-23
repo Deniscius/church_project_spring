@@ -203,6 +203,7 @@ class ApplicationStartupSmokeTest {
         HttpHeaders cashHeaders = new HttpHeaders();
         cashHeaders.set(HttpHeaders.COOKIE, setCookie.split(";", 2)[0]);
         cashHeaders.setOrigin("http://localhost:5173");
+        cashHeaders.set("X-Requested-With", "XMLHttpRequest");
         cashHeaders.setContentType(MediaType.APPLICATION_JSON);
         String demandPublicId = created.path("publicId").asText();
 

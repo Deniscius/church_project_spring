@@ -186,6 +186,52 @@ class ApplicationStartupSmokeTest {
                 .contains(trackingCode)
                 .doesNotContain("+22890123456")
                 .doesNotContain("fidele-ci@example.test");
+
+        HttpHeaders loginHeaders = new HttpHeaders();
+        loginHeaders.setContentType(MediaType.APPLICATION_JSON);
+        ResponseEntity<String> login = restTemplate.postForEntity(
+                "/auth/login",
+                new HttpEntity<>(
+                        Map.of("username", USERNAME, "password", PASSWORD),
+                        loginHeaders
+                ),
+                String.class
+        );
+        String setCookie = login.getHeaders().getFirst(HttpHeaders.SET_COOKIE);
+        assertThat(setCookie).isNotBlank();
+
+        HttpHeaders cashHeaders = new HttpHeaders();
+        cashHeaders.set(HttpHeaders.COOKIE, setCookie.split(";", 2)[0]);
+        String demandPublicId = created.path("publicId").asText();
+
+        ResponseEntity<String> cashPayment = restTemplate.exchange(
+                "/details-paiement/caisse/" + demandPublicId,
+                HttpMethod.POST,
+                new HttpEntity<>(cashHeaders),
+                String.class
+        );
+
+        assertThat(cashPayment.getStatusCode().is2xxSuccessful()).isTrue();
+        JsonNode paid = objectMapper.readTree(cashPayment.getBody());
+        assertThat(paid.path("statutPaiement").asText()).isEqualTo("PAYE");
+        assertThat(paid.path("modePaiement").asText()).isEqualTo("ESPECES");
+        assertThat(paid.path("provider").asText()).isEqualTo("CAISSE_LOCALE");
+        assertThat(paid.path("facturePublicId").asText())
+                .isEqualTo(created.path("facturePublicId").asText());
+
+        ResponseEntity<String> duplicateCashPayment = restTemplate.exchange(
+                "/details-paiement/caisse/" + demandPublicId,
+                HttpMethod.POST,
+                new HttpEntity<>(cashHeaders),
+                String.class
+        );
+
+        assertThat(duplicateCashPayment.getStatusCode().is4xxClientError()).isTrue();
+        assertThat(duplicateCashPayment.getBody()).contains("déjà payée");
+
+        ResponseEntity<String> paidTracking =
+                restTemplate.getForEntity("/demandes/code/" + trackingCode, String.class);
+        assertThat(paidTracking.getBody()).contains("\"statutPaiement\":\"PAYE\"");
     }
 
     @Test

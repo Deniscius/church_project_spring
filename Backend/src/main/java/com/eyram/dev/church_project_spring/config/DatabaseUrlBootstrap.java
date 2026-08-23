@@ -137,7 +137,10 @@ public final class DatabaseUrlBootstrap {
     }
 
     private static String decode(String value) {
-        return URLDecoder.decode(value, StandardCharsets.UTF_8);
+        // URLDecoder suit application/x-www-form-urlencoded et convertirait
+        // un '+' littéral en espace. Dans l'user-info d'une URI PostgreSQL,
+        // '+' est un caractère valide et doit être conservé.
+        return URLDecoder.decode(value.replace("+", "%2B"), StandardCharsets.UTF_8);
     }
 
     private static String envOrProp(String key) {

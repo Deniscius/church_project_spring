@@ -5,18 +5,15 @@ import com.eyram.dev.church_project_spring.DTO.request.DemandeRequest;
 import com.eyram.dev.church_project_spring.DTO.request.DemandeTypePaiementRequest;
 import com.eyram.dev.church_project_spring.DTO.request.DemandeValidationRequest;
 import com.eyram.dev.church_project_spring.DTO.request.TrackingByPhoneRequest;
-import com.eyram.dev.church_project_spring.DTO.request.TrackingByPhoneVerifyRequest;
 import com.eyram.dev.church_project_spring.DTO.response.DemandeParoisseStatsResponse;
 import com.eyram.dev.church_project_spring.DTO.response.DemandePublicResponse;
 import com.eyram.dev.church_project_spring.DTO.response.DemandeResponse;
 import com.eyram.dev.church_project_spring.DTO.response.PageResponse;
-import com.eyram.dev.church_project_spring.DTO.response.TrackingByPhoneChallengeResponse;
 import com.eyram.dev.church_project_spring.DTO.response.TrackingByPhoneResponse;
 import com.eyram.dev.church_project_spring.enums.StatutDemandeEnum;
 import com.eyram.dev.church_project_spring.service.DemandeReceiptService;
 import com.eyram.dev.church_project_spring.service.DemandeService;
 import com.eyram.dev.church_project_spring.service.PublicDemandeViewService;
-import com.eyram.dev.church_project_spring.service.TrackingPhoneOtpService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -46,7 +43,6 @@ public class DemandeController {
     private final DemandeService demandeService;
     private final DemandeReceiptService demandeReceiptService;
     private final PublicDemandeViewService publicDemandeViewService;
-    private final TrackingPhoneOtpService trackingPhoneOtpService;
 
     @PostMapping
     public ResponseEntity<DemandeResponse> create(@Valid @RequestBody DemandeRequest request) {
@@ -92,17 +88,10 @@ public class DemandeController {
     }
 
     @PostMapping("/suivi/par-telephone")
-    public ResponseEntity<TrackingByPhoneChallengeResponse> lookupByPhone(
+    public ResponseEntity<TrackingByPhoneResponse> lookupByPhone(
             @Valid @RequestBody TrackingByPhoneRequest request
     ) {
-        return ResponseEntity.ok(trackingPhoneOtpService.requestOtp(request.telephone()));
-    }
-
-    @PostMapping("/suivi/par-telephone/verifier")
-    public ResponseEntity<TrackingByPhoneResponse> verifyPhoneLookup(
-            @Valid @RequestBody TrackingByPhoneVerifyRequest request
-    ) {
-        return ResponseEntity.ok(trackingPhoneOtpService.verifyOtp(request.telephone(), request.code()));
+        return ResponseEntity.ok(demandeService.findTrackingCodesByPhone(request.telephone()));
     }
 
     /** Public : le fidèle peut changer de mode tant que la demande n'est pas payée. */

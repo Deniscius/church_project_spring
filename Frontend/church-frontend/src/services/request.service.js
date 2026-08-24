@@ -100,19 +100,11 @@ export const requestService = {
     }
   },
 
-  /** Étape 1 : téléphone (E.164) → réponse uniforme ; résultats uniquement après OTP. */
+  /** Public : téléphone (E.164) → codes de suivi associés, sans données personnelles. */
   lookupByPhone: (telephone) =>
     apiClient(
       '/demandes/suivi/par-telephone',
       { method: 'POST', body: JSON.stringify({ telephone }) },
-      { auth: false }
-    ),
-
-  /** Étape 2 (si OTP e-mail) : renvoie les codes de suivi. */
-  verifyPhoneLookup: (telephone, code) =>
-    apiClient(
-      '/demandes/suivi/par-telephone/verifier',
-      { method: 'POST', body: JSON.stringify({ telephone, code }) },
       { auth: false }
     ),
 

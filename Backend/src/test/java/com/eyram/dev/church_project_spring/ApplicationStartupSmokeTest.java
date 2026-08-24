@@ -188,6 +188,22 @@ class ApplicationStartupSmokeTest {
                 .doesNotContain("+22890123456")
                 .doesNotContain("fidele-ci@example.test");
 
+        ResponseEntity<String> phoneLookup = restTemplate.postForEntity(
+                "/demandes/suivi/par-telephone",
+                new HttpEntity<>(Map.of("telephone", "+22890123456"), headers),
+                String.class
+        );
+
+        assertThat(phoneLookup.getStatusCode().is2xxSuccessful()).isTrue();
+        JsonNode phoneLookupBody = objectMapper.readTree(phoneLookup.getBody());
+        assertThat(phoneLookupBody.path("codes").toString()).contains(trackingCode);
+        assertThat(phoneLookupBody.path("count").asInt()).isEqualTo(1);
+        assertThat(phoneLookup.getBody())
+                .doesNotContain("+22890123456")
+                .doesNotContain("fidele-ci@example.test")
+                .doesNotContain("Action de grâce")
+                .doesNotContain("Testeur");
+
         HttpHeaders loginHeaders = new HttpHeaders();
         loginHeaders.setContentType(MediaType.APPLICATION_JSON);
         ResponseEntity<String> login = restTemplate.postForEntity(

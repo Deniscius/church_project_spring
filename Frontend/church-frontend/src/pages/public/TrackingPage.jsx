@@ -28,7 +28,7 @@ function normalizePhoneResults(response) {
     });
   }
 
-  // Compatibilité avec une ancienne réponse backend ne contenant que les codes.
+  // La réponse publique volontairement minimale ne contient que les codes.
   const codes = Array.isArray(response?.codes)
     ? response.codes.filter(Boolean)
     : [];
@@ -51,10 +51,6 @@ export default function TrackingPage() {
   const [phoneBusy, setPhoneBusy] = useState(false);
   const [phoneError, setPhoneError] = useState('');
   const [phoneRequests, setPhoneRequests] = useState([]);
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpCode, setOtpCode] = useState('');
-  const [challengeMessage, setChallengeMessage] = useState('');
-  const [pendingPhone, setPendingPhone] = useState('');
   const phoneBusyRef = useRef(false);
 
   const submit = (e) => {
@@ -67,22 +63,16 @@ export default function TrackingPage() {
   const showPhoneResults = (response) => {
     const requests = normalizePhoneResults(response);
     setPhoneRequests(requests);
-    setOtpSent(false);
-    setOtpCode('');
-    setChallengeMessage('');
     if (!requests.length) {
       setPhoneError('Aucune demande trouvée pour ce numéro.');
     }
   };
 
-  const requestPhoneOtp = async (e) => {
+  const lookupByPhone = async (e) => {
     e.preventDefault();
     if (phoneBusyRef.current) return;
     setPhoneError('');
     setPhoneRequests([]);
-    setOtpSent(false);
-    setOtpCode('');
-    setChallengeMessage('');
     const e164 = toE164(telCountryIso, telNational);
     if (!e164) {
       setPhoneError('Indiquez un numéro de téléphone valide.');
@@ -92,35 +82,9 @@ export default function TrackingPage() {
     setPhoneBusy(true);
     try {
       const res = await requestService.lookupByPhone(e164);
-      setPendingPhone(e164);
-      setChallengeMessage(
-        res?.message
-          || 'Si une adresse e-mail est associée à ce numéro, un code de vérification a été envoyé.'
-      );
-      setOtpSent(true);
-    } catch (err) {
-      setPhoneError(err instanceof Error ? err.message : 'Recherche impossible');
-    } finally {
-      phoneBusyRef.current = false;
-      setPhoneBusy(false);
-    }
-  };
-
-  const verifyPhoneOtp = async (e) => {
-    e.preventDefault();
-    if (phoneBusyRef.current) return;
-    setPhoneError('');
-    if (!pendingPhone || !otpCode.trim()) {
-      setPhoneError('Saisissez le code reçu par e-mail.');
-      return;
-    }
-    phoneBusyRef.current = true;
-    setPhoneBusy(true);
-    try {
-      const res = await requestService.verifyPhoneLookup(pendingPhone, otpCode.trim());
       showPhoneResults(res);
     } catch (err) {
-      setPhoneError(err instanceof Error ? err.message : 'Code incorrect');
+      setPhoneError(err instanceof Error ? err.message : 'Recherche impossible');
     } finally {
       phoneBusyRef.current = false;
       setPhoneBusy(false);
@@ -165,9 +129,9 @@ export default function TrackingPage() {
 
         <AppCard
           title="Avec mon numéro de téléphone"
-          subtitle="Toutes les demandes faites avec ce numéro seront regroupées ici."
+          subtitle="Saisissez le numéro utilisé lors du dépôt. Aucun code de vérification n’est requis."
         >
-          <form onSubmit={otpSent ? verifyPhoneOtp : requestPhoneOtp}>
+          <form onSubmit={lookupByPhone}>
             <div className="form-field">
               <FieldLabel htmlFor="track-phone-national" help={HELP.demande.telephone} required>
                 Téléphone
@@ -180,48 +144,16 @@ export default function TrackingPage() {
                 onChange={({ countryIso: iso, national }) => {
                   setTelCountryIso(iso);
                   setTelNational(national);
-                  setOtpSent(false);
-                  setOtpCode('');
                   setPhoneRequests([]);
                   setPhoneError('');
-                  setChallengeMessage('');
                 }}
               />
             </div>
-            {otpSent ? (
-              <div className="form-field" style={{ marginTop: 12 }}>
-                <FieldLabel htmlFor="track-phone-otp" required>
-                  Code reçu par e-mail
-                </FieldLabel>
-                <p className="muted text-sm" style={{ marginTop: 0 }} role="status" aria-live="polite">
-                  {challengeMessage}
-                </p>
-                <AppInput
-                  id="track-phone-otp"
-                  value={otpCode}
-                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  placeholder="6 chiffres"
-                  maxLength={8}
-                />
-              </div>
-            ) : null}
             {phoneError ? <p className="text-red-600" role="alert">{phoneError}</p> : null}
             <div className="button-row" style={{ marginTop: 16 }}>
               <AppButton type="submit" loading={phoneBusy} disabled={phoneBusy}>
-                {otpSent ? 'Afficher mes demandes' : 'Rechercher mes demandes'}
+                Rechercher mes demandes
               </AppButton>
-              {otpSent ? (
-                <AppButton
-                  type="button"
-                  variant="secondary"
-                  disabled={phoneBusy}
-                  onClick={requestPhoneOtp}
-                >
-                  Renvoyer le code
-                </AppButton>
-              ) : null}
             </div>
           </form>
 
@@ -232,7 +164,7 @@ export default function TrackingPage() {
                   {phoneRequests.length} demande{phoneRequests.length > 1 ? 's' : ''} trouvée{phoneRequests.length > 1 ? 's' : ''}
                 </strong>
                 <p className="muted" style={{ margin: '4px 0 0' }}>
-                  De la plus ancienne à la plus récente.
+                  Seuls les codes de suivi associés à ce numéro sont affichés.
                 </p>
               </div>
 

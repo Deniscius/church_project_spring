@@ -11,22 +11,22 @@
     "prod:share": "vite build --mode share && vite preview --host 0.0.0.0 --port 4173"
   },
   "dependencies": {
-    "@tanstack/react-query": "^5.95.2",
-    "libphonenumber-js": "^1.13.10",
-    "pdfjs-dist": "^4.10.38",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
+    "@tanstack/react-query": "^5.102.8",
+    "libphonenumber-js": "^1.13.12",
+    "pdfjs-dist": "^6.2.108",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "react-router-dom": "^7.11.0"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.4",
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.1",
-    "eslint": "^9.39.4",
-    "eslint-plugin-react-hooks": "^7.0.1",
-    "eslint-plugin-react-refresh": "^0.5.2",
-    "globals": "^17.4.0",
-    "vite": "^8.0.1"
+    "@eslint/js": "^10.0.1",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.5",
+    "@vitejs/plugin-react": "^6.1.1",
+    "eslint": "^10.9.1",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.5",
+    "globals": "^17.11.0",
+    "vite": "^8.2.2"
   }
 }

@@ -5,7 +5,7 @@
 # ---------------------------------------------------------------------------
 # 1) Build Maven (cache ~/.m2 entre les builds)
 # ---------------------------------------------------------------------------
-FROM maven:3.9.9-eclipse-temurin-17 AS build
+FROM maven:3.9.15-eclipse-temurin-26 AS build
 WORKDIR /workspace
 
 COPY pom.xml .
@@ -20,7 +20,7 @@ RUN --mount=type=cache,target=/root/.m2 \
 # ---------------------------------------------------------------------------
 # 2) Extraction des couches (jarmode=tools, Spring Boot 3.5+)
 # ---------------------------------------------------------------------------
-FROM eclipse-temurin:17-jre-jammy AS extract
+FROM eclipse-temurin:25-jre-jammy AS extract
 WORKDIR /extract
 COPY --from=build /workspace/application.jar application.jar
 RUN java -Djarmode=tools -jar application.jar extract \
@@ -31,7 +31,7 @@ RUN java -Djarmode=tools -jar application.jar extract \
 # ---------------------------------------------------------------------------
 # 3) Runtime minimal
 # ---------------------------------------------------------------------------
-FROM eclipse-temurin:17-jre-jammy AS runtime
+FROM eclipse-temurin:25-jre-jammy AS runtime
 
 # OpenPDF (reçus) : fontconfig + DejaVu ; curl pour HEALTHCHECK
 RUN apt-get update \

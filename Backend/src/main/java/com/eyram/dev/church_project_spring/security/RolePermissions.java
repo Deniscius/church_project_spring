@@ -29,6 +29,7 @@ public final class RolePermissions {
                 Permission.PAYMENT_READ,
                 Permission.INVOICE_READ,
                 Permission.SCHEDULE_READ,
+                Permission.PASTORAL_YEAR_READ,
                 Permission.REQUEST_TYPE_READ,
                 Permission.PRICING_READ,
                 Permission.PARISH_READ,
@@ -62,6 +63,7 @@ public final class RolePermissions {
                 Permission.RECEIPT_MANAGE,
                 Permission.INVOICE_MANAGE,
                 Permission.SCHEDULE_MANAGE,
+                Permission.PASTORAL_YEAR_MANAGE,
                 Permission.CELEBRATION_MANAGE,
                 Permission.CELEBRATION_SCHEDULE_MANAGE,
                 Permission.REQUEST_TYPE_MANAGE,
@@ -109,6 +111,7 @@ public final class RolePermissions {
                 Permission.RECEIPT_MANAGE,
                 Permission.INVOICE_MANAGE,
                 Permission.SCHEDULE_MANAGE,
+                Permission.PASTORAL_YEAR_MANAGE,
                 Permission.CELEBRATION_MANAGE,
                 Permission.CELEBRATION_SCHEDULE_MANAGE,
                 Permission.REQUEST_TYPE_MANAGE,
@@ -135,6 +138,7 @@ public final class RolePermissions {
         EnumSet<Permission> priest = EnumSet.copyOf(parishRead);
         priest.add(Permission.DEMAND_VALIDATE);
         priest.add(Permission.CELEBRATION_MANAGE);
+        priest.add(Permission.PASTORAL_YEAR_MANAGE);
         matrix.put(UserRole.CURE, immutable(priest));
 
         ROLE_PERMISSIONS = Collections.unmodifiableMap(matrix);

@@ -53,6 +53,8 @@ export const PERMISSIONS = {
   INVOICE_MANAGE: 'invoice:manage',
   SCHEDULE_READ: 'schedule:read',
   SCHEDULE_MANAGE: 'schedule:manage',
+  PASTORAL_YEAR_READ: 'pastoral-year:read',
+  PASTORAL_YEAR_MANAGE: 'pastoral-year:manage',
   CELEBRATION_MANAGE: 'celebration:manage',
   CELEBRATION_SCHEDULE_MANAGE: 'celebration-schedule:manage',
   REQUEST_TYPE_READ: 'request-type:read',

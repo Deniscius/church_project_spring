@@ -5,6 +5,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -12,6 +13,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AuthenticationServiceException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
@@ -144,6 +146,18 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.BAD_REQUEST, message, request);
     }
 
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ErrorMessage> handleMissingServletRequestParameterException(
+            MissingServletRequestParameterException ex,
+            WebRequest request
+    ) {
+        return buildResponse(
+                HttpStatus.BAD_REQUEST,
+                "Le paramètre '" + ex.getParameterName() + "' est obligatoire",
+                request
+        );
+    }
+
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErrorMessage> handleDataIntegrityViolationException(
             DataIntegrityViolationException ex,
@@ -153,6 +167,18 @@ public class GlobalExceptionHandler {
         return buildResponse(
                 HttpStatus.CONFLICT,
                 resolveDataIntegrityMessage(ex),
+                request
+        );
+    }
+
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorMessage> handleOptimisticLockingFailureException(
+            OptimisticLockingFailureException ex,
+            WebRequest request
+    ) {
+        return buildResponse(
+                HttpStatus.CONFLICT,
+                "La ressource a été modifiée par un autre utilisateur ; rechargez les données",
                 request
         );
     }
@@ -179,6 +205,12 @@ public class GlobalExceptionHandler {
         }
         if (details.contains("nom_forfait")) {
             return "Un forfait avec ce nom existe déjà pour ce type de demande.";
+        }
+        if (details.contains("uq_annee_pastorale_libelle_paroisse")) {
+            return "Une année pastorale avec ce libellé existe déjà pour cette paroisse.";
+        }
+        if (details.contains("uq_annee_pastorale_publiee_paroisse")) {
+            return "Une année pastorale est déjà publiée pour cette paroisse.";
         }
         if (details.contains("libelle") && details.contains("paroisse")) {
             return "Ce type de demande existe déjà pour cette paroisse.";

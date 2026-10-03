@@ -34,7 +34,8 @@ export function getBadgeClass(status) {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '');
   if (normalized === 'PROSPECT') return 'badge';
-  if (['VALIDEE', 'PAYE', 'TRAITEE', 'TERMINEE', 'ACTIVE', 'APPROUVEE'].includes(normalized)) return 'badge success';
+  if (normalized === 'CLOTUREE') return 'badge';
+  if (['VALIDEE', 'PAYE', 'TRAITEE', 'TERMINEE', 'ACTIVE', 'APPROUVEE', 'PUBLIEE'].includes(normalized)) return 'badge success';
   if (
     ['REJETEE', 'ECHEC', 'ECHOUE', 'INACTIVE', 'EXPIRED', 'ABONNEMENT EXPIRE',
       'SUSPENDUE', 'RESILIEE', 'SUPPRIMEE', 'ANNULEE'].includes(normalized)
@@ -49,4 +50,3 @@ export function getBadgeClass(status) {
   }
   return 'badge warning';
 }
-

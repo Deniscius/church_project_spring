@@ -21,6 +21,9 @@ const InvoiceDetailsPage = lazy(() => import('../../pages/admin/invoices/Invoice
 const SchedulesPage = lazy(() => import('../../pages/admin/schedules/SchedulesPage'));
 const CreateSchedulePage = lazy(() => import('../../pages/admin/schedules/CreateSchedulePage'));
 const EditSchedulePage = lazy(() => import('../../pages/admin/schedules/EditSchedulePage'));
+const PastoralYearsPage = lazy(() => import('../../pages/admin/pastoral-years/PastoralYearsPage'));
+const CreatePastoralYearPage = lazy(() => import('../../pages/admin/pastoral-years/CreatePastoralYearPage'));
+const EditPastoralYearPage = lazy(() => import('../../pages/admin/pastoral-years/EditPastoralYearPage'));
 const RequestTypesPage = lazy(() => import('../../pages/admin/request-types/RequestTypesPage'));
 const CreateRequestTypePage = lazy(() => import('../../pages/admin/request-types/CreateRequestTypePage'));
 const EditRequestTypePage = lazy(() => import('../../pages/admin/request-types/EditRequestTypePage'));
@@ -81,6 +84,13 @@ export function AdminRoutes() {
             <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.SCHEDULE_MANAGE]} />}>
               <Route path={ROUTES.SCHEDULE_CREATE} element={<CreateSchedulePage />} />
               <Route path={ROUTES.SCHEDULE_EDIT} element={<EditSchedulePage />} />
+            </Route>
+            <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.PASTORAL_YEAR_READ]} />}>
+              <Route path={ROUTES.PASTORAL_YEARS} element={<PastoralYearsPage />} />
+            </Route>
+            <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.PASTORAL_YEAR_MANAGE]} />}>
+              <Route path={ROUTES.PASTORAL_YEAR_CREATE} element={<CreatePastoralYearPage />} />
+              <Route path={ROUTES.PASTORAL_YEAR_EDIT} element={<EditPastoralYearPage />} />
             </Route>
             <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.REQUEST_TYPE_READ]} />}>
               <Route path={ROUTES.REQUEST_TYPES} element={<RequestTypesPage />} />

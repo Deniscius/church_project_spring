@@ -37,6 +37,8 @@ public enum Permission {
 
     SCHEDULE_READ("schedule:read"),
     SCHEDULE_MANAGE("schedule:manage"),
+    PASTORAL_YEAR_READ("pastoral-year:read"),
+    PASTORAL_YEAR_MANAGE("pastoral-year:manage"),
     CELEBRATION_MANAGE("celebration:manage"),
     CELEBRATION_SCHEDULE_MANAGE("celebration-schedule:manage"),
 

@@ -66,6 +66,8 @@ public final class RolePermissions {
                 Permission.PASTORAL_YEAR_MANAGE,
                 Permission.PASTORAL_ACTOR_READ,
                 Permission.PASTORAL_ACTOR_MANAGE,
+                Permission.PASTORAL_ORGANIZATION_READ,
+                Permission.PASTORAL_ORGANIZATION_MANAGE,
                 Permission.CELEBRATION_MANAGE,
                 Permission.CELEBRATION_SCHEDULE_MANAGE,
                 Permission.REQUEST_TYPE_MANAGE,
@@ -116,6 +118,8 @@ public final class RolePermissions {
                 Permission.PASTORAL_YEAR_MANAGE,
                 Permission.PASTORAL_ACTOR_READ,
                 Permission.PASTORAL_ACTOR_MANAGE,
+                Permission.PASTORAL_ORGANIZATION_READ,
+                Permission.PASTORAL_ORGANIZATION_MANAGE,
                 Permission.CELEBRATION_MANAGE,
                 Permission.CELEBRATION_SCHEDULE_MANAGE,
                 Permission.REQUEST_TYPE_MANAGE,
@@ -139,6 +143,8 @@ public final class RolePermissions {
         secretary.add(Permission.CELEBRATION_SCHEDULE_MANAGE);
         secretary.add(Permission.PASTORAL_ACTOR_READ);
         secretary.add(Permission.PASTORAL_ACTOR_MANAGE);
+        secretary.add(Permission.PASTORAL_ORGANIZATION_READ);
+        secretary.add(Permission.PASTORAL_ORGANIZATION_MANAGE);
         matrix.put(UserRole.SECRETAIRE, immutable(secretary));
 
         EnumSet<Permission> priest = EnumSet.copyOf(parishRead);
@@ -147,6 +153,8 @@ public final class RolePermissions {
         priest.add(Permission.PASTORAL_YEAR_MANAGE);
         priest.add(Permission.PASTORAL_ACTOR_READ);
         priest.add(Permission.PASTORAL_ACTOR_MANAGE);
+        priest.add(Permission.PASTORAL_ORGANIZATION_READ);
+        priest.add(Permission.PASTORAL_ORGANIZATION_MANAGE);
         matrix.put(UserRole.CURE, immutable(priest));
 
         ROLE_PERMISSIONS = Collections.unmodifiableMap(matrix);

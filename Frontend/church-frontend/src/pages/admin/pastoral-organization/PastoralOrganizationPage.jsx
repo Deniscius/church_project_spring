@@ -10,7 +10,7 @@ import { PERMISSIONS } from '../../../constants/roles';
 import { ROUTES, routePath } from '../../../constants/routes';
 import { pastoralYearService } from '../../../services/pastoralYear.service';
 import { pastoralOrganizationService } from '../../../services/pastoralOrganization.service';
-import { STRUCTURE_TYPES } from './StructurePastoraleForm';
+import { STRUCTURE_TYPES } from './pastoralOrganization.constants';
 
 const mandateColumns = [
   { key: 'fonction', label: 'Rôle / fonction' },

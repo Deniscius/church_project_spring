@@ -24,6 +24,9 @@ const EditSchedulePage = lazy(() => import('../../pages/admin/schedules/EditSche
 const PastoralYearsPage = lazy(() => import('../../pages/admin/pastoral-years/PastoralYearsPage'));
 const CreatePastoralYearPage = lazy(() => import('../../pages/admin/pastoral-years/CreatePastoralYearPage'));
 const EditPastoralYearPage = lazy(() => import('../../pages/admin/pastoral-years/EditPastoralYearPage'));
+const PastoralActorsPage = lazy(() => import('../../pages/admin/pastoral-actors/PastoralActorsPage'));
+const CreatePastoralActorPage = lazy(() => import('../../pages/admin/pastoral-actors/CreatePastoralActorPage'));
+const EditPastoralActorPage = lazy(() => import('../../pages/admin/pastoral-actors/EditPastoralActorPage'));
 const RequestTypesPage = lazy(() => import('../../pages/admin/request-types/RequestTypesPage'));
 const CreateRequestTypePage = lazy(() => import('../../pages/admin/request-types/CreateRequestTypePage'));
 const EditRequestTypePage = lazy(() => import('../../pages/admin/request-types/EditRequestTypePage'));
@@ -91,6 +94,13 @@ export function AdminRoutes() {
             <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.PASTORAL_YEAR_MANAGE]} />}>
               <Route path={ROUTES.PASTORAL_YEAR_CREATE} element={<CreatePastoralYearPage />} />
               <Route path={ROUTES.PASTORAL_YEAR_EDIT} element={<EditPastoralYearPage />} />
+            </Route>
+            <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.PASTORAL_ACTOR_READ]} />}>
+              <Route path={ROUTES.PASTORAL_ACTORS} element={<PastoralActorsPage />} />
+            </Route>
+            <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.PASTORAL_ACTOR_MANAGE]} />}>
+              <Route path={ROUTES.PASTORAL_ACTOR_CREATE} element={<CreatePastoralActorPage />} />
+              <Route path={ROUTES.PASTORAL_ACTOR_EDIT} element={<EditPastoralActorPage />} />
             </Route>
             <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.REQUEST_TYPE_READ]} />}>
               <Route path={ROUTES.REQUEST_TYPES} element={<RequestTypesPage />} />

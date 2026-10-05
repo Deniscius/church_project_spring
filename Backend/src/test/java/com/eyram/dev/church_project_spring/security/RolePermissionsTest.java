@@ -22,6 +22,7 @@ class RolePermissionsTest {
         assertFalse(RolePermissions.hasPermission(UserRole.SECRETAIRE, Permission.USER_MANAGE));
         assertTrue(RolePermissions.hasPermission(UserRole.SECRETAIRE, Permission.PASTORAL_YEAR_READ));
         assertFalse(RolePermissions.hasPermission(UserRole.SECRETAIRE, Permission.PASTORAL_YEAR_MANAGE));
+        assertTrue(RolePermissions.hasPermission(UserRole.SECRETAIRE, Permission.PASTORAL_ACTOR_MANAGE));
     }
 
     @Test
@@ -29,6 +30,7 @@ class RolePermissionsTest {
         assertTrue(RolePermissions.hasPermission(UserRole.CURE, Permission.DEMAND_VALIDATE));
         assertTrue(RolePermissions.hasPermission(UserRole.CURE, Permission.CELEBRATION_MANAGE));
         assertTrue(RolePermissions.hasPermission(UserRole.CURE, Permission.PASTORAL_YEAR_MANAGE));
+        assertTrue(RolePermissions.hasPermission(UserRole.CURE, Permission.PASTORAL_ACTOR_MANAGE));
         assertFalse(RolePermissions.hasPermission(UserRole.CURE, Permission.DEMAND_EDIT));
         assertFalse(RolePermissions.hasPermission(UserRole.CURE, Permission.PAYMENT_MANAGE));
     }
@@ -49,6 +51,7 @@ class RolePermissionsTest {
         assertTrue(RolePermissions.hasPermission(UserRole.ADMIN, Permission.TREASURY_MANAGE));
         assertTrue(RolePermissions.hasPermission(UserRole.ADMIN, Permission.SUBSCRIPTION_CHECKOUT));
         assertTrue(RolePermissions.hasPermission(UserRole.ADMIN, Permission.PASTORAL_YEAR_MANAGE));
+        assertTrue(RolePermissions.hasPermission(UserRole.ADMIN, Permission.PASTORAL_ACTOR_MANAGE));
         assertFalse(RolePermissions.hasPermission(UserRole.ADMIN, Permission.PAYOUT_MANAGE));
         assertFalse(RolePermissions.hasPermission(UserRole.ADMIN, Permission.SUBSCRIPTION_MANAGE));
         assertFalse(RolePermissions.hasPermission(UserRole.ADMIN, Permission.SAAS_PLAN_MANAGE));

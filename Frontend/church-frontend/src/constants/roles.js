@@ -55,6 +55,8 @@ export const PERMISSIONS = {
   SCHEDULE_MANAGE: 'schedule:manage',
   PASTORAL_YEAR_READ: 'pastoral-year:read',
   PASTORAL_YEAR_MANAGE: 'pastoral-year:manage',
+  PASTORAL_ACTOR_READ: 'pastoral-actor:read',
+  PASTORAL_ACTOR_MANAGE: 'pastoral-actor:manage',
   CELEBRATION_MANAGE: 'celebration:manage',
   CELEBRATION_SCHEDULE_MANAGE: 'celebration-schedule:manage',
   REQUEST_TYPE_READ: 'request-type:read',

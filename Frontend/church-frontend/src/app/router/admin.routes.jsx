@@ -27,6 +27,11 @@ const EditPastoralYearPage = lazy(() => import('../../pages/admin/pastoral-years
 const PastoralActorsPage = lazy(() => import('../../pages/admin/pastoral-actors/PastoralActorsPage'));
 const CreatePastoralActorPage = lazy(() => import('../../pages/admin/pastoral-actors/CreatePastoralActorPage'));
 const EditPastoralActorPage = lazy(() => import('../../pages/admin/pastoral-actors/EditPastoralActorPage'));
+const PastoralOrganizationPage = lazy(() => import('../../pages/admin/pastoral-organization/PastoralOrganizationPage'));
+const CreatePastoralStructurePage = lazy(() => import('../../pages/admin/pastoral-organization/CreatePastoralStructurePage'));
+const EditPastoralStructurePage = lazy(() => import('../../pages/admin/pastoral-organization/EditPastoralStructurePage'));
+const CreatePastoralMandatePage = lazy(() => import('../../pages/admin/pastoral-organization/CreatePastoralMandatePage'));
+const EditPastoralMandatePage = lazy(() => import('../../pages/admin/pastoral-organization/EditPastoralMandatePage'));
 const RequestTypesPage = lazy(() => import('../../pages/admin/request-types/RequestTypesPage'));
 const CreateRequestTypePage = lazy(() => import('../../pages/admin/request-types/CreateRequestTypePage'));
 const EditRequestTypePage = lazy(() => import('../../pages/admin/request-types/EditRequestTypePage'));
@@ -101,6 +106,15 @@ export function AdminRoutes() {
             <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.PASTORAL_ACTOR_MANAGE]} />}>
               <Route path={ROUTES.PASTORAL_ACTOR_CREATE} element={<CreatePastoralActorPage />} />
               <Route path={ROUTES.PASTORAL_ACTOR_EDIT} element={<EditPastoralActorPage />} />
+            </Route>
+            <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.PASTORAL_ORGANIZATION_READ]} />}>
+              <Route path={ROUTES.PASTORAL_ORGANIZATION} element={<PastoralOrganizationPage />} />
+            </Route>
+            <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.PASTORAL_ORGANIZATION_MANAGE]} />}>
+              <Route path={ROUTES.PASTORAL_STRUCTURE_CREATE} element={<CreatePastoralStructurePage />} />
+              <Route path={ROUTES.PASTORAL_STRUCTURE_EDIT} element={<EditPastoralStructurePage />} />
+              <Route path={ROUTES.PASTORAL_MANDATE_CREATE} element={<CreatePastoralMandatePage />} />
+              <Route path={ROUTES.PASTORAL_MANDATE_EDIT} element={<EditPastoralMandatePage />} />
             </Route>
             <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.REQUEST_TYPE_READ]} />}>
               <Route path={ROUTES.REQUEST_TYPES} element={<RequestTypesPage />} />

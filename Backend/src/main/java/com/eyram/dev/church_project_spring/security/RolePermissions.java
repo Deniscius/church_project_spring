@@ -32,6 +32,7 @@ public final class RolePermissions {
                 Permission.REQUEST_TYPE_READ,
                 Permission.PRICING_READ,
                 Permission.PARISH_READ,
+                Permission.CHOIR_READ,
                 Permission.PROFILE_READ
         );
 
@@ -45,6 +46,8 @@ public final class RolePermissions {
                 Permission.PARISH_REGISTRATION_READ,
                 Permission.PARISH_REGISTRATION_MANAGE,
                 Permission.DEANERY_MANAGE,
+                Permission.CHOIR_MANAGE,
+                Permission.CHOIR_INVITE,
                 Permission.PAYMENT_TYPE_MANAGE,
                 Permission.FINANCE_READ,
                 Permission.SAAS_PLAN_READ,
@@ -114,7 +117,9 @@ public final class RolePermissions {
                 Permission.REQUEST_TYPE_MANAGE,
                 Permission.PRICING_MANAGE,
                 Permission.USER_MANAGE,
-                Permission.PARISH_SETTINGS_MANAGE
+                Permission.PARISH_SETTINGS_MANAGE,
+                Permission.CHOIR_MANAGE,
+                Permission.CHOIR_INVITE
         );
         admin.addAll(parishRead);
         matrix.put(UserRole.ADMIN, immutable(admin));

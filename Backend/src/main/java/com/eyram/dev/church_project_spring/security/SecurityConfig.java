@@ -103,6 +103,7 @@ public class SecurityConfig {
                                 "/auth/forgot-password", "/auth/reset-password").permitAll()
                         .requestMatchers(HttpMethod.POST, "/auth/logout").permitAll()
                         .requestMatchers(HttpMethod.GET, "/auth/me").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/integrations/chorale-management/invitations/**").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html")
                         .access(swaggerAccess())
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()

@@ -45,6 +45,8 @@ class RolePermissionsTest {
         assertTrue(RolePermissions.hasPermission(UserRole.ADMIN, Permission.RECEIPT_MANAGE));
         assertTrue(RolePermissions.hasPermission(UserRole.ADMIN, Permission.TREASURY_MANAGE));
         assertTrue(RolePermissions.hasPermission(UserRole.ADMIN, Permission.SUBSCRIPTION_CHECKOUT));
+        assertTrue(RolePermissions.hasPermission(UserRole.ADMIN, Permission.CHOIR_MANAGE));
+        assertTrue(RolePermissions.hasPermission(UserRole.ADMIN, Permission.CHOIR_INVITE));
         assertFalse(RolePermissions.hasPermission(UserRole.ADMIN, Permission.PAYOUT_MANAGE));
         assertFalse(RolePermissions.hasPermission(UserRole.ADMIN, Permission.SUBSCRIPTION_MANAGE));
         assertFalse(RolePermissions.hasPermission(UserRole.ADMIN, Permission.SAAS_PLAN_MANAGE));

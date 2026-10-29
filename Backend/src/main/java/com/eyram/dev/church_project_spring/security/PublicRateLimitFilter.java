@@ -94,6 +94,7 @@ public class PublicRateLimitFilter extends OncePerRequestFilter {
                 path.contains("/auth/forgot-password")
                         || path.contains("/auth/reset-password")
                         || path.contains("/auth/login")
+                        || path.contains("/integrations/chorale-management/invitations/")
                         || path.contains("/demandes/suivi/par-telephone")
                         || path.contains("/inscriptions-paroisse/otp")
                         || path.contains("/paiements/checkout")
@@ -133,7 +134,8 @@ public class PublicRateLimitFilter extends OncePerRequestFilter {
         if (path.contains("/code/") || path.contains("/code-suivie/") || path.contains("/quote/")) {
             return "code-lookup";
         }
-        if (path.contains("/forgot-password") || path.contains("/reset-password") || path.contains("/login")) {
+        if (path.contains("/forgot-password") || path.contains("/reset-password") || path.contains("/login")
+                || path.contains("/integrations/chorale-management/invitations/")) {
             return "auth";
         }
         if (path.contains("/otp") || path.contains("/suivi/par-telephone")

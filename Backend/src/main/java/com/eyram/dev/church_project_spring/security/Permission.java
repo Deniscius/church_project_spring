@@ -54,6 +54,9 @@ public enum Permission {
     PARISH_REGISTRATION_READ("parish-registration:read"),
     PARISH_REGISTRATION_MANAGE("parish-registration:manage"),
     DEANERY_MANAGE("deanery:manage"),
+    CHOIR_READ("choir:read"),
+    CHOIR_MANAGE("choir:manage"),
+    CHOIR_INVITE("choir:invite"),
     PAYMENT_TYPE_MANAGE("payment-type:manage"),
 
     FINANCE_READ("finance:read"),

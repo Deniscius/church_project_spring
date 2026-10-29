@@ -22,6 +22,7 @@ const parishMenu = [
   { to: '/admin/forfaits', label: 'Forfaits', icon: 'pricing', permission: PERMISSIONS.PRICING_READ },
   { to: '/admin/recu', label: 'Reçu', icon: 'invoices', permission: PERMISSIONS.RECEIPT_MANAGE },
   { to: '/admin/equipe', label: 'Équipe', icon: 'team', permission: PERMISSIONS.USER_MANAGE },
+  { to: ROUTES.CHOIRS, label: 'Chorales', icon: 'team', permission: PERMISSIONS.CHOIR_READ },
   { to: '/admin/profil', label: 'Mon profil', icon: 'profile', permission: PERMISSIONS.PROFILE_READ },
 ];
 
@@ -34,6 +35,7 @@ const interventionMenu = [
   { to: '/admin/types-demandes', label: 'Types de demandes', icon: 'types', permission: PERMISSIONS.REQUEST_TYPE_READ },
   { to: '/admin/forfaits', label: 'Forfaits', icon: 'pricing', permission: PERMISSIONS.PRICING_READ },
   { to: '/admin/equipe', label: 'Accès équipe', icon: 'team', permission: PERMISSIONS.USER_MANAGE },
+  { to: ROUTES.CHOIRS, label: 'Chorales', icon: 'team', permission: PERMISSIONS.CHOIR_READ },
   { to: '/admin/recu', label: 'Reçu', icon: 'invoices', permission: PERMISSIONS.RECEIPT_MANAGE },
 ];
 

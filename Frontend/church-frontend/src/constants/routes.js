@@ -47,6 +47,7 @@ export const ROUTES = {
   TEAM: '/admin/equipe',
   TEAM_CREATE: '/admin/equipe/nouveau',
   TEAM_EDIT: '/admin/equipe/:id/modifier',
+  CHOIRS: '/admin/chorales',
   PROFILE: '/admin/profil',
 
   // Plateforme (super admin / comptable)

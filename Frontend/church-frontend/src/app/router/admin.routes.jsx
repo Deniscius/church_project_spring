@@ -33,6 +33,7 @@ const CreateTeamMemberPage = lazy(() => import('../../pages/admin/users/CreateTe
 const EditTeamMemberPage = lazy(() => import('../../pages/admin/users/EditTeamMemberPage'));
 const ParishTreasuryPage = lazy(() => import('../../pages/admin/treasury/ParishTreasuryPage'));
 const ReceiptSettingsPage = lazy(() => import('../../pages/admin/receipt/ReceiptSettingsPage'));
+const ChoirsPage = lazy(() => import('../../pages/admin/choirs/ChoirsPage'));
 
 function LazyOutlet() {
   return (
@@ -100,6 +101,9 @@ export function AdminRoutes() {
               <Route path={ROUTES.TEAM} element={<UsersPage />} />
               <Route path={ROUTES.TEAM_CREATE} element={<CreateTeamMemberPage />} />
               <Route path={ROUTES.TEAM_EDIT} element={<EditTeamMemberPage />} />
+            </Route>
+            <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.CHOIR_READ]} />}>
+              <Route path={ROUTES.CHOIRS} element={<ChoirsPage />} />
             </Route>
             <Route element={<PermissionGuard requiredPermissions={[PERMISSIONS.TREASURY_READ]} />}>
               <Route path={ROUTES.TREASURY} element={<ParishTreasuryPage />} />

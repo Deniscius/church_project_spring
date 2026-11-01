@@ -95,3 +95,95 @@ Des seuils avec arrêt automatique protègent la production :
 
 Cette référence concerne uniquement des lectures authentifiées sur l'instance
 Render Starter et la base PostgreSQL 256 MB configurées au moment du test.
+
+
+## 4. Stress test contrôlé jusqu'à 20 utilisateurs
+
+Le scénario monte par paliers de 5, 10, 15 puis 20 utilisateurs et maintient un
+plateau de 20. Il s'arrête automatiquement si le taux d'erreur dépasse 2 % ou
+si le p95 HTTP dépasse 1,5 seconde.
+
+### Exécutions des 20 et 21 août 2026
+
+Deux exécutions identiques ont produit des résultats différents, ce qui révèle
+la variabilité de l'infrastructure Render partagée.
+
+#### Exécution 1 — arrêt automatique pendant la montée
+
+- arrêt à 11 utilisateurs actifs lorsque le p95 a atteint 1 588 ms ;
+- 440 requêtes, aucune erreur HTTP et 860/860 contrôles réussis ;
+- débit : 10,48 requêtes/seconde ; moyenne : 586 ms ; maximum : 2 256 ms.
+
+#### Exécution 2 — plateau de 20 utilisateurs terminé
+
+- 20 utilisateurs simultanés atteints et maintenus ;
+- 3 567 requêtes, soit 35,80 requêtes/seconde ;
+- aucune erreur HTTP et 7 130/7 130 contrôles réussis ;
+- moyenne : 453 ms ; p90 : 1 030 ms ; p95 : 1 301 ms ; maximum : 2 488 ms ;
+- p95 session : 1 282 ms ; profil : 1 226 ms ; demandes : 1 297 ms ;
+- p95 statistiques : 1 395 ms ; programmations : 1 301 ms.
+
+Dans les deux cas, l'API est restée `UP` après le test. La capacité observée va
+jusqu'à 20 utilisateurs et environ 36 requêtes/seconde sans erreur, mais elle
+n'est pas parfaitement stable : des pics de latence peuvent dépasser 1,5 seconde.
+Pour un engagement de performance constant, conserver 10 utilisateurs comme
+palier prudent ou augmenter les ressources Render/PostgreSQL avant de viser
+20 utilisateurs soutenus.
+
+
+## 5. Palier progressif de 25 utilisateurs — 21 août 2026
+
+Le palier suivant a ajouté une montée à 25 utilisateurs puis un plateau de
+20 secondes. L'exécution s'est terminée normalement sans déclencher les seuils
+de protection.
+
+- 25 utilisateurs simultanés atteints et maintenus ;
+- 5 167 requêtes, soit 44,66 requêtes/seconde ;
+- aucune erreur HTTP et 10 330/10 330 contrôles réussis ;
+- moyenne : 427 ms ; p90 : 721 ms ; p95 : 961 ms ; maximum : 2 200 ms ;
+- p95 session : 898 ms ; profil : 914 ms ; demandes : 927 ms ;
+- p95 statistiques : 997 ms ; programmations : 971 ms ;
+- l'API est restée `UP` après le test.
+
+Ce résultat valide le palier de 25 utilisateurs pour ce scénario de lectures
+parallèles. Les pics maximum dépassent ponctuellement 2 secondes ; le prochain
+palier doit rester progressif et conserver les mêmes arrêts automatiques.
+
+
+## 6. Palier progressif de 30 utilisateurs — 21 août 2026
+
+Le test a ajouté une montée à 30 utilisateurs puis un plateau de 20 secondes.
+L'exécution s'est terminée normalement sans déclencher les protections.
+
+- 30 utilisateurs simultanés atteints et maintenus ;
+- 6 367 requêtes, soit 48,30 requêtes/seconde ;
+- aucune erreur HTTP et 12 730/12 730 contrôles réussis ;
+- moyenne : 564 ms ; p90 : 1 010 ms ; p95 : 1 340 ms ; maximum : 2 690 ms ;
+- p95 session : 1 290 ms ; profil : 1 300 ms ; demandes : 1 330 ms ;
+- p95 statistiques : 1 410 ms ; programmations : 1 390 ms ;
+- l'API est restée `UP` après le test.
+
+Le palier respecte encore le seuil p95 de 1,5 seconde, mais la marge restante
+est faible et tous les endpoints se rapprochent du seuil. Le prochain palier
+doit conserver l'arrêt automatique ; 30 utilisateurs représentent désormais
+la limite haute validée de ce scénario sur l'infrastructure actuelle.
+
+
+## 7. Limite de performance à 35 utilisateurs — 21 août 2026
+
+Le scénario a poursuivi la montée jusqu'à 35 utilisateurs. Le seuil p95 de
+1,5 seconde a été dépassé pendant le plateau, ce qui a provoqué l'arrêt
+automatique prévu.
+
+- 35 utilisateurs simultanés atteints ;
+- 6 423 requêtes avant l'arrêt, soit 51,80 requêtes/seconde ;
+- aucune erreur HTTP et 12 820/12 820 contrôles réussis ;
+- moyenne : 664 ms ; p90 : 1 280 ms ; p95 : 1 520 ms ; maximum : 2 300 ms ;
+- p95 session : 1 490 ms ; profil : 1 490 ms ; demandes : 1 540 ms ;
+- p95 statistiques : 1 600 ms ; programmations : 1 550 ms ;
+- l'API est restée `UP` après l'arrêt.
+
+La limite observée est une limite de performance, pas de disponibilité : aucune
+requête n'a échoué. Sur l'infrastructure actuelle, **30 utilisateurs simultanés
+est le dernier palier validé sous le p95 de 1,5 seconde**. Une montée au-delà de
+35 n'apporterait plus de valeur avant optimisation ou augmentation des ressources.

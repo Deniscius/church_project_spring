@@ -41,6 +41,8 @@ n'est nécessaire dans le desktop.
 1. Saisir l'identifiant et le mot de passe fournis par l'administrateur, puis
    cliquer **Se connecter**. L'application connaît déjà son service : aucune
    adresse technique n'est demandée à l'utilisateur.
+   Le service peut devoir sortir de veille : la connexion attend jusqu’à deux
+   minutes avant de signaler un dépassement de délai.
 2. Lors du premier accès **en ligne**, choisir la paroisse autorisée à préparer,
    puis saisir et confirmer un **mot de passe local d'au moins 12 caractères**.
    Ce secret protège ce poste ; il n'existe pas de récupération intégrée.
@@ -278,3 +280,12 @@ Ce test utilise exclusivement le compte de test créé par la suite backend. Il
 crée une demande, simule son encaissement et télécharge un reçu. Ne pas le lancer
 contre la production. Le paiement FedaPay réel reste à valider avec un compte
 sandbox configuré ; aucun paiement externe n'est exécuté par les tests.
+
+## Problème de connexion
+
+Le desktop distingue un serveur trop lent, un service introuvable (DNS), un
+serveur injoignable et une erreur de connexion sécurisée (TLS). Les messages ne
+contiennent ni mot de passe ni détails internes renvoyés par le serveur.
+Une erreur après le délai d'attente ne prouve pas que les identifiants sont faux :
+une réponse HTTP 401 est signalée séparément. Ne pas désactiver la vérification
+TLS pour contourner un problème de certificat.

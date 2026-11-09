@@ -6,6 +6,7 @@ import com.missanye.desktop.model.ScreenFormats;
 import com.missanye.desktop.model.RequestValidation;
 import com.missanye.desktop.service.ReceiptExporter;
 import com.missanye.desktop.service.WorkspaceBootstrap;
+import com.missanye.desktop.service.OperationErrors;
 import com.missanye.desktop.view.FirstConnectionDialog;
 import com.missanye.desktop.repository.LocalStore;
 import com.missanye.desktop.service.SyncService;
@@ -75,7 +76,7 @@ public final class WorkbenchController implements AutoCloseable {
             Throwable x=task.getException();if(x instanceof SyncService.SessionMismatchException){if(api!=null)api.clear();api=null;}
             if(store==null)v.showLogin();controls();
             if(x instanceof java.io.IOException || (x instanceof ApiClient.ApiException a && (a.status()==429 || a.status()>=500))) {transientFailures=Math.min(transientFailures+1,6);automaticRetryAfter=System.currentTimeMillis()+Math.min(3600000L,60000L*(1L<<transientFailures));}
-            v.status.setText(x instanceof IllegalArgumentException || x instanceof ApiClient.ApiException ? x.getMessage():"Cette opération a été interrompue. Votre travail est conservé. Vérifiez votre connexion ou contactez votre administrateur.");
+            v.status.setText(OperationErrors.message(x));
             reloadAfterFailure(generation);
         });worker.submit(task);
     }
@@ -116,7 +117,7 @@ public final class WorkbenchController implements AutoCloseable {
             }catch(Exception e){if(opened!=null)opened.close();throw e;}finally{Arrays.fill(local,'\0');}},this::finishOpen);
             return;
         }
-        v.status.setText("Vérification de votre compte et de vos accès…");
+        v.status.setText("Connexion au service et vérification de vos accès… Le premier démarrage du serveur peut prendre jusqu’à deux minutes.");
         run(()->{
             var client=new ApiClient(apiBaseUrl);try{
                 var info=client.login(username,password);if(info.path("user").path("id").asText().isBlank())throw new IllegalStateException("Session sans propriétaire");

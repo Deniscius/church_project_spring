@@ -21,8 +21,9 @@ public final class ApiClient {
         http = HttpClient.newBuilder().cookieHandler(cookies).connectTimeout(Duration.ofSeconds(10))
                 .followRedirects(HttpClient.Redirect.NEVER).build();
     }
-    private JsonNode request(String path, String body) throws Exception {
-        var b = HttpRequest.newBuilder(base.resolve(path)).timeout(Duration.ofSeconds(30))
+    private JsonNode request(String path, String body) throws Exception {return request(path,body,Duration.ofSeconds(30));}
+    private JsonNode request(String path,String body,Duration timeout)throws Exception {
+        var b = HttpRequest.newBuilder(base.resolve(path)).timeout(timeout)
                 .header("Accept", "application/json").header("X-Requested-With", "XMLHttpRequest");
         if (body == null) b.GET(); else b.header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(body));
         var response = http.send(b.build(), HttpResponse.BodyHandlers.ofString());
@@ -37,7 +38,7 @@ public final class ApiClient {
     public JsonNode login(String username, String password) throws Exception {
         clear();
         try {
-            request("auth/login-multi-tenant", json.writeValueAsString(Map.of("username", username, "password", password)));
+            request("auth/login-multi-tenant", json.writeValueAsString(Map.of("username", username, "password", password)),Duration.ofMinutes(2));
             return request("auth/me", null);
         } catch (Exception e) { clear(); throw e; }
     }

@@ -22,7 +22,7 @@ public final class WorkbenchView {
     public final TextArea intention;
     public final TextField demandSearch, username, surname, firstname, phone, email, courier, customTime;
     public final PasswordField password, localPassword;
-    public final Button returnToDraft, retry, login, offline, lock, configureSlots, save, fresh, edit, queue, archive, sync, refresh, cash, receipt, checkout, reconcile, correct, validate, remove;
+    public final Button configureServer, returnToDraft, retry, login, offline, lock, configureSlots, save, fresh, edit, queue, archive, sync, refresh, cash, receipt, checkout, reconcile, correct, validate, remove;
     public final Label offlineAvailability, session, status, slotsSummary, price, detail, queueDetail;
     public final ComboBox<Choice> parish, type, plan, schedule, payment;
     public final DatePicker date, additionalDate;
@@ -83,7 +83,7 @@ public final class WorkbenchView {
             correct=ref("correct",Button.class);
             validate=ref("validate",Button.class);
             remove=ref("remove",Button.class);
-            offlinePane=ref("offlinePane",TitledPane.class);offlineAvailability=ref("offlineAvailability",Label.class);
+            configureServer=ref("configureServer",Button.class);offlinePane=ref("offlinePane",TitledPane.class);offlineAvailability=ref("offlineAvailability",Label.class);
             session=ref("session",Label.class);
             status=ref("status",Label.class);
             slotsSummary=ref("slotsSummary",Label.class);

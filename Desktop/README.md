@@ -87,10 +87,35 @@ mvn javafx:run -Ddesktop.api.url=http://localhost:8081
 Le script shell accepte `MISSANYE_BUILD_API_URL`. Le fichier embarqué
 `com/missanye/desktop/config/deployment.properties` est filtré par Maven. Pour
 un lancement administré, `-Dmissanye.apiUrl=...` (option JVM) ou
-`MISSANYE_API_URL` peut surcharger cette valeur, dans cet ordre. L'interface ne
-propose pas d'éditeur de configuration. Les URL doivent être absolues, sans
+`MISSANYE_API_URL` peut surcharger cette valeur, dans cet ordre. Une adresse
+enregistrée depuis **Configuration du serveur** est prioritaire sur ces valeurs.
+Les URL doivent être absolues, sans
 identifiant, query string ou fragment ; HTTPS est obligatoire sauf en local.
 Aucune clé Neon ou FedaPay ne doit être ajoutée à ce fichier.
+
+### Configuration du serveur sur le poste
+
+Avant la connexion, cliquer **Configuration du serveur**, saisir l'adresse du
+backend (par exemple `https://church-project-spring-pmbz.onrender.com`), puis
+**Tester la connexion**. Le contrôle appelle `actuator/health`, sans identifiant,
+mot de passe ni cookie. Il exige une réponse JSON `status: UP` et peut attendre
+jusqu'à deux minutes pendant le réveil du serveur. Ce contrôle ne remplace pas
+l'authentification du compte.
+
+**Enregistrer** est activé seulement après un test réussi de l'adresse saisie.
+Toute modification exige un nouveau test. **Annuler** conserve l'adresse actuelle.
+Le fichier `server.properties`, placé à côté du coffre SQLite dans le répertoire
+`.missanye-desktop` (ou `missanye.dataDir`), mémorise uniquement l'adresse. Il est
+remplacé atomiquement lorsque le système de fichiers le permet. Une configuration
+illisible bloque la connexion et peut être corrigée depuis la même fenêtre.
+
+Le réglage est destiné à la personne qui déploie le poste ; il n'est pas protégé
+par une authentification administrateur supplémentaire. Il est accessible avant
+la connexion, et nécessite une déconnexion préalable si un espace est ouvert.
+Les URL HTTP distantes sont refusées ; pour un backend sur le réseau local,
+utiliser HTTPS. La connexion Neon reste configurée uniquement côté backend.
+Supprimer `server.properties` quand l'application est fermée rétablit les valeurs
+de lancement ou de livraison.
 
 La séparation des coffres utilise l'adresse canonique du service et le compte.
 Changer d'environnement crée un espace local distinct. Avant de remplacer une

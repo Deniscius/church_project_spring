@@ -135,6 +135,31 @@ class MainControllerTest {
         }finally{fx(()->{if(controllers[0]!=null)controllers[0].close();if(stage[0]!=null)stage[0].close();});}
     }
     private static void reply(com.sun.net.httpserver.HttpExchange e,int code,String body)throws java.io.IOException{byte[] bytes=body.getBytes(java.nio.charset.StandardCharsets.UTF_8);e.sendResponseHeaders(code,bytes.length);e.getResponseBody().write(bytes);e.close();}
+    private static javafx.scene.control.DialogPane serverDialog(){
+        for(var window:java.util.List.copyOf(javafx.stage.Window.getWindows())){
+            if(window.getScene()==null)continue;var root=window.getScene().getRoot();var node=root instanceof javafx.scene.control.DialogPane?root:root.lookup(".dialog-pane");
+            if(node instanceof javafx.scene.control.DialogPane pane&&pane.lookup("#serverAddress")!=null)return pane;
+        }return null;
+    }
+    private static javafx.scene.control.Button saveServerButton(){var pane=serverDialog();return (javafx.scene.control.Button)pane.lookupButton(pane.getButtonTypes().stream().filter(b->b.getButtonData()==javafx.scene.control.ButtonBar.ButtonData.OK_DONE).findFirst().orElseThrow());}
+    @Test void serverConfigurationRequiresSuccessfulTestAndChangesLoginDestination()throws Exception{
+        var server=com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1",0),0);var logins=new java.util.concurrent.atomic.AtomicInteger();
+        server.createContext("/actuator/health",e->reply(e,200,"{\"status\":\"UP\"}"));server.createContext("/auth/login-multi-tenant",e->{logins.incrementAndGet();reply(e,401,"{}");});server.start();
+        String address="http://127.0.0.1:"+server.getAddress().getPort()+"/";Path file=temp.resolve("configuration.sqlite");var views=new WorkbenchView[1];var controllers=new WorkbenchController[1];var stage=new javafx.stage.Stage[1];
+        try{
+            fx(()->{views[0]=new WorkbenchView();controllers[0]=new WorkbenchController(views[0],file,null,"http://localhost:8081/");stage[0]=new javafx.stage.Stage();stage[0].setScene(new javafx.scene.Scene(views[0].root,1100,850));stage[0].show();Platform.runLater(views[0].configureServer::fire);});
+            await(()->serverDialog()!=null);
+            fx(()->{var pane=serverDialog();assertTrue(saveServerButton().isDisabled());((javafx.scene.control.TextField)pane.lookup("#serverAddress")).setText("http://invalid.example");((javafx.scene.control.Button)pane.lookup("#testServer")).fire();assertTrue(saveServerButton().isDisabled());((javafx.scene.control.TextField)pane.lookup("#serverAddress")).setText(address);((javafx.scene.control.Button)pane.lookup("#testServer")).fire();});
+            await(()->!saveServerButton().isDisabled());
+            fx(()->{var pane=serverDialog();captureNode(pane,"desktop-server-settings-preview.png");((javafx.scene.control.TextField)pane.lookup("#serverAddress")).setText(address+"changed/");assertTrue(saveServerButton().isDisabled());((javafx.scene.control.TextField)pane.lookup("#serverAddress")).setText(address);((javafx.scene.control.Button)pane.lookup("#testServer")).fire();});
+            await(()->!saveServerButton().isDisabled());fx(()->saveServerButton().fire());await(()->serverDialog()==null);
+            assertEquals(address,com.missanye.desktop.config.ServerSettings.load(file,"https://example.com/"));
+            fx(()->{views[0].username.setText("alice");views[0].password.setText("not persisted");views[0].login.fire();});
+            await(()->!views[0].login.isDisabled()&&logins.get()==1);assertFalse(java.nio.file.Files.exists(file));
+            fx(()->{controllers[0].close();controllers[0]=new WorkbenchController(views[0],file,null);Platform.runLater(views[0].configureServer::fire);});await(()->serverDialog()!=null);
+            fx(()->{assertEquals(address,((javafx.scene.control.TextField)serverDialog().lookup("#serverAddress")).getText());var pane=serverDialog();((javafx.scene.control.Button)pane.lookupButton(pane.getButtonTypes().get(0))).fire();});
+        }finally{fx(()->{if(controllers[0]!=null)controllers[0].close();if(stage[0]!=null)stage[0].close();});server.stop(0);}
+    }
     private static javafx.scene.control.DialogPane setupDialog(){
         for(var window:java.util.List.copyOf(javafx.stage.Window.getWindows())){
             if(window.getScene()==null)continue;

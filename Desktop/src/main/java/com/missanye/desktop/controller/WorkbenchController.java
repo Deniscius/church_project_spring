@@ -2,6 +2,8 @@ package com.missanye.desktop.controller;
 
 import com.missanye.desktop.api.ApiClient;
 import com.missanye.desktop.config.DesktopConfiguration;
+import com.missanye.desktop.config.ServerSettings;
+import com.missanye.desktop.view.ServerSettingsDialog;
 import com.missanye.desktop.model.ScreenFormats;
 import com.missanye.desktop.model.RequestValidation;
 import com.missanye.desktop.service.ReceiptExporter;
@@ -27,7 +29,7 @@ import java.util.function.Consumer;
 public final class WorkbenchController implements AutoCloseable {
     private final WorkbenchView v;
     private final Path file;
-    private final String apiBaseUrl;
+    private String apiBaseUrl;
     private final HostServices host;
     private final ObjectMapper json=new ObjectMapper();
     private final ExecutorService worker=Executors.newSingleThreadExecutor(r->{var t=new Thread(r,"desktop-io");t.setDaemon(true);return t;});
@@ -41,6 +43,7 @@ public final class WorkbenchController implements AutoCloseable {
     private volatile boolean closed;
     private long taskGeneration;
     private boolean offlineReady;
+    private boolean serverSettingsValid=true;
     private final javafx.animation.PauseTransition readinessDelay=new javafx.animation.PauseTransition(javafx.util.Duration.millis(220));
     private ArrayNode configuredSlots;
     private boolean busy,loading;
@@ -48,10 +51,15 @@ public final class WorkbenchController implements AutoCloseable {
     private long automaticRetryAfter;
     public WorkbenchController(WorkbenchView view,Path file,HostServices host){
         this(view,file,host,DesktopConfiguration.load().apiBaseUrl());
+        try{apiBaseUrl=ServerSettings.load(file,apiBaseUrl);}catch(Exception invalid){
+            serverSettingsValid=false;v.status.setText("La configuration enregistrée est illisible. Ouvrez Configuration du serveur pour la corriger avant de vous connecter.");
+        }
+        controls();
     }
     public WorkbenchController(WorkbenchView view,Path file,HostServices host,String configuredApiUrl){
         apiBaseUrl=new DesktopConfiguration(configuredApiUrl).apiBaseUrl();
         v=view;this.file=file;this.host=host;
+        v.configureServer.setOnAction(e->configureServer());
         v.login.setOnAction(e->unlock(true));v.offline.setOnAction(e->unlock(false));v.lock.setOnAction(e->protectForm(this::lock));
         v.parish.setOnAction(e->{if(!loading && !busy)changeParish();});
         v.addDate.setOnAction(e->addDate());v.removeDate.setOnAction(e->{var chosen=v.extraDates.getSelectionModel().getSelectedItem();if(chosen!=null)v.extraDates.getItems().remove(chosen);});
@@ -84,17 +92,27 @@ public final class WorkbenchController implements AutoCloseable {
         boolean opened=store!=null;v.setWorkspaceOpen(opened);v.workspace.setDisable(busy||!opened);v.lock.setDisable(busy||!opened);
         v.busyIndicator.setVisible(busy);v.busyIndicator.setManaged(busy);
         for(var n:List.of(v.username,v.password,v.localPassword,v.login,v.offline))n.setDisable(busy||opened);
-        v.offlinePane.setDisable(busy||opened||!offlineReady);v.offline.setDisable(busy||opened||!offlineReady);
+        v.login.setDisable(busy||opened||!serverSettingsValid);
+        v.configureServer.setDisable(busy||opened);
+        v.offlinePane.setDisable(busy||opened||!offlineReady||!serverSettingsValid);v.offline.setDisable(busy||opened||!offlineReady||!serverSettingsValid);
         v.refresh.setDisable(api==null);v.sync.setDisable(api==null);updateActions();
+    }
+    private void configureServer(){
+        if(busy||store!=null)return;
+        try{ServerSettingsDialog.show(v,file,apiBaseUrl).ifPresent(address->{
+            readinessDelay.stop();apiBaseUrl=address;serverSettingsValid=true;v.password.clear();v.localPassword.clear();offlineReady=false;transientFailures=0;automaticRetryAfter=0;
+            v.status.setText("Serveur enregistré. Connectez-vous avec votre compte de cet environnement.");controls();inspectOfflineReadiness();
+        });}catch(Exception failure){v.status.setText("Impossible d'ouvrir la configuration du serveur. Contactez votre administrateur.");}
     }
     private String parish(){if(v.parish.getValue()==null)throw new IllegalArgumentException("Sélectionnez une paroisse.");return v.parish.getValue().id();}
     private void inspectOfflineReadiness(){
         if(closed||store!=null)return;String username=v.username.getText().trim();
         if(username.isBlank()){offlineReady=false;v.offlineAvailability.setText("Une connexion Internet est nécessaire lors de la première utilisation sur ce poste.");controls();return;}
+        String inspectedServer=apiBaseUrl;
         worker.submit(()->{
             LocalStore.ProfileStatus status;
-            try{status=LocalStore.inspect(file,apiBaseUrl,username);}catch(Exception e){status=LocalStore.ProfileStatus.NEEDS_ONLINE;}
-            final var result=status;Platform.runLater(()->{if(closed||store!=null||!username.equals(v.username.getText().trim()))return;offlineReady=result==LocalStore.ProfileStatus.READY;
+            try{status=LocalStore.inspect(file,inspectedServer,username);}catch(Exception e){status=LocalStore.ProfileStatus.NEEDS_ONLINE;}
+            final var result=status;Platform.runLater(()->{if(closed||store!=null||!inspectedServer.equals(apiBaseUrl)||!username.equals(v.username.getText().trim()))return;offlineReady=result==LocalStore.ProfileStatus.READY;
                 v.offlineAvailability.setText(offlineReady?"Ce compte dispose d'un espace préparé sur ce poste.":result==LocalStore.ProfileStatus.ABSENT?"Première utilisation : connectez-vous en ligne pour préparer ce poste.":"La préparation de ce compte doit être terminée en ligne.");controls();});
         });
     }

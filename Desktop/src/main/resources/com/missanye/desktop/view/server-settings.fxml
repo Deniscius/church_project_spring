@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<VBox xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" spacing="14" prefWidth="560" styleClass="onboarding-content">
+  <Label text="CONFIGURATION DU POSTE" styleClass="eyebrow"/>
+  <Label text="Connecter Missanye à votre serveur" styleClass="section-title" wrapText="true" minHeight="-Infinity"/>
+  <Label text="Réglage réservé à la personne qui déploie l'application. Utilisez l'adresse du backend API, puis testez-la avant d'enregistrer." wrapText="true" minHeight="-Infinity" maxWidth="Infinity" styleClass="muted"/>
+  <Label text="Adresse du serveur API" styleClass="field-label"/>
+  <TextField fx:id="serverAddress" promptText="https://votre-backend.onrender.com"/>
+  <Label text="HTTPS requis. HTTP est accepté uniquement sur localhost pour le développement. Aucun identifiant Neon n'est nécessaire ici." wrapText="true" minHeight="-Infinity" maxWidth="Infinity" styleClass="help-text"/>
+  <HBox spacing="12" alignment="CENTER_LEFT"><Button fx:id="testServer" text="Tester la connexion" styleClass="secondary-button"/><ProgressIndicator fx:id="serverProgress" prefWidth="24" prefHeight="24" visible="false" managed="false"/></HBox>
+  <Label fx:id="serverResult" text="L'adresse actuelle reste utilisée tant que vous n'enregistrez pas." wrapText="true" minHeight="-Infinity" maxWidth="Infinity"/>
+  <Label text="Changer de serveur utilise un espace local distinct. Les données et opérations de l'ancien serveur restent sur ce poste et seront retrouvées en rétablissant son adresse." wrapText="true" minHeight="-Infinity" maxWidth="Infinity" styleClass="help-text"/>
+</VBox>

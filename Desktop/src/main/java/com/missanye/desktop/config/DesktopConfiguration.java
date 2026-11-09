@@ -4,7 +4,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.Properties;
 
-/** Deployment-owned settings. There is deliberately no end-user editor. */
+/** Deployment defaults, overridable through the installation server settings. */
 public record DesktopConfiguration(String apiBaseUrl) {
     public DesktopConfiguration {
         if(apiBaseUrl==null || apiBaseUrl.isBlank())throw new IllegalArgumentException("Adresse API absente de la configuration de livraison.");

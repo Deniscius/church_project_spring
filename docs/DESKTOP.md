@@ -35,8 +35,12 @@ thread JavaFX. Le stockage local ne remplace pas les règles métier serveur.
 
 Le développeur définit l'adresse du service au build avec `desktop.api.url`.
 `DesktopConfiguration` lit la valeur embarquée et permet les surcharges
-administrées `missanye.apiUrl` / `MISSANYE_API_URL`. Aucune adresse API, aucun
-choix de serveur et aucun réglage de communication n'apparaît à l'écran.
+administrées `missanye.apiUrl` / `MISSANYE_API_URL`. Le déployeur peut aussi
+utiliser **Configuration du serveur** sur l'écran de connexion. Cette fenêtre
+valide l'URL et exige un contrôle de santé réussi avant un enregistrement atomique
+dans `server.properties`. Ce choix du poste est prioritaire sur les valeurs de
+lancement et de livraison. Une session ouverte doit d'abord être fermée.
+Le test n'envoie pas d'identifiants et ne désactive jamais la vérification TLS.
 
 La connexion est centrée sur l'identifiant et le mot de passe. Le mot de passe
 local est demandé dans un assistant dédié ou dans l'accès hors connexion.

@@ -30,6 +30,7 @@
           </VBox>
         </content>
       </TitledPane>
+      <Button fx:id="configureServer" text="Configuration du serveur" styleClass="secondary-button"/>
       <Label text="Première utilisation ? Connectez-vous avec les identifiants fournis par votre administrateur." wrapText="true" styleClass="help-text"/>
     </VBox>
   </children>

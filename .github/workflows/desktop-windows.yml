@@ -28,6 +28,21 @@ jobs:
           cache-dependency-path: Desktop/pom.xml
       - name: Test and build bundled Windows application
         run: ./scripts/package.ps1
+      - name: Build Inno Setup installer
+        run: ./scripts/installer.ps1
+      - name: Verify silent installation and uninstallation
+        run: |
+          $installer = (Resolve-Path target/installer/Missanye-Setup.exe).Path
+          $installDir = Join-Path $env:RUNNER_TEMP 'Missanye-install-test'
+          $arguments = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /DIR=`"$installDir`""
+          $setup = Start-Process -FilePath $installer -ArgumentList $arguments -Wait -PassThru
+          if ($setup.ExitCode -ne 0) { throw "Installation failed: $($setup.ExitCode)" }
+          foreach ($file in @('Missanye.exe', 'runtime/bin/server/jvm.dll', 'app/missanye-desktop-0.1.0-SNAPSHOT.jar', 'unins000.exe')) {
+            if (-not (Test-Path (Join-Path $installDir $file))) { throw "Installed file missing: $file" }
+          }
+          $uninstall = Start-Process -FilePath (Join-Path $installDir 'unins000.exe') -ArgumentList '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART' -Wait -PassThru
+          if ($uninstall.ExitCode -ne 0) { throw "Uninstallation failed: $($uninstall.ExitCode)" }
+          if (Test-Path (Join-Path $installDir 'Missanye.exe')) { throw 'Application was not uninstalled.' }
       - name: Archive portable Windows application
         run: |
           Compress-Archive -Path target/distribution/Missanye -DestinationPath target/Missanye-Windows.zip
@@ -38,4 +53,11 @@ jobs:
           path: |
             Desktop/target/Missanye-Windows.zip
             Desktop/target/Missanye-Windows.zip.sha256
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Missanye-Setup-Windows
+          path: |
+            Desktop/target/installer/Missanye-Setup.exe
+            Desktop/target/installer/Missanye-Setup.exe.sha256
           if-no-files-found: error

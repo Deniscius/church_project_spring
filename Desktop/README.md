@@ -140,8 +140,45 @@ terminé, télécharger l'artefact **Missanye-Windows**, extraire le ZIP puis ou
 `Missanye/Missanye.exe`. Le workflow vérifie aussi les tests sur Windows.
 
 L'image Linux a été construite ici ; les paquets Windows/macOS doivent être
-construits et vérifiés sur leurs systèmes. Il n'y a pas encore d'installateur
-signé ni de système de mise à jour automatique.
+construits et vérifiés sur leurs systèmes. Il n'y a pas encore de signature
+numérique de l'application ni de système de mise à jour automatique.
+
+## Installateur Windows Inno Setup
+
+Le workflow **Desktop Windows** produit aussi l'artefact
+**Missanye-Setup-Windows**, contenant **`Missanye-Setup.exe`** et son empreinte
+SHA-256. Télécharger l'artefact depuis GitHub Actions, extraire l'archive puis
+exécuter `Missanye-Setup.exe`. Java et JavaFX sont inclus.
+
+L'installation est destinée à Windows 10/11 compatible x64 et se fait pour le
+compte courant, sans demande de droits administrateur, dans
+`%LOCALAPPDATA%\Programs\Missanye` par défaut. L'assistant propose le français
+et l'anglais, un raccourci menu Démarrer et un raccourci Bureau optionnel.
+La désinstallation préserve le coffre `~/.missanye-desktop` et ses données.
+Les futures versions doivent conserver le même `AppId` Inno Setup.
+
+Pour compiler l'installateur sur un poste Windows, installer **Inno Setup 6**
+depuis [son site officiel](https://jrsoftware.org/isinfo.php), puis exécuter :
+
+```powershell
+cd Desktop
+./scripts/package.ps1
+./scripts/installer.ps1
+```
+
+Résultat : `Desktop/target/installer/Missanye-Setup.exe`. Si le compilateur n'est
+pas dans son emplacement habituel, préciser son chemin :
+
+```powershell
+./scripts/installer.ps1 -IsccPath 'C:\outils\Inno Setup 6\ISCC.exe'
+```
+
+La version peut être définie avec `-AppVersion 0.1.1` ; garder la version de
+`package.ps1` et du projet Maven cohérente lors d'une nouvelle livraison.
+Le workflow utilise Inno Setup présent sur le runner Windows, vérifie les
+fichiers installés (exécutable, JAR et runtime Java), puis la désinstallation.
+La compilation et ces vérifications nécessitent Windows ; une validation YAML
+sur Linux ne prouve pas que l'installateur a été produit.
 
 ## Vérifications
 

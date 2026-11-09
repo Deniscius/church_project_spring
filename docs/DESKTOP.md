@@ -78,6 +78,11 @@ Les scripts `Desktop/scripts/package.ps1` et `package.sh` produisent une image
 applicative autonome via `jpackage`. Le workflow `Desktop Windows` construit un
 ZIP contenant `Missanye.exe` et son runtime, disponible comme artefact GitHub
 Actions après publication du code et exécution du workflow sur Windows.
+Le script `Desktop/scripts/installer.ps1` compile ensuite
+`Desktop/installer/Missanye.iss` avec Inno Setup pour générer
+`Missanye-Setup.exe`. Le workflow publie cet installateur dans l'artefact
+`Missanye-Setup-Windows` après un test d'installation/désinstallation silencieux.
+Le coffre utilisateur est conservé par la désinstallation.
 
 Les tests couvrent le stockage chiffré, l'isolation, la reprise, les rejets,
 les cookies et une interaction JavaFX rendue en headless. La suite backend

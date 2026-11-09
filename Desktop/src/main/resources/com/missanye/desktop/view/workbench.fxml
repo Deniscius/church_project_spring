@@ -3,23 +3,42 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 <BorderPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" styleClass="workbench" stylesheets="@desktop.css">
-  <padding><Insets top="18" right="20" bottom="14" left="20"/></padding>
+  <padding><Insets top="16" right="22" bottom="12" left="22"/></padding>
+  <top>
+    <HBox fx:id="appHeader" spacing="12" alignment="CENTER_LEFT" styleClass="app-header">
+      <Label text="M" styleClass="app-monogram"/>
+      <VBox spacing="2"><Label text="MISSANYE" styleClass="app-title"/><Label text="Gestion paroissiale" styleClass="muted"/></VBox>
+      <Region HBox.hgrow="ALWAYS"/>
+      <Label fx:id="session" text="Coffre verrouillé" styleClass="session-label"/>
+      <Button fx:id="lock" text="Déconnexion" disable="true" styleClass="secondary-button"/>
+    </HBox>
+  </top>
   <center>
-    <VBox fx:id="workspace" spacing="10" disable="true">
-      <padding><Insets top="14" bottom="12"/></padding>
+    <ScrollPane fitToWidth="true" fitToHeight="true" styleClass="workspace-scroll"><content>
+    <VBox fx:id="workspace" spacing="12" disable="true">
+      <padding><Insets top="16" bottom="8"/></padding>
+      <HBox spacing="12">
+        <VBox spacing="4" styleClass="summary-card" HBox.hgrow="ALWAYS"><Label text="DEMANDES CONSULTABLES" styleClass="eyebrow"/><Label fx:id="demandCount" text="0" styleClass="summary-value"/></VBox>
+        <VBox spacing="4" styleClass="summary-card" HBox.hgrow="ALWAYS"><Label text="À TRANSMETTRE" styleClass="eyebrow"/><Label fx:id="pendingCount" text="0" styleClass="summary-value"/></VBox>
+        <VBox spacing="4" styleClass="summary-card" HBox.hgrow="ALWAYS"><Label text="À CORRIGER" styleClass="eyebrow"/><Label fx:id="rejectedCount" text="0" styleClass="summary-value"/></VBox>
+      </HBox>
       <FlowPane hgap="10" vgap="8" styleClass="toolbar">
-        <Label text="Paroisse" styleClass="field-label"/>
-        <ComboBox fx:id="parish" prefWidth="235"/>
-        <Button fx:id="refresh" text="Actualiser catalogue et demandes"/>
-        <Button fx:id="sync" text="Synchroniser" styleClass="primary-button"/>
-        <CheckBox fx:id="auto" text="Synchronisation automatique (60 s)" selected="true"/>
+        <Label text="Ma paroisse" styleClass="field-label"/>
+        <ComboBox fx:id="parish" prefWidth="245"/>
+        <Button fx:id="refresh" text="Actualiser" styleClass="secondary-button"/>
+        <Button fx:id="sync" text="Transmettre les opérations" styleClass="primary-button"/>
+        <CheckBox fx:id="auto" text="Envoi automatique" selected="true"/>
       </FlowPane>
       <TabPane fx:id="tabs" tabClosingPolicy="UNAVAILABLE" VBox.vgrow="ALWAYS">
-        <tabs><Tab text="Nouvelle demande"/><Tab text="Demandes et paiements"/><Tab text="Brouillons et synchronisation"/></tabs>
+        <tabs><Tab text="Nouvelle demande"/><Tab text="Demandes et paiements"/><Tab text="Mon activité"/></tabs>
       </TabPane>
     </VBox>
+    </content></ScrollPane>
   </center>
   <bottom>
-    <Label fx:id="status" text="Première connexion : choisir aussi un mot de passe local d'au moins 12 caractères. Ne pas le perdre." wrapText="true" maxWidth="Infinity" styleClass="status-bar"/>
+    <HBox spacing="10" alignment="CENTER_LEFT" styleClass="status-bar">
+      <ProgressIndicator fx:id="busyIndicator" prefWidth="18" prefHeight="18" maxWidth="18" maxHeight="18" visible="false" managed="false"/>
+      <Label fx:id="status" text="Connectez-vous pour accéder à votre espace paroissial." wrapText="true" maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+    </HBox>
   </bottom>
 </BorderPane>

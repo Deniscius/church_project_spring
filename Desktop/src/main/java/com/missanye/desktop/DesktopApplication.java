@@ -16,7 +16,7 @@ public final class DesktopApplication extends Application {
             var view = new WorkbenchView(); controller = new WorkbenchController(view, directory.resolve("workflow.sqlite"), getHostServices());
             stage.setTitle("Missanye Desktop — Gestion paroissiale"); stage.setScene(new Scene(view.root, 1180, 820)); stage.setMinWidth(1024); stage.setMinHeight(700); stage.show();
         } catch (Exception e) {
-            new Alert(Alert.AlertType.ERROR, "Impossible de démarrer le desktop. Vérifiez les ressources de l'application et les droits d'accès au stockage local.").showAndWait();
+            new Alert(Alert.AlertType.ERROR, "Impossible de démarrer Missanye. Contactez votre administrateur pour vérifier l'installation.").showAndWait();
             javafx.application.Platform.exit();
         }
     }

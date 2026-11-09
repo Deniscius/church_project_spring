@@ -1,42 +1,35 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
-<!-- Adapted from the supplied login_form.fxml: identity/password on the right.
-     JavaFX 17, responsive layout, no connection to the reference database code. -->
-<GridPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" styleClass="login-card" hgap="28">
-  <columnConstraints>
-    <ColumnConstraints percentWidth="38" hgrow="ALWAYS"/>
-    <ColumnConstraints percentWidth="62" hgrow="ALWAYS"/>
-  </columnConstraints>
+<GridPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" styleClass="login-card" hgap="36" maxWidth="960">
+  <columnConstraints><ColumnConstraints percentWidth="43" hgrow="ALWAYS"/><ColumnConstraints percentWidth="57" hgrow="ALWAYS"/></columnConstraints>
   <children>
-    <VBox GridPane.columnIndex="0" spacing="12" alignment="CENTER_LEFT" styleClass="brand-panel">
+    <VBox GridPane.columnIndex="0" spacing="18" alignment="CENTER_LEFT" styleClass="brand-panel">
       <Label text="M" styleClass="brand-mark"/>
       <Label text="MISSANYE" styleClass="brand-name"/>
-      <Label text="Votre paroisse, au quotidien." wrapText="true" styleClass="brand-title"/>
-      <Label text="Demandes de messes, encaissements et reçus, même sans connexion." wrapText="true" styleClass="brand-description"/>
+      <Label text="Le quotidien de votre paroisse, simplifié." wrapText="true" styleClass="brand-title"/>
+      <Label text="Accompagnez les fidèles. Retrouvez vos demandes, encaissements et reçus dans un seul espace." wrapText="true" styleClass="brand-description"/>
+      <Region prefHeight="18"/>
+      <Label text="Vos données restent disponibles lors d'une interruption de connexion." wrapText="true" styleClass="brand-caption"/>
     </VBox>
-    <VBox GridPane.columnIndex="1" spacing="10" styleClass="login-fields">
-      <Label text="Bienvenue dans votre espace" styleClass="section-title"/>
-      <Label text="Connectez-vous au serveur ou ouvrez votre coffre hors ligne." wrapText="true" styleClass="muted"/>
-      <GridPane hgap="12" vgap="7">
-        <columnConstraints><ColumnConstraints percentWidth="50" hgrow="ALWAYS"/><ColumnConstraints percentWidth="50" hgrow="ALWAYS"/></columnConstraints>
-        <children>
-          <Label text="Adresse du serveur API" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
-          <Label text="Identifiants" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
-          <TextField fx:id="server" text="http://localhost:8081" promptText="https://votre-api.onrender.com" GridPane.rowIndex="1" GridPane.columnIndex="0" maxWidth="Infinity"/>
-          <TextField fx:id="username" promptText="Votre identifiant" GridPane.rowIndex="1" GridPane.columnIndex="1" maxWidth="Infinity"/>
-          <Label text="Mot de passe serveur" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
-          <Label text="Mot de passe du coffre local" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
-          <PasswordField fx:id="password" promptText="Pour la connexion en ligne" GridPane.rowIndex="3" GridPane.columnIndex="0" maxWidth="Infinity"/>
-          <PasswordField fx:id="localPassword" promptText="Pour chiffrer vos données locales" GridPane.rowIndex="3" GridPane.columnIndex="1" maxWidth="Infinity"/>
-        </children>
-      </GridPane>
-      <FlowPane hgap="8" vgap="8">
-        <Button fx:id="login" text="Se connecter" styleClass="primary-button" defaultButton="true"/>
-        <Button fx:id="offline" text="Ouvrir hors ligne" styleClass="link-button"/>
-        <Button fx:id="lock" text="Verrouiller / déconnexion" disable="true"/>
-      </FlowPane>
-      <Label fx:id="session" text="Coffre verrouillé" wrapText="true" styleClass="session-label"/>
+    <VBox GridPane.columnIndex="1" spacing="12" styleClass="login-fields">
+      <Label text="Bienvenue" styleClass="login-title"/>
+      <Label text="Connectez-vous à votre espace de travail." wrapText="true" styleClass="muted"/>
+      <Label text="Identifiant" styleClass="field-label"/>
+      <TextField fx:id="username" promptText="Votre identifiant" maxWidth="Infinity"/>
+      <Label text="Mot de passe" styleClass="field-label"/>
+      <PasswordField fx:id="password" promptText="Votre mot de passe" maxWidth="Infinity"/>
+      <Button fx:id="login" text="Se connecter" styleClass="primary-button" defaultButton="true" maxWidth="Infinity"/>
+      <TitledPane text="Travailler hors connexion" expanded="false" animated="false" styleClass="offline-panel">
+        <content>
+          <VBox spacing="10">
+            <Label text="Déjà connecté sur ce poste ? Utilisez votre mot de passe local pour retrouver votre travail." wrapText="true" styleClass="muted"/>
+            <PasswordField fx:id="localPassword" promptText="Mot de passe local du poste" maxWidth="Infinity"/>
+            <Button fx:id="offline" text="Ouvrir mon espace hors connexion" styleClass="secondary-button" maxWidth="Infinity"/>
+          </VBox>
+        </content>
+      </TitledPane>
+      <Label text="Première utilisation ? Connectez-vous avec les identifiants fournis par votre administrateur." wrapText="true" styleClass="help-text"/>
     </VBox>
   </children>
 </GridPane>

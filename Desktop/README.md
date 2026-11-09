@@ -38,41 +38,81 @@ n'est nécessaire dans le desktop.
 
 ## Première utilisation
 
-1. Indiquer l'URL **racine** de l'API, par exemple `http://localhost:8081` en
-   développement, ou son URL HTTPS en production. Ne pas ajouter `/auth` ni le
-   préfixe `/api` du proxy Vite. Les redirections ne sont pas suivies.
-2. Saisir un compte serveur existant et son mot de passe. Choisir séparément un
-   **mot de passe local d'au moins 12 caractères** pour chiffrer le coffre.
-   Ce mot de passe local est indispensable pour rouvrir les données ; il n'existe
-   pas de récupération intégrée. Les mots de passe serveur ne sont pas stockés.
-3. Cliquer **Connexion en ligne**, sélectionner une paroisse autorisée puis
-   **Actualiser catalogue et demandes**. Le catalogue et les demandes sont mis
-   en cache dans le coffre de ce compte et de ce serveur.
-4. Pour les ouvertures suivantes sans réseau, renseigner la même URL, le même
-   identifiant et le mot de passe **local**, puis **Déverrouiller hors ligne**.
-   Ce déverrouillage permet l'accès local ; les droits serveur seront revérifiés
-   avant chaque synchronisation. Pour reconnecter, verrouiller puis se connecter
-   en ligne ; utiliser toujours le même mot de passe local.
+1. Saisir l'identifiant et le mot de passe fournis par l'administrateur, puis
+   cliquer **Se connecter**. L'application connaît déjà son service : aucune
+   adresse technique n'est demandée à l'utilisateur.
+2. À la première connexion, choisir un **mot de passe local d'au moins
+   12 caractères** pour protéger le travail conservé sur ce poste. Aux connexions
+   suivantes, saisir ce même mot de passe local lorsqu'il est demandé. Il n'existe
+   pas de récupération intégrée ; conserver ce mot de passe séparément.
+3. Sélectionner une paroisse autorisée. Les données se chargent automatiquement
+   après la connexion ; **Actualiser** permet de les recharger à tout moment.
+4. Sans connexion, ouvrir **Travailler hors connexion**, renseigner l'identifiant
+   et le mot de passe local puis **Ouvrir mon espace hors connexion**. Les droits
+   seront revérifiés avant la transmission des opérations. Pour reconnecter,
+   utiliser **Déconnexion**, puis **Se connecter**.
+
+La barre de session remplace le formulaire une fois connecté. Les tableaux
+proposent une recherche des demandes, un filtre de l'activité et des états
+lisibles. Les actions indisponibles sont désactivées selon la sélection, les
+droits et le mode de connexion. Les compteurs reflètent les données du poste.
+
+## Configuration réservée au développeur qui déploie
+
+La destination de l'API n'est pas un réglage de l'utilisateur final. Elle est
+intégrée dans le paquet à la compilation via la propriété Maven
+`desktop.api.url`. Sa valeur par défaut est :
+
+```text
+https://church-project-spring-pmbz.onrender.com
+```
+
+Pour livrer vers un autre environnement sur Windows :
+
+```powershell
+./scripts/package.ps1 -ApiBaseUrl 'https://api.environnement.example'
+./scripts/installer.ps1
+```
+
+Pour les builds Maven ou le développement local :
+
+```sh
+mvn verify -Ddesktop.api.url=https://api.environnement.example
+mvn javafx:run -Ddesktop.api.url=http://localhost:8081
+```
+
+Le script shell accepte `MISSANYE_BUILD_API_URL`. Le fichier embarqué
+`com/missanye/desktop/config/deployment.properties` est filtré par Maven. Pour
+un lancement administré, `-Dmissanye.apiUrl=...` (option JVM) ou
+`MISSANYE_API_URL` peut surcharger cette valeur, dans cet ordre. L'interface ne
+propose pas d'éditeur de configuration. Les URL doivent être absolues, sans
+identifiant, query string ou fragment ; HTTPS est obligatoire sauf en local.
+Aucune clé Neon ou FedaPay ne doit être ajoutée à ce fichier.
+
+La séparation des coffres utilise l'adresse canonique du service et le compte.
+Changer d'environnement crée un espace local distinct. Avant de remplacer une
+adresse de production, le développeur doit prévoir la reprise des opérations
+encore présentes dans les coffres de l'ancien environnement.
 
 ## Demandes et synchronisation
 
 Dans **Nouvelle demande**, choisir type, forfait, horaires, mode de paiement et
 remplir les coordonnées ainsi que l'intention. Pour un forfait multi-célébrations,
-indiquer les dates supplémentaires séparées par des virgules au format
-`AAAA-MM-JJ` ; le nombre total doit correspondre au forfait. Par défaut, un même horaire
+ajouter les dates supplémentaires avec le calendrier ; le nombre total doit
+correspondre au forfait. Une date peut être retirée depuis la liste. Par défaut, un même horaire
 ou une même heure personnalisée est utilisé pour ces dates. Le bouton
 **Configurer chaque date et horaire** permet de choisir des créneaux distincts. Le serveur revalide
 les jours, délais, tarifs et disponibilités à l'envoi.
 
-Sauvegarder crée un brouillon chiffré. Dans **Brouillons et synchronisation**,
-sélectionner ce brouillon et cliquer **Mettre en file d'envoi**. Une opération en
-attente est immuable. **Synchroniser** envoie la file ; en ligne, le mode
+Sauvegarder crée un brouillon chiffré. Dans **Mon activité**,
+sélectionner ce brouillon et cliquer **Transmettre la demande**. Une opération en
+attente est immuable. **Transmettre les opérations** envoie la file ; en ligne, le mode
 automatique le fait également toutes les 60 secondes, avec temporisation
 progressive après les erreurs réseau. La file garde le même UUID après une
 coupure ou un redémarrage. L'identifiant est dédupliqué transactionnellement
 par le serveur pour ce compte.
 
-Un rejet métier reste visible avec sa cause. **Modifier / corriger** un rejet
+Un rejet métier reste visible avec sa cause. **Modifier le brouillon** un rejet
 de demande prépare un nouveau brouillon et un nouvel identifiant ; archiver le
 rejet initial si nécessaire. Un conflit d'encaissement ne doit pas être rejoué
 aveuglément : actualiser le serveur et rapprocher la caisse avant de décider.
@@ -101,10 +141,10 @@ locale qu'après confirmation serveur et actualisation de la liste.
   Le serveur refuse un montant changé, un paiement déjà effectué ou des droits
   insuffisants. Deux postes ne peuvent pas confirmer deux fois la même commande.
 - **Paiement en ligne** : le desktop demande une URL au backend puis ouvre le
-  navigateur pour FedaPay. Cliquer **Vérifier le paiement** après le parcours.
+  navigateur pour FedaPay. Cliquer **Vérifier le règlement** après le parcours.
   Internet et la configuration FedaPay serveur sont nécessaires ; aucune
   confirmation électronique n'est inventée hors ligne.
-- **Reçus** : sélectionner une demande puis **Exporter / ouvrir le reçu PDF**.
+- **Reçus** : sélectionner une demande puis **Télécharger le reçu**.
   En ligne, le PDF officiel est téléchargé et mis en cache chiffré. Hors ligne,
   seuls les reçus déjà téléchargés sont disponibles. Le fichier exporté est un
   PDF ordinaire **non chiffré** ; l'impression se fait depuis le lecteur PDF.

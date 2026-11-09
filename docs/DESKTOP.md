@@ -31,6 +31,22 @@ aux contrôleurs métier existants. Les opérations réseau et SQLite passent
 par un exécuteur séquentiel ; l'affichage et les interactions restent sur le
 thread JavaFX. Le stockage local ne remplace pas les règles métier serveur.
 
+## Configuration de livraison et interface
+
+Le développeur définit l'adresse du service au build avec `desktop.api.url`.
+`DesktopConfiguration` lit la valeur embarquée et permet les surcharges
+administrées `missanye.apiUrl` / `MISSANYE_API_URL`. Aucune adresse API, aucun
+choix de serveur et aucun réglage de communication n'apparaît à l'écran.
+
+La connexion est centrée sur l'identifiant et le mot de passe. Le mot de passe
+local est demandé dans un dialogue dédié ou dans l'accès hors connexion.
+Après déverrouillage, une barre de session compacte et des compteurs remplacent
+le formulaire. Les demandes et l'activité utilisent des tableaux, une recherche,
+des filtres, des états traduits et des actions dépendant de la sélection et des
+droits. Les dialogues partagent les mêmes styles et ont la fenêtre comme parent.
+Les erreurs techniques de transport sont présentées comme des messages de service
+indisponible ; les confirmations métier restent visibles.
+
 ## Contrats
 
 Authentification : `/auth/login-multi-tenant`, `/auth/me`, `/auth/logout`.

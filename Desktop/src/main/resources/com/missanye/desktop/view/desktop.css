@@ -32,3 +32,39 @@
 .price-label { -fx-text-fill: #24516d; -fx-font-weight: bold; }
 .notice { -fx-background-color: #fff7df; -fx-padding: 10; -fx-text-fill: #775810; }
 .status-bar { -fx-padding: 8 0 0 0; -fx-text-fill: #52627a; }
+/* Product workspace: compact identity bar, readable data and deliberate hierarchy. */
+.app-header { -fx-padding: 10 14; -fx-background-color: white; -fx-background-radius: 10; -fx-border-color: #e0e6ef; -fx-border-radius: 10; }
+.app-monogram { -fx-background-color: #173b63; -fx-text-fill: #f2cb7a; -fx-font-size: 22px; -fx-font-weight: bold; -fx-padding: 6 14; -fx-background-radius: 8; }
+.app-title { -fx-text-fill: #173b63; -fx-font-size: 15px; -fx-font-weight: bold; }
+.login-title { -fx-font-size: 26px; -fx-font-weight: bold; -fx-text-fill: #173b63; }
+.login-fields { -fx-padding: 28 30 28 0; }
+.brand-panel { -fx-padding: 36 28; }
+.brand-title { -fx-font-size: 26px; }
+.brand-caption { -fx-text-fill: #bad0e8; -fx-font-size: 11px; }
+.offline-panel { -fx-background-color: transparent; -fx-border-color: #e2e8f1; -fx-border-radius: 6; }
+.offline-panel > .title { -fx-background-color: #f5f8fc; -fx-padding: 10; }
+.offline-panel > .content { -fx-background-color: white; -fx-border-color: transparent; -fx-padding: 10; }
+.help-text { -fx-text-fill: #6e7d91; -fx-font-size: 11px; }
+.summary-card { -fx-padding: 13 18; -fx-background-color: white; -fx-border-color: #e0e6ef; -fx-border-radius: 9; -fx-background-radius: 9; }
+.summary-value { -fx-font-size: 26px; -fx-font-weight: bold; -fx-text-fill: #173b63; }
+.eyebrow { -fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: #74839a; }
+.secondary-button { -fx-background-color: white; -fx-border-color: #ccd8e7; -fx-border-radius: 6; }
+.data-table { -fx-border-color: #dfe6f0; -fx-border-radius: 6; -fx-background-color: white; -fx-background-insets: 0; -fx-table-cell-border-color: transparent; }
+.data-table .column-header-background { -fx-background-color: #f3f6fb; }
+.data-table .column-header { -fx-background-color: transparent; -fx-border-width: 0 0 1 0; -fx-border-color: #dfe6f0; -fx-padding: 9 3; }
+.data-table .column-header .label { -fx-text-fill: #546780; -fx-alignment: CENTER_LEFT; -fx-font-weight: bold; }
+.data-table .table-cell { -fx-padding: 11 8; -fx-text-fill: #263b53; }
+.data-table .table-row-cell { -fx-background-color: white; -fx-border-width: 0 0 1 0; -fx-border-color: #eef2f7; }
+.data-table .table-row-cell:odd { -fx-background-color: #fbfcfe; }
+.data-table .table-row-cell:selected { -fx-background-color: #e5eef9; }
+.data-table .table-row-cell:empty { -fx-background-color: white; -fx-border-color: transparent; }
+.empty-title { -fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #546780; }
+.selection-panel { -fx-padding: 12 14; -fx-background-color: #f3f6fb; -fx-background-radius: 6; }
+.app-dialog { -fx-font-family: "Segoe UI"; -fx-background-color: #f5f7fb; -fx-padding: 18; }
+.app-dialog .header-panel { -fx-background-color: #f5f7fb; }
+.app-dialog .header-panel .label { -fx-text-fill: #173b63; -fx-font-size: 17px; -fx-font-weight: bold; }
+.status-pill { -fx-padding: 3 8; -fx-background-radius: 12; -fx-font-size: 11px; -fx-font-weight: bold; }
+.status-success { -fx-background-color: #e5f3ec; -fx-text-fill: #246447; }
+.status-danger { -fx-background-color: #fff0ec; -fx-text-fill: #a34831; }
+.status-neutral { -fx-background-color: #edf1f8; -fx-text-fill: #536984; }
+.workspace-scroll, .workspace-scroll > .viewport { -fx-background-color: transparent; -fx-background-insets: 0; -fx-padding: 0; }

@@ -72,3 +72,10 @@ jobs:
             Desktop/target/installer/Missanye-Setup.exe
             Desktop/target/installer/Missanye-Setup.exe.sha256
           if-no-files-found: error
+
+      - name: Publish desktop interface previews
+        uses: actions/upload-artifact@v4
+        with:
+          name: Missanye-Interface-Previews
+          path: Desktop/target/desktop-*.png
+          if-no-files-found: error

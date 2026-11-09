@@ -38,7 +38,7 @@ public final class WorkbenchView {
     public final TabPane tabs;
     public final VBox workspace;
     private final Map<String,Object> namespace=new HashMap<>();
-    private final Region connection,header,workspaceContainer;
+    private final Region connection,header,workspaceContainer,sidebarContainer;
     private final StackPane lockedPane=new StackPane();
     private boolean workspaceOpen;
     private int openDialogs;
@@ -47,7 +47,7 @@ public final class WorkbenchView {
     public WorkbenchView() {
         try {
             root=(BorderPane)load("workbench.fxml");
-            header=(Region)root.getTop();workspaceContainer=(Region)root.getCenter();
+            header=(Region)root.getTop();workspaceContainer=(Region)root.getCenter();sidebarContainer=(Region)root.getLeft();
             var loginCard=(Region)load("login-form.fxml");loginCard.setMaxHeight(Region.USE_PREF_SIZE);loginCard.setMinHeight(Region.USE_PREF_SIZE);
             loginCard.setMinWidth(0);
             if(loginCard instanceof GridPane grid){
@@ -61,6 +61,7 @@ public final class WorkbenchView {
             panes.getTabs().get(0).setContent(load("request-form.fxml"));
             panes.getTabs().get(1).setContent(load("demands.fxml"));
             panes.getTabs().get(2).setContent(load("outbox.fxml"));
+            panes.getTabs().get(3).setContent(load("overview.fxml"));
             demandSearch=ref("demandSearch",TextField.class);
             username=ref("username",TextField.class);
             surname=ref("surname",TextField.class);
@@ -115,14 +116,14 @@ public final class WorkbenchView {
             queueFilter=ref("queueFilter",ComboBox.class);
             busyIndicator=ref("busyIndicator",ProgressIndicator.class);
             demandCount=ref("demandCount",Label.class);pendingCount=ref("pendingCount",Label.class);rejectedCount=ref("rejectedCount",Label.class);
-            configureTables();
+            configureTables();configureNavigation();
             tabs.minHeightProperty().bind(javafx.beans.binding.Bindings.createDoubleBinding(()->{
                 var selected=tabs.getSelectionModel().getSelectedItem();
                 if(selected==null || !(selected.getContent() instanceof Region content))return 360.0;
                 return Math.max(360,content.minHeight(Math.max(300,tabs.getWidth()-32))+52);
             },tabs.widthProperty(),tabs.getSelectionModel().selectedItemProperty(),detail.textProperty(),queueDetail.textProperty()));
             loginStatus=ref("loginStatus",Label.class);serverEnvironment=ref("serverEnvironment",Label.class);loginStatus.textProperty().bind(status.textProperty());
-            root.setTop(null);
+            root.setTop(null);root.setLeft(null);
             lockedPane.getChildren().add(connection);
             root.setCenter(lockedPane);
         } catch(IOException e) {
@@ -140,12 +141,35 @@ public final class WorkbenchView {
         if(open) {
             lockedPane.getChildren().clear();
             root.setCenter(workspaceContainer);
-            root.setTop(header);
+            root.setTop(header);root.setLeft(sidebarContainer);tabs.getSelectionModel().select(3);
         } else {
-            root.setTop(null);
+            root.setTop(null);root.setLeft(null);
             root.setCenter(lockedPane);
             lockedPane.getChildren().setAll(connection);
         }
+    }
+    private void configureNavigation(){
+        sidebarContainer.disableProperty().bind(workspace.disableProperty());
+        var title=ref("pageTitle",Label.class);var overviewParish=ref("overviewParish",Label.class);
+        parish.valueProperty().addListener((o,a,b)->overviewParish.setText(b==null?"Votre paroisse":b.label()));
+        var navigation=List.of(ref("navRequest",Button.class),ref("navDemands",Button.class),ref("navActivity",Button.class),ref("navHome",Button.class));
+        var labels=List.of("Nouvelle demande","Demandes et paiements","Mon activité","Tableau de bord");
+        for(int i=0;i<navigation.size();i++){final int index=i;var button=navigation.get(i);button.setTooltip(new Tooltip(labels.get(i)));button.setOnAction(e->tabs.getSelectionModel().select(index));}
+        ref("homeRequest",Button.class).setOnAction(e->tabs.getSelectionModel().select(0));ref("homeDemands",Button.class).setOnAction(e->tabs.getSelectionModel().select(1));ref("homeActivity",Button.class).setOnAction(e->tabs.getSelectionModel().select(2));
+        tabs.getSelectionModel().selectedIndexProperty().addListener((o,a,b)->{int index=b.intValue();if(index<0)return;title.setText(labels.get(index));((ScrollPane)workspaceContainer).setVvalue(0);for(int i=0;i<navigation.size();i++){var classes=navigation.get(i).getStyleClass();classes.remove("nav-active");if(i==index)classes.add("nav-active");}});
+        root.widthProperty().addListener((o,a,b)->{
+            boolean compact=b.doubleValue()<1180;sidebarContainer.setPrefWidth(compact?76:228);
+            ref("sidebarBrand",Label.class).setText(compact?"M":"MISSANYE");
+            for(String id:List.of("sidebarCaption","sidebarHelp")){var node=ref(id,Region.class);node.setVisible(!compact);node.setManaged(!compact);}
+            for(int i=0;i<navigation.size();i++)navigation.get(i).setText(compact?"":labels.get(i));
+        });
+        root.heightProperty().addListener((o,a,b)->{root.getStyleClass().remove("compact-height");if(b.doubleValue()<800)root.getStyleClass().add("compact-height");});
+        var tiles=ref("summaryTiles",TilePane.class);tiles.prefTileWidthProperty().bind(javafx.beans.binding.Bindings.createDoubleBinding(()->{double width=tiles.getWidth();int columns=width>=680?3:width>=440?2:1;return Math.max(160,Math.floor((width-(columns-1)*14-4)/columns));},tiles.widthProperty()));
+        @SuppressWarnings("unchecked") ListView<Row> recent=ref("recentDemands",ListView.class);
+        recent.setCellFactory(list->new ListCell<>(){@Override protected void updateItem(Row row,boolean empty){super.updateItem(row,empty);setText(null);setGraphic(null);if(empty||row==null)return;var reference=new Label(ScreenFormats.reference(row.data()));reference.getStyleClass().add("field-label");var intention=new Label(row.data().path("intention").asText("Intention de messe"));intention.setWrapText(true);intention.setMaxWidth(Double.MAX_VALUE);var box=new VBox(4,reference,intention);box.setMinWidth(0);box.prefWidthProperty().bind(javafx.beans.binding.Bindings.max(100,recent.widthProperty().subtract(50)));setGraphic(box);}});
+        demandRows.addListener((javafx.collections.ListChangeListener<Row>)change->recent.getItems().setAll(demandRows.subList(0,Math.min(5,demandRows.size()))));
+        recent.setOnMouseClicked(e->{if(e.getClickCount()==2&&recent.getSelectionModel().getSelectedItem()!=null){demandSearch.clear();tabs.getSelectionModel().select(1);demands.getSelectionModel().select(recent.getSelectionModel().getSelectedItem());}});
+        recent.setOnKeyPressed(e->{if(e.getCode()==javafx.scene.input.KeyCode.ENTER&&recent.getSelectionModel().getSelectedItem()!=null){demandSearch.clear();tabs.getSelectionModel().select(1);demands.getSelectionModel().select(recent.getSelectionModel().getSelectedItem());}});
     }
     private void configureTables() {
         var visibleDemands=new FilteredList<>(demandRows);
@@ -166,7 +190,10 @@ public final class WorkbenchView {
         column("activityReference",ScreenFormats::reference);
         column("activityIntention",d->d.path("payload").path("intention").asText(d.path("result").path("intention").asText("—")));
         column("activityState",d->ScreenFormats.state(d.path("state").asText()));
-        demands.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);outbox.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        for(var table:List.of(demands,outbox)){
+            table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+            table.widthProperty().addListener((o,a,b)->table.setColumnResizePolicy(b.doubleValue()<780?TableView.UNCONSTRAINED_RESIZE_POLICY:TableView.CONSTRAINED_RESIZE_POLICY));
+        }
         demandRows.addListener((javafx.collections.ListChangeListener<Row>)c->demandCount.setText(Integer.toString(demandRows.size())));
         activityRows.addListener((javafx.collections.ListChangeListener<Row>)c->{pendingCount.setText(Long.toString(activityRows.stream().filter(r->"PENDING".equals(r.data().path("state").asText())).count()));rejectedCount.setText(Long.toString(activityRows.stream().filter(r->Set.of("REJECTED","BLOCKED").contains(r.data().path("state").asText())).count()));});
     }
@@ -234,7 +261,7 @@ public final class WorkbenchView {
         return view;
     }
     @SuppressWarnings("unchecked")
-    private <T> T ref(String id,Class<?> type) {
+    private <T> T ref(String id,Class<T> type) {
         Object value=namespace.get(id);
         if(!type.isInstance(value))throw new IllegalStateException("Composant FXML manquant ou incompatible : "+id);
         return (T)value;

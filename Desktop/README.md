@@ -36,6 +36,17 @@ Flyway applique V31 sans réinitialiser les données existantes. Le fichier
 `render-neon.yaml` reste utilisable ; aucune nouvelle connexion directe à Neon
 n'est nécessaire dans le desktop.
 
+## Présentation et résolutions
+
+L'application s'ouvre sur un tableau de bord après connexion. Le menu latéral
+permet d'accéder à la saisie, aux demandes et à l'activité sans perdre les champs
+en cours. Il se réduit à des icônes sur les petites largeurs. Les cartes, les
+barres d'actions et les tableaux s'adaptent à la place disponible.
+
+Les vues sont vérifiées de 900 × 600 à 1920 × 1080 unités JavaFX. Voir
+[la conception et les vérifications de l'interface](../docs/DESKTOP_INTERFACE.md).
+Le workflow Windows publie aussi les captures **Missanye-Interface-Previews**.
+
 ## Première utilisation
 
 1. Saisir l'identifiant et le mot de passe fournis par l'administrateur, puis

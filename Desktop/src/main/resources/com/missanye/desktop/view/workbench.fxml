@@ -2,35 +2,44 @@
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
+<?import javafx.scene.shape.SVGPath?>
 <BorderPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" styleClass="workbench" stylesheets="@desktop.css">
-  <padding><Insets top="16" right="22" bottom="12" left="22"/></padding>
   <top>
-    <HBox fx:id="appHeader" spacing="12" alignment="CENTER_LEFT" styleClass="app-header">
-      <Label text="M" styleClass="app-monogram"/>
-      <VBox spacing="2"><Label text="MISSANYE" styleClass="app-title"/><Label text="Gestion paroissiale" styleClass="muted"/></VBox>
-      <Region HBox.hgrow="ALWAYS"/>
-      <Label fx:id="session" text="Coffre verrouillé" styleClass="session-label"/>
+    <HBox fx:id="appHeader" spacing="18" alignment="CENTER_LEFT" styleClass="app-header">
+      <VBox spacing="4" HBox.hgrow="ALWAYS"><Label text="MISSANYE / ESPACE PAROISSIAL" styleClass="eyebrow"/><Label fx:id="pageTitle" text="Tableau de bord" styleClass="section-title"/></VBox>
+      <Label fx:id="session" text="Coffre verrouillé" maxWidth="320" minWidth="0" wrapText="true" minHeight="-Infinity" styleClass="session-label"/>
       <Button fx:id="lock" text="Déconnexion" disable="true" styleClass="secondary-button"/>
     </HBox>
   </top>
+  <left>
+    <ScrollPane fx:id="sidebarContainer" fitToWidth="true" fitToHeight="true" hbarPolicy="NEVER" prefWidth="228" minWidth="76" styleClass="sidebar-scroll">
+      <content><VBox fx:id="sidebar" spacing="10" styleClass="sidebar" minHeight="-Infinity">
+        <Label fx:id="sidebarBrand" text="MISSANYE" styleClass="sidebar-brand"/>
+        <Label fx:id="sidebarCaption" text="Votre paroisse, au quotidien." wrapText="true" minHeight="-Infinity" styleClass="sidebar-caption"/>
+        <Separator/>
+        <Button fx:id="navHome" text="Tableau de bord" maxWidth="Infinity" styleClass="nav-button" accessibleText="Tableau de bord"><graphic><SVGPath content="M2 10 L10 3 L18 10 M5 9 V18 H15 V9 M8 18 V12 H12 V18" styleClass="nav-icon"/></graphic></Button>
+        <Button fx:id="navRequest" text="Nouvelle demande" maxWidth="Infinity" styleClass="nav-button" accessibleText="Nouvelle demande"><graphic><SVGPath content="M4 2 H13 L17 6 V19 H4 Z M8 11 H13 M10.5 8.5 V13.5" styleClass="nav-icon"/></graphic></Button>
+        <Button fx:id="navDemands" text="Demandes et paiements" maxWidth="Infinity" styleClass="nav-button" accessibleText="Demandes et paiements"><graphic><SVGPath content="M3 4 H17 V18 H3 Z M3 8 H17 M7 4 V18 M10 12 H14 M10 15 H14" styleClass="nav-icon"/></graphic></Button>
+        <Button fx:id="navActivity" text="Mon activité" maxWidth="Infinity" styleClass="nav-button" accessibleText="Mon activité"><graphic><SVGPath content="M3 10 A7 7 0 1 1 5 16 M3 4 V10 H9 M10 6 V11 L14 13" styleClass="nav-icon"/></graphic></Button>
+        <Region minHeight="25" VBox.vgrow="ALWAYS"/>
+        <VBox fx:id="sidebarHelp" spacing="7" styleClass="sidebar-help"><Label text="UN TRAVAIL TOUJOURS PROTÉGÉ" wrapText="true" minHeight="-Infinity" styleClass="sidebar-caption"/><Label text="Vos brouillons restent sur ce poste. Suivez leur transmission dans Mon activité." wrapText="true" minHeight="-Infinity" styleClass="sidebar-caption"/></VBox>
+      </VBox></content>
+    </ScrollPane>
+  </left>
   <center>
     <ScrollPane fitToWidth="true" fitToHeight="true" styleClass="workspace-scroll"><content>
-    <VBox fx:id="workspace" spacing="12" disable="true">
-      <padding><Insets top="16" bottom="8"/></padding>
-      <HBox spacing="12">
-        <VBox spacing="4" styleClass="summary-card" HBox.hgrow="ALWAYS"><Label text="DEMANDES CONSULTABLES" styleClass="eyebrow"/><Label fx:id="demandCount" text="0" styleClass="summary-value"/></VBox>
-        <VBox spacing="4" styleClass="summary-card" HBox.hgrow="ALWAYS"><Label text="À TRANSMETTRE" styleClass="eyebrow"/><Label fx:id="pendingCount" text="0" styleClass="summary-value"/></VBox>
-        <VBox spacing="4" styleClass="summary-card" HBox.hgrow="ALWAYS"><Label text="À VÉRIFIER" styleClass="eyebrow"/><Label fx:id="rejectedCount" text="0" styleClass="summary-value"/></VBox>
-      </HBox>
-      <FlowPane hgap="10" vgap="8" styleClass="toolbar">
-        <Label text="Ma paroisse" styleClass="field-label"/>
-        <ComboBox fx:id="parish" prefWidth="245"/>
-        <Button fx:id="refresh" text="Actualiser" styleClass="secondary-button"/>
-        <Button fx:id="sync" text="Transmettre les opérations" styleClass="primary-button"/>
-        <CheckBox fx:id="auto" text="Envoi automatique" selected="true"/>
-      </FlowPane>
-      <TabPane fx:id="tabs" tabClosingPolicy="UNAVAILABLE" VBox.vgrow="ALWAYS">
-        <tabs><Tab text="Nouvelle demande"/><Tab text="Demandes et paiements"/><Tab text="Mon activité"/></tabs>
+    <VBox fx:id="workspace" spacing="18" disable="true" styleClass="workspace-body">
+      <VBox spacing="12" styleClass="toolbar">
+        <FlowPane hgap="10" vgap="10">
+          <Label text="Paroisse" styleClass="field-label"/>
+          <ComboBox fx:id="parish" prefWidth="240" minWidth="160"/>
+          <Button fx:id="refresh" text="Actualiser" styleClass="secondary-button"/>
+          <Button fx:id="sync" text="Transmettre les opérations" styleClass="primary-button"/>
+          <CheckBox fx:id="auto" text="Envoi automatique" selected="true"/>
+        </FlowPane>
+      </VBox>
+      <TabPane fx:id="tabs" tabClosingPolicy="UNAVAILABLE" VBox.vgrow="ALWAYS" styleClass="navigation-pages">
+        <tabs><Tab text="Nouvelle demande"/><Tab text="Demandes et paiements"/><Tab text="Mon activité"/><Tab text="Tableau de bord"/></tabs>
       </TabPane>
     </VBox>
     </content></ScrollPane>

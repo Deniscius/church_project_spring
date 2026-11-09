@@ -128,3 +128,6 @@ locale sont atomiques dans SQLite ; une actualisation interrompue ne masque
 pas un encaissement qui vient d'être confirmé. Les erreurs de droits par commande
 produisent un état bloqué, réessayable avec le même identifiant, alors qu'une
 expiration de session interrompt l'envoi.
+
+La navigation latérale et l’accueil adaptatif sont décrits dans
+[la conception de l’interface](DESKTOP_INTERFACE.md).

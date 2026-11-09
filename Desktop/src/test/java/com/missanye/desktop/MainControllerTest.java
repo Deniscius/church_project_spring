@@ -17,8 +17,8 @@ import static org.junit.jupiter.api.Assertions.*;
 class MainControllerTest {
     @TempDir Path temp;
     @BeforeAll static void startToolkit()throws Exception{
-        System.setProperty("glass.platform","Monocle");System.setProperty("monocle.platform","Headless");System.setProperty("prism.order","sw");
-        System.setProperty("headless.geometry","1600x1200-32");
+        System.setProperty("glass.platform","Monocle");System.setProperty("monocle.platform","Headless");System.setProperty("prism.order","sw");System.setProperty("quantum.multithreaded","false");
+        System.setProperty("headless.geometry","2200x1400-32");
         var started=new CountDownLatch(1);Platform.startup(started::countDown);assertTrue(started.await(10,TimeUnit.SECONDS));Platform.setImplicitExit(false);
     }
     @AfterAll static void stopToolkit(){Platform.exit();}
@@ -59,7 +59,11 @@ class MainControllerTest {
             await(()->!views[0].offline.isDisabled());fx(()->views[0].offline.fire());
             await(()->!views[0].workspace.isDisabled() && views[0].plan.getValue()!=null);
             fx(()->{
+                capture(views[0],"desktop-dashboard-preview.png");assertEquals(3,views[0].tabs.getSelectionModel().getSelectedIndex());
                 assertEquals(3,views[0].demands.getItems().size());assertEquals("3",views[0].demandCount.getText());
+                @SuppressWarnings("unchecked") var recent=(javafx.scene.control.ListView<com.missanye.desktop.model.WorkspaceModels.Row>)views[0].root.lookup("#recentDemands");assertEquals(3,recent.getItems().size());
+                views[0].demandSearch.setText("aucun résultat");recent.getSelectionModel().selectFirst();recent.fireEvent(new javafx.scene.input.KeyEvent(javafx.scene.input.KeyEvent.KEY_PRESSED,"","",javafx.scene.input.KeyCode.ENTER,false,false,false,false));
+                assertEquals(1,views[0].tabs.getSelectionModel().getSelectedIndex());assertTrue(views[0].demandSearch.getText().isEmpty());assertEquals(recent.getSelectionModel().getSelectedItem(),views[0].demands.getSelectionModel().getSelectedItem());
                 var amountColumn=views[0].demands.getColumns().get(3);amountColumn.setSortType(javafx.scene.control.TableColumn.SortType.DESCENDING);views[0].demands.getSortOrder().setAll(amountColumn);views[0].demands.sort();assertEquals(20000,views[0].demands.getItems().get(0).data().path("montant").asInt());views[0].demands.getSortOrder().clear();
                 views[0].demandSearch.setText("AMEGA");assertEquals(1,views[0].demands.getItems().size());
                 views[0].demands.getSelectionModel().selectFirst();assertFalse(views[0].cash.isDisabled());
@@ -153,6 +157,28 @@ class MainControllerTest {
                     }fail("Dialogue des créneaux absent");
                 });views[0].configureSlots.fire();assertTrue(views[0].slotsSummary.getText().startsWith("30"));
             });
+        }finally{fx(()->{if(controllers[0]!=null)controllers[0].close();if(stage[0]!=null)stage[0].close();});}
+    }
+    @Test void navigationAndPagesAdaptToWindowsSizesWithoutLosingDraft()throws Exception{
+        Path file=temp.resolve("responsive.sqlite");prepare(file,"http://localhost:8081/");var views=new WorkbenchView[1];var controllers=new WorkbenchController[1];var stage=new javafx.stage.Stage[1];
+        try{
+            fx(()->{views[0]=new WorkbenchView();controllers[0]=new WorkbenchController(views[0],file,null,"http://localhost:8081/");stage[0]=new javafx.stage.Stage();stage[0].setScene(new javafx.scene.Scene(views[0].root,1366,768));stage[0].show();views[0].username.setText("alice");views[0].localPassword.setText("Local password 1234!");});
+            await(()->!views[0].offline.isDisabled());fx(()->views[0].offline.fire());await(()->!views[0].workspace.isDisabled()&&views[0].plan.getValue()!=null);
+            fx(()->views[0].intention.setText("Saisie conservée pendant la navigation et le redimensionnement"));
+            for(int[] size:new int[][]{{900,600},{1024,768},{1366,768},{1600,1000},{1920,1080}}){
+                fx(()->{stage[0].setWidth(size[0]);stage[0].setHeight(size[1]);});await(()->Math.abs(views[0].root.getWidth()-size[0])<30);
+                fx(()->{
+                    var v=views[0];((javafx.scene.control.Button)v.root.lookup("#navHome")).fire();v.root.applyCss();v.root.layout();
+                    assertEquals(3,v.tabs.getSelectionModel().getSelectedIndex());assertEquals("Tableau de bord",((javafx.scene.control.Label)v.root.lookup("#pageTitle")).getText());
+                    var nav=(javafx.scene.control.Button)v.root.lookup("#navHome");assertTrue(nav.getStyleClass().contains("nav-active"));assertEquals(size[0]<1180?"":"Tableau de bord",nav.getText());
+                    capture(v,"desktop-dashboard-"+size[0]+"x"+size[1]+".png");
+                    ((javafx.scene.control.Button)v.root.lookup("#navRequest")).fire();assertEquals(0,v.tabs.getSelectionModel().getSelectedIndex());assertTrue(v.intention.getText().startsWith("Saisie conservée"));
+                    ((javafx.scene.control.Button)v.root.lookup("#navDemands")).fire();v.root.layout();assertEquals(1,v.tabs.getSelectionModel().getSelectedIndex());assertTrue(v.demands.getWidth()>300);
+                    capture(v,"desktop-demands-"+size[0]+"x"+size[1]+".png");
+                    ((javafx.scene.control.Button)v.root.lookup("#navActivity")).fire();v.root.layout();((javafx.scene.control.ScrollPane)v.root.getCenter()).setVvalue(1);v.root.layout();
+                    assertTrue(v.queue.localToScene(v.queue.getBoundsInLocal()).getMaxY()<=v.root.getHeight());
+                });
+            }
         }finally{fx(()->{if(controllers[0]!=null)controllers[0].close();if(stage[0]!=null)stage[0].close();});}
     }
     private static javafx.scene.control.DialogPane serverDialog(){

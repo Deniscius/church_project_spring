@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<VBox xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" spacing="20" styleClass="overview">
+  <VBox spacing="7" styleClass="welcome-card"><Label text="Une journée bien organisée." styleClass="welcome-title" wrapText="true" minHeight="-Infinity"/><Label text="Préparez les intentions, suivez les règlements et retrouvez le travail de votre paroisse." wrapText="true" minHeight="-Infinity" styleClass="welcome-description"/><Label fx:id="overviewParish" text="Votre paroisse" styleClass="welcome-parish" wrapText="true" minHeight="-Infinity"/></VBox>
+  <TilePane fx:id="summaryTiles" hgap="14" vgap="14" prefColumns="3" tileAlignment="TOP_LEFT">
+    <VBox spacing="8" styleClass="summary-card,summary-blue"><Label text="Demandes consultables" wrapText="true" minHeight="-Infinity" styleClass="metric-label"/><Label fx:id="demandCount" text="0" styleClass="summary-value"/><Label text="Dernières données sur ce poste" wrapText="true" minHeight="-Infinity" styleClass="help-text"/></VBox>
+    <VBox spacing="8" styleClass="summary-card,summary-amber"><Label text="À transmettre" styleClass="metric-label"/><Label fx:id="pendingCount" text="0" styleClass="summary-value"/><Label text="Opérations en attente de confirmation" wrapText="true" minHeight="-Infinity" styleClass="help-text"/></VBox>
+    <VBox spacing="8" styleClass="summary-card,summary-rose"><Label text="À vérifier" styleClass="metric-label"/><Label fx:id="rejectedCount" text="0" styleClass="summary-value"/><Label text="Éléments à corriger ou à reprendre" wrapText="true" minHeight="-Infinity" styleClass="help-text"/></VBox>
+  </TilePane>
+  <VBox spacing="14" styleClass="content-card"><Label text="Que souhaitez-vous faire ?" styleClass="section-title"/><FlowPane hgap="10" vgap="10"><Button fx:id="homeRequest" text="Saisir une demande" styleClass="primary-button"/><Button fx:id="homeDemands" text="Consulter les demandes" styleClass="secondary-button"/><Button fx:id="homeActivity" text="Suivre les transmissions" styleClass="secondary-button"/></FlowPane></VBox>
+  <VBox spacing="12" styleClass="content-card"><Label text="Demandes disponibles" styleClass="section-title"/><Label text="Un aperçu des données de votre paroisse. Ouvrez une demande pour consulter les détails." wrapText="true" minHeight="-Infinity" styleClass="muted"/><ListView fx:id="recentDemands" prefHeight="220" minHeight="120" styleClass="recent-demands"><placeholder><Label text="Vos demandes apparaîtront ici après leur chargement." wrapText="true" minHeight="-Infinity" styleClass="muted"/></placeholder></ListView></VBox>
+</VBox>

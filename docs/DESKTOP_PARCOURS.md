@@ -28,7 +28,7 @@ reste dans les services existants ; elle n'est pas ajoutée à l'application.
 
 ## Validation réalisée
 
-La suite desktop compte 45 tests exécutés et réussis, y compris le test contre
+La validation métier a réussi 45 tests, y compris le test contre
 Spring Boot et PostgreSQL locaux sur des bases jetables, en HTTPS avec cookie Secure / SameSite=None. Ce parcours prépare réellement le coffre, crée une
 demande, enregistre un encaissement de test, vérifie les conflits de correction,
 supprime une autre demande et relit un PDF hors connexion.
@@ -84,3 +84,6 @@ le truststore de test ; la validation TLS n'est jamais désactivée.
 Ces tests n'établissent pas la validité d'un compte ou de la configuration Render
 réels : le refus constaté en production n'a pas été reproduit sur les bases de
 validation.
+
+La refonte visuelle et les vérifications de résolutions sont détaillées dans
+[DESKTOP_INTERFACE.md](DESKTOP_INTERFACE.md).

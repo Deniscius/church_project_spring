@@ -218,7 +218,7 @@ public class DetailsPaiementServiceImpl implements DetailsPaiementService {
 
     @Override
     public DetailsPaiementResponse encaisserCaisse(UUID demandePublicId) {
-        Demande demande = demandeRepository.findByPublicIdAndStatusDelFalse(demandePublicId)
+        Demande demande = demandeRepository.findForCashByPublicId(demandePublicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Demande introuvable"));
         tenantAccessService.checkParoisseAccess(demande.getParoisse());
 

@@ -4,6 +4,7 @@ import com.missanye.desktop.model.WorkspaceModels.*;
 import com.missanye.desktop.model.ScreenFormats;
 import javafx.collections.*;
 import javafx.collections.transformation.FilteredList;
+import javafx.collections.transformation.SortedList;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import java.util.function.Function;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -21,7 +22,7 @@ public final class WorkbenchView {
     public final TextArea intention;
     public final TextField demandSearch, username, surname, firstname, phone, email, courier, customTime;
     public final PasswordField password, localPassword;
-    public final Button login, offline, lock, configureSlots, save, fresh, edit, queue, archive, sync, refresh, cash, receipt, checkout, reconcile, correct, validate, remove;
+    public final Button returnToDraft, retry, login, offline, lock, configureSlots, save, fresh, edit, queue, archive, sync, refresh, cash, receipt, checkout, reconcile, correct, validate, remove;
     public final Label session, status, slotsSummary, price, detail, queueDetail;
     public final ComboBox<Choice> parish, type, plan, schedule, payment;
     public final DatePicker date, additionalDate;
@@ -39,6 +40,8 @@ public final class WorkbenchView {
     private final Region connection,header,workspaceContainer;
     private final StackPane lockedPane=new StackPane();
     private boolean workspaceOpen;
+    private int openDialogs;
+    public boolean hasOpenDialog(){return openDialogs>0;}
 
     public WorkbenchView() {
         try {
@@ -69,7 +72,7 @@ public final class WorkbenchView {
             fresh=ref("fresh",Button.class);
             edit=ref("edit",Button.class);
             queue=ref("queue",Button.class);
-            archive=ref("archive",Button.class);
+            archive=ref("archive",Button.class);retry=ref("retry",Button.class);returnToDraft=ref("returnToDraft",Button.class);
             sync=ref("sync",Button.class);
             refresh=ref("refresh",Button.class);
             cash=ref("cash",Button.class);
@@ -96,7 +99,7 @@ public final class WorkbenchView {
             outbox=ref("outbox",TableView.class);
             tabs=ref("tabs",TabPane.class);
             workspace=ref("workspace",VBox.class);
-            date.setValue(LocalDate.now().plusDays(2));additionalDate.setValue(date.getValue().plusDays(1));
+            date.setValue(LocalDate.now().plusDays(2));date.getEditor().setText(date.getConverter().toString(date.getValue()));additionalDate.setValue(date.getValue().plusDays(1));
             extraDates.setCellFactory(list->new ListCell<>(){@Override protected void updateItem(LocalDate date,boolean empty){super.updateItem(date,empty);setText(empty||date==null?null:date.format(java.time.format.DateTimeFormatter.ofPattern("EEEE d MMMM yyyy",Locale.FRANCE)));}});
             intention=ref("intention",TextArea.class);
             queueFilter=ref("queueFilter",ComboBox.class);
@@ -131,12 +134,12 @@ public final class WorkbenchView {
     }
     private void configureTables() {
         var visibleDemands=new FilteredList<>(demandRows);
-        demands.setItems(visibleDemands);
+        var sortedDemands=new SortedList<>(visibleDemands);sortedDemands.comparatorProperty().bind(demands.comparatorProperty());demands.setItems(sortedDemands);
         demandSearch.textProperty().addListener((o,a,b)->visibleDemands.setPredicate(row->b==null || b.isBlank() || row.data().toString().toLowerCase(Locale.ROOT).contains(b.trim().toLowerCase(Locale.ROOT))));
         var visibleActivity=new FilteredList<>(activityRows);
-        outbox.setItems(visibleActivity);
-        queueFilter.getItems().setAll("Toutes les opérations","Brouillons","À transmettre","Confirmées","À corriger");queueFilter.getSelectionModel().selectFirst();
-        queueFilter.valueProperty().addListener((o,a,b)->visibleActivity.setPredicate(row->switch(b){case "Brouillons"->"DRAFT".equals(row.data().path("state").asText());case "À transmettre"->"PENDING".equals(row.data().path("state").asText());case "Confirmées"->"SENT".equals(row.data().path("state").asText());case "À corriger"->"REJECTED".equals(row.data().path("state").asText());default->true;}));
+        var sortedActivity=new SortedList<>(visibleActivity);sortedActivity.comparatorProperty().bind(outbox.comparatorProperty());outbox.setItems(sortedActivity);
+        queueFilter.getItems().setAll("Toutes les opérations","Brouillons","À transmettre","Confirmées","À corriger","Bloquées");queueFilter.getSelectionModel().selectFirst();
+        queueFilter.valueProperty().addListener((o,a,b)->visibleActivity.setPredicate(row->switch(b){case "Brouillons"->"DRAFT".equals(row.data().path("state").asText());case "À transmettre"->"PENDING".equals(row.data().path("state").asText());case "Confirmées"->"SENT".equals(row.data().path("state").asText());case "À corriger"->"REJECTED".equals(row.data().path("state").asText());case "Bloquées"->"BLOCKED".equals(row.data().path("state").asText());default->true;}));
         column("demandReference",d->d.path("codeSuivie").asText());
         column("demandFaithful",ScreenFormats::faithful);
         column("demandDate",d->ScreenFormats.date(d.path("datesCelebration").path(0).asText()));
@@ -150,12 +153,14 @@ public final class WorkbenchView {
         column("activityState",d->ScreenFormats.state(d.path("state").asText()));
         demands.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);outbox.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         demandRows.addListener((javafx.collections.ListChangeListener<Row>)c->demandCount.setText(Integer.toString(demandRows.size())));
-        activityRows.addListener((javafx.collections.ListChangeListener<Row>)c->{pendingCount.setText(Long.toString(activityRows.stream().filter(r->"PENDING".equals(r.data().path("state").asText())).count()));rejectedCount.setText(Long.toString(activityRows.stream().filter(r->"REJECTED".equals(r.data().path("state").asText())).count()));});
+        activityRows.addListener((javafx.collections.ListChangeListener<Row>)c->{pendingCount.setText(Long.toString(activityRows.stream().filter(r->"PENDING".equals(r.data().path("state").asText())).count()));rejectedCount.setText(Long.toString(activityRows.stream().filter(r->Set.of("REJECTED","BLOCKED").contains(r.data().path("state").asText())).count()));});
     }
     @SuppressWarnings("unchecked")
     private void column(String id,Function<JsonNode,String> text) {
         TableColumn<Row,String> column=ref(id,TableColumn.class);
         column.setCellValueFactory(cell->new ReadOnlyStringWrapper(text.apply(cell.getValue().data())));
+        if(id.equals("demandAmount"))column.setComparator(Comparator.comparing(value->{String digits=value.replaceAll("[^0-9]","");return digits.isEmpty()?java.math.BigInteger.ZERO:new java.math.BigInteger(digits);}));
+        if(Set.of("demandDate","activityDate").contains(id))column.setComparator(Comparator.comparing(value->{try{return LocalDate.parse(value,java.time.format.DateTimeFormatter.ofPattern("dd/MM/uuuu"));}catch(Exception e){return LocalDate.MIN;}}));
         if(Set.of("demandPayment","demandValidation","activityState").contains(id))column.setCellFactory(c->new TableCell<>(){
             @Override protected void updateItem(String value,boolean empty){super.updateItem(value,empty);setText(null);if(empty||value==null){setGraphic(null);return;}
                 var badge=new Label(value);badge.getStyleClass().add("status-pill");badge.getStyleClass().add(Set.of("Payé","Validée","Confirmée").contains(value)?"status-success":Set.of("À corriger","Rejetée","Annulée").contains(value)?"status-danger":"status-neutral");setGraphic(badge);
@@ -165,7 +170,8 @@ public final class WorkbenchView {
     public <T> Dialog<T> decorate(Dialog<T> dialog) {
         if(root.getScene()!=null)dialog.initOwner(root.getScene().getWindow());
         dialog.getDialogPane().getStylesheets().add(Objects.requireNonNull(getClass().getResource("desktop.css")).toExternalForm());
-        dialog.getDialogPane().getStyleClass().add("app-dialog");return dialog;
+        dialog.getDialogPane().getStyleClass().add("app-dialog");
+        dialog.setOnShowing(e->openDialogs++);dialog.setOnHidden(e->openDialogs=Math.max(0,openDialogs-1));return dialog;
     }
     private Parent load(String filename) throws IOException {
         var location=Objects.requireNonNull(WorkbenchView.class.getResource(filename),"Ressource FXML absente : "+filename);

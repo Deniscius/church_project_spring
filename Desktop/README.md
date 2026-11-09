@@ -104,9 +104,20 @@ ou une même heure personnalisée est utilisé pour ces dates. Le bouton
 **Configurer chaque date et horaire** permet de choisir des créneaux distincts. Le serveur revalide
 les jours, délais, tarifs et disponibilités à l'envoi.
 
-Sauvegarder crée un brouillon chiffré. Dans **Mon activité**,
+Sauvegarder crée un brouillon chiffré, même si des champs ne sont pas encore
+complétés. Les vérifications obligatoires interviennent avant la transmission.
+Un changement de paroisse, une déconnexion, un nouveau formulaire ou une fermeture
+normale propose de conserver, abandonner ou annuler la saisie non enregistrée.
+Une fermeture est différée si une opération est en cours.
+
+Dans **Mon activité**,
 sélectionner ce brouillon et cliquer **Transmettre la demande**. Une opération en
-attente est immuable. **Transmettre les opérations** envoie la file ; en ligne, le mode
+attente peut revenir au brouillon tant qu'aucune tentative d'envoi n'a commencé
+(bouton **Revenir au brouillon**). Après une tentative, elle reste immuable pour
+préserver sa protection contre les doublons. Les encaissements ne peuvent pas
+être remis en brouillon de cette façon.
+
+**Transmettre les opérations** envoie la file ; en ligne, le mode
 automatique le fait également toutes les 60 secondes, avec temporisation
 progressive après les erreurs réseau. La file garde le même UUID après une
 coupure ou un redémarrage. L'identifiant est dédupliqué transactionnellement
@@ -114,9 +125,20 @@ par le serveur pour ce compte.
 
 Un rejet métier reste visible avec sa cause. **Modifier le brouillon** un rejet
 de demande prépare un nouveau brouillon et un nouvel identifiant ; archiver le
-rejet initial si nécessaire. Un conflit d'encaissement ne doit pas être rejoué
+rejet initial si nécessaire. Une correction enregistrée conserve l'ancien rejet
+avec l'état **Remplacée** et ne peut pas être créée deux fois depuis ce rejet.
+Un conflit d'encaissement ne doit pas être rejoué
 aveuglément : actualiser le serveur et rapprocher la caisse avant de décider.
-Les erreurs de droits ou de session arrêtent l'envoi et exigent une reconnexion.
+Une session expirée arrête l'envoi et exige une reconnexion. Un refus de droits
+sur une opération la marque **Bloquée** sans interrompre les autres. Après
+rétablissement des accès, **Réessayer la transmission** conserve son identifiant
+initial ; une opération bloquée ne doit pas être recopiée comme un nouvel
+encaissement.
+
+Les actualisations conservent les champs et les choix d'une demande en cours,
+ainsi que la sélection des lignes par leur identifiant. Le tri des tableaux
+fonctionne avec les filtres ; les montants et les dates se trient selon leur
+valeur, et non selon leur texte affiché.
 
 La liste des demandes est une **copie datée par sa dernière actualisation**,
 pas une preuve d'état actuel hors ligne. L'actualisation remplace la copie
@@ -146,7 +168,8 @@ locale qu'après confirmation serveur et actualisation de la liste.
   confirmation électronique n'est inventée hors ligne.
 - **Reçus** : sélectionner une demande puis **Télécharger le reçu**.
   En ligne, le PDF officiel est téléchargé et mis en cache chiffré. Hors ligne,
-  seuls les reçus déjà téléchargés sont disponibles. Le fichier exporté est un
+  seuls les reçus déjà téléchargés sont disponibles. Une coupure du service peut
+  également utiliser cette copie conservée, signalée à l'utilisateur comme telle. Le fichier exporté est un
   PDF ordinaire **non chiffré** ; l'impression se fait depuis le lecteur PDF.
 
 ## Stockage et sauvegarde
@@ -211,6 +234,7 @@ L'installation est destinée à Windows 10/11 compatible x64 et se fait pour le
 compte courant, sans demande de droits administrateur, dans
 `%LOCALAPPDATA%\Programs\Missanye` par défaut. L'assistant propose le français
 et l'anglais, un raccourci menu Démarrer et un raccourci Bureau optionnel.
+Une seule instance de l'application peut ouvrir un même répertoire de données.
 La désinstallation préserve le coffre `~/.missanye-desktop` et ses données.
 Les futures versions doivent conserver le même `AppId` Inno Setup.
 

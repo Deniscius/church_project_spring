@@ -108,3 +108,13 @@ vérifie le rejeu et la concurrence sur PostgreSQL. Un test desktop optionnel
 exerce le backend local réel, les espèces, les conflits d'intention et les PDF.
 La validation d'un paiement externe et des paquets Windows se fait dans leurs
 environnements respectifs ; elle n'est pas établie par un test headless Linux.
+
+## Parcours métier et reprise
+
+L'audit et ses vérifications sont décrits dans `docs/DESKTOP_PARCOURS.md`.
+Les brouillons locaux sont volontairement distincts des requêtes validées pour
+transmission. La confirmation d'une commande et la mise à jour de la copie
+locale sont atomiques dans SQLite ; une actualisation interrompue ne masque
+pas un encaissement qui vient d'être confirmé. Les erreurs de droits par commande
+produisent un état bloqué, réessayable avec le même identifiant, alors qu'une
+expiration de session interrompt l'envoi.

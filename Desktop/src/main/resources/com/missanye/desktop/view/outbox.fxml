@@ -18,5 +18,5 @@
     <placeholder><VBox alignment="CENTER" spacing="8"><Label text="Votre activité apparaîtra ici" styleClass="empty-title"/><Label text="Enregistrez une première demande pour commencer." styleClass="muted"/></VBox></placeholder>
   </TableView>
   <Label fx:id="queueDetail" maxWidth="Infinity" minHeight="-Infinity" text="Sélectionnez une opération pour consulter son état." wrapText="true" styleClass="selection-panel"/>
-  <FlowPane hgap="8" vgap="8"><Button fx:id="queue" text="Transmettre la demande" styleClass="primary-button"/><Button fx:id="edit" text="Modifier le brouillon"/><Button fx:id="archive" text="Archiver"/></FlowPane>
+  <FlowPane hgap="8" vgap="8"><Button fx:id="queue" text="Transmettre la demande" styleClass="primary-button"/><Button fx:id="edit" text="Modifier le brouillon"/><Button fx:id="returnToDraft" text="Revenir au brouillon"/><Button fx:id="retry" text="Réessayer la transmission"/><Button fx:id="archive" text="Archiver"/></FlowPane>
 </VBox>

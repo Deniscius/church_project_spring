@@ -20,7 +20,7 @@
       <HBox spacing="12">
         <VBox spacing="4" styleClass="summary-card" HBox.hgrow="ALWAYS"><Label text="DEMANDES CONSULTABLES" styleClass="eyebrow"/><Label fx:id="demandCount" text="0" styleClass="summary-value"/></VBox>
         <VBox spacing="4" styleClass="summary-card" HBox.hgrow="ALWAYS"><Label text="À TRANSMETTRE" styleClass="eyebrow"/><Label fx:id="pendingCount" text="0" styleClass="summary-value"/></VBox>
-        <VBox spacing="4" styleClass="summary-card" HBox.hgrow="ALWAYS"><Label text="À CORRIGER" styleClass="eyebrow"/><Label fx:id="rejectedCount" text="0" styleClass="summary-value"/></VBox>
+        <VBox spacing="4" styleClass="summary-card" HBox.hgrow="ALWAYS"><Label text="À VÉRIFIER" styleClass="eyebrow"/><Label fx:id="rejectedCount" text="0" styleClass="summary-value"/></VBox>
       </HBox>
       <FlowPane hgap="10" vgap="8" styleClass="toolbar">
         <Label text="Ma paroisse" styleClass="field-label"/>

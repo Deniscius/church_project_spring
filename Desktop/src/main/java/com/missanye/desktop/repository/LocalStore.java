@@ -1,6 +1,8 @@
 package com.missanye.desktop.repository;
 
 import com.fasterxml.jackson.databind.*;
+import com.missanye.desktop.model.RequestValidation;
+import com.missanye.desktop.service.WorkspaceBootstrap;
 import com.fasterxml.jackson.databind.node.*;
 import javax.crypto.*;
 import javax.crypto.spec.*;
@@ -21,10 +23,27 @@ public final class LocalStore implements AutoCloseable {
     private LocalStore(Path path, String server, String username) throws Exception {
         Files.createDirectories(path.toAbsolutePath().getParent());
         url="jdbc:sqlite:"+path.toAbsolutePath();
-        scope=HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest((server+"\n"+username).getBytes(StandardCharsets.UTF_8)));
+        String exact=scope(server,username.trim());String canonical=scope(server,username.trim().toLowerCase(Locale.ROOT));
         try(var c=connect(); var s=c.createStatement()) {
             s.execute("CREATE TABLE IF NOT EXISTS vault_profile(scope TEXT PRIMARY KEY,salt BLOB NOT NULL,proof BLOB NOT NULL)");
             s.execute("CREATE TABLE IF NOT EXISTS vault_data(scope TEXT NOT NULL,name TEXT NOT NULL,value BLOB NOT NULL,PRIMARY KEY(scope,name))");
+            scope=existingScope(c,exact,canonical);
+        }
+    }
+    public enum ProfileStatus {ABSENT,NEEDS_ONLINE,READY}
+    private static String scope(String server,String username)throws Exception{return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest((server+"\n"+username).getBytes(StandardCharsets.UTF_8)));}
+    private static String existingScope(Connection c,String exact,String canonical)throws SQLException{
+        try(var query=c.prepareStatement("SELECT scope FROM vault_profile WHERE scope=?")){query.setString(1,exact);try(var rows=query.executeQuery()){return rows.next()?exact:canonical;}}
+    }
+    public static ProfileStatus inspect(Path file,String server,String username)throws Exception{
+        if(username==null||username.isBlank()||!Files.isRegularFile(file))return ProfileStatus.ABSENT;
+        try(var c=DriverManager.getConnection("jdbc:sqlite:"+file.toAbsolutePath())){
+            try(var table=c.createStatement();var names=table.executeQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='vault_profile'")){if(!names.next())return ProfileStatus.ABSENT;}
+            String chosen=existingScope(c,scope(server,username.trim()),scope(server,username.trim().toLowerCase(Locale.ROOT)));
+            try(var exists=c.prepareStatement("SELECT 1 FROM vault_profile WHERE scope=?")){exists.setString(1,chosen);try(var rows=exists.executeQuery()){if(!rows.next())return ProfileStatus.ABSENT;}}
+            var catalogues=new HashSet<String>();var demands=new HashSet<String>();
+            try(var q=c.prepareStatement("SELECT name FROM vault_data WHERE scope=?")){q.setString(1,chosen);try(var rows=q.executeQuery()){while(rows.next()){String name=rows.getString(1);if(name.startsWith("catalogue:"))catalogues.add(name.substring(10));if(name.startsWith("demands:"))demands.add(name.substring(8));}}}
+            catalogues.retainAll(demands);return catalogues.isEmpty()?ProfileStatus.NEEDS_ONLINE:ProfileStatus.READY;
         }
     }
     private Connection connect() throws SQLException {
@@ -75,11 +94,59 @@ public final class LocalStore implements AutoCloseable {
         cipher.updateAAD((scope+":"+name).getBytes(StandardCharsets.UTF_8));return cipher.doFinal(bytes,12,bytes.length-12);
     }
     public String owner(){return owner;}
-    public void put(String name,JsonNode value) throws Exception {
-        byte[] encrypted=encrypt(name,JSON.writeValueAsBytes(value));
-        try(var c=connect();var s=c.prepareStatement("INSERT INTO vault_data VALUES(?,?,?) ON CONFLICT(scope,name) DO UPDATE SET value=excluded.value")) {
-            s.setString(1,scope);s.setString(2,name);s.setBytes(3,encrypted);s.executeUpdate();
+    public void saveSession(JsonNode session,JsonNode parishes)throws Exception{
+        if(!owner.equals(session.path("user").path("id").asText()))throw new IllegalArgumentException("Ce compte ne correspond pas à cet espace de travail.");
+        writeAll(Map.of("session",session,"parishes",parishes));
+    }
+    private boolean completeCatalogue(JsonNode c){return c.isObject()&&c.path("types").isArray()&&c.path("horaires").isArray()&&c.path("paiements").isArray()&&c.path("forfaits").isObject();}
+    public boolean workspaceReady(String parish)throws Exception{
+        var session=get("session");return owner.equals(session.path("user").path("id").asText())&&WorkspaceBootstrap.allows(get("parishes"),parish)&&completeCatalogue(get("catalogue:"+parish))&&get("demands:"+parish).isArray();
+    }
+    public void installWorkspace(JsonNode session,JsonNode parishes,String parish,WorkspaceBootstrap.Prepared prepared)throws Exception{
+        if(!owner.equals(session.path("user").path("id").asText())||!owner.equals(prepared.session().path("user").path("id").asText())||!WorkspaceBootstrap.allows(parishes,parish))throw new IllegalArgumentException("Cet espace n'est pas autorisé pour le compte connecté.");
+        if(!completeCatalogue(prepared.catalogue())||!prepared.demands().isArray())throw new IllegalArgumentException("La préparation de la paroisse est incomplète. Réessayez en ligne.");
+        var marker=JSON.createObjectNode().put("version",1).put("owner",owner).put("parish",parish).put("preparedAt",Instant.now().toString());
+        writeAll(Map.of("session",prepared.session(),"parishes",parishes,"catalogue:"+parish,prepared.catalogue(),"demands:"+parish,prepared.demands(),"ready:"+parish,marker,"selected-parish",JSON.getNodeFactory().textNode(parish)));
+    }
+    public void selectWorkspace(String parish)throws Exception{
+        if(!workspaceReady(parish))throw new IllegalArgumentException("Une connexion est nécessaire pour préparer cette paroisse sur ce poste.");
+        put("selected-parish",JSON.getNodeFactory().textNode(parish));
+    }
+    public ObjectNode correctDraft(String rejectedId,JsonNode payload)throws Exception{
+        var original=(ObjectNode)get("entry:"+rejectedId);
+        if(!"REJECTED".equals(original.path("state").asText())||!"CREATE_DEMANDE".equals(original.path("kind").asText()))throw new IllegalArgumentException("Cette demande a déjà été corrigée ou ne peut pas être modifiée.");
+        var corrected=JSON.createObjectNode().put("id",UUID.randomUUID().toString()).put("createdAt",Instant.now().toString()).put("kind","CREATE_DEMANDE").put("state","DRAFT").put("correctedFrom",rejectedId);corrected.set("payload",payload);
+        original.put("state","SUPERSEDED").put("replacedBy",corrected.path("id").asText());
+        writeAll(Map.of("entry:"+rejectedId,original,"entry:"+corrected.path("id").asText(),corrected));return corrected;
+    }
+
+    public void put(String name,JsonNode value) throws Exception {writeAll(Map.of(name,value));}
+    private void writeAll(Map<String,? extends JsonNode> values) throws Exception {
+        var encoded=new LinkedHashMap<String,byte[]>();
+        for(var value:values.entrySet())encoded.put(value.getKey(),encrypt(value.getKey(),JSON.writeValueAsBytes(value.getValue())));
+        try(var c=connect()) {
+            c.setAutoCommit(false);
+            try(var s=c.prepareStatement("INSERT INTO vault_data VALUES(?,?,?) ON CONFLICT(scope,name) DO UPDATE SET value=excluded.value")) {
+                for(var value:encoded.entrySet()){s.setString(1,scope);s.setString(2,value.getKey());s.setBytes(3,value.getValue());s.addBatch();}
+                s.executeBatch();c.commit();
+            }catch(Exception e){c.rollback();throw e;}
         }
+    }
+    public void confirm(ObjectNode entry,JsonNode result) throws Exception {
+        var confirmed=entry.deepCopy();confirmed.set("result",result);confirmed.put("state","SENT");confirmed.remove("error");
+        var updates=new LinkedHashMap<String,JsonNode>();updates.put("entry:"+entry.path("id").asText(),confirmed);
+        String parish=result.path("paroissePublicId").asText(entry.path("parish").asText(entry.path("payload").path("paroissePublicId").asText()));
+        String id=result.path("publicId").asText();
+        if(!parish.isBlank()&&!id.isBlank()&&(result.has("intention")||result.path("deleted").asBoolean())) {
+            var rows=JSON.createArrayNode();boolean found=false;
+            for(var row:get("demands:"+parish)) {
+                if(id.equals(row.path("publicId").asText())){found=true;if(!result.path("deleted").asBoolean())rows.add(result);}
+                else rows.add(row);
+            }
+            if(!found&&!result.path("deleted").asBoolean())rows.add(result);
+            updates.put("demands:"+parish,rows);
+        }
+        writeAll(updates);
     }
     public JsonNode get(String name) throws Exception {
         try(var c=connect();var s=c.prepareStatement("SELECT value FROM vault_data WHERE scope=? AND name=?")) {
@@ -102,15 +169,31 @@ public final class LocalStore implements AutoCloseable {
     public void queue(String id) throws Exception {
         var entry=(ObjectNode)get("entry:"+id);
         if(!"DRAFT".equals(entry.path("state").asText()))throw new IllegalArgumentException("Seul un brouillon peut être envoyé.");
+        entry.set("payload",RequestValidation.forSubmission(entry.path("payload")));
         entry.put("state","PENDING");put("entry:"+id,entry);
     }
     public ObjectNode queueCash(JsonNode demand) throws Exception {
         String target=demand.path("publicId").asText();if(target.isBlank())throw new IllegalArgumentException("Demande serveur obligatoire");
-        for(var e:entries())if("CASH_PAYMENT".equals(e.path("kind").asText()) && !"REJECTED".equals(e.path("state").asText()) && target.equals(e.path("payload").path("demandePublicId").asText()))
+        for(var e:entries())if("CASH_PAYMENT".equals(e.path("kind").asText()) && !Set.of("REJECTED","SUPERSEDED","ARCHIVED").contains(e.path("state").asText()) && target.equals(e.path("payload").path("demandePublicId").asText()))
             throw new IllegalArgumentException("Un encaissement existe déjà dans la file pour cette demande.");
-        var payload=JSON.createObjectNode().put("demandePublicId",target).put("expectedMontant",demand.path("montant").intValue());
+        if("PAYE".equals(demand.path("statutPaiement").asText()))throw new IllegalArgumentException("Cette demande est déjà payée.");
+        if(demand.has("paiementDisponible")&&!demand.path("paiementDisponible").asBoolean())throw new IllegalArgumentException("Cette demande n'autorise pas encore l'encaissement.");
+        for(var e:entries())if("PENDING".equals(e.path("state").asText())&&target.equals(e.path("payload").path("demandePublicId").asText()))throw new IllegalArgumentException("Une opération est déjà en attente pour cette demande. Transmettez-la avant de saisir un encaissement.");
+        int amount;try{amount=demand.path("montant").decimalValue().intValueExact();}catch(Exception e){throw new IllegalArgumentException("Le montant de la demande est invalide. Actualisez la liste.");}
+        if(amount<=0)throw new IllegalArgumentException("Actualisez la liste pour vérifier le montant à encaisser.");
+        var payload=JSON.createObjectNode().put("demandePublicId",target).put("expectedMontant",amount);
         var entry=JSON.createObjectNode().put("id",UUID.randomUUID().toString()).put("kind","CASH_PAYMENT").put("state","PENDING").put("createdAt",Instant.now().toString());
-        entry.set("payload",payload);entry.put("codeSuivie",demand.path("codeSuivie").asText());put("entry:"+entry.path("id").asText(),entry);return entry;
+        entry.set("payload",payload);entry.put("parish",demand.path("paroissePublicId").asText());entry.put("codeSuivie",demand.path("codeSuivie").asText());put("entry:"+entry.path("id").asText(),entry);return entry;
+    }
+    public void returnToDraft(String id)throws Exception{
+        var entry=(ObjectNode)get("entry:"+id);
+        if(!"CREATE_DEMANDE".equals(entry.path("kind").asText())||!"PENDING".equals(entry.path("state").asText())||entry.path("attempts").asInt()!=0)throw new IllegalArgumentException("Cette demande a déjà fait l'objet d'une tentative de transmission. Elle ne peut plus être remise en brouillon.");
+        entry.put("state","DRAFT");put("entry:"+id,entry);
+    }
+    public void retryBlocked(String id) throws Exception {
+        var entry=(ObjectNode)get("entry:"+id);
+        if(!"BLOCKED".equals(entry.path("state").asText()))throw new IllegalArgumentException("Seules les opérations bloquées peuvent être retentées avec le même identifiant.");
+        entry.put("state","PENDING");entry.remove("error");put("entry:"+id,entry);
     }
     public void archive(String id) throws Exception {
         var e=(ObjectNode)get("entry:"+id);

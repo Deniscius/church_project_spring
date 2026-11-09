@@ -14,7 +14,7 @@ class LocalStoreTest {
     @Test void encryptedDataAndQueuedUuidSurviveRestart()throws Exception{
         String id;
         try(var store=open("alice-id")){
-            var draft=store.draft(null,json.readTree("{\"intention\":\"CONFIDENTIAL INTENTION\"}"));id=draft.path("id").asText();store.queue(id);
+            var draft=store.draft(null,TestRequests.complete().put("intention","CONFIDENTIAL INTENTION"));id=draft.path("id").asText();store.queue(id);
             assertThrows(IllegalArgumentException.class,()->store.draft(id,json.createObjectNode()));
         }
         String raw=new String(Files.readAllBytes(temp.resolve("vault.sqlite")),java.nio.charset.StandardCharsets.ISO_8859_1);

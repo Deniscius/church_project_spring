@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<VBox xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" spacing="14" styleClass="content-card">
+  <HBox alignment="CENTER_LEFT" spacing="12">
+    <VBox spacing="4"><Label text="Demandes de messes" styleClass="section-title"/><Label text="Consultez les intentions et suivez leur règlement." styleClass="muted"/></VBox>
+    <Region HBox.hgrow="ALWAYS"/>
+    <TextField fx:id="demandSearch" promptText="Rechercher un code, un nom, une intention…" prefWidth="310"/>
+  </HBox>
+  <TableView fx:id="demands" minHeight="170" VBox.vgrow="ALWAYS" styleClass="data-table">
+    <columns>
+      <TableColumn fx:id="demandReference" text="Code de suivi" prefWidth="155"/>
+      <TableColumn fx:id="demandFaithful" text="Fidèle" prefWidth="160"/>
+      <TableColumn fx:id="demandDate" text="Célébration" prefWidth="110"/>
+      <TableColumn fx:id="demandAmount" text="Montant" prefWidth="120"/>
+      <TableColumn fx:id="demandPayment" text="Paiement" prefWidth="120"/>
+      <TableColumn fx:id="demandValidation" text="Validation" prefWidth="110"/>
+    </columns>
+    <placeholder><VBox alignment="CENTER" spacing="8"><Label text="Aucune demande à afficher" styleClass="empty-title"/><Label text="Actualisez la liste ou ajustez votre recherche." styleClass="muted"/></VBox></placeholder>
+  </TableView>
+  <VBox spacing="6" styleClass="selection-panel"><Label text="LA DEMANDE SÉLECTIONNÉE" styleClass="eyebrow"/><Label fx:id="detail" maxWidth="Infinity" minHeight="-Infinity" text="Sélectionnez une demande pour consulter son intention et agir." wrapText="true"/></VBox>
+  <FlowPane hgap="8" vgap="8"><Button fx:id="cash" text="Encaisser en espèces" styleClass="primary-button"/><Button fx:id="receipt" text="Télécharger le reçu" styleClass="secondary-button"/><Button fx:id="checkout" text="Paiement en ligne"/><Button fx:id="reconcile" text="Vérifier le règlement"/></FlowPane>
+  <FlowPane hgap="8" vgap="8"><Button fx:id="correct" text="Corriger l'intention"/><Button fx:id="validate" text="Valider / rejeter"/><Button fx:id="remove" text="Supprimer la demande" styleClass="danger-button"/></FlowPane>
+  <Label text="Hors connexion, cette liste reflète la dernière actualisation effectuée sur ce poste." wrapText="true" styleClass="help-text"/>
+</VBox>

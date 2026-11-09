@@ -3,6 +3,23 @@
 Le module se trouve dans **`Desktop/`**, à côté de `Backend/` et `Frontend/`.
 Il communique avec le backend Spring Boot ; seul ce dernier accède à Neon.
 
+## Vues FXML
+
+Les fichiers se trouvent dans `src/main/resources/com/missanye/desktop/view/` :
+
+- `login-form.fxml` : connexion en ligne et coffre local, inspirée du formulaire
+  `login_form.fxml` fourni dans `Church_Project.zip` (champs à droite).
+- `workbench.fxml` : structure principale, sélection de paroisse et onglets.
+- `request-form.fxml` : formulaire d'intention, forfaits, coordonnées et créneaux.
+- `demands.fxml` : liste des demandes, décisions, paiements et reçus.
+- `outbox.fxml` : brouillons et opérations en attente de synchronisation.
+- `desktop.css` : palette, cartes, champs et boutons communs.
+
+Ces fichiers sont adaptés à JavaFX 17 et peuvent être édités avec Scene Builder
+compatible. Le contrôleur existant conserve les actions métier ; les FXML ne
+contiennent ni SQL ni identifiants de connexion. Les classes de connexion à la
+base de l'archive de référence ne sont pas importées.
+
 ## Lancer
 
 Prérequis : **JDK 17**, **Maven 3.9**, environnement graphique ; GTK 3 sous Linux.
@@ -21,45 +38,108 @@ n'est nécessaire dans le desktop.
 
 ## Première utilisation
 
-1. Indiquer l'URL **racine** de l'API, par exemple `http://localhost:8081` en
-   développement, ou son URL HTTPS en production. Ne pas ajouter `/auth` ni le
-   préfixe `/api` du proxy Vite. Les redirections ne sont pas suivies.
-2. Saisir un compte serveur existant et son mot de passe. Choisir séparément un
-   **mot de passe local d'au moins 12 caractères** pour chiffrer le coffre.
-   Ce mot de passe local est indispensable pour rouvrir les données ; il n'existe
-   pas de récupération intégrée. Les mots de passe serveur ne sont pas stockés.
-3. Cliquer **Connexion en ligne**, sélectionner une paroisse autorisée puis
-   **Actualiser catalogue et demandes**. Le catalogue et les demandes sont mis
-   en cache dans le coffre de ce compte et de ce serveur.
-4. Pour les ouvertures suivantes sans réseau, renseigner la même URL, le même
-   identifiant et le mot de passe **local**, puis **Déverrouiller hors ligne**.
-   Ce déverrouillage permet l'accès local ; les droits serveur seront revérifiés
-   avant chaque synchronisation. Pour reconnecter, verrouiller puis se connecter
-   en ligne ; utiliser toujours le même mot de passe local.
+1. Saisir l'identifiant et le mot de passe fournis par l'administrateur, puis
+   cliquer **Se connecter**. L'application connaît déjà son service : aucune
+   adresse technique n'est demandée à l'utilisateur.
+2. Lors du premier accès **en ligne**, choisir la paroisse autorisée à préparer,
+   puis saisir et confirmer un **mot de passe local d'au moins 12 caractères**.
+   Ce secret protège ce poste ; il n'existe pas de récupération intégrée.
+3. Patienter sur l'écran de préparation. Les offres, horaires et demandes doivent
+   être enregistrés avant l'ouverture de l'espace métier. Un chargement
+   interrompu laisse l'accès hors connexion désactivé et peut être repris en ligne.
+4. Après cette préparation, ouvrir **Travailler hors connexion**, renseigner
+   l'identifiant et le mot de passe local puis **Ouvrir mon espace hors connexion**.
+   L'application retrouve la paroisse sélectionnée et propose seulement celles
+   déjà préparées. Les droits seront revérifiés avant la transmission des opérations.
+   Pour reconnecter, utiliser **Déconnexion**, puis **Se connecter**.
+
+La barre de session remplace le formulaire une fois connecté. Les tableaux
+proposent une recherche des demandes, un filtre de l'activité et des états
+lisibles. Les actions indisponibles sont désactivées selon la sélection, les
+droits et le mode de connexion. Les compteurs reflètent les données du poste.
+
+## Configuration réservée au développeur qui déploie
+
+La destination de l'API n'est pas un réglage de l'utilisateur final. Elle est
+intégrée dans le paquet à la compilation via la propriété Maven
+`desktop.api.url`. Sa valeur par défaut est :
+
+```text
+https://church-project-spring-pmbz.onrender.com
+```
+
+Pour livrer vers un autre environnement sur Windows :
+
+```powershell
+./scripts/package.ps1 -ApiBaseUrl 'https://api.environnement.example'
+./scripts/installer.ps1
+```
+
+Pour les builds Maven ou le développement local :
+
+```sh
+mvn verify -Ddesktop.api.url=https://api.environnement.example
+mvn javafx:run -Ddesktop.api.url=http://localhost:8081
+```
+
+Le script shell accepte `MISSANYE_BUILD_API_URL`. Le fichier embarqué
+`com/missanye/desktop/config/deployment.properties` est filtré par Maven. Pour
+un lancement administré, `-Dmissanye.apiUrl=...` (option JVM) ou
+`MISSANYE_API_URL` peut surcharger cette valeur, dans cet ordre. L'interface ne
+propose pas d'éditeur de configuration. Les URL doivent être absolues, sans
+identifiant, query string ou fragment ; HTTPS est obligatoire sauf en local.
+Aucune clé Neon ou FedaPay ne doit être ajoutée à ce fichier.
+
+La séparation des coffres utilise l'adresse canonique du service et le compte.
+Changer d'environnement crée un espace local distinct. Avant de remplacer une
+adresse de production, le développeur doit prévoir la reprise des opérations
+encore présentes dans les coffres de l'ancien environnement.
 
 ## Demandes et synchronisation
 
 Dans **Nouvelle demande**, choisir type, forfait, horaires, mode de paiement et
 remplir les coordonnées ainsi que l'intention. Pour un forfait multi-célébrations,
-indiquer les dates supplémentaires séparées par des virgules au format
-`AAAA-MM-JJ` ; le nombre total doit correspondre au forfait. Par défaut, un même horaire
+ajouter les dates supplémentaires avec le calendrier ; le nombre total doit
+correspondre au forfait. Une date peut être retirée depuis la liste. Par défaut, un même horaire
 ou une même heure personnalisée est utilisé pour ces dates. Le bouton
 **Configurer chaque date et horaire** permet de choisir des créneaux distincts. Le serveur revalide
 les jours, délais, tarifs et disponibilités à l'envoi.
 
-Sauvegarder crée un brouillon chiffré. Dans **Brouillons et synchronisation**,
-sélectionner ce brouillon et cliquer **Mettre en file d'envoi**. Une opération en
-attente est immuable. **Synchroniser** envoie la file ; en ligne, le mode
+Sauvegarder crée un brouillon chiffré, même si des champs ne sont pas encore
+complétés. Les vérifications obligatoires interviennent avant la transmission.
+Un changement de paroisse, une déconnexion, un nouveau formulaire ou une fermeture
+normale propose de conserver, abandonner ou annuler la saisie non enregistrée.
+Une fermeture est différée si une opération est en cours.
+
+Dans **Mon activité**,
+sélectionner ce brouillon et cliquer **Transmettre la demande**. Une opération en
+attente peut revenir au brouillon tant qu'aucune tentative d'envoi n'a commencé
+(bouton **Revenir au brouillon**). Après une tentative, elle reste immuable pour
+préserver sa protection contre les doublons. Les encaissements ne peuvent pas
+être remis en brouillon de cette façon.
+
+**Transmettre les opérations** envoie la file ; en ligne, le mode
 automatique le fait également toutes les 60 secondes, avec temporisation
 progressive après les erreurs réseau. La file garde le même UUID après une
 coupure ou un redémarrage. L'identifiant est dédupliqué transactionnellement
 par le serveur pour ce compte.
 
-Un rejet métier reste visible avec sa cause. **Modifier / corriger** un rejet
+Un rejet métier reste visible avec sa cause. **Modifier le brouillon** un rejet
 de demande prépare un nouveau brouillon et un nouvel identifiant ; archiver le
-rejet initial si nécessaire. Un conflit d'encaissement ne doit pas être rejoué
+rejet initial si nécessaire. Une correction enregistrée conserve l'ancien rejet
+avec l'état **Remplacée** et ne peut pas être créée deux fois depuis ce rejet.
+Un conflit d'encaissement ne doit pas être rejoué
 aveuglément : actualiser le serveur et rapprocher la caisse avant de décider.
-Les erreurs de droits ou de session arrêtent l'envoi et exigent une reconnexion.
+Une session expirée arrête l'envoi et exige une reconnexion. Un refus de droits
+sur une opération la marque **Bloquée** sans interrompre les autres. Après
+rétablissement des accès, **Réessayer la transmission** conserve son identifiant
+initial ; une opération bloquée ne doit pas être recopiée comme un nouvel
+encaissement.
+
+Les actualisations conservent les champs et les choix d'une demande en cours,
+ainsi que la sélection des lignes par leur identifiant. Le tri des tableaux
+fonctionne avec les filtres ; les montants et les dates se trient selon leur
+valeur, et non selon leur texte affiché.
 
 La liste des demandes est une **copie datée par sa dernière actualisation**,
 pas une preuve d'état actuel hors ligne. L'actualisation remplace la copie
@@ -84,12 +164,13 @@ locale qu'après confirmation serveur et actualisation de la liste.
   Le serveur refuse un montant changé, un paiement déjà effectué ou des droits
   insuffisants. Deux postes ne peuvent pas confirmer deux fois la même commande.
 - **Paiement en ligne** : le desktop demande une URL au backend puis ouvre le
-  navigateur pour FedaPay. Cliquer **Vérifier le paiement** après le parcours.
+  navigateur pour FedaPay. Cliquer **Vérifier le règlement** après le parcours.
   Internet et la configuration FedaPay serveur sont nécessaires ; aucune
   confirmation électronique n'est inventée hors ligne.
-- **Reçus** : sélectionner une demande puis **Exporter / ouvrir le reçu PDF**.
+- **Reçus** : sélectionner une demande puis **Télécharger le reçu**.
   En ligne, le PDF officiel est téléchargé et mis en cache chiffré. Hors ligne,
-  seuls les reçus déjà téléchargés sont disponibles. Le fichier exporté est un
+  seuls les reçus déjà téléchargés sont disponibles. Une coupure du service peut
+  également utiliser cette copie conservée, signalée à l'utilisateur comme telle. Le fichier exporté est un
   PDF ordinaire **non chiffré** ; l'impression se fait depuis le lecteur PDF.
 
 ## Stockage et sauvegarde
@@ -140,8 +221,46 @@ terminé, télécharger l'artefact **Missanye-Windows**, extraire le ZIP puis ou
 `Missanye/Missanye.exe`. Le workflow vérifie aussi les tests sur Windows.
 
 L'image Linux a été construite ici ; les paquets Windows/macOS doivent être
-construits et vérifiés sur leurs systèmes. Il n'y a pas encore d'installateur
-signé ni de système de mise à jour automatique.
+construits et vérifiés sur leurs systèmes. Il n'y a pas encore de signature
+numérique de l'application ni de système de mise à jour automatique.
+
+## Installateur Windows Inno Setup
+
+Le workflow **Desktop Windows** produit aussi l'artefact
+**Missanye-Setup-Windows**, contenant **`Missanye-Setup.exe`** et son empreinte
+SHA-256. Télécharger l'artefact depuis GitHub Actions, extraire l'archive puis
+exécuter `Missanye-Setup.exe`. Java et JavaFX sont inclus.
+
+L'installation est destinée à Windows 10/11 compatible x64 et se fait pour le
+compte courant, sans demande de droits administrateur, dans
+`%LOCALAPPDATA%\Programs\Missanye` par défaut. L'assistant propose le français
+et l'anglais, un raccourci menu Démarrer et un raccourci Bureau optionnel.
+Une seule instance de l'application peut ouvrir un même répertoire de données.
+La désinstallation préserve le coffre `~/.missanye-desktop` et ses données.
+Les futures versions doivent conserver le même `AppId` Inno Setup.
+
+Pour compiler l'installateur sur un poste Windows, installer **Inno Setup 6**
+depuis [son site officiel](https://jrsoftware.org/isinfo.php), puis exécuter :
+
+```powershell
+cd Desktop
+./scripts/package.ps1
+./scripts/installer.ps1
+```
+
+Résultat : `Desktop/target/installer/Missanye-Setup.exe`. Si le compilateur n'est
+pas dans son emplacement habituel, préciser son chemin :
+
+```powershell
+./scripts/installer.ps1 -IsccPath 'C:\outils\Inno Setup 6\ISCC.exe'
+```
+
+La version peut être définie avec `-AppVersion 0.1.1` ; garder la version de
+`package.ps1` et du projet Maven cohérente lors d'une nouvelle livraison.
+Le workflow utilise Inno Setup présent sur le runner Windows, vérifie les
+fichiers installés (exécutable, JAR et runtime Java), puis la désinstallation.
+La compilation et ces vérifications nécessitent Windows ; une validation YAML
+sur Linux ne prouve pas que l'installateur a été produit.
 
 ## Vérifications
 

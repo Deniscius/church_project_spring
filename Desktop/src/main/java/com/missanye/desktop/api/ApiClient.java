@@ -60,7 +60,7 @@ public final class ApiClient {
     public static final class ApiException extends Exception {
         private final int status;
         public ApiException(int status) { this(status, ""); }
-        public ApiException(int status, String detail) { super("API HTTP " + status + (status == 401 ? " : connexion refusée ou session expirée." : status == 403 ? " : accès refusé." : ".") + (detail.isBlank() ? "" : " " + detail)); this.status = status; }
+        public ApiException(int status, String detail) { super((status == 401 ? "Connexion refusée ou session expirée." : status == 403 ? "Vous ne disposez pas des droits nécessaires." : status == 429 ? "Trop de tentatives. Veuillez patienter avant de réessayer." : status >= 500 ? "Le service est momentanément indisponible. Votre travail est conservé." : "Cette opération n'a pas pu être confirmée.") + (detail.isBlank() || status >= 500 || status == 401 || status == 403 ? "" : " " + detail)); this.status = status; }
         public int status() { return status; }
     }
 }

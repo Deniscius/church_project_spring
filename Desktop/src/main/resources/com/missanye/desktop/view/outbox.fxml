@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<VBox xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" spacing="14" styleClass="content-card">
+  <HBox alignment="CENTER_LEFT" spacing="12">
+    <VBox spacing="4"><Label text="Mon activité" styleClass="section-title"/><Label text="Retrouvez vos brouillons, les opérations à transmettre et les confirmations." wrapText="true" styleClass="muted"/></VBox>
+    <Region HBox.hgrow="ALWAYS"/><ComboBox fx:id="queueFilter" prefWidth="230"/>
+  </HBox>
+  <Label text="Un encaissement saisi hors connexion reste provisoire jusqu'à sa confirmation. Les opérations à corriger sont conservées." wrapText="true" styleClass="notice"/>
+  <TableView fx:id="outbox" minHeight="170" VBox.vgrow="ALWAYS" styleClass="data-table">
+    <columns>
+      <TableColumn fx:id="activityDate" text="Date" prefWidth="110"/>
+      <TableColumn fx:id="activityKind" text="Opération" prefWidth="180"/>
+      <TableColumn fx:id="activityReference" text="Référence" prefWidth="165"/>
+      <TableColumn fx:id="activityIntention" text="Intention / demande" prefWidth="250"/>
+      <TableColumn fx:id="activityState" text="État" prefWidth="125"/>
+    </columns>
+    <placeholder><VBox alignment="CENTER" spacing="8"><Label text="Votre activité apparaîtra ici" styleClass="empty-title"/><Label text="Enregistrez une première demande pour commencer." styleClass="muted"/></VBox></placeholder>
+  </TableView>
+  <Label fx:id="queueDetail" maxWidth="Infinity" minHeight="-Infinity" text="Sélectionnez une opération pour consulter son état." wrapText="true" styleClass="selection-panel"/>
+  <FlowPane hgap="8" vgap="8"><Button fx:id="queue" text="Transmettre la demande" styleClass="primary-button"/><Button fx:id="edit" text="Modifier le brouillon"/><Button fx:id="returnToDraft" text="Revenir au brouillon"/><Button fx:id="retry" text="Réessayer la transmission"/><Button fx:id="archive" text="Archiver"/></FlowPane>
+</VBox>

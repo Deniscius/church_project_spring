@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<GridPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" styleClass="login-card" hgap="36" maxWidth="960">
+  <columnConstraints><ColumnConstraints percentWidth="43" hgrow="ALWAYS"/><ColumnConstraints percentWidth="57" hgrow="ALWAYS"/></columnConstraints>
+  <children>
+    <VBox GridPane.columnIndex="0" spacing="18" alignment="CENTER_LEFT" styleClass="brand-panel">
+      <Label text="M" styleClass="brand-mark"/>
+      <Label text="MISSANYE" styleClass="brand-name"/>
+      <Label text="Le quotidien de votre paroisse, simplifié." wrapText="true" styleClass="brand-title"/>
+      <Label text="Accompagnez les fidèles. Retrouvez vos demandes, encaissements et reçus dans un seul espace." wrapText="true" styleClass="brand-description"/>
+      <Region prefHeight="18"/>
+      <Label text="Après la préparation du poste, vos données restent disponibles lors d'une interruption de connexion." wrapText="true" styleClass="brand-caption"/>
+    </VBox>
+    <VBox GridPane.columnIndex="1" spacing="12" styleClass="login-fields">
+      <Label text="Bienvenue" styleClass="login-title"/>
+      <Label text="Connectez-vous à votre espace de travail." wrapText="true" styleClass="muted"/>
+      <Label text="Identifiant" styleClass="field-label"/>
+      <TextField fx:id="username" promptText="Votre identifiant" maxWidth="Infinity"/>
+      <Label text="Mot de passe" styleClass="field-label"/>
+      <PasswordField fx:id="password" promptText="Votre mot de passe" maxWidth="Infinity"/>
+      <Button fx:id="login" text="Se connecter" styleClass="primary-button" defaultButton="true" maxWidth="Infinity"/>
+      <Label fx:id="offlineAvailability" text="Une connexion Internet est nécessaire lors de la première utilisation sur ce poste." wrapText="true" styleClass="help-text"/>
+      <TitledPane fx:id="offlinePane" disable="true" text="Travailler hors connexion" expanded="false" animated="false" styleClass="offline-panel">
+        <content>
+          <VBox spacing="10">
+            <Label text="Déjà connecté sur ce poste ? Utilisez votre mot de passe local pour retrouver votre travail." wrapText="true" styleClass="muted"/>
+            <PasswordField fx:id="localPassword" promptText="Mot de passe local du poste" maxWidth="Infinity"/>
+            <Button fx:id="offline" text="Ouvrir mon espace hors connexion" styleClass="secondary-button" maxWidth="Infinity"/>
+          </VBox>
+        </content>
+      </TitledPane>
+      <Label text="Première utilisation ? Connectez-vous avec les identifiants fournis par votre administrateur." wrapText="true" styleClass="help-text"/>
+    </VBox>
+  </children>
+</GridPane>

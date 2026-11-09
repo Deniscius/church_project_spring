@@ -1,47 +1,196 @@
 package com.missanye.desktop.view;
 
 import com.missanye.desktop.model.WorkspaceModels.*;
-import javafx.geometry.Insets;
+import com.missanye.desktop.model.ScreenFormats;
+import javafx.collections.*;
+import javafx.collections.transformation.FilteredList;
+import javafx.collections.transformation.SortedList;
+import javafx.beans.property.ReadOnlyStringWrapper;
+import java.util.function.Function;
+import com.fasterxml.jackson.databind.JsonNode;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
+import java.io.IOException;
 import java.time.LocalDate;
-import java.util.List;
+import java.util.*;
 
+/** Loads declarative FXML views. Business actions are wired by WorkbenchController. */
 public final class WorkbenchView {
-    public final BorderPane root=new BorderPane();
-    public final TextField server=new TextField("http://localhost:8081"),username=new TextField();
-    public final PasswordField password=new PasswordField(),localPassword=new PasswordField();
-    public final Button login=new Button("Connexion en ligne"),offline=new Button("Déverrouiller hors ligne"),lock=new Button("Verrouiller / déconnexion");
-    public final Label session=new Label("Coffre verrouillé"),status=new Label("Première connexion : choisir aussi un mot de passe local d'au moins 12 caractères. Ne pas le perdre.");
-    public final ComboBox<Choice> parish=new ComboBox<>(),type=new ComboBox<>(),plan=new ComboBox<>(),schedule=new ComboBox<>(),payment=new ComboBox<>();
-    public final TextField surname=new TextField(),firstname=new TextField(),phone=new TextField(),email=new TextField(),courier=new TextField(),customTime=new TextField(),extraDates=new TextField();
-    public final DatePicker date=new DatePicker(LocalDate.now().plusDays(2));
-    public final TextArea intention=new TextArea();
-    public final Button configureSlots=new Button("Configurer chaque date et horaire");
-    public final Label slotsSummary=new Label("Horaire commun par défaut");
-    public final Label price=new Label("Tarif : sélectionner un forfait"),detail=new Label(),queueDetail=new Label();
-    public final Button save=new Button("Sauvegarder le brouillon"),fresh=new Button("Nouveau"),edit=new Button("Modifier / corriger"),queue=new Button("Mettre en file d'envoi"),archive=new Button("Archiver"),sync=new Button("Synchroniser"),refresh=new Button("Actualiser catalogue et demandes"),cash=new Button("Enregistrer espèces"),receipt=new Button("Exporter / ouvrir le reçu PDF"),checkout=new Button("Payer en ligne"),reconcile=new Button("Vérifier le paiement");
-    public final Button correct=new Button("Corriger l’intention"),validate=new Button("Valider / rejeter"),remove=new Button("Supprimer la demande");
-    public final CheckBox auto=new CheckBox("Synchronisation automatique (60 s)");
-    public final ListView<Row> demands=new ListView<>(),outbox=new ListView<>();
-    public final TabPane tabs=new TabPane();
+    public final BorderPane root;
+    public final TextArea intention;
+    public final TextField demandSearch, username, surname, firstname, phone, email, courier, customTime;
+    public final PasswordField password, localPassword;
+    public final Button returnToDraft, retry, login, offline, lock, configureSlots, save, fresh, edit, queue, archive, sync, refresh, cash, receipt, checkout, reconcile, correct, validate, remove;
+    public final Label offlineAvailability, session, status, slotsSummary, price, detail, queueDetail;
+    public final ComboBox<Choice> parish, type, plan, schedule, payment;
+    public final DatePicker date, additionalDate;
+    public final ListView<LocalDate> extraDates;
+    public final Button addDate,removeDate;
+    public final CheckBox auto;
+    public final TitledPane offlinePane;
+    public final TableView<Row> demands, outbox;
+    public final ComboBox<String> queueFilter;
+    public final ObservableList<Row> demandRows=FXCollections.observableArrayList(), activityRows=FXCollections.observableArrayList();
+    public final ProgressIndicator busyIndicator;
+    public final Label demandCount,pendingCount,rejectedCount;
+    public final TabPane tabs;
     public final VBox workspace;
-    public WorkbenchView(){
-        root.setPadding(new Insets(16));server.setPrefColumnCount(28);username.setPromptText("Identifiant serveur");password.setPromptText("Mot de passe serveur");localPassword.setPromptText("Mot de passe du coffre local");
-        var credentials=new VBox(8,new Label("MISSANYE — Gestion paroissiale desktop"),new HBox(8,new Label("API"),server,username),new HBox(8,password,localPassword,login,offline,lock),session);
-        root.setTop(credentials);status.setWrapText(true);root.setBottom(status);
-        for(var choice:List.of(parish,type,plan,schedule,payment))choice.setMaxWidth(Double.MAX_VALUE);
-        auto.setSelected(true);intention.setPrefRowCount(4);extraDates.setPromptText("Dates supplémentaires : 2027-01-03, 2027-01-04…");customTime.setPromptText("HH:mm (sinon horaire du catalogue)");phone.setPromptText("+22890123456");
-        var form=new GridPane();form.setHgap(12);form.setVgap(8);int i=0;
-        add(form,i++,"Type de demande",type);add(form,i++,"Forfait",plan);add(form,i++,"Tarif indicatif",price);add(form,i++,"Nom",surname);add(form,i++,"Prénom",firstname);add(form,i++,"Téléphone E.164",phone);add(form,i++,"Email (optionnel)",email);add(form,i++,"Coursier (optionnel)",courier);add(form,i++,"Première célébration",date);add(form,i++,"Autres dates du forfait",extraDates);add(form,i++,"Horaire",schedule);add(form,i++,"Heure personnalisée",customTime);add(form,i++,"Créneaux par date",new VBox(4,configureSlots,slotsSummary));add(form,i++,"Mode de paiement",payment);add(form,i++,"Intention (10 à 500 caractères)",intention);
-        form.add(new HBox(8,fresh,save),1,i);form.setPadding(new Insets(12));
-        var scroll=new ScrollPane(form);scroll.setFitToWidth(true);
-        var requests=new VBox(8,new Label("Dernière copie serveur — actualiser pour connaître l'état courant"),demands,detail,new HBox(8,correct,validate,remove),new HBox(8,cash,checkout,reconcile,receipt));detail.setWrapText(true);VBox.setVgrow(demands,Priority.ALWAYS);
-        var pending=new VBox(8,new Label("Les espèces restent provisoires jusqu'à confirmation serveur. Aucun paiement n'est validé hors ligne."),outbox,queueDetail,new HBox(8,edit,queue,archive));queueDetail.setWrapText(true);VBox.setVgrow(outbox,Priority.ALWAYS);
-        tabs.getTabs().addAll(tab("Nouvelle demande",scroll),tab("Demandes et paiements",requests),tab("Brouillons et synchronisation",pending));
-        workspace=new VBox(10,new HBox(8,new Label("Paroisse"),parish,refresh),new HBox(8,sync,auto),tabs);VBox.setVgrow(tabs,Priority.ALWAYS);workspace.setPadding(new Insets(16,0,16,0));root.setCenter(workspace);workspace.setDisable(true);lock.setDisable(true);
-        root.setStyle("-fx-font-family: 'SansSerif'; -fx-font-size: 13px;");
+    private final Map<String,Object> namespace=new HashMap<>();
+    private final Region connection,header,workspaceContainer;
+    private final StackPane lockedPane=new StackPane();
+    private boolean workspaceOpen;
+    private int openDialogs;
+    public boolean hasOpenDialog(){return openDialogs>0;}
+
+    public WorkbenchView() {
+        try {
+            root=(BorderPane)load("workbench.fxml");
+            header=(Region)root.getTop();workspaceContainer=(Region)root.getCenter();
+            connection=(Region)load("login-form.fxml");
+            TabPane panes=ref("tabs",TabPane.class);
+            panes.getTabs().get(0).setContent(load("request-form.fxml"));
+            panes.getTabs().get(1).setContent(load("demands.fxml"));
+            panes.getTabs().get(2).setContent(load("outbox.fxml"));
+            demandSearch=ref("demandSearch",TextField.class);
+            username=ref("username",TextField.class);
+            surname=ref("surname",TextField.class);
+            firstname=ref("firstname",TextField.class);
+            phone=ref("phone",TextField.class);
+            email=ref("email",TextField.class);
+            courier=ref("courier",TextField.class);
+            customTime=ref("customTime",TextField.class);
+            extraDates=ref("extraDates",ListView.class);
+            additionalDate=ref("additionalDate",DatePicker.class);addDate=ref("addDate",Button.class);removeDate=ref("removeDate",Button.class);
+            password=ref("password",PasswordField.class);
+            localPassword=ref("localPassword",PasswordField.class);
+            login=ref("login",Button.class);
+            offline=ref("offline",Button.class);
+            lock=ref("lock",Button.class);
+            configureSlots=ref("configureSlots",Button.class);
+            save=ref("save",Button.class);
+            fresh=ref("fresh",Button.class);
+            edit=ref("edit",Button.class);
+            queue=ref("queue",Button.class);
+            archive=ref("archive",Button.class);retry=ref("retry",Button.class);returnToDraft=ref("returnToDraft",Button.class);
+            sync=ref("sync",Button.class);
+            refresh=ref("refresh",Button.class);
+            cash=ref("cash",Button.class);
+            receipt=ref("receipt",Button.class);
+            checkout=ref("checkout",Button.class);
+            reconcile=ref("reconcile",Button.class);
+            correct=ref("correct",Button.class);
+            validate=ref("validate",Button.class);
+            remove=ref("remove",Button.class);
+            offlinePane=ref("offlinePane",TitledPane.class);offlineAvailability=ref("offlineAvailability",Label.class);
+            session=ref("session",Label.class);
+            status=ref("status",Label.class);
+            slotsSummary=ref("slotsSummary",Label.class);
+            price=ref("price",Label.class);
+            detail=ref("detail",Label.class);
+            queueDetail=ref("queueDetail",Label.class);
+            parish=ref("parish",ComboBox.class);
+            type=ref("type",ComboBox.class);
+            plan=ref("plan",ComboBox.class);
+            schedule=ref("schedule",ComboBox.class);
+            payment=ref("payment",ComboBox.class);
+            date=ref("date",DatePicker.class);
+            auto=ref("auto",CheckBox.class);
+            demands=ref("demands",TableView.class);
+            outbox=ref("outbox",TableView.class);
+            tabs=ref("tabs",TabPane.class);
+            workspace=ref("workspace",VBox.class);
+            date.setValue(LocalDate.now().plusDays(2));date.getEditor().setText(date.getConverter().toString(date.getValue()));additionalDate.setValue(date.getValue().plusDays(1));
+            extraDates.setCellFactory(list->new ListCell<>(){@Override protected void updateItem(LocalDate date,boolean empty){super.updateItem(date,empty);setText(empty||date==null?null:date.format(java.time.format.DateTimeFormatter.ofPattern("EEEE d MMMM yyyy",Locale.FRANCE)));}});
+            intention=ref("intention",TextArea.class);
+            queueFilter=ref("queueFilter",ComboBox.class);
+            busyIndicator=ref("busyIndicator",ProgressIndicator.class);
+            demandCount=ref("demandCount",Label.class);pendingCount=ref("pendingCount",Label.class);rejectedCount=ref("rejectedCount",Label.class);
+            configureTables();
+            tabs.minHeightProperty().bind(javafx.beans.binding.Bindings.createDoubleBinding(()->{
+                var selected=tabs.getSelectionModel().getSelectedItem();
+                if(selected==null || !(selected.getContent() instanceof Region content))return 360.0;
+                return Math.max(360,content.minHeight(Math.max(300,tabs.getWidth()-32))+52);
+            },tabs.widthProperty(),tabs.getSelectionModel().selectedItemProperty(),detail.textProperty(),queueDetail.textProperty()));
+            connection.setMaxHeight(Region.USE_PREF_SIZE);
+            root.setTop(null);
+            lockedPane.getChildren().add(connection);
+            root.setCenter(lockedPane);
+        } catch(IOException e) {
+            throw new IllegalStateException("Impossible de charger les vues FXML du desktop.",e);
+        }
     }
-    private static void add(GridPane g,int row,String label,javafx.scene.Node node){g.add(new Label(label),0,row);g.add(node,1,row);GridPane.setHgrow(node,Priority.ALWAYS);}
-    private static Tab tab(String name,javafx.scene.Node node){var tab=new Tab(name,node);tab.setClosable(false);return tab;}
+    public void showPreparation(String parish){
+        try{var loader=new FXMLLoader(getClass().getResource("preparation.fxml"));Parent content=loader.load();((Label)loader.getNamespace().get("preparationParish")).setText(parish);lockedPane.getChildren().setAll(content);}
+        catch(IOException e){throw new IllegalStateException("Impossible d'afficher la préparation du poste.",e);}
+    }
+    public void showLogin(){if(!workspaceOpen)lockedPane.getChildren().setAll(connection);}
+    public void setWorkspaceOpen(boolean open) {
+        if(open==workspaceOpen)return;
+        workspaceOpen=open;
+        if(open) {
+            lockedPane.getChildren().clear();
+            root.setCenter(workspaceContainer);
+            root.setTop(header);
+        } else {
+            root.setTop(null);
+            root.setCenter(lockedPane);
+            lockedPane.getChildren().setAll(connection);
+        }
+    }
+    private void configureTables() {
+        var visibleDemands=new FilteredList<>(demandRows);
+        var sortedDemands=new SortedList<>(visibleDemands);sortedDemands.comparatorProperty().bind(demands.comparatorProperty());demands.setItems(sortedDemands);
+        demandSearch.textProperty().addListener((o,a,b)->visibleDemands.setPredicate(row->b==null || b.isBlank() || row.data().toString().toLowerCase(Locale.ROOT).contains(b.trim().toLowerCase(Locale.ROOT))));
+        var visibleActivity=new FilteredList<>(activityRows);
+        var sortedActivity=new SortedList<>(visibleActivity);sortedActivity.comparatorProperty().bind(outbox.comparatorProperty());outbox.setItems(sortedActivity);
+        queueFilter.getItems().setAll("Toutes les opérations","Brouillons","À transmettre","Confirmées","À corriger","Bloquées");queueFilter.getSelectionModel().selectFirst();
+        queueFilter.valueProperty().addListener((o,a,b)->visibleActivity.setPredicate(row->switch(b){case "Brouillons"->"DRAFT".equals(row.data().path("state").asText());case "À transmettre"->"PENDING".equals(row.data().path("state").asText());case "Confirmées"->"SENT".equals(row.data().path("state").asText());case "À corriger"->"REJECTED".equals(row.data().path("state").asText());case "Bloquées"->"BLOCKED".equals(row.data().path("state").asText());default->true;}));
+        column("demandReference",d->d.path("codeSuivie").asText());
+        column("demandFaithful",ScreenFormats::faithful);
+        column("demandDate",d->ScreenFormats.date(d.path("datesCelebration").path(0).asText()));
+        column("demandAmount",d->ScreenFormats.money(d.path("montant")));
+        column("demandPayment",d->ScreenFormats.state(d.path("statutPaiement").asText()));
+        column("demandValidation",d->ScreenFormats.state(d.path("statutValidation").asText()));
+        column("activityDate",d->ScreenFormats.date(d.path("createdAt").asText()));
+        column("activityKind",d->ScreenFormats.kind(d.path("kind").asText()));
+        column("activityReference",ScreenFormats::reference);
+        column("activityIntention",d->d.path("payload").path("intention").asText(d.path("result").path("intention").asText("—")));
+        column("activityState",d->ScreenFormats.state(d.path("state").asText()));
+        demands.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);outbox.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        demandRows.addListener((javafx.collections.ListChangeListener<Row>)c->demandCount.setText(Integer.toString(demandRows.size())));
+        activityRows.addListener((javafx.collections.ListChangeListener<Row>)c->{pendingCount.setText(Long.toString(activityRows.stream().filter(r->"PENDING".equals(r.data().path("state").asText())).count()));rejectedCount.setText(Long.toString(activityRows.stream().filter(r->Set.of("REJECTED","BLOCKED").contains(r.data().path("state").asText())).count()));});
+    }
+    @SuppressWarnings("unchecked")
+    private void column(String id,Function<JsonNode,String> text) {
+        TableColumn<Row,String> column=ref(id,TableColumn.class);
+        column.setCellValueFactory(cell->new ReadOnlyStringWrapper(text.apply(cell.getValue().data())));
+        if(id.equals("demandAmount"))column.setComparator(Comparator.comparing(value->{String digits=value.replaceAll("[^0-9]","");return digits.isEmpty()?java.math.BigInteger.ZERO:new java.math.BigInteger(digits);}));
+        if(Set.of("demandDate","activityDate").contains(id))column.setComparator(Comparator.comparing(value->{try{return LocalDate.parse(value,java.time.format.DateTimeFormatter.ofPattern("dd/MM/uuuu"));}catch(Exception e){return LocalDate.MIN;}}));
+        if(Set.of("demandPayment","demandValidation","activityState").contains(id))column.setCellFactory(c->new TableCell<>(){
+            @Override protected void updateItem(String value,boolean empty){super.updateItem(value,empty);setText(null);if(empty||value==null){setGraphic(null);return;}
+                var badge=new Label(value);badge.getStyleClass().add("status-pill");badge.getStyleClass().add(Set.of("Payé","Validée","Confirmée").contains(value)?"status-success":Set.of("À corriger","Rejetée","Annulée").contains(value)?"status-danger":"status-neutral");setGraphic(badge);
+            }
+        });
+    }
+    public <T> Dialog<T> decorate(Dialog<T> dialog) {
+        if(root.getScene()!=null)dialog.initOwner(root.getScene().getWindow());
+        dialog.getDialogPane().getStylesheets().add(Objects.requireNonNull(getClass().getResource("desktop.css")).toExternalForm());
+        dialog.getDialogPane().getStyleClass().add("app-dialog");
+        dialog.setOnShowing(e->openDialogs++);dialog.setOnHidden(e->openDialogs=Math.max(0,openDialogs-1));return dialog;
+    }
+    private Parent load(String filename) throws IOException {
+        var location=Objects.requireNonNull(WorkbenchView.class.getResource(filename),"Ressource FXML absente : "+filename);
+        var loader=new FXMLLoader(location);
+        Parent view=loader.load();
+        namespace.putAll(loader.getNamespace());
+        return view;
+    }
+    @SuppressWarnings("unchecked")
+    private <T> T ref(String id,Class<?> type) {
+        Object value=namespace.get(id);
+        if(!type.isInstance(value))throw new IllegalStateException("Composant FXML manquant ou incompatible : "+id);
+        return (T)value;
+    }
 }

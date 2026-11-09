@@ -18,16 +18,37 @@ partagent les règles métier et les autorisations Spring Boot existantes.
 | Couche | Emplacement | Responsabilité |
 |---|---|---|
 | Modèles | `Desktop/.../model/` | Choix de catalogue et lignes du poste de travail |
-| Vue | `Desktop/.../view/WorkbenchView.java` | Composants JavaFX natifs, onglets et formulaires |
+| Vue | `Desktop/.../view/WorkbenchView.java` et `Desktop/src/main/resources/com/missanye/desktop/view/` | Chargement FXML, onglets, formulaires et styles CSS |
 | Contrôleur | `Desktop/.../controller/WorkbenchController.java` | Navigation et orchestration asynchrone des actions |
 | Stockage | `Desktop/.../repository/LocalStore.java` | Coffre SQLite chiffré, cache, brouillons et file persistante |
 | API | `Desktop/.../api/ApiClient.java` | HTTP, cookies en mémoire, erreurs et PDF |
 | Synchronisation | `Desktop/.../service/SyncService.java` | Envoi, reprise avec le même UUID, validation de session et rafraîchissement |
 | Serveur | `Backend/.../service/desktop/DesktopOperationService.java` | Autorisation, déduplication et mutation transactionnelle |
 
-Les vues sont écrites en Java, sans FXML. Les opérations réseau et SQLite passent
+Les vues sont déclarées dans cinq fichiers FXML JavaFX 17, avec une feuille CSS
+commune. `WorkbenchView` charge ces ressources et expose les composants typés
+aux contrôleurs métier existants. Les opérations réseau et SQLite passent
 par un exécuteur séquentiel ; l'affichage et les interactions restent sur le
 thread JavaFX. Le stockage local ne remplace pas les règles métier serveur.
+
+## Configuration de livraison et interface
+
+Le développeur définit l'adresse du service au build avec `desktop.api.url`.
+`DesktopConfiguration` lit la valeur embarquée et permet les surcharges
+administrées `missanye.apiUrl` / `MISSANYE_API_URL`. Aucune adresse API, aucun
+choix de serveur et aucun réglage de communication n'apparaît à l'écran.
+
+La connexion est centrée sur l'identifiant et le mot de passe. Le mot de passe
+local est demandé dans un assistant dédié ou dans l'accès hors connexion.
+Lors du premier accès en ligne, cet assistant exige la sélection d’une paroisse
+autorisée et la confirmation du secret local, puis prépare toutes les données
+avant d’activer le mode hors connexion. Voir [les parcours vérifiés](DESKTOP_PARCOURS.md).
+Après déverrouillage, une barre de session compacte et des compteurs remplacent
+le formulaire. Les demandes et l'activité utilisent des tableaux, une recherche,
+des filtres, des états traduits et des actions dépendant de la sélection et des
+droits. Les dialogues partagent les mêmes styles et ont la fenêtre comme parent.
+Les erreurs techniques de transport sont présentées comme des messages de service
+indisponible ; les confirmations métier restent visibles.
 
 ## Contrats
 
@@ -78,6 +99,11 @@ Les scripts `Desktop/scripts/package.ps1` et `package.sh` produisent une image
 applicative autonome via `jpackage`. Le workflow `Desktop Windows` construit un
 ZIP contenant `Missanye.exe` et son runtime, disponible comme artefact GitHub
 Actions après publication du code et exécution du workflow sur Windows.
+Le script `Desktop/scripts/installer.ps1` compile ensuite
+`Desktop/installer/Missanye.iss` avec Inno Setup pour générer
+`Missanye-Setup.exe`. Le workflow publie cet installateur dans l'artefact
+`Missanye-Setup-Windows` après un test d'installation/désinstallation silencieux.
+Le coffre utilisateur est conservé par la désinstallation.
 
 Les tests couvrent le stockage chiffré, l'isolation, la reprise, les rejets,
 les cookies et une interaction JavaFX rendue en headless. La suite backend
@@ -85,3 +111,13 @@ vérifie le rejeu et la concurrence sur PostgreSQL. Un test desktop optionnel
 exerce le backend local réel, les espèces, les conflits d'intention et les PDF.
 La validation d'un paiement externe et des paquets Windows se fait dans leurs
 environnements respectifs ; elle n'est pas établie par un test headless Linux.
+
+## Parcours métier et reprise
+
+L'audit et ses vérifications sont décrits dans `docs/DESKTOP_PARCOURS.md`.
+Les brouillons locaux sont volontairement distincts des requêtes validées pour
+transmission. La confirmation d'une commande et la mise à jour de la copie
+locale sont atomiques dans SQLite ; une actualisation interrompue ne masque
+pas un encaissement qui vient d'être confirmé. Les erreurs de droits par commande
+produisent un état bloqué, réessayable avec le même identifiant, alors qu'une
+expiration de session interrompt l'envoi.

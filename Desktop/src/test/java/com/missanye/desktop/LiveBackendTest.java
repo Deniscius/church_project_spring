@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.*;
 import com.missanye.desktop.api.ApiClient;
 import com.missanye.desktop.repository.LocalStore;
 import com.missanye.desktop.service.SyncService;
+import com.missanye.desktop.service.WorkspaceBootstrap;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.junit.jupiter.api.io.TempDir;
@@ -22,7 +23,8 @@ class LiveBackendTest {
         assertNotNull(selected);String parish=selected.path("publicId").asText();
         String id,code;
         try(var store=LocalStore.unlock(temp.resolve("live.sqlite"),api.baseUrl(),"ci-platform-admin","Offline test password!".toCharArray(),owner)){
-            var sync=new SyncService(store,api);sync.catalogue(parish);var rows=sync.refresh(parish);assertFalse(rows.isEmpty());JsonNode source=rows.get(0);
+            var prepared=WorkspaceBootstrap.fetch(api,session,parish);store.installWorkspace(session,WorkspaceBootstrap.eligible(parishes),parish,prepared);assertTrue(store.workspaceReady(parish));
+            var rows=prepared.demands();assertFalse(rows.isEmpty());JsonNode source=rows.get(0);
             var p=new ObjectMapper().createObjectNode().put("intention","Demande desktop de bout en bout").put("telFidele","+22890123458").put("nomFidele","Test desktop").put("prenomFidele","CI");
             for(String field:new String[]{"paroissePublicId","typeDemandePublicId","forfaitTarifPublicId","horairePublicId","typePaiementPublicId"})p.set(field,source.get(field));
             p.put("dateDebut",source.path("datesCelebration").get(0).asText());

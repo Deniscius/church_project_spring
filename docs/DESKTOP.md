@@ -39,7 +39,10 @@ administrées `missanye.apiUrl` / `MISSANYE_API_URL`. Aucune adresse API, aucun
 choix de serveur et aucun réglage de communication n'apparaît à l'écran.
 
 La connexion est centrée sur l'identifiant et le mot de passe. Le mot de passe
-local est demandé dans un dialogue dédié ou dans l'accès hors connexion.
+local est demandé dans un assistant dédié ou dans l'accès hors connexion.
+Lors du premier accès en ligne, cet assistant exige la sélection d’une paroisse
+autorisée et la confirmation du secret local, puis prépare toutes les données
+avant d’activer le mode hors connexion. Voir [les parcours vérifiés](DESKTOP_PARCOURS.md).
 Après déverrouillage, une barre de session compacte et des compteurs remplacent
 le formulaire. Les demandes et l'activité utilisent des tableaux, une recherche,
 des filtres, des états traduits et des actions dépendant de la sélection et des

@@ -68,3 +68,10 @@
 .status-danger { -fx-background-color: #fff0ec; -fx-text-fill: #a34831; }
 .status-neutral { -fx-background-color: #edf1f8; -fx-text-fill: #536984; }
 .workspace-scroll, .workspace-scroll > .viewport { -fx-background-color: transparent; -fx-background-insets: 0; -fx-padding: 0; }
+.onboarding-content { -fx-padding: 4 4 14 4; }
+.steps-row { -fx-padding: 8 0; }
+.step-complete { -fx-text-fill: #246447; -fx-font-weight: bold; }
+.step-current { -fx-text-fill: #173b63; -fx-font-weight: bold; }
+.validation-hint { -fx-text-fill: #a34831; -fx-font-size: 12px; }
+.preparation-card { -fx-padding: 34; -fx-background-color: white; -fx-background-radius: 12; -fx-border-color: #e0e6ef; -fx-border-radius: 12; }
+.preparation-checklist { -fx-padding: 12 18; -fx-background-color: #f3f6fb; -fx-background-radius: 8; }

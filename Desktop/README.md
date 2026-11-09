@@ -41,16 +41,17 @@ n'est nécessaire dans le desktop.
 1. Saisir l'identifiant et le mot de passe fournis par l'administrateur, puis
    cliquer **Se connecter**. L'application connaît déjà son service : aucune
    adresse technique n'est demandée à l'utilisateur.
-2. À la première connexion, choisir un **mot de passe local d'au moins
-   12 caractères** pour protéger le travail conservé sur ce poste. Aux connexions
-   suivantes, saisir ce même mot de passe local lorsqu'il est demandé. Il n'existe
-   pas de récupération intégrée ; conserver ce mot de passe séparément.
-3. Sélectionner une paroisse autorisée. Les données se chargent automatiquement
-   après la connexion ; **Actualiser** permet de les recharger à tout moment.
-4. Sans connexion, ouvrir **Travailler hors connexion**, renseigner l'identifiant
-   et le mot de passe local puis **Ouvrir mon espace hors connexion**. Les droits
-   seront revérifiés avant la transmission des opérations. Pour reconnecter,
-   utiliser **Déconnexion**, puis **Se connecter**.
+2. Lors du premier accès **en ligne**, choisir la paroisse autorisée à préparer,
+   puis saisir et confirmer un **mot de passe local d'au moins 12 caractères**.
+   Ce secret protège ce poste ; il n'existe pas de récupération intégrée.
+3. Patienter sur l'écran de préparation. Les offres, horaires et demandes doivent
+   être enregistrés avant l'ouverture de l'espace métier. Un chargement
+   interrompu laisse l'accès hors connexion désactivé et peut être repris en ligne.
+4. Après cette préparation, ouvrir **Travailler hors connexion**, renseigner
+   l'identifiant et le mot de passe local puis **Ouvrir mon espace hors connexion**.
+   L'application retrouve la paroisse sélectionnée et propose seulement celles
+   déjà préparées. Les droits seront revérifiés avant la transmission des opérations.
+   Pour reconnecter, utiliser **Déconnexion**, puis **Se connecter**.
 
 La barre de session remplace le formulaire une fois connecté. Les tableaux
 proposent une recherche des demandes, un filtre de l'activité et des états

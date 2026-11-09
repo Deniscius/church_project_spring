@@ -58,22 +58,11 @@ public final class SyncService {
     private void invalidConfirmation()throws IOException{throw new IOException("Confirmation du service invalide : l'opération reste en attente avec son identifiant initial.");}
     /** Replace only after every page succeeds; confirmation overlays survive a failed refresh. */
     public JsonNode refresh(String parish) throws Exception {
-        verifySession();var rows=json.createArrayNode();
-        for(int page=0;;page++){
-            var response=api.get("demandes/paroisse/"+UUID.fromString(parish)+"?size=100&page="+page);
-            if(!response.path("content").isArray())throw new IOException("Réponse de liste invalide");
-            response.path("content").forEach(rows::add);
-            if(response.path("last").asBoolean())break;
-            if(page>=9999)throw new IOException("Pagination trop importante");
-        }
-        store.put("demands:"+parish,rows);return rows;
+        verifySession();var rows=WorkspaceBootstrap.demands(api,parish);store.put("demands:"+parish,rows);
+        if(store.workspaceReady(parish))store.selectWorkspace(parish);return rows;
     }
     public void catalogue(String parish)throws Exception{
-        UUID.fromString(parish);verifySession();
-        var types=api.get("type-demandes/paroisse/"+parish);var catalog=json.createObjectNode();catalog.set("types",types);
-        catalog.set("horaires",api.get("horaires/paroisse/"+parish));catalog.set("paiements",api.get("type-paiement"));var plans=json.createObjectNode();
-        for(var type:types){String id=type.path("publicId").asText();UUID.fromString(id);plans.set(id,api.get("forfait-tarifs/type-demande/"+id+"/actifs"));}
-        catalog.set("forfaits",plans);store.put("catalogue:"+parish,catalog);
+        verifySession();store.put("catalogue:"+parish,WorkspaceBootstrap.catalogue(api,parish));
     }
     public record ReceiptDownload(byte[] bytes,boolean cached){}
     public ReceiptDownload receiptDownload(String code,boolean online)throws Exception{

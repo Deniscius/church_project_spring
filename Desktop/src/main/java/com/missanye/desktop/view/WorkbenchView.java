@@ -23,12 +23,13 @@ public final class WorkbenchView {
     public final TextField demandSearch, username, surname, firstname, phone, email, courier, customTime;
     public final PasswordField password, localPassword;
     public final Button returnToDraft, retry, login, offline, lock, configureSlots, save, fresh, edit, queue, archive, sync, refresh, cash, receipt, checkout, reconcile, correct, validate, remove;
-    public final Label session, status, slotsSummary, price, detail, queueDetail;
+    public final Label offlineAvailability, session, status, slotsSummary, price, detail, queueDetail;
     public final ComboBox<Choice> parish, type, plan, schedule, payment;
     public final DatePicker date, additionalDate;
     public final ListView<LocalDate> extraDates;
     public final Button addDate,removeDate;
     public final CheckBox auto;
+    public final TitledPane offlinePane;
     public final TableView<Row> demands, outbox;
     public final ComboBox<String> queueFilter;
     public final ObservableList<Row> demandRows=FXCollections.observableArrayList(), activityRows=FXCollections.observableArrayList();
@@ -82,6 +83,7 @@ public final class WorkbenchView {
             correct=ref("correct",Button.class);
             validate=ref("validate",Button.class);
             remove=ref("remove",Button.class);
+            offlinePane=ref("offlinePane",TitledPane.class);offlineAvailability=ref("offlineAvailability",Label.class);
             session=ref("session",Label.class);
             status=ref("status",Label.class);
             slotsSummary=ref("slotsSummary",Label.class);
@@ -119,6 +121,11 @@ public final class WorkbenchView {
             throw new IllegalStateException("Impossible de charger les vues FXML du desktop.",e);
         }
     }
+    public void showPreparation(String parish){
+        try{var loader=new FXMLLoader(getClass().getResource("preparation.fxml"));Parent content=loader.load();((Label)loader.getNamespace().get("preparationParish")).setText(parish);lockedPane.getChildren().setAll(content);}
+        catch(IOException e){throw new IllegalStateException("Impossible d'afficher la préparation du poste.",e);}
+    }
+    public void showLogin(){if(!workspaceOpen)lockedPane.getChildren().setAll(connection);}
     public void setWorkspaceOpen(boolean open) {
         if(open==workspaceOpen)return;
         workspaceOpen=open;

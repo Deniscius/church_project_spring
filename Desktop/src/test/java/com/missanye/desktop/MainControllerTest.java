@@ -29,7 +29,10 @@ class MainControllerTest {
     }
     private static void capture(WorkbenchView view,String name){
         view.root.applyCss();view.root.layout();
-        var image=view.root.snapshot(null,null);
+        captureNode(view.root,name);
+    }
+    private static void captureNode(javafx.scene.Parent node,String name){
+        node.applyCss();node.layout();var image=node.snapshot(null,null);
         var buffered=new java.awt.image.BufferedImage((int)image.getWidth(),(int)image.getHeight(),java.awt.image.BufferedImage.TYPE_INT_ARGB);
         for(int y=0;y<buffered.getHeight();y++)for(int x=0;x<buffered.getWidth();x++)buffered.setRGB(x,y,image.getPixelReader().getArgb(x,y));
         try{javax.imageio.ImageIO.write(buffered,"png",Path.of("target",name).toFile());}catch(java.io.IOException e){throw new RuntimeException(e);}
@@ -52,7 +55,8 @@ class MainControllerTest {
         }
         var views=new WorkbenchView[1];var controllers=new WorkbenchController[1];var stage=new javafx.stage.Stage[1];
         try{
-            fx(()->{views[0]=new WorkbenchView();controllers[0]=new WorkbenchController(views[0],file,null,"http://localhost:8081");stage[0]=new javafx.stage.Stage();stage[0].setScene(new javafx.scene.Scene(views[0].root,1200,850));stage[0].show();assertNull(views[0].root.lookup("#server"));capture(views[0],"desktop-login-preview.png");views[0].username.setText("alice");views[0].localPassword.setText("Local password 1234!");views[0].offline.fire();});
+            fx(()->{views[0]=new WorkbenchView();controllers[0]=new WorkbenchController(views[0],file,null,"http://localhost:8081");stage[0]=new javafx.stage.Stage();stage[0].setScene(new javafx.scene.Scene(views[0].root,1200,850));stage[0].show();assertNull(views[0].root.lookup("#server"));capture(views[0],"desktop-login-preview.png");views[0].username.setText("alice");views[0].localPassword.setText("Local password 1234!");});
+            await(()->!views[0].offline.isDisabled());fx(()->views[0].offline.fire());
             await(()->!views[0].workspace.isDisabled() && views[0].plan.getValue()!=null);
             fx(()->{
                 assertEquals(3,views[0].demands.getItems().size());assertEquals("3",views[0].demandCount.getText());
@@ -107,13 +111,15 @@ class MainControllerTest {
     }
     private static void prepare(Path file,String address)throws Exception{
         try(var store=LocalStore.unlock(file,address,"alice","Local password 1234!".toCharArray(),"alice-id")){
-            store.put("session",identity());store.put("parishes",identity().path("paroisses"));store.put("catalogue:"+TestRequests.PARISH,catalogue());
+            store.put("session",identity());store.put("parishes",identity().path("paroisses"));store.put("catalogue:"+TestRequests.PARISH,catalogue());store.put("demands:"+TestRequests.PARISH,new ObjectMapper().createArrayNode());
+            store.put("catalogue:731c7ab4-2fae-4d78-a17b-0ff7653f4599",catalogue());store.put("demands:731c7ab4-2fae-4d78-a17b-0ff7653f4599",new ObjectMapper().createArrayNode());
         }
     }
     @Test void cancelProtectsSaisieAndSaveBeforeLogoutKeepsIncompleteDraft()throws Exception{
         Path file=temp.resolve("guards.sqlite");prepare(file,"http://localhost:8081/");var views=new WorkbenchView[1];var controllers=new WorkbenchController[1];var stage=new javafx.stage.Stage[1];
         try{
-            fx(()->{views[0]=new WorkbenchView();controllers[0]=new WorkbenchController(views[0],file,null,"http://localhost:8081");stage[0]=new javafx.stage.Stage();stage[0].setScene(new javafx.scene.Scene(views[0].root,1100,800));stage[0].show();views[0].username.setText("alice");views[0].localPassword.setText("Local password 1234!");views[0].offline.fire();});
+            fx(()->{views[0]=new WorkbenchView();controllers[0]=new WorkbenchController(views[0],file,null,"http://localhost:8081");stage[0]=new javafx.stage.Stage();stage[0].setScene(new javafx.scene.Scene(views[0].root,1100,800));stage[0].show();views[0].username.setText("alice");views[0].localPassword.setText("Local password 1234!");});
+            await(()->!views[0].offline.isDisabled());fx(()->views[0].offline.fire());
             await(()->!views[0].workspace.isDisabled()&&views[0].plan.getValue()!=null);
             fx(()->{
                 views[0].intention.setText("Brouillon partiel à conserver");views[0].date.getEditor().setText("date à compléter");assertTrue(controllers[0].isDirty());
@@ -129,6 +135,48 @@ class MainControllerTest {
         }finally{fx(()->{if(controllers[0]!=null)controllers[0].close();if(stage[0]!=null)stage[0].close();});}
     }
     private static void reply(com.sun.net.httpserver.HttpExchange e,int code,String body)throws java.io.IOException{byte[] bytes=body.getBytes(java.nio.charset.StandardCharsets.UTF_8);e.sendResponseHeaders(code,bytes.length);e.getResponseBody().write(bytes);e.close();}
+    private static javafx.scene.control.DialogPane setupDialog(){
+        for(var window:java.util.List.copyOf(javafx.stage.Window.getWindows())){
+            if(window.getScene()==null)continue;
+            var root=window.getScene().getRoot();var node=root instanceof javafx.scene.control.DialogPane?root:root.lookup(".dialog-pane");
+            if(node instanceof javafx.scene.control.DialogPane pane&&pane.lookup("#setupPassword")!=null)return pane;
+        }
+        return null;
+    }
+    @Test void firstConnectionConfirmsProtectionAndEnablesOfflineOnlyAfterPreparation()throws Exception{firstConnection(true);}
+    @Test void interruptedFirstPreparationKeepsOfflineLockedAndCreatesNoVault()throws Exception{firstConnection(false);}
+    private void firstConnection(boolean success)throws Exception{
+        var server=com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1",0),0);
+        var info=identity();var c=catalogue();String type=TestRequests.complete().path("typeDemandePublicId").asText();
+        server.createContext("/auth/login-multi-tenant",e->reply(e,200,info.toString()));server.createContext("/auth/me",e->reply(e,200,info.toString()));server.createContext("/auth/logout",e->reply(e,200,"{}"));
+        server.createContext("/type-demandes/",e->reply(e,200,c.path("types").toString()));server.createContext("/horaires/",e->reply(e,200,c.path("horaires").toString()));server.createContext("/type-paiement",e->reply(e,200,c.path("paiements").toString()));server.createContext("/forfait-tarifs/",e->reply(e,200,c.path("forfaits").path(type).toString()));server.createContext("/demandes/paroisse/",e->reply(e,success?200:503,success?"{\"content\":[],\"last\":true}":"{\"message\":\"Service temporairement indisponible\"}"));server.start();
+        String address="http://127.0.0.1:"+server.getAddress().getPort()+"/";Path file=temp.resolve("first.sqlite");var views=new WorkbenchView[1];var controllers=new WorkbenchController[1];var stage=new javafx.stage.Stage[1];
+        try{
+            fx(()->{views[0]=new WorkbenchView();controllers[0]=new WorkbenchController(views[0],file,null,address);stage[0]=new javafx.stage.Stage();stage[0].setScene(new javafx.scene.Scene(views[0].root,1100,800));stage[0].show();views[0].username.setText("alice");assertTrue(views[0].offline.isDisabled());views[0].password.setText("server password");views[0].login.fire();});
+            await(()->setupDialog()!=null);
+            assertFalse(java.nio.file.Files.exists(file));
+            fx(()->{
+                var pane=setupDialog();var button=(javafx.scene.control.Button)pane.lookupButton(pane.getButtonTypes().stream().filter(b->b.getButtonData()==javafx.scene.control.ButtonBar.ButtonData.OK_DONE).findFirst().orElseThrow());
+                captureNode(pane,"desktop-first-connection-preview.png");assertTrue(button.isDisabled());
+                ((javafx.scene.control.ComboBox<?>)pane.lookup("#setupParish")).getSelectionModel().select(1);
+                ((javafx.scene.control.PasswordField)pane.lookup("#setupPassword")).setText("Local password 1234!");
+                ((javafx.scene.control.PasswordField)pane.lookup("#setupConfirmation")).setText("Different password");assertTrue(button.isDisabled());
+                ((javafx.scene.control.PasswordField)pane.lookup("#setupConfirmation")).setText("Local password 1234!");assertFalse(button.isDisabled());button.fire();
+            });
+            if(!success){
+                await(()->setupDialog()==null&&!views[0].login.isDisabled()&&views[0].status.getText().contains("indisponible"));
+                fx(()->{assertTrue(views[0].workspace.isDisabled());assertTrue(views[0].offline.isDisabled());});
+                assertFalse(java.nio.file.Files.exists(file));return;
+            }
+            await(()->!views[0].workspace.isDisabled()&&views[0].plan.getValue()!=null);
+            assertEquals(LocalStore.ProfileStatus.READY,LocalStore.inspect(file,address,"alice"));
+            fx(()->{assertEquals("Saint Pierre",views[0].parish.getValue().label());views[0].lock.fire();});
+            await(()->views[0].workspace.isDisabled()&&!views[0].offline.isDisabled());server.stop(0);
+            fx(()->{views[0].localPassword.setText("Local password 1234!");views[0].offline.fire();});
+            await(()->!views[0].workspace.isDisabled()&&views[0].plan.getValue()!=null);
+            fx(()->{assertEquals("Saint Pierre",views[0].parish.getValue().label());assertTrue(views[0].session.getText().startsWith("Hors ligne"));});
+        }finally{fx(()->{if(controllers[0]!=null)controllers[0].close();if(stage[0]!=null)stage[0].close();});server.stop(0);}
+    }
     @Test void refreshKeepsEditedFieldsAndSelectedPlan()throws Exception{
         var server=com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1",0),0);var loads=new java.util.concurrent.atomic.AtomicInteger();var json=new ObjectMapper();var info=identity();var c=catalogue();String type=TestRequests.complete().path("typeDemandePublicId").asText();String second="731c7ab4-2fae-4d78-a17b-0ff7653f4555";
         ((com.fasterxml.jackson.databind.node.ArrayNode)c.path("forfaits").path(type)).addObject().put("publicId",second).put("nomForfait","Deuxième forfait").put("nombreCelebration",1).put("montantForfait",5000);

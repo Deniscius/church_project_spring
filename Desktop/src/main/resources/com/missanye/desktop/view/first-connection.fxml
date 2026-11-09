@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<VBox xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" spacing="14" prefWidth="510" styleClass="onboarding-content">
+  <Label text="PRÉPARATION DE CE POSTE" styleClass="eyebrow"/>
+  <Label fx:id="setupTitle" text="Votre premier accès à Missanye" wrapText="true" minHeight="-Infinity" maxWidth="Infinity" styleClass="section-title"/>
+  <HBox spacing="8" styleClass="steps-row"><Label text="✓ Compte vérifié" styleClass="step-complete"/><Label text="›"/><Label text="Paroisse et protection" styleClass="step-current"/><Label text="›"/><Label text="Préparation" styleClass="muted"/></HBox>
+  <VBox spacing="5" styleClass="selection-panel"><Label fx:id="setupAccount" styleClass="field-label"/><Label text="Votre compte a été vérifié en ligne. Seules vos paroisses autorisées sont proposées." wrapText="true" minHeight="-Infinity" maxWidth="Infinity" styleClass="muted"/></VBox>
+  <VBox fx:id="setupTenantSection" spacing="7"><Label text="Votre paroisse" styleClass="field-label"/><ComboBox fx:id="setupParish" promptText="Sélectionnez la paroisse à préparer" maxWidth="Infinity"/><Label fx:id="setupParishDetails" wrapText="true" minHeight="-Infinity" maxWidth="Infinity" styleClass="help-text"/></VBox>
+  <Label fx:id="setupPasswordHint" text="Choisissez un mot de passe local pour protéger les données conservées sur cet ordinateur." wrapText="true" minHeight="-Infinity" maxWidth="Infinity"/>
+  <PasswordField fx:id="setupPassword" promptText="Mot de passe local — 12 caractères minimum" maxWidth="Infinity"/>
+  <VBox fx:id="setupConfirmationSection" spacing="7"><Label text="Confirmer le mot de passe local" styleClass="field-label"/><PasswordField fx:id="setupConfirmation" promptText="Saisissez une seconde fois le mot de passe" maxWidth="Infinity"/></VBox>
+  <Label fx:id="setupValidation" wrapText="true" minHeight="-Infinity" maxWidth="Infinity" styleClass="validation-hint"/>
+  <Label text="Ce mot de passe local est distinct de celui de votre compte. Conservez-le : il sera nécessaire pour rouvrir vos données sur ce poste." wrapText="true" minHeight="-Infinity" maxWidth="Infinity" styleClass="help-text"/>
+</VBox>

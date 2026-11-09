@@ -22,6 +22,11 @@ public interface DemandeRepository extends JpaRepository<Demande, Long> {
 
     Optional<Demande> findByPublicIdAndStatusDelFalse(UUID publicId);
 
+    /** Serialize cash desk operations across web and desktop clients. */
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select d from Demande d where d.publicId = :publicId and d.statusDel = false")
+    Optional<Demande> findForCashByPublicId(@Param("publicId") UUID publicId);
+
     Optional<Demande> findByCodeSuivieAndStatusDelFalse(String codeSuivie);
 
     @Query("""

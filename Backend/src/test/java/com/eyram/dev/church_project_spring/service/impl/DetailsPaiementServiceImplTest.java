@@ -55,7 +55,7 @@ class DetailsPaiementServiceImplTest {
         demande.setStatutValidation(StatutValidationEnum.EN_ATTENTE);
         demande.setStatutPaiement(StatutPaiementEnum.NON_PAYE);
 
-        when(demandeRepository.findByPublicIdAndStatusDelFalse(demandeId))
+        when(demandeRepository.findForCashByPublicId(demandeId))
                 .thenReturn(Optional.of(demande));
         doThrow(new BusinessRuleException("Validation requise"))
                 .when(demandePaymentEligibilityService).assertCanStartPayment(demande);

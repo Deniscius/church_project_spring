@@ -288,6 +288,37 @@ class ApplicationStartupSmokeTest {
                 .isEqualTo("no-store, private");
         assertThat(new String(celebrationSheet.getBody(), 0, 5, StandardCharsets.US_ASCII))
                 .isEqualTo("%PDF-");
+
+        // Desktop offline replay: create once even after repeated/concurrent submissions.
+        payload.put("telFidele", "+22890123457");
+        String operationId = java.util.UUID.randomUUID().toString();
+        Map<String,Object> operation = Map.of("operationId", operationId, "kind", "CREATE_DEMANDE", "payload", payload);
+        var desktopCreated = restTemplate.postForEntity("/desktop/operations", new HttpEntity<>(operation,cashHeaders),String.class);
+        assertThat(desktopCreated.getStatusCode().value()).isEqualTo(200);
+        JsonNode desktopDemand=objectMapper.readTree(desktopCreated.getBody());
+        var replay=restTemplate.postForEntity("/desktop/operations", new HttpEntity<>(operation,cashHeaders),String.class);
+        assertThat(replay.getStatusCode().value()).isEqualTo(200);
+        assertThat(objectMapper.readTree(replay.getBody())).isEqualTo(desktopDemand);
+        var changed=new LinkedHashMap<>(payload); changed.put("intention","Une autre intention après le premier envoi");
+        var conflict=restTemplate.postForEntity("/desktop/operations",new HttpEntity<>(Map.of("operationId",operationId,"kind","CREATE_DEMANDE","payload",changed),cashHeaders),String.class);
+        assertThat(conflict.getStatusCode().value()).isEqualTo(409);
+        var anonymous=restTemplate.postForEntity("/desktop/operations",new HttpEntity<>(operation,headers),String.class);
+        assertThat(anonymous.getStatusCode().value()).isEqualTo(401);
+
+        String cashId=java.util.UUID.randomUUID().toString();
+        var wrongCash=Map.of("operationId",cashId,"kind","CASH_PAYMENT","payload",Map.of("demandePublicId",desktopDemand.path("publicId").asText(),"expectedMontant",desktopDemand.path("montant").asInt()+1));
+        var wrongAmount=restTemplate.postForEntity("/desktop/operations",new HttpEntity<>(wrongCash,cashHeaders),String.class);
+        assertThat(wrongAmount.getStatusCode().value()).isEqualTo(409);
+        var cashOperation=Map.of("operationId",cashId,"kind","CASH_PAYMENT","payload",Map.of("demandePublicId",desktopDemand.path("publicId").asText(),"expectedMontant",desktopDemand.path("montant").asInt()));
+        // The rejected transaction was rolled back: the same ID can now be claimed successfully.
+        var first=java.util.concurrent.CompletableFuture.supplyAsync(()->restTemplate.postForEntity("/desktop/operations",new HttpEntity<>(cashOperation,cashHeaders),String.class));
+        var second=java.util.concurrent.CompletableFuture.supplyAsync(()->restTemplate.postForEntity("/desktop/operations",new HttpEntity<>(cashOperation,cashHeaders),String.class));
+        var firstPaid=first.get(30,java.util.concurrent.TimeUnit.SECONDS);
+        var secondPaid=second.get(30,java.util.concurrent.TimeUnit.SECONDS);
+        assertThat(firstPaid.getStatusCode().value()).isEqualTo(200);
+        assertThat(secondPaid.getStatusCode().value()).isEqualTo(200);
+        assertThat(objectMapper.readTree(firstPaid.getBody()).path("statutPaiement").asText()).isEqualTo("PAYE");
+        assertThat(objectMapper.readTree(secondPaid.getBody())).isEqualTo(objectMapper.readTree(firstPaid.getBody()));
     }
 
     @Test

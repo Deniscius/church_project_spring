@@ -20,6 +20,17 @@ jobs:
         shell: pwsh
     steps:
       - uses: actions/checkout@v5
+      - name: Validate PowerShell scripts
+        run: |
+          foreach ($script in Get-ChildItem scripts/*.ps1) {
+            $tokens = $null
+            $parseErrors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($script.FullName, [ref]$tokens, [ref]$parseErrors) | Out-Null
+            if ($parseErrors.Count -gt 0) {
+              $parseErrors | ForEach-Object { Write-Output $_.ToString() }
+              throw "PowerShell syntax errors in $($script.Name)"
+            }
+          }
       - uses: actions/setup-java@v5
         with:
           distribution: temurin

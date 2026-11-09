@@ -7,7 +7,7 @@ Set-Location (Join-Path $PSScriptRoot '..')
 
 $appImage = Join-Path (Get-Location) 'target/distribution/Missanye'
 if (-not (Test-Path (Join-Path $appImage 'Missanye.exe'))) {
-    throw 'Image Windows absente. Exécuter ./scripts/package.ps1 avant de construire l’installateur.'
+    throw "Image Windows absente. Exécuter ./scripts/package.ps1 avant de construire l'installateur."
 }
 if ($AppVersion -notmatch '^\d+\.\d+\.\d+(\.\d+)?$') {
     throw 'AppVersion doit être une version numérique, par exemple 0.1.0.'
@@ -33,6 +33,6 @@ $installer = Join-Path $output 'Missanye-Setup.exe'
 if (Test-Path $installer) { Remove-Item $installer }
 & $IsccPath "/DAppImage=$appImage" "/DAppVersion=$AppVersion" "/O$output" 'installer/Missanye.iss'
 if ($LASTEXITCODE -ne 0) { throw 'La compilation Inno Setup a échoué.' }
-if (-not (Test-Path $installer)) { throw 'Inno Setup n’a pas produit Missanye-Setup.exe.' }
+if (-not (Test-Path $installer)) { throw "Inno Setup n'a pas produit Missanye-Setup.exe." }
 (Get-FileHash $installer -Algorithm SHA256).Hash | Set-Content "$installer.sha256"
 Write-Output "Installateur créé : $installer"

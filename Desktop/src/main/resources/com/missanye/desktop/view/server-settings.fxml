@@ -9,6 +9,9 @@
   <TextField fx:id="serverAddress" promptText="https://votre-backend.onrender.com"/>
   <Label text="HTTPS requis. HTTP est accepté uniquement sur localhost pour le développement. Aucun identifiant Neon n'est nécessaire ici." wrapText="true" minHeight="-Infinity" maxWidth="Infinity" styleClass="help-text"/>
   <HBox spacing="12" alignment="CENTER_LEFT"><Button fx:id="testServer" text="Tester la connexion" styleClass="secondary-button"/><ProgressIndicator fx:id="serverProgress" prefWidth="24" prefHeight="24" visible="false" managed="false"/></HBox>
-  <Label fx:id="serverResult" text="L'adresse actuelle reste utilisée tant que vous n'enregistrez pas." wrapText="true" minHeight="-Infinity" maxWidth="Infinity"/>
+  <VBox fx:id="serverFeedback" spacing="8" minHeight="115" styleClass="connection-feedback,connection-neutral">
+    <Label fx:id="serverResultTitle" text="Prêt pour le test" wrapText="true" minHeight="-Infinity" maxWidth="Infinity" styleClass="feedback-title"/>
+    <Label fx:id="serverResult" text="L'adresse actuelle reste utilisée tant que vous n'enregistrez pas." wrapText="true" minHeight="-Infinity" maxWidth="Infinity"/>
+  </VBox>
   <Label text="Changer de serveur utilise un espace local distinct. Les données et opérations de l'ancien serveur restent sur ce poste et seront retrouvées en rétablissant son adresse." wrapText="true" minHeight="-Infinity" maxWidth="Infinity" styleClass="help-text"/>
 </VBox>

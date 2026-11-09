@@ -54,11 +54,12 @@ public final class WorkbenchController implements AutoCloseable {
         try{apiBaseUrl=ServerSettings.load(file,apiBaseUrl);}catch(Exception invalid){
             serverSettingsValid=false;v.status.setText("La configuration enregistrée est illisible. Ouvrez Configuration du serveur pour la corriger avant de vous connecter.");
         }
-        controls();
+        v.serverEnvironment.setText("Serveur : "+apiBaseUrl);controls();
     }
     public WorkbenchController(WorkbenchView view,Path file,HostServices host,String configuredApiUrl){
         apiBaseUrl=new DesktopConfiguration(configuredApiUrl).apiBaseUrl();
         v=view;this.file=file;this.host=host;
+        v.serverEnvironment.setText("Serveur : "+apiBaseUrl);
         v.configureServer.setOnAction(e->configureServer());
         v.login.setOnAction(e->unlock(true));v.offline.setOnAction(e->unlock(false));v.lock.setOnAction(e->protectForm(this::lock));
         v.parish.setOnAction(e->{if(!loading && !busy)changeParish();});
@@ -100,7 +101,7 @@ public final class WorkbenchController implements AutoCloseable {
     private void configureServer(){
         if(busy||store!=null)return;
         try{ServerSettingsDialog.show(v,file,apiBaseUrl).ifPresent(address->{
-            readinessDelay.stop();apiBaseUrl=address;serverSettingsValid=true;v.password.clear();v.localPassword.clear();offlineReady=false;transientFailures=0;automaticRetryAfter=0;
+            readinessDelay.stop();apiBaseUrl=address;v.serverEnvironment.setText("Serveur : "+apiBaseUrl);serverSettingsValid=true;v.password.clear();v.localPassword.clear();offlineReady=false;transientFailures=0;automaticRetryAfter=0;
             v.status.setText("Serveur enregistré. Connectez-vous avec votre compte de cet environnement.");controls();inspectOfflineReadiness();
         });}catch(Exception failure){v.status.setText("Impossible d'ouvrir la configuration du serveur. Contactez votre administrateur.");}
     }
@@ -140,11 +141,16 @@ public final class WorkbenchController implements AutoCloseable {
             var client=new ApiClient(apiBaseUrl);try{
                 var info=client.login(username,password);if(info.path("user").path("id").asText().isBlank())throw new IllegalStateException("Session sans propriétaire");
                 var parishes=WorkspaceBootstrap.eligible(info.path("user").path("isGlobal").asBoolean()?client.get("paroisses"):info.path("paroisses"));
-                if(parishes.isEmpty())throw new IllegalArgumentException("Aucune paroisse active n'est accessible avec ce compte. Contactez votre administrateur.");
+                if(parishes.isEmpty()&&!info.path("user").path("isGlobal").asBoolean())throw new IllegalArgumentException("Aucune paroisse active n'est accessible avec ce compte. Contactez votre administrateur.");
                 return new Authenticated(client,info,parishes,LocalStore.inspect(file,apiBaseUrl,username)==LocalStore.ProfileStatus.ABSENT,username);
             }catch(Exception e){client.clear();throw e;}
         },authenticated->{
             try{
+                if(authenticated.parishes().isEmpty()){
+                    authenticated.api().clear();v.status.setText("Connexion réussie : compte administrateur vérifié. Aucune paroisse active n'est encore disponible sur ce serveur.");
+                    var notice=v.decorate(new Alert(Alert.AlertType.INFORMATION,"Votre compte administrateur est reconnu par le serveur. Créez ou activez une paroisse depuis l'interface web de cet environnement, puis reconnectez-vous pour préparer ce poste.",new ButtonType("Compris",ButtonBar.ButtonData.OK_DONE)));
+                    notice.setTitle("Compte administrateur connecté");notice.setHeaderText("Connexion réussie — aucune paroisse à préparer");notice.showAndWait();inspectOfflineReadiness();return;
+                }
                 FirstConnectionDialog.Selection selection;
                 if(!authenticated.firstProfile()&&!providedLocal.isEmpty())selection=new FirstConnectionDialog.Selection(null,providedLocal.toCharArray());
                 else {var chosen=FirstConnectionDialog.show(v,authenticated.session().path("user"),authenticated.parishes(),authenticated.firstProfile());if(chosen.isEmpty()){authenticated.api().clear();v.status.setText("Connexion annulée. Votre espace local n'a pas été modifié.");inspectOfflineReadiness();return;}selection=chosen.get();}
@@ -251,7 +257,7 @@ public final class WorkbenchController implements AutoCloseable {
     private void mutate(String kind){try{
         requirePermission(switch(kind){case "UPDATE_INTENTION"->"demand:edit";case "VALIDATE_DEMANDE"->"demand:validate";default->"demand:delete";});
         var d=selected(v.demands);String text=null,decision=null;
-        if("UPDATE_INTENTION".equals(kind)){var dialog=v.decorate(new TextInputDialog(d.path("intention").asText()));dialog.setTitle("Corriger l'intention");dialog.setHeaderText("Correction envoyée à la prochaine synchronisation");var value=dialog.showAndWait();if(value.isEmpty())return;text=value.get().trim();if(text.length()<10 || text.length()>500)throw new IllegalArgumentException("L'intention doit contenir 10 à 500 caractères.");}
+        if("UPDATE_INTENTION".equals(kind)){var value=editIntention(d.path("intention").asText());if(value.isEmpty())return;text=value.get();}
         else if("VALIDATE_DEMANDE".equals(kind)){var dialog=v.decorate(new ChoiceDialog<>("Valider",List.of("Valider","Rejeter")));dialog.setTitle("Décision sur la demande");dialog.setHeaderText(d.path("codeSuivie").asText());var value=dialog.showAndWait();if(value.isEmpty())return;decision="Valider".equals(value.get())?"VALIDEE":"REJETEE";}
         if(!confirm("Préparer cette opération pour "+d.path("codeSuivie").asText()+" ? Une vérification protégera les éventuelles modifications effectuées entre-temps."))return;
         String intention=text,statut=decision,parish=parish();run(()->{store.queueMutation(kind,d,intention,statut);return snapshot(parish);},s->{display(s);v.tabs.getSelectionModel().select(2);v.status.setText("Opération préparée. Elle sera confirmée après transmission.");});
@@ -292,14 +298,30 @@ public final class WorkbenchController implements AutoCloseable {
         if(v.extraDates.getItems().size()>=29){v.status.setText("Une demande peut comporter au maximum 30 célébrations.");return;}
         v.extraDates.getItems().add(selected);javafx.collections.FXCollections.sort(v.extraDates.getItems());v.additionalDate.setValue(selected.plusDays(1));
     }
+    private Optional<String> editIntention(String original){
+        var dialog=v.decorate(new Dialog<String>());dialog.setTitle("Corriger l'intention");dialog.setHeaderText("Correction envoyée à la prochaine synchronisation");
+        var text=new TextArea(original);text.setId("intentionEditorText");text.setWrapText(true);text.setPrefRowCount(5);var hint=new Label();hint.setId("intentionLength");
+        dialog.getDialogPane().setContent(new javafx.scene.layout.VBox(12,new Label("Intention de messe"),text,hint));
+        var apply=new ButtonType("Enregistrer la correction",ButtonBar.ButtonData.OK_DONE);dialog.getDialogPane().getButtonTypes().addAll(new ButtonType("Annuler",ButtonBar.ButtonData.CANCEL_CLOSE),apply);
+        Runnable validate=()->{int length=text.getText().trim().length();hint.setText(length+" / 500 caractères — minimum 10");dialog.getDialogPane().lookupButton(apply).setDisable(length<10||length>500);};
+        text.textProperty().addListener((o,a,b)->validate.run());validate.run();dialog.setResultConverter(button->button==apply?text.getText().trim():null);return dialog.showAndWait();
+    }
     private void configureSlots(){try{
         if(v.date.getValue()==null)throw new IllegalArgumentException("Date obligatoire");
         var dates=new TreeSet<LocalDate>();dates.add(v.date.getValue());dates.addAll(v.extraDates.getItems());
         if(dates.size()>30)throw new IllegalArgumentException("30 dates au maximum.");
-        var dialog=v.decorate(new Dialog<ArrayNode>());dialog.setTitle("Créneaux de célébration");dialog.setHeaderText("Choisir l'horaire ou l'heure personnalisée pour chaque date. Le serveur vérifiera leur disponibilité.");dialog.getDialogPane().getButtonTypes().addAll(ButtonType.CANCEL,ButtonType.OK);
-        var grid=new javafx.scene.layout.GridPane();grid.setHgap(8);grid.setVgap(8);var choices=new ArrayList<ComboBox<Choice>>();var hours=new ArrayList<TextField>();int row=0;
-        for(var date:dates){var box=new ComboBox<Choice>();box.getItems().setAll(v.schedule.getItems());box.setValue(v.schedule.getValue());var time=new TextField(v.customTime.getText());time.setPromptText("Heure personnalisée HH:mm");grid.addRow(row++,new Label(date.toString()),box,time);choices.add(box);hours.add(time);}
-        dialog.getDialogPane().setContent(new ScrollPane(grid));dialog.setResultConverter(button->{if(button!=ButtonType.OK)return null;try{var slots=json.createArrayNode();int i=0;for(var date:dates){var slot=slots.addObject().put("date",date.toString());String time=hours.get(i).getText().trim();if(!time.isBlank())slot.put("heurePersonnalisee",parseTime(time).toString());else slot.put("horairePublicId",required(choices.get(i),"Horaire du "+date));i++;}return slots;}catch(Exception invalid){v.status.setText("Créneau invalide : "+invalid.getMessage());return null;}});
+        var dialog=v.decorate(new Dialog<ArrayNode>());dialog.setTitle("Créneaux de célébration");dialog.setHeaderText("Choisir l'horaire ou l'heure personnalisée pour chaque date.");
+        var apply=new ButtonType("Appliquer les créneaux",ButtonBar.ButtonData.OK_DONE);dialog.getDialogPane().getButtonTypes().addAll(new ButtonType("Annuler",ButtonBar.ButtonData.CANCEL_CLOSE),apply);
+        var grid=new javafx.scene.layout.GridPane();grid.setHgap(12);grid.setVgap(12);
+        for(double percent:new double[]{24,38,38}){var column=new javafx.scene.layout.ColumnConstraints();column.setPercentWidth(percent);grid.getColumnConstraints().add(column);}
+        grid.addRow(0,new Label("Date"),new Label("Horaire"),new Label("Heure personnalisée"));
+        var choices=new ArrayList<ComboBox<Choice>>();var hours=new ArrayList<TextField>();int row=1;
+        for(var date:dates){var box=new ComboBox<Choice>();box.setMaxWidth(Double.MAX_VALUE);box.setMinWidth(0);box.getItems().setAll(v.schedule.getItems());box.setValue(v.schedule.getValue());var time=new TextField(v.customTime.getText());time.setId("slotTime"+(row-1));time.setMinWidth(0);time.setPromptText("HH:mm");grid.addRow(row++,new Label(date.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/uuuu"))),box,time);choices.add(box);hours.add(time);}
+        var error=new Label();error.setId("slotValidation");error.setStyle("-fx-text-fill: #8a3325;");dialog.getDialogPane().setContent(new javafx.scene.layout.VBox(12,grid,error));
+        ArrayNode[] prepared={null};dialog.getDialogPane().lookupButton(apply).addEventFilter(javafx.event.ActionEvent.ACTION,event->{
+            try{var slots=json.createArrayNode();int i=0;for(var date:dates){var slot=slots.addObject().put("date",date.toString());String time=hours.get(i).getText().trim();if(!time.isBlank())slot.put("heurePersonnalisee",parseTime(time).toString());else slot.put("horairePublicId",required(choices.get(i),"Horaire du "+date));i++;}prepared[0]=slots;}
+            catch(Exception invalid){event.consume();error.setText("Corrigez le créneau : "+invalid.getMessage());}
+        });dialog.setResultConverter(button->button==apply?prepared[0]:null);
         var result=dialog.showAndWait();if(result.isPresent()){configuredSlots=result.get();v.slotsSummary.setText(configuredSlots.size()+" créneau(x) configuré(s)");}
     }catch(Exception e){v.status.setText(e.getMessage());}}
     private void save(){saveDraft(null);}

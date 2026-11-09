@@ -104,6 +104,8 @@ l'authentification du compte.
 
 **Enregistrer** est activé seulement après un test réussi de l'adresse saisie.
 Toute modification exige un nouveau test. **Annuler** conserve l'adresse actuelle.
+Pendant le test, un compteur indique le temps écoulé. Le résultat apparaît dans
+un panneau vert (réussite) ou rouge (échec), automatiquement rendu visible.
 Le fichier `server.properties`, placé à côté du coffre SQLite dans le répertoire
 `.missanye-desktop` (ou `missanye.dataDir`), mémorise uniquement l'adresse. Il est
 remplacé atomiquement lorsque le système de fichiers le permet. Une configuration
@@ -314,3 +316,18 @@ contiennent ni mot de passe ni détails internes renvoyés par le serveur.
 Une erreur après le délai d'attente ne prouve pas que les identifiants sont faux :
 une réponse HTTP 401 est signalée séparément. Ne pas désactiver la vérification
 TLS pour contourner un problème de certificat.
+
+Les messages de connexion distinguent un refus des identifiants par l'API et un
+refus de session après authentification réussie. Le serveur effectivement utilisé
+et le résultat apparaissent près des champs de connexion. Le compte créé par le
+seeder utilise les mêmes identifiants que sur le web. Un administrateur global
+sans paroisse active voit une confirmation d'authentification et une indication
+pour préparer une paroisse via le web ; aucun coffre vide utilisable hors ligne
+n'est créé dans ce cas.
+
+Les dialogues sont redimensionnables et limités à la zone visible de l'écran,
+avec défilement si nécessaire. La page de connexion masque le panneau décoratif
+sur les petites largeurs et défile en hauteur. Les confirmations et boutons
+standard sont présentés en français. L'éditeur d'intention est multiligne et
+bloque une correction de longueur invalide ; la fenêtre de créneaux reste
+ouverte quand une heure doit être corrigée.

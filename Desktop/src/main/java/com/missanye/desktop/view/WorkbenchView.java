@@ -23,7 +23,7 @@ public final class WorkbenchView {
     public final TextField demandSearch, username, surname, firstname, phone, email, courier, customTime;
     public final PasswordField password, localPassword;
     public final Button configureServer, returnToDraft, retry, login, offline, lock, configureSlots, save, fresh, edit, queue, archive, sync, refresh, cash, receipt, checkout, reconcile, correct, validate, remove;
-    public final Label offlineAvailability, session, status, slotsSummary, price, detail, queueDetail;
+    public final Label serverEnvironment, loginStatus, offlineAvailability, session, status, slotsSummary, price, detail, queueDetail;
     public final ComboBox<Choice> parish, type, plan, schedule, payment;
     public final DatePicker date, additionalDate;
     public final ListView<LocalDate> extraDates;
@@ -48,7 +48,15 @@ public final class WorkbenchView {
         try {
             root=(BorderPane)load("workbench.fxml");
             header=(Region)root.getTop();workspaceContainer=(Region)root.getCenter();
-            connection=(Region)load("login-form.fxml");
+            var loginCard=(Region)load("login-form.fxml");loginCard.setMaxHeight(Region.USE_PREF_SIZE);loginCard.setMinHeight(Region.USE_PREF_SIZE);
+            loginCard.setMinWidth(0);
+            if(loginCard instanceof GridPane grid){
+                var brand=grid.getChildren().get(0);grid.widthProperty().addListener((o,a,b)->{
+                    boolean compact=b.doubleValue()<760;brand.setVisible(!compact);brand.setManaged(!compact);grid.getColumnConstraints().get(0).setPercentWidth(compact?0:43);grid.getColumnConstraints().get(1).setPercentWidth(compact?100:57);grid.setHgap(compact?0:36);
+                });
+            }
+            var loginHolder=new StackPane(loginCard);loginHolder.setMinHeight(Region.USE_PREF_SIZE);
+            var loginScroll=new ScrollPane(loginHolder);loginScroll.setFitToWidth(true);loginScroll.setFitToHeight(true);loginScroll.getStyleClass().add("workspace-scroll");connection=loginScroll;
             TabPane panes=ref("tabs",TabPane.class);
             panes.getTabs().get(0).setContent(load("request-form.fxml"));
             panes.getTabs().get(1).setContent(load("demands.fxml"));
@@ -113,7 +121,7 @@ public final class WorkbenchView {
                 if(selected==null || !(selected.getContent() instanceof Region content))return 360.0;
                 return Math.max(360,content.minHeight(Math.max(300,tabs.getWidth()-32))+52);
             },tabs.widthProperty(),tabs.getSelectionModel().selectedItemProperty(),detail.textProperty(),queueDetail.textProperty()));
-            connection.setMaxHeight(Region.USE_PREF_SIZE);
+            loginStatus=ref("loginStatus",Label.class);serverEnvironment=ref("serverEnvironment",Label.class);loginStatus.textProperty().bind(status.textProperty());
             root.setTop(null);
             lockedPane.getChildren().add(connection);
             root.setCenter(lockedPane);
@@ -176,9 +184,47 @@ public final class WorkbenchView {
     }
     public <T> Dialog<T> decorate(Dialog<T> dialog) {
         if(root.getScene()!=null)dialog.initOwner(root.getScene().getWindow());
-        dialog.getDialogPane().getStylesheets().add(Objects.requireNonNull(getClass().getResource("desktop.css")).toExternalForm());
-        dialog.getDialogPane().getStyleClass().add("app-dialog");
-        dialog.setOnShowing(e->openDialogs++);dialog.setOnHidden(e->openDialogs=Math.max(0,openDialogs-1));return dialog;
+        var pane=dialog.getDialogPane();pane.getStylesheets().add(Objects.requireNonNull(getClass().getResource("desktop.css")).toExternalForm());
+        pane.getStyleClass().add("app-dialog");dialog.setResizable(true);
+        dialog.setOnShowing(e->{
+            openDialogs++;
+            for(var type:pane.getButtonTypes())if(pane.lookupButton(type) instanceof Button button){if(type==ButtonType.CANCEL)button.setText("Annuler");else if(type==ButtonType.OK)button.setText("Confirmer");}
+
+            var screen=javafx.stage.Screen.getPrimary();var owner=dialog.getOwner();
+            if(owner!=null){var screens=javafx.stage.Screen.getScreensForRectangle(owner.getX(),owner.getY(),owner.getWidth(),owner.getHeight());if(!screens.isEmpty())screen=screens.get(0);}
+            var bounds=screen.getVisualBounds();double maxWidth=Math.max(280,bounds.getWidth()-48),maxHeight=Math.max(240,bounds.getHeight()-48);
+            double width=Math.min(660,maxWidth);pane.setPrefWidth(width);pane.setMaxWidth(maxWidth);pane.setMaxHeight(maxHeight);
+            var content=pane.getContent();
+            if(content!=null){
+                wrapDialogLabels(content);
+                ScrollPane scroll;
+                if(content instanceof ScrollPane existing)scroll=existing;
+                else {scroll=new ScrollPane(content);pane.setContent(scroll);}
+                scroll.setFitToWidth(true);scroll.getStyleClass().add("dialog-scroll");scroll.setMinHeight(0);
+                var inner=scroll.getContent();
+                if(inner instanceof Region region){region.setMinWidth(0);region.setMaxWidth(Double.MAX_VALUE);}
+                inner.applyCss();double natural=(inner instanceof Region region?region.prefHeight(Math.max(200,width-65)):inner.getLayoutBounds().getHeight());
+                scroll.setPrefViewportHeight(Math.min(Math.max(100,natural),Math.max(120,maxHeight-170)));
+
+            }
+        });
+        dialog.setOnShown(e->{
+            pane.applyCss();pane.layout();
+            var window=pane.getScene().getWindow();var screens=javafx.stage.Screen.getScreensForRectangle(window.getX(),window.getY(),window.getWidth(),window.getHeight());
+            var bounds=(screens.isEmpty()?javafx.stage.Screen.getPrimary():screens.get(0)).getVisualBounds();double limit=Math.max(240,bounds.getHeight()-48);
+            if(pane.getContent() instanceof ScrollPane scroll){
+                var inner=scroll.getContent();double width=Math.max(200,pane.getPrefWidth()-65);
+                double natural=inner instanceof Region region?region.prefHeight(width):inner.getLayoutBounds().getHeight();
+                scroll.setPrefViewportHeight(Math.min(Math.max(100,natural),Math.max(120,limit-170)));
+            }
+            if(window instanceof javafx.stage.Stage stage){stage.setMinWidth(Math.min(420,bounds.getWidth()-48));stage.setMinHeight(Math.min(250,limit));stage.setMaxWidth(bounds.getWidth()-48);stage.setMaxHeight(limit);}
+            window.sizeToScene();window.setX(Math.max(bounds.getMinX(),Math.min(window.getX(),bounds.getMaxX()-window.getWidth())));window.setY(Math.max(bounds.getMinY(),Math.min(window.getY(),bounds.getMaxY()-window.getHeight())));
+        });
+        dialog.setOnHidden(e->openDialogs=Math.max(0,openDialogs-1));return dialog;
+    }
+    private void wrapDialogLabels(javafx.scene.Node node){
+        if(node instanceof Label label){label.setWrapText(true);label.setMinHeight(Region.USE_PREF_SIZE);label.setMaxWidth(Double.MAX_VALUE);}
+        if(node instanceof Parent parent)for(var child:parent.getChildrenUnmodifiable())wrapDialogLabels(child);
     }
     private Parent load(String filename) throws IOException {
         var location=Objects.requireNonNull(WorkbenchView.class.getResource(filename),"Ressource FXML absente : "+filename);

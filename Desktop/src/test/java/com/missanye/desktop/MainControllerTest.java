@@ -135,6 +135,26 @@ class MainControllerTest {
         }finally{fx(()->{if(controllers[0]!=null)controllers[0].close();if(stage[0]!=null)stage[0].close();});}
     }
     private static void reply(com.sun.net.httpserver.HttpExchange e,int code,String body)throws java.io.IOException{byte[] bytes=body.getBytes(java.nio.charset.StandardCharsets.UTF_8);e.sendResponseHeaders(code,bytes.length);e.getResponseBody().write(bytes);e.close();}
+    @Test void thirtyCelebrationDialogFitsScreenAndInvalidTimeKeepsItOpen()throws Exception{
+        Path file=temp.resolve("slots.sqlite");prepare(file,"http://localhost:8081/");var views=new WorkbenchView[1];var controllers=new WorkbenchController[1];var stage=new javafx.stage.Stage[1];
+        try{
+            fx(()->{views[0]=new WorkbenchView();controllers[0]=new WorkbenchController(views[0],file,null,"http://localhost:8081/");stage[0]=new javafx.stage.Stage();stage[0].setScene(new javafx.scene.Scene(views[0].root,1024,700));stage[0].show();views[0].username.setText("alice");views[0].localPassword.setText("Local password 1234!");});
+            await(()->!views[0].offline.isDisabled());fx(()->views[0].offline.fire());await(()->!views[0].workspace.isDisabled()&&views[0].plan.getValue()!=null);
+            fx(()->{
+                for(int day=1;day<30;day++)views[0].extraDates.getItems().add(views[0].date.getValue().plusDays(day));
+                Platform.runLater(()->{
+                    for(var window:java.util.List.copyOf(javafx.stage.Window.getWindows())){
+                        if(window.getScene()==null)continue;var root=window.getScene().getRoot();var pane=root instanceof javafx.scene.control.DialogPane d?d:(javafx.scene.control.DialogPane)root.lookup(".dialog-pane");
+                        if(pane==null||pane.lookup("#slotTime0")==null)continue;
+                        var field=(javafx.scene.control.TextField)pane.lookup("#slotTime0");var apply=(javafx.scene.control.Button)pane.lookupButton(pane.getButtonTypes().get(1));
+                        assertNotNull(pane.lookup("#slotTime29"));assertTrue(window.getHeight()<=javafx.stage.Screen.getPrimary().getVisualBounds().getHeight()-40);
+                        field.setText("25:99");apply.fire();assertTrue(window.isShowing());assertFalse(((javafx.scene.control.Label)pane.lookup("#slotValidation")).getText().isBlank());
+                        captureNode(pane,"desktop-slots-preview.png");field.setText("06:30");apply.fire();return;
+                    }fail("Dialogue des créneaux absent");
+                });views[0].configureSlots.fire();assertTrue(views[0].slotsSummary.getText().startsWith("30"));
+            });
+        }finally{fx(()->{if(controllers[0]!=null)controllers[0].close();if(stage[0]!=null)stage[0].close();});}
+    }
     private static javafx.scene.control.DialogPane serverDialog(){
         for(var window:java.util.List.copyOf(javafx.stage.Window.getWindows())){
             if(window.getScene()==null)continue;var root=window.getScene().getRoot();var node=root instanceof javafx.scene.control.DialogPane?root:root.lookup(".dialog-pane");
@@ -151,7 +171,9 @@ class MainControllerTest {
             await(()->serverDialog()!=null);
             fx(()->{var pane=serverDialog();assertTrue(saveServerButton().isDisabled());((javafx.scene.control.TextField)pane.lookup("#serverAddress")).setText("http://invalid.example");((javafx.scene.control.Button)pane.lookup("#testServer")).fire();assertTrue(saveServerButton().isDisabled());((javafx.scene.control.TextField)pane.lookup("#serverAddress")).setText(address);((javafx.scene.control.Button)pane.lookup("#testServer")).fire();});
             await(()->!saveServerButton().isDisabled());
-            fx(()->{var pane=serverDialog();captureNode(pane,"desktop-server-settings-preview.png");((javafx.scene.control.TextField)pane.lookup("#serverAddress")).setText(address+"changed/");assertTrue(saveServerButton().isDisabled());((javafx.scene.control.TextField)pane.lookup("#serverAddress")).setText(address);((javafx.scene.control.Button)pane.lookup("#testServer")).fire();});
+            fx(()->{var pane=serverDialog();assertTrue(((javafx.scene.control.Label)pane.lookup("#serverResultTitle")).getText().contains("réussie"));captureNode(pane,"desktop-server-settings-preview.png");((javafx.scene.control.TextField)pane.lookup("#serverAddress")).setText(address+"changed/");assertTrue(saveServerButton().isDisabled());((javafx.scene.control.Button)pane.lookup("#testServer")).fire();});
+            await(()->((javafx.scene.control.Label)serverDialog().lookup("#serverResultTitle")).getText().contains("Échec"));
+            fx(()->{var pane=serverDialog();assertTrue(saveServerButton().isDisabled());assertTrue(((javafx.scene.control.Label)pane.lookup("#serverResult")).getText().contains("HTTP 404"));assertTrue(pane.getScene().getWindow() instanceof javafx.stage.Stage stageWindow&&stageWindow.isResizable());pane.getScene().getWindow().setWidth(540);pane.getScene().getWindow().setHeight(420);pane.applyCss();pane.layout();var save=saveServerButton();assertTrue(save.localToScene(save.getBoundsInLocal()).getMaxY()<=pane.getScene().getHeight());captureNode(pane,"desktop-server-failure-preview.png");((javafx.scene.control.TextField)pane.lookup("#serverAddress")).setText(address);((javafx.scene.control.Button)pane.lookup("#testServer")).fire();});
             await(()->!saveServerButton().isDisabled());fx(()->saveServerButton().fire());await(()->serverDialog()==null);
             assertEquals(address,com.missanye.desktop.config.ServerSettings.load(file,"https://example.com/"));
             fx(()->{views[0].username.setText("alice");views[0].password.setText("not persisted");views[0].login.fire();});
@@ -218,6 +240,17 @@ class MainControllerTest {
         }finally{fx(()->{if(controllers[0]!=null)controllers[0].close();if(stage[0]!=null)stage[0].close();});server.stop(0);}
     }
 
+    @Test void globalSeedAccountWithoutParishesGetsSuccessfulAuthenticationNotice()throws Exception{
+        var server=com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1",0),0);var info=identity();((com.fasterxml.jackson.databind.node.ObjectNode)info.path("user")).put("isGlobal",true);
+        server.createContext("/auth/login-multi-tenant",e->reply(e,200,info.toString()));server.createContext("/auth/me",e->reply(e,200,info.toString()));server.createContext("/paroisses",e->reply(e,200,"[]"));server.start();
+        String address="http://127.0.0.1:"+server.getAddress().getPort()+"/";Path file=temp.resolve("global-empty.sqlite");var views=new WorkbenchView[1];var controllers=new WorkbenchController[1];var stage=new javafx.stage.Stage[1];
+        try{
+            fx(()->{views[0]=new WorkbenchView();controllers[0]=new WorkbenchController(views[0],file,null,address);stage[0]=new javafx.stage.Stage();stage[0].setScene(new javafx.scene.Scene(views[0].root,1024,700));stage[0].show();views[0].username.setText("admin");views[0].password.setText("seed password");views[0].login.fire();});
+            await(()->views[0].hasOpenDialog()&&views[0].status.getText().contains("Connexion réussie"));
+            fx(()->{assertTrue(views[0].workspace.isDisabled());assertTrue(views[0].loginStatus.getText().contains("compte administrateur vérifié"));answerNextDialog(javafx.scene.control.ButtonBar.ButtonData.OK_DONE);});
+            await(()->!views[0].hasOpenDialog());assertFalse(java.nio.file.Files.exists(file));
+        }finally{fx(()->{if(controllers[0]!=null)controllers[0].close();if(stage[0]!=null)stage[0].close();});server.stop(0);}
+    }
     @Test void failedInitialParishLoadDoesNotCreateAnUnusableOfflineProfile()throws Exception{
         var server=com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1",0),0);var info=identity();((com.fasterxml.jackson.databind.node.ObjectNode)info.path("user")).put("isGlobal",true);
         server.createContext("/auth/login-multi-tenant",e->reply(e,200,info.toString()));server.createContext("/auth/me",e->reply(e,200,info.toString()));server.createContext("/paroisses",e->reply(e,503,"{}"));server.start();

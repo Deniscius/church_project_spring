@@ -75,3 +75,15 @@
 .validation-hint { -fx-text-fill: #a34831; -fx-font-size: 12px; }
 .preparation-card { -fx-padding: 34; -fx-background-color: white; -fx-background-radius: 12; -fx-border-color: #e0e6ef; -fx-border-radius: 12; }
 .preparation-checklist { -fx-padding: 12 18; -fx-background-color: #f3f6fb; -fx-background-radius: 8; }
+
+.dialog-scroll, .dialog-scroll > .viewport { -fx-background-color: transparent; -fx-padding: 0; }
+.dialog-scroll { -fx-border-color: transparent; }
+.connection-feedback { -fx-padding: 14; -fx-background-radius: 8; -fx-border-radius: 8; -fx-border-width: 1; }
+.feedback-title { -fx-font-size: 15px; -fx-font-weight: bold; }
+.connection-neutral, .connection-pending { -fx-background-color: #edf3fb; -fx-border-color: #c6d8ef; }
+.connection-success { -fx-background-color: #e5f3ec; -fx-border-color: #84b49c; }
+.connection-success .label { -fx-text-fill: #20553d; }
+.connection-error { -fx-background-color: #fff0ec; -fx-border-color: #dfaa9e; }
+.connection-error .label { -fx-text-fill: #8a3325; }
+
+.login-notice { -fx-padding: 10 12; -fx-background-color: #edf3fb; -fx-background-radius: 6; -fx-text-fill: #173b63; }

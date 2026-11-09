@@ -41,6 +41,9 @@ valide l'URL et exige un contrôle de santé réussi avant un enregistrement ato
 dans `server.properties`. Ce choix du poste est prioritaire sur les valeurs de
 lancement et de livraison. Une session ouverte doit d'abord être fermée.
 Le test n'envoie pas d'identifiants et ne désactive jamais la vérification TLS.
+Il affiche un compteur pendant l’attente puis un panneau explicite de réussite
+ou d’échec. Tous les dialogues passent par le même dimensionnement selon la
+zone visible du moniteur, avec contenu défilant et boutons accessibles.
 
 La connexion est centrée sur l'identifiant et le mot de passe. Le mot de passe
 local est demandé dans un assistant dédié ou dans l'accès hors connexion.

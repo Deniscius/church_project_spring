@@ -3,10 +3,10 @@
 <?import javafx.scene.layout.*?>
 <VBox xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" spacing="14" styleClass="content-card">
   <HBox alignment="CENTER_LEFT" spacing="12">
-    <VBox spacing="4"><Label text="Mon activité" styleClass="section-title"/><Label text="Retrouvez vos brouillons, les opérations à transmettre et les confirmations." wrapText="true" styleClass="muted"/></VBox>
+    <VBox spacing="4"><Label text="Mon activité" styleClass="section-title"/><Label text="Retrouvez vos brouillons, les opérations à transmettre et les confirmations." wrapText="true" minHeight="-Infinity" styleClass="muted"/></VBox>
     <Region HBox.hgrow="ALWAYS"/><ComboBox fx:id="queueFilter" prefWidth="230"/>
   </HBox>
-  <Label text="Un encaissement saisi hors connexion reste provisoire jusqu'à sa confirmation. Les opérations à corriger sont conservées." wrapText="true" styleClass="notice"/>
+  <Label text="Un encaissement saisi hors connexion reste provisoire jusqu'à sa confirmation. Les opérations à corriger sont conservées." wrapText="true" minHeight="-Infinity" styleClass="notice"/>
   <TableView fx:id="outbox" minHeight="170" VBox.vgrow="ALWAYS" styleClass="data-table">
     <columns>
       <TableColumn fx:id="activityDate" text="Date" prefWidth="110"/>

@@ -21,5 +21,5 @@
   <VBox spacing="6" styleClass="selection-panel"><Label text="LA DEMANDE SÉLECTIONNÉE" styleClass="eyebrow"/><Label fx:id="detail" maxWidth="Infinity" minHeight="-Infinity" text="Sélectionnez une demande pour consulter son intention et agir." wrapText="true"/></VBox>
   <FlowPane hgap="8" vgap="8"><Button fx:id="cash" text="Encaisser en espèces" styleClass="primary-button"/><Button fx:id="receipt" text="Télécharger le reçu" styleClass="secondary-button"/><Button fx:id="checkout" text="Paiement en ligne"/><Button fx:id="reconcile" text="Vérifier le règlement"/></FlowPane>
   <FlowPane hgap="8" vgap="8"><Button fx:id="correct" text="Corriger l'intention"/><Button fx:id="validate" text="Valider / rejeter"/><Button fx:id="remove" text="Supprimer la demande" styleClass="danger-button"/></FlowPane>
-  <Label text="Hors connexion, cette liste reflète la dernière actualisation effectuée sur ce poste." wrapText="true" styleClass="help-text"/>
+  <Label text="Hors connexion, cette liste reflète la dernière actualisation effectuée sur ce poste." wrapText="true" minHeight="-Infinity" styleClass="help-text"/>
 </VBox>

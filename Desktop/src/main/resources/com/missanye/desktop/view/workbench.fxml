@@ -38,7 +38,7 @@
   <bottom>
     <HBox spacing="10" alignment="CENTER_LEFT" styleClass="status-bar">
       <ProgressIndicator fx:id="busyIndicator" prefWidth="18" prefHeight="18" maxWidth="18" maxHeight="18" visible="false" managed="false"/>
-      <Label fx:id="status" text="Connectez-vous pour accéder à votre espace paroissial." wrapText="true" maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+      <Label fx:id="status" text="Connectez-vous pour accéder à votre espace paroissial." wrapText="true" minHeight="-Infinity" maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
     </HBox>
   </bottom>
 </BorderPane>

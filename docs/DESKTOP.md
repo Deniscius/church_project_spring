@@ -18,14 +18,16 @@ partagent les règles métier et les autorisations Spring Boot existantes.
 | Couche | Emplacement | Responsabilité |
 |---|---|---|
 | Modèles | `Desktop/.../model/` | Choix de catalogue et lignes du poste de travail |
-| Vue | `Desktop/.../view/WorkbenchView.java` | Composants JavaFX natifs, onglets et formulaires |
+| Vue | `Desktop/.../view/WorkbenchView.java` et `Desktop/src/main/resources/com/missanye/desktop/view/` | Chargement FXML, onglets, formulaires et styles CSS |
 | Contrôleur | `Desktop/.../controller/WorkbenchController.java` | Navigation et orchestration asynchrone des actions |
 | Stockage | `Desktop/.../repository/LocalStore.java` | Coffre SQLite chiffré, cache, brouillons et file persistante |
 | API | `Desktop/.../api/ApiClient.java` | HTTP, cookies en mémoire, erreurs et PDF |
 | Synchronisation | `Desktop/.../service/SyncService.java` | Envoi, reprise avec le même UUID, validation de session et rafraîchissement |
 | Serveur | `Backend/.../service/desktop/DesktopOperationService.java` | Autorisation, déduplication et mutation transactionnelle |
 
-Les vues sont écrites en Java, sans FXML. Les opérations réseau et SQLite passent
+Les vues sont déclarées dans cinq fichiers FXML JavaFX 17, avec une feuille CSS
+commune. `WorkbenchView` charge ces ressources et expose les composants typés
+aux contrôleurs métier existants. Les opérations réseau et SQLite passent
 par un exécuteur séquentiel ; l'affichage et les interactions restent sur le
 thread JavaFX. Le stockage local ne remplace pas les règles métier serveur.
 

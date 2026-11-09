@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<ScrollPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" fitToWidth="true" styleClass="form-scroll">
+  <content>
+    <VBox spacing="14" styleClass="content-card">
+      <Label text="Nouvelle intention de messe" styleClass="section-title"/>
+      <Label text="Sauvegardez un brouillon local, puis choisissez quand le mettre en file d'envoi." wrapText="true" styleClass="muted"/>
+      <GridPane hgap="18" vgap="9">
+        <columnConstraints><ColumnConstraints percentWidth="50" hgrow="ALWAYS"/><ColumnConstraints percentWidth="50" hgrow="ALWAYS"/></columnConstraints>
+        <children>
+          <Label text="Type de demande" GridPane.rowIndex="0"/>
+          <Label text="Forfait" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+          <ComboBox fx:id="type" maxWidth="Infinity" GridPane.rowIndex="1"/>
+          <ComboBox fx:id="plan" maxWidth="Infinity" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+          <Label fx:id="price" text="Tarif : sélectionner un forfait" wrapText="true" styleClass="price-label" GridPane.rowIndex="2" GridPane.columnSpan="2"/>
+          <Label text="Nom du fidèle" GridPane.rowIndex="3"/>
+          <Label text="Prénom du fidèle" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+          <TextField fx:id="surname" GridPane.rowIndex="4"/>
+          <TextField fx:id="firstname" GridPane.rowIndex="4" GridPane.columnIndex="1"/>
+          <Label text="Téléphone international" GridPane.rowIndex="5"/>
+          <Label text="Email (optionnel)" GridPane.rowIndex="5" GridPane.columnIndex="1"/>
+          <TextField fx:id="phone" promptText="+22890123456" GridPane.rowIndex="6"/>
+          <TextField fx:id="email" GridPane.rowIndex="6" GridPane.columnIndex="1"/>
+          <Label text="Coursier (optionnel)" GridPane.rowIndex="7"/>
+          <Label text="Première célébration" GridPane.rowIndex="7" GridPane.columnIndex="1"/>
+          <TextField fx:id="courier" GridPane.rowIndex="8"/>
+          <DatePicker fx:id="date" maxWidth="Infinity" GridPane.rowIndex="8" GridPane.columnIndex="1"/>
+          <Label text="Autres dates du forfait" GridPane.rowIndex="9" GridPane.columnSpan="2"/>
+          <TextField fx:id="extraDates" promptText="AAAA-MM-JJ, AAAA-MM-JJ…" GridPane.rowIndex="10" GridPane.columnSpan="2"/>
+          <Label text="Horaire" GridPane.rowIndex="11"/>
+          <Label text="Heure personnalisée" GridPane.rowIndex="11" GridPane.columnIndex="1"/>
+          <ComboBox fx:id="schedule" maxWidth="Infinity" GridPane.rowIndex="12"/>
+          <TextField fx:id="customTime" promptText="HH:mm (sinon horaire du catalogue)" GridPane.rowIndex="12" GridPane.columnIndex="1"/>
+          <Button fx:id="configureSlots" text="Configurer chaque date et horaire" GridPane.rowIndex="13"/>
+          <Label fx:id="slotsSummary" text="Horaire commun par défaut" wrapText="true" styleClass="muted" GridPane.rowIndex="13" GridPane.columnIndex="1"/>
+          <Label text="Mode de paiement" GridPane.rowIndex="14"/>
+          <ComboBox fx:id="payment" maxWidth="Infinity" GridPane.rowIndex="15" GridPane.columnSpan="2"/>
+          <Label text="Intention (10 à 500 caractères)" GridPane.rowIndex="16" GridPane.columnSpan="2"/>
+          <TextArea fx:id="intention" prefRowCount="4" wrapText="true" GridPane.rowIndex="17" GridPane.columnSpan="2"/>
+        </children>
+      </GridPane>
+      <FlowPane hgap="8" vgap="8"><Button fx:id="save" text="Sauvegarder le brouillon" styleClass="primary-button"/><Button fx:id="fresh" text="Nouveau"/></FlowPane>
+    </VBox>
+  </content>
+</ScrollPane>

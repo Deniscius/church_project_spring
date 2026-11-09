@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<VBox xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" spacing="12" styleClass="content-card">
+  <Label text="Brouillons et synchronisation" styleClass="section-title"/>
+  <Label text="Les espèces restent provisoires jusqu'à confirmation serveur. Aucun paiement n'est validé hors ligne." wrapText="true" styleClass="notice"/>
+  <ListView fx:id="outbox" VBox.vgrow="ALWAYS"/>
+  <Label fx:id="queueDetail" wrapText="true" styleClass="muted"/>
+  <FlowPane hgap="8" vgap="8"><Button fx:id="edit" text="Modifier / corriger"/><Button fx:id="queue" text="Mettre en file d'envoi" styleClass="primary-button"/><Button fx:id="archive" text="Archiver"/></FlowPane>
+</VBox>

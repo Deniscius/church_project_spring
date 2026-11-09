@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<VBox xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" spacing="12" styleClass="content-card">
+  <Label text="Demandes et encaissements" styleClass="section-title"/>
+  <Label text="Dernière copie serveur — actualiser pour connaître l'état courant." wrapText="true" styleClass="muted"/>
+  <ListView fx:id="demands" VBox.vgrow="ALWAYS"/>
+  <Label fx:id="detail" wrapText="true" styleClass="muted"/>
+  <FlowPane hgap="8" vgap="8"><Button fx:id="correct" text="Corriger l'intention"/><Button fx:id="validate" text="Valider / rejeter"/><Button fx:id="remove" text="Supprimer la demande" styleClass="danger-button"/></FlowPane>
+  <FlowPane hgap="8" vgap="8"><Button fx:id="cash" text="Enregistrer espèces" styleClass="primary-button"/><Button fx:id="checkout" text="Payer en ligne"/><Button fx:id="reconcile" text="Vérifier le paiement"/><Button fx:id="receipt" text="Exporter / ouvrir le reçu PDF"/></FlowPane>
+</VBox>

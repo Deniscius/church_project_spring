@@ -14,9 +14,9 @@ public final class DesktopApplication extends Application {
         try {
             Path directory = Path.of(System.getProperty("missanye.dataDir", Path.of(System.getProperty("user.home"), ".missanye-desktop").toString()));
             var view = new WorkbenchView(); controller = new WorkbenchController(view, directory.resolve("workflow.sqlite"), getHostServices());
-            stage.setTitle("Missanye Desktop — Gestion paroissiale"); stage.setScene(new Scene(view.root, 1100, 720)); stage.show();
+            stage.setTitle("Missanye Desktop — Gestion paroissiale"); stage.setScene(new Scene(view.root, 1180, 820)); stage.setMinWidth(1024); stage.setMinHeight(700); stage.show();
         } catch (Exception e) {
-            new Alert(Alert.AlertType.ERROR, "Impossible d'ouvrir le stockage local. Vérifiez les droits d'accès au dossier de données.").showAndWait();
+            new Alert(Alert.AlertType.ERROR, "Impossible de démarrer le desktop. Vérifiez les ressources de l'application et les droits d'accès au stockage local.").showAndWait();
             javafx.application.Platform.exit();
         }
     }

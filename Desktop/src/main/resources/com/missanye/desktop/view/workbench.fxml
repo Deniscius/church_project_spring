@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<BorderPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" styleClass="workbench" stylesheets="@desktop.css">
+  <padding><Insets top="18" right="20" bottom="14" left="20"/></padding>
+  <center>
+    <VBox fx:id="workspace" spacing="10" disable="true">
+      <padding><Insets top="14" bottom="12"/></padding>
+      <FlowPane hgap="10" vgap="8" styleClass="toolbar">
+        <Label text="Paroisse" styleClass="field-label"/>
+        <ComboBox fx:id="parish" prefWidth="235"/>
+        <Button fx:id="refresh" text="Actualiser catalogue et demandes"/>
+        <Button fx:id="sync" text="Synchroniser" styleClass="primary-button"/>
+        <CheckBox fx:id="auto" text="Synchronisation automatique (60 s)" selected="true"/>
+      </FlowPane>
+      <TabPane fx:id="tabs" tabClosingPolicy="UNAVAILABLE" VBox.vgrow="ALWAYS">
+        <tabs><Tab text="Nouvelle demande"/><Tab text="Demandes et paiements"/><Tab text="Brouillons et synchronisation"/></tabs>
+      </TabPane>
+    </VBox>
+  </center>
+  <bottom>
+    <Label fx:id="status" text="Première connexion : choisir aussi un mot de passe local d'au moins 12 caractères. Ne pas le perdre." wrapText="true" maxWidth="Infinity" styleClass="status-bar"/>
+  </bottom>
+</BorderPane>

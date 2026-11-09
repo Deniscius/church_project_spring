@@ -3,6 +3,23 @@
 Le module se trouve dans **`Desktop/`**, à côté de `Backend/` et `Frontend/`.
 Il communique avec le backend Spring Boot ; seul ce dernier accède à Neon.
 
+## Vues FXML
+
+Les fichiers se trouvent dans `src/main/resources/com/missanye/desktop/view/` :
+
+- `login-form.fxml` : connexion en ligne et coffre local, inspirée du formulaire
+  `login_form.fxml` fourni dans `Church_Project.zip` (champs à droite).
+- `workbench.fxml` : structure principale, sélection de paroisse et onglets.
+- `request-form.fxml` : formulaire d'intention, forfaits, coordonnées et créneaux.
+- `demands.fxml` : liste des demandes, décisions, paiements et reçus.
+- `outbox.fxml` : brouillons et opérations en attente de synchronisation.
+- `desktop.css` : palette, cartes, champs et boutons communs.
+
+Ces fichiers sont adaptés à JavaFX 17 et peuvent être édités avec Scene Builder
+compatible. Le contrôleur existant conserve les actions métier ; les FXML ne
+contiennent ni SQL ni identifiants de connexion. Les classes de connexion à la
+base de l'archive de référence ne sont pas importées.
+
 ## Lancer
 
 Prérequis : **JDK 17**, **Maven 3.9**, environnement graphique ; GTK 3 sous Linux.

@@ -57,7 +57,7 @@ public final class WorkbenchController implements AutoCloseable {
         });worker.submit(task);
     }
     private void controls(){
-        boolean opened=store!=null;v.workspace.setDisable(busy||!opened);v.lock.setDisable(busy||!opened);
+        boolean opened=store!=null;v.setWorkspaceOpen(opened);v.workspace.setDisable(busy||!opened);v.lock.setDisable(busy||!opened);
         for(var n:List.of(v.server,v.username,v.password,v.localPassword,v.login,v.offline))n.setDisable(busy||opened);
         v.refresh.setDisable(api==null);v.sync.setDisable(api==null);v.checkout.setDisable(api==null);v.reconcile.setDisable(api==null);
     }

@@ -33,7 +33,7 @@
           </VBox>
         </content>
       </TitledPane>
-      <Button fx:id="configureServer" text="Configurer ce poste" styleClass="secondary-button"/>
+      <Button fx:id="configureServer" text="Activer / configurer ce poste" styleClass="secondary-button"/>
       <Label text="Utilisez les mêmes identifiants que sur votre espace web." wrapText="true" minHeight="-Infinity" styleClass="help-text"/>
     </VBox>
   </children>

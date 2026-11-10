@@ -27,7 +27,8 @@ public interface DemandeRepository extends JpaRepository<Demande, Long> {
     @Query("select d from Demande d where d.publicId = :publicId and d.statusDel = false")
     Optional<Demande> findForCashByPublicId(@Param("publicId") UUID publicId);
 
-    Optional<Demande> findByCodeSuivieAndStatusDelFalse(String codeSuivie);
+    @Query("select d from Demande d where d.statusDel=false and (d.codeSuivie=:codeSuivie or exists (select r.reference from DesktopTrackingReference r where r.demandePublicId=d.publicId and r.reference=:codeSuivie))")
+    Optional<Demande> findByCodeSuivieAndStatusDelFalse(@Param("codeSuivie") String codeSuivie);
 
     @Query("""
             SELECT d.codeSuivie FROM Demande d
@@ -205,7 +206,7 @@ public interface DemandeRepository extends JpaRepository<Demande, Long> {
             LEFT JOIN FETCH d.horaire
             LEFT JOIN FETCH d.user
             LEFT JOIN FETCH d.typePaiement
-            WHERE d.statusDel = false AND d.codeSuivie = :codeSuivie
+            WHERE d.statusDel = false AND (d.codeSuivie = :codeSuivie OR EXISTS (SELECT r.reference FROM DesktopTrackingReference r WHERE r.demandePublicId = d.publicId AND r.reference = :codeSuivie))
             """)
     Optional<Demande> findByCodeSuivieWithAssociations(@Param("codeSuivie") String codeSuivie);
 

@@ -39,20 +39,20 @@ finale pour chaque mutation et vérifie à nouveau les droits. Le desktop couvre
 les demandes, paiements et reçus ; les écrans de gestion des comptes, abonnements
 et référentiels complets du web restent sur le web.
 
-## Configuration par le développeur
+## Activation du poste et déploiement
 
 1. Installer **Missanye-Setup-Windows** sur le poste.
 2. Ouvrir **Configurer ce poste** avant connexion.
-3. Indiquer l'API commune et s'authentifier avec le compte `SUPER_ADMIN` global
-   de la plateforme. Les identifiants servent à vérifier le rattachement et ne
-   sont pas enregistrés.
+3. Indiquer l’API commune et s’authentifier avec un compte autorisé. La liste
+   contient les paroisses permises pour ce compte. Les identifiants ne sont pas
+   enregistrés dans le profil de déploiement.
 4. Choisir une paroisse active et cliquer **Rattacher ce poste**.
 5. Les utilisateurs saisissent ensuite leurs identifiants web habituels.
 
 Le nom de paroisse apparaît sur la connexion et dans l'espace métier. Les
 utilisateurs ne choisissent pas une autre paroisse. Leurs droits serveur doivent
 correspondre à celle de l'installation ; un compte d'une autre paroisse est
-refusé. Modifier le rattachement exige à nouveau la vérification administrateur.
+refusé. Modifier le rattachement exige à nouveau la vérification des accès au compte.
 
 Le profil `server.properties` contient uniquement `api.base-url`, `parish.id` et
 `parish.name`. Il se trouve par défaut sous `%USERPROFILE%\.missanye-desktop`.
@@ -123,3 +123,6 @@ filtrage des transmissions par paroisse. Le test DPAPI réel s'exécute sous
 Windows dans le workflow ; les tests Linux utilisent un protecteur injecté
 uniquement pour leurs fichiers jetables. Le parcours avec Spring Boot et
 PostgreSQL réels teste aussi la connexion paroissiale en HTTPS.
+
+Le parcours complet des demandes et reçus avant transmission est décrit dans
+[DESKTOP_HORS_CONNEXION.md](DESKTOP_HORS_CONNEXION.md).

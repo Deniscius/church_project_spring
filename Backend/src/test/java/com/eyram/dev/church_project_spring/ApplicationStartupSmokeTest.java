@@ -62,6 +62,8 @@ class ApplicationStartupSmokeTest {
     @Autowired
     private TestRestTemplate restTemplate;
     @Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbc;
+    @Autowired
     private UserRepository userRepository;
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -296,6 +298,15 @@ class ApplicationStartupSmokeTest {
         var desktopCreated = restTemplate.postForEntity("/desktop/operations", new HttpEntity<>(operation,cashHeaders),String.class);
         assertThat(desktopCreated.getStatusCode().value()).isEqualTo(200);
         JsonNode desktopDemand=objectMapper.readTree(desktopCreated.getBody());
+        String localReference="MSL-"+operationId.toUpperCase(java.util.Locale.ROOT);
+        assertThat(desktopDemand.path("localReference").asText()).isEqualTo(localReference);
+        var localTracking=restTemplate.getForEntity("/demandes/code/"+localReference.toLowerCase(java.util.Locale.ROOT),String.class);
+        assertThat(localTracking.getStatusCode().value()).isEqualTo(200);
+        assertThat(objectMapper.readTree(localTracking.getBody()).path("codeSuivie").asText()).isEqualTo(desktopDemand.path("codeSuivie").asText());
+        // Simulate a V31 response: upgrade/replay backfills its reference without recreating the demand.
+        jdbc.update("DELETE FROM desktop_tracking_reference WHERE reference=?",localReference);
+        var legacy=(com.fasterxml.jackson.databind.node.ObjectNode)desktopDemand.deepCopy();legacy.remove("localReference");
+        jdbc.update("UPDATE desktop_operation SET response=? WHERE operation_id=?",legacy.toString(),java.util.UUID.fromString(operationId));
         var replay=restTemplate.postForEntity("/desktop/operations", new HttpEntity<>(operation,cashHeaders),String.class);
         assertThat(replay.getStatusCode().value()).isEqualTo(200);
         assertThat(objectMapper.readTree(replay.getBody())).isEqualTo(desktopDemand);
@@ -319,6 +330,11 @@ class ApplicationStartupSmokeTest {
         assertThat(secondPaid.getStatusCode().value()).isEqualTo(200);
         assertThat(objectMapper.readTree(firstPaid.getBody()).path("statutPaiement").asText()).isEqualTo("PAYE");
         assertThat(objectMapper.readTree(secondPaid.getBody())).isEqualTo(objectMapper.readTree(firstPaid.getBody()));
+        var localReceipt=restTemplate.getForEntity("/demandes/code/"+localReference+"/recu.pdf",byte[].class);
+        assertThat(localReceipt.getStatusCode().value()).isEqualTo(200);
+        assertThat(new String(localReceipt.getBody(),0,5,StandardCharsets.US_ASCII)).isEqualTo("%PDF-");
+        var localInvoice=restTemplate.getForEntity("/facture/code-suivie/"+localReference,String.class);
+        assertThat(localInvoice.getStatusCode().value()).isEqualTo(200);
     }
 
     @Test

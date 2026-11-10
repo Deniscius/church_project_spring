@@ -22,7 +22,7 @@ public final class WorkbenchView {
     public final TextArea intention;
     public final TextField demandSearch, username, surname, firstname, phone, email, courier, customTime;
     public final PasswordField password, localPassword;
-    public final Button configureServer, returnToDraft, retry, login, offline, lock, configureSlots, save, fresh, edit, queue, archive, sync, refresh, cash, receipt, checkout, reconcile, correct, validate, remove;
+    public final Button finalizeRequest, configureServer, returnToDraft, retry, login, offline, lock, configureSlots, save, fresh, edit, queue, archive, sync, refresh, cash, receipt, checkout, reconcile, correct, validate, remove;
     public final Label serverEnvironment, loginStatus, offlineAvailability, session, status, slotsSummary, price, detail, queueDetail;
     public final ComboBox<Choice> parish, type, plan, schedule, payment;
     public final DatePicker date, additionalDate;
@@ -92,7 +92,7 @@ public final class WorkbenchView {
             correct=ref("correct",Button.class);
             validate=ref("validate",Button.class);
             remove=ref("remove",Button.class);
-            configureServer=ref("configureServer",Button.class);offlinePane=ref("offlinePane",TitledPane.class);offlineAvailability=ref("offlineAvailability",Label.class);
+            finalizeRequest=ref("finalizeRequest",Button.class);configureServer=ref("configureServer",Button.class);offlinePane=ref("offlinePane",TitledPane.class);offlineAvailability=ref("offlineAvailability",Label.class);
             session=ref("session",Label.class);
             status=ref("status",Label.class);
             slotsSummary=ref("slotsSummary",Label.class);
@@ -182,12 +182,12 @@ public final class WorkbenchView {
         var sortedActivity=new SortedList<>(visibleActivity);sortedActivity.comparatorProperty().bind(outbox.comparatorProperty());outbox.setItems(sortedActivity);
         queueFilter.getItems().setAll("Toutes les opérations","Brouillons","À transmettre","Confirmées","À corriger","Bloquées");queueFilter.getSelectionModel().selectFirst();
         queueFilter.valueProperty().addListener((o,a,b)->visibleActivity.setPredicate(row->switch(b){case "Brouillons"->"DRAFT".equals(row.data().path("state").asText());case "À transmettre"->"PENDING".equals(row.data().path("state").asText());case "Confirmées"->"SENT".equals(row.data().path("state").asText());case "À corriger"->"REJECTED".equals(row.data().path("state").asText());case "Bloquées"->"BLOCKED".equals(row.data().path("state").asText());default->true;}));
-        column("demandReference",d->d.path("codeSuivie").asText());
+        column("demandReference",ScreenFormats::reference);
         column("demandFaithful",ScreenFormats::faithful);
         column("demandDate",d->ScreenFormats.date(d.path("datesCelebration").path(0).asText()));
         column("demandAmount",d->ScreenFormats.money(d.path("montant")));
         column("demandPayment",d->ScreenFormats.state(d.path("statutPaiement").asText()));
-        column("demandValidation",d->ScreenFormats.state(d.path("statutValidation").asText()));
+        column("demandValidation",d->d.path("localReconciliationRequired").asBoolean()?"À rapprocher":ScreenFormats.state(d.path("statutValidation").asText())+(d.path("localPending").asBoolean()?" (poste)":""));
         column("activityDate",d->ScreenFormats.date(d.path("createdAt").asText()));
         column("activityKind",d->ScreenFormats.kind(d.path("kind").asText()));
         column("activityReference",ScreenFormats::reference);

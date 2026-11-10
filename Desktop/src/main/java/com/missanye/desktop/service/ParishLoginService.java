@@ -8,6 +8,7 @@ import java.util.Arrays;
 
 /** Normal parish login: server identity, parish membership, then protected local workspace. */
 public final class ParishLoginService{
+ public static final class ReauthenticationRequired extends IllegalArgumentException{public ReauthenticationRequired(String message){super(message);}}
  public record Result(ApiClient api,LocalStore store,JsonNode session,JsonNode parishes,String parish){}
  public static final class LegacyMigrationRequired extends IllegalArgumentException{
   private final DeviceCredentials.Ticket ticket;private final String username;private final JsonNode session,parishes;
@@ -45,6 +46,16 @@ public final class ParishLoginService{
    credentials.save(deployment.apiUrl(),username,ticket);store=LocalStore.unlock(file,deployment.apiUrl(),username,ticket.key().toCharArray(),owner);store.installWorkspace(prepared.session(),allowed,deployment.parishId(),prepared);
    return new Result(api,store,prepared.session(),allowed,deployment.parishId());
   }catch(Exception failure){api.clear();if(store!=null)store.close();throw failure;}finally{Arrays.fill(password,'\0');}
+ }
+ public record Reconnected(ApiClient api,JsonNode session,JsonNode parishes,DeviceCredentials.Ticket ticket){}
+ public static Reconnected authenticateReconnect(String owner,ParishDeployment deployment,DeviceCredentials credentials,String username,char[] password)throws Exception{
+  var api=new ApiClient(deployment.apiUrl());try{
+   var session=api.login(username,new String(password));if(!owner.equals(session.path("user").path("id").asText()))throw new SyncService.SessionMismatchException();
+   var accessible=session.path("user").path("isGlobal").asBoolean()?api.get("paroisses"):session.path("paroisses");var allowed=onlyParish(accessible,deployment.parishId());
+   boolean read=false;for(var p:session.path("user").path("permissions"))if("demand:read".equals(p.asText()))read=true;
+   if(allowed.isEmpty()||!read){credentials.revoke(deployment.apiUrl(),username);throw new IllegalArgumentException("Vos accès à cette paroisse ont changé. Reconnectez-vous après vérification avec votre administrateur.");}
+   return new Reconnected(api,session,allowed,credentials.prepare(deployment.apiUrl(),username,password,owner));
+  }catch(Exception failure){api.clear();if(failure instanceof IllegalArgumentException||(failure instanceof ApiClient.ApiException denied&&(denied.status()==401||denied.status()==403)))throw new ReauthenticationRequired(failure.getMessage());throw failure;}finally{Arrays.fill(password,'\0');}
  }
  private static com.fasterxml.jackson.databind.node.ArrayNode onlyParish(JsonNode parishes,String id){var result=JSON.createArrayNode();for(var p:WorkspaceBootstrap.eligible(parishes))if(id.equals(WorkspaceBootstrap.parishId(p)))result.add(p);return result;}
 }

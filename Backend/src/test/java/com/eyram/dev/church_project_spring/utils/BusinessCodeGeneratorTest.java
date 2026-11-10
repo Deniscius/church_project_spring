@@ -33,4 +33,9 @@ class BusinessCodeGeneratorTest {
                 BusinessCodeGenerator.normalizeDemandeTrackingCode("k7m2xq")
         );
     }
+    @org.junit.jupiter.api.Test
+    void normalizesWorkstationReferencesWithoutChangingTheIdentity(){
+        org.assertj.core.api.Assertions.assertThat(BusinessCodeGenerator.normalizeDemandeTrackingCode("msl 731c7ab42fae4d78a17b0ff7653f4501")).isEqualTo("MSL-731C7AB4-2FAE-4D78-A17B-0FF7653F4501");
+    }
+
 }

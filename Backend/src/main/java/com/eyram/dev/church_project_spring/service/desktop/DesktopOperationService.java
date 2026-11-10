@@ -86,7 +86,14 @@ public class DesktopOperationService {
         var row=jdbc.queryForMap("SELECT kind,payload_hash,response FROM desktop_operation WHERE owner_id=? AND operation_id=? FOR UPDATE",owner,input.operationId());
         if (!input.kind().equals(row.get("kind")) || !hash.equals(row.get("payload_hash")))
             throw new BusinessRuleException("Cet identifiant d'opération a déjà été utilisé pour un contenu différent");
-        if (row.get("response")!=null) return json.readTree((String)row.get("response"));
+        if (row.get("response")!=null) {
+            JsonNode retained=json.readTree((String)row.get("response"));
+            if(request!=null&&!retained.hasNonNull("localReference")){
+                attachTrackingReference(input,owner,retained);
+                jdbc.update("UPDATE desktop_operation SET response=? WHERE owner_id=? AND operation_id=?",json.writeValueAsString(retained),owner,input.operationId());
+            }
+            return retained;
+        }
         Object result;
         if (request!=null) result=demandes.create(request);
         else {
@@ -113,7 +120,15 @@ public class DesktopOperationService {
             result=Boolean.TRUE.equals(target.getStatusDel())?Map.of("publicId",id,"deleted",true):demandes.getByPublicId(id);
         }
         JsonNode response=json.valueToTree(result);
+        if(request!=null)attachTrackingReference(input,owner,response);
         jdbc.update("UPDATE desktop_operation SET response=? WHERE owner_id=? AND operation_id=?",json.writeValueAsString(response),owner,input.operationId());
         return response;
     }
+    private void attachTrackingReference(Operation input,UUID owner,JsonNode response){
+            String reference="MSL-"+input.operationId().toString().toUpperCase(Locale.ROOT);UUID demandId=UUID.fromString(response.path("publicId").asText());
+            int inserted=jdbc.update("INSERT INTO desktop_tracking_reference(reference,demande_public_id,owner_id,operation_id) VALUES (?,?,?,?) ON CONFLICT DO NOTHING",reference,demandId,owner,input.operationId());
+            if(inserted==0&&!demandId.equals(jdbc.queryForObject("SELECT demande_public_id FROM desktop_tracking_reference WHERE reference=?",UUID.class,reference)))throw new BusinessRuleException("La référence locale est déjà utilisée par une autre demande");
+            ((com.fasterxml.jackson.databind.node.ObjectNode)response).put("localReference",reference);
+    }
+
 }

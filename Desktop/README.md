@@ -50,9 +50,9 @@ Le workflow Windows publie aussi les captures **Missanye-Interface-Previews**.
 
 ## Première utilisation
 
-Le développeur rattache une fois le poste à la paroisse via **Configurer ce
-poste**, avec le compte administrateur de la plateforme. Les comptes et leurs
-accès sont configurés sur le web.
+Lors de l’activation du poste, l’utilisateur se connecte et choisit une paroisse
+à laquelle il est autorisé. Le développeur peut également fournir le profil
+préconfiguré. Les comptes et leurs accès sont configurés sur le web.
 
 L'utilisateur saisit ensuite son **identifiant et son mot de passe habituels**.
 L'application ouvre directement la paroisse du poste, avec les permissions
@@ -102,9 +102,9 @@ Aucune clé Neon ou FedaPay ne doit être ajoutée à ce fichier.
 
 ### Configuration de la paroisse sur le poste
 
-**Configurer ce poste** vérifie l'API et les identifiants du `SUPER_ADMIN` global,
-puis propose les paroisses actives. Le choix est enregistré sans mot de passe
-ni cookie. Les utilisateurs ordinaires n'éditent pas le rattachement.
+**Activer / configurer ce poste** vérifie l’API et les identifiants du compte,
+puis propose uniquement les paroisses autorisées et actives. Le choix est
+enregistré sans mot de passe ni cookie.
 Le profil peut être inclus dans l'installateur avec `-DeploymentFile` : voir
 [DESKTOP_PAROISSE.md](../docs/DESKTOP_PAROISSE.md).
 
@@ -320,3 +320,13 @@ sur les petites largeurs et défile en hauteur. Les confirmations et boutons
 standard sont présentés en français. L'éditeur d'intention est multiligne et
 bloque une correction de longueur invalide ; la fenêtre de créneaux reste
 ouverte quand une heure doit être corrigée.
+
+## Finalisation, reçu local et retour de connexion
+
+**Finaliser la demande** enregistre une demande complète et sa référence avant
+toute transmission. Les décisions et espèces suivent les permissions du compte,
+et le reçu PDF peut être généré immédiatement sur le poste. La synchronisation
+respecte les dépendances et les identifiants initiaux.
+
+Mettre à jour le backend avec la migration **V32** avant ce client. Voir
+[le parcours et les vérifications](../docs/DESKTOP_HORS_CONNEXION.md).

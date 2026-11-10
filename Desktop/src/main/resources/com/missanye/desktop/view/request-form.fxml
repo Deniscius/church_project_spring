@@ -36,6 +36,6 @@
         <TextArea fx:id="intention" prefRowCount="4" wrapText="true" GridPane.rowIndex="23" GridPane.columnSpan="2"/>
       </children>
     </GridPane>
-    <FlowPane hgap="8" vgap="8"><Button fx:id="save" text="Enregistrer le brouillon" styleClass="primary-button"/><Button fx:id="fresh" text="Nouveau"/></FlowPane>
+    <FlowPane hgap="8" vgap="8"><Button fx:id="finalizeRequest" text="Finaliser la demande" styleClass="primary-button"/><Button fx:id="save" text="Enregistrer le brouillon" styleClass="secondary-button"/><Button fx:id="fresh" text="Nouveau"/></FlowPane>
   </VBox></content>
 </ScrollPane>

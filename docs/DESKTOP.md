@@ -34,8 +34,8 @@ thread JavaFX. Le stockage local ne remplace pas les règles métier serveur.
 ## Configuration de livraison et interface
 
 Le développeur rattache le poste à une paroisse via **Configurer ce poste**.
-La fenêtre vérifie le serveur et le compte `SUPER_ADMIN` global, puis enregistre
-le choix de paroisse sans conserver les identifiants administrateur. Un profil
+La fenêtre vérifie le serveur et le compte, puis propose ses paroisses autorisées
+et enregistre le choix sans conserver ses identifiants. Un profil
 validé peut être inclus dans l'installateur. La configuration locale est
 prioritaire sur le profil embarqué ; aucun changement silencieux de paroisse
 n'est effectué lors d'une mise à jour.
@@ -133,3 +133,6 @@ La navigation latérale et l’accueil adaptatif sont décrits dans
 
 Le modèle courant rattache une installation à une paroisse :
 [comptes, RBAC, déploiement et migration](DESKTOP_PAROISSE.md).
+
+Les dépendances de transmission et la conservation des références et reçus
+locaux sont décrites dans [DESKTOP_HORS_CONNEXION.md](DESKTOP_HORS_CONNEXION.md).

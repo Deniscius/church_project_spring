@@ -94,25 +94,29 @@ public final class LocalStore implements AutoCloseable {
         cipher.updateAAD((scope+":"+name).getBytes(StandardCharsets.UTF_8));return cipher.doFinal(bytes,12,bytes.length-12);
     }
     public String owner(){return owner;}
-    public void saveSession(JsonNode session,JsonNode parishes)throws Exception{
+    public synchronized void saveSession(JsonNode session,JsonNode parishes)throws Exception{
         if(!owner.equals(session.path("user").path("id").asText()))throw new IllegalArgumentException("Ce compte ne correspond pas à cet espace de travail.");
         writeAll(Map.of("session",session,"parishes",parishes));
     }
     private boolean completeCatalogue(JsonNode c){return c.isObject()&&c.path("types").isArray()&&c.path("horaires").isArray()&&c.path("paiements").isArray()&&c.path("forfaits").isObject();}
-    public boolean workspaceReady(String parish)throws Exception{
+    public synchronized boolean workspaceReady(String parish)throws Exception{
         var session=get("session");return owner.equals(session.path("user").path("id").asText())&&WorkspaceBootstrap.allows(get("parishes"),parish)&&completeCatalogue(get("catalogue:"+parish))&&get("demands:"+parish).isArray();
     }
-    public void installWorkspace(JsonNode session,JsonNode parishes,String parish,WorkspaceBootstrap.Prepared prepared)throws Exception{
+    public synchronized void installWorkspace(JsonNode session,JsonNode parishes,String parish,WorkspaceBootstrap.Prepared prepared)throws Exception{
         if(!owner.equals(session.path("user").path("id").asText())||!owner.equals(prepared.session().path("user").path("id").asText())||!WorkspaceBootstrap.allows(parishes,parish))throw new IllegalArgumentException("Cet espace n'est pas autorisé pour le compte connecté.");
         if(!completeCatalogue(prepared.catalogue())||!prepared.demands().isArray())throw new IllegalArgumentException("La préparation de la paroisse est incomplète. Réessayez en ligne.");
         var marker=JSON.createObjectNode().put("version",1).put("owner",owner).put("parish",parish).put("preparedAt",Instant.now().toString());
         writeAll(Map.of("session",prepared.session(),"parishes",parishes,"catalogue:"+parish,prepared.catalogue(),"demands:"+parish,prepared.demands(),"ready:"+parish,marker,"selected-parish",JSON.getNodeFactory().textNode(parish)));
     }
-    public void selectWorkspace(String parish)throws Exception{
+    public synchronized void selectWorkspace(String parish)throws Exception{
         if(!workspaceReady(parish))throw new IllegalArgumentException("Une connexion est nécessaire pour préparer cette paroisse sur ce poste.");
         put("selected-parish",JSON.getNodeFactory().textNode(parish));
     }
-    public ObjectNode correctDraft(String rejectedId,JsonNode payload)throws Exception{
+    private boolean cashEvidence(String id)throws Exception{
+        for(var e:entries())if("CASH_PAYMENT".equals(e.path("kind").asText())&&(id.equals(e.path("id").asText())||id.equals(e.path("localRequestId").asText())||id.equals(e.path("dependsOn").asText())))return true;return false;
+    }
+    public synchronized ObjectNode correctDraft(String rejectedId,JsonNode payload)throws Exception{
+        if(cashEvidence(rejectedId))throw new IllegalArgumentException("Des espèces ont été enregistrées. Rapprochez cet encaissement avant de remplacer la demande.");
         var original=(ObjectNode)get("entry:"+rejectedId);
         if(!"REJECTED".equals(original.path("state").asText())||!"CREATE_DEMANDE".equals(original.path("kind").asText()))throw new IllegalArgumentException("Cette demande a déjà été corrigée ou ne peut pas être modifiée.");
         var corrected=JSON.createObjectNode().put("id",UUID.randomUUID().toString()).put("createdAt",Instant.now().toString()).put("kind","CREATE_DEMANDE").put("state","DRAFT").put("correctedFrom",rejectedId);corrected.set("payload",payload);
@@ -120,8 +124,8 @@ public final class LocalStore implements AutoCloseable {
         writeAll(Map.of("entry:"+rejectedId,original,"entry:"+corrected.path("id").asText(),corrected));return corrected;
     }
 
-    public void put(String name,JsonNode value) throws Exception {writeAll(Map.of(name,value));}
-    private void writeAll(Map<String,? extends JsonNode> values) throws Exception {
+    public synchronized void put(String name,JsonNode value) throws Exception {writeAll(Map.of(name,value));}
+    public synchronized void writeAll(Map<String,? extends JsonNode> values) throws Exception {
         var encoded=new LinkedHashMap<String,byte[]>();
         for(var value:values.entrySet())encoded.put(value.getKey(),encrypt(value.getKey(),JSON.writeValueAsBytes(value.getValue())));
         try(var c=connect()) {
@@ -132,7 +136,14 @@ public final class LocalStore implements AutoCloseable {
             }catch(Exception e){c.rollback();throw e;}
         }
     }
-    public void confirm(ObjectNode entry,JsonNode result) throws Exception {
+    /** Claim and freeze an attempt atomically against a user's return-to-draft action. */
+    public synchronized ObjectNode claimAttempt(ObjectNode expected,ObjectNode payload)throws Exception{
+        var actual=get("entry:"+expected.path("id").asText());
+        if(!(actual instanceof ObjectNode current)||!"PENDING".equals(current.path("state").asText())||!current.path("payload").equals(expected.path("payload"))||!current.path("kind").equals(expected.path("kind")))return null;
+        if(!current.path("preparedPayload").isObject())current.set("preparedPayload",payload.deepCopy());
+        current.put("attempts",current.path("attempts").asInt()+1);put("entry:"+current.path("id").asText(),current);return current;
+    }
+    public synchronized void confirm(ObjectNode entry,JsonNode result) throws Exception {
         var confirmed=entry.deepCopy();confirmed.set("result",result);confirmed.put("state","SENT");confirmed.remove("error");
         var updates=new LinkedHashMap<String,JsonNode>();updates.put("entry:"+entry.path("id").asText(),confirmed);
         String parish=result.path("paroissePublicId").asText(entry.path("parish").asText(entry.path("payload").path("paroissePublicId").asText()));
@@ -148,59 +159,67 @@ public final class LocalStore implements AutoCloseable {
         }
         writeAll(updates);
     }
-    public JsonNode get(String name) throws Exception {
+    public synchronized JsonNode get(String name) throws Exception {
         try(var c=connect();var s=c.prepareStatement("SELECT value FROM vault_data WHERE scope=? AND name=?")) {
             s.setString(1,scope);s.setString(2,name);try(var r=s.executeQuery()){return r.next()?JSON.readTree(decrypt(name,r.getBytes(1))):JSON.nullNode();}
         }
     }
-    public List<ObjectNode> entries() throws Exception {
+    public synchronized List<ObjectNode> entries() throws Exception {
         var result=new ArrayList<ObjectNode>();
         try(var c=connect();var s=c.prepareStatement("SELECT name,value FROM vault_data WHERE scope=? AND name LIKE 'entry:%'")) {
             s.setString(1,scope);try(var r=s.executeQuery()){while(r.next())result.add((ObjectNode)JSON.readTree(decrypt(r.getString(1),r.getBytes(2))));}
         }
         result.sort(Comparator.comparing(e -> e.path("createdAt").asText()));return result;
     }
-    public ObjectNode draft(String id,JsonNode payload) throws Exception {
+    public synchronized ObjectNode draft(String id,JsonNode payload) throws Exception {
         ObjectNode entry;
         if(id==null) {entry=JSON.createObjectNode();entry.put("id",UUID.randomUUID().toString());entry.put("createdAt",Instant.now().toString());entry.put("kind","CREATE_DEMANDE");entry.put("state","DRAFT");}
         else {entry=(ObjectNode)get("entry:"+id);if(!"DRAFT".equals(entry.path("state").asText()))throw new IllegalArgumentException("Une opération envoyée ou en attente est immuable.");}
         entry.set("payload",payload);put("entry:"+entry.path("id").asText(),entry);return entry;
     }
-    public void queue(String id) throws Exception {
+    public synchronized void queue(String id) throws Exception {
         var entry=(ObjectNode)get("entry:"+id);
         if(!"DRAFT".equals(entry.path("state").asText()))throw new IllegalArgumentException("Seul un brouillon peut être envoyé.");
         entry.set("payload",RequestValidation.forSubmission(entry.path("payload")));
         entry.put("state","PENDING");put("entry:"+id,entry);
     }
-    public ObjectNode queueCash(JsonNode demand) throws Exception {
+    public synchronized ObjectNode queueCash(JsonNode demand) throws Exception {
         String target=demand.path("publicId").asText();if(target.isBlank())throw new IllegalArgumentException("Demande serveur obligatoire");
         for(var e:entries())if("CASH_PAYMENT".equals(e.path("kind").asText()) && !Set.of("REJECTED","SUPERSEDED","ARCHIVED").contains(e.path("state").asText()) && target.equals(e.path("payload").path("demandePublicId").asText()))
             throw new IllegalArgumentException("Un encaissement existe déjà dans la file pour cette demande.");
         if("PAYE".equals(demand.path("statutPaiement").asText()))throw new IllegalArgumentException("Cette demande est déjà payée.");
         if(demand.has("paiementDisponible")&&!demand.path("paiementDisponible").asBoolean())throw new IllegalArgumentException("Cette demande n'autorise pas encore l'encaissement.");
-        for(var e:entries())if("PENDING".equals(e.path("state").asText())&&target.equals(e.path("payload").path("demandePublicId").asText()))throw new IllegalArgumentException("Une opération est déjà en attente pour cette demande. Transmettez-la avant de saisir un encaissement.");
+        String dependency=null;
+        for(var e:entries())if("PENDING".equals(e.path("state").asText())&&target.equals(e.path("payload").path("demandePublicId").asText())){
+            if("VALIDATE_DEMANDE".equals(e.path("kind").asText())&&"VALIDEE".equals(e.path("payload").path("statut").asText()))dependency=e.path("id").asText();
+            else throw new IllegalArgumentException("Une opération est déjà en attente pour cette demande. Transmettez-la avant de saisir un encaissement.");
+        }
         int amount;try{amount=demand.path("montant").decimalValue().intValueExact();}catch(Exception e){throw new IllegalArgumentException("Le montant de la demande est invalide. Actualisez la liste.");}
         if(amount<=0)throw new IllegalArgumentException("Actualisez la liste pour vérifier le montant à encaisser.");
         var payload=JSON.createObjectNode().put("demandePublicId",target).put("expectedMontant",amount);
         var entry=JSON.createObjectNode().put("id",UUID.randomUUID().toString()).put("kind","CASH_PAYMENT").put("state","PENDING").put("createdAt",Instant.now().toString());
+        if(dependency!=null)entry.put("dependsOn",dependency);
         entry.set("payload",payload);entry.put("parish",demand.path("paroissePublicId").asText());entry.put("codeSuivie",demand.path("codeSuivie").asText());put("entry:"+entry.path("id").asText(),entry);return entry;
     }
-    public void returnToDraft(String id)throws Exception{
+    public synchronized void returnToDraft(String id)throws Exception{
         var entry=(ObjectNode)get("entry:"+id);
         if(!"CREATE_DEMANDE".equals(entry.path("kind").asText())||!"PENDING".equals(entry.path("state").asText())||entry.path("attempts").asInt()!=0)throw new IllegalArgumentException("Cette demande a déjà fait l'objet d'une tentative de transmission. Elle ne peut plus être remise en brouillon.");
+        for(var child:entries())if(id.equals(child.path("localRequestId").asText())&&!id.equals(child.path("id").asText()))throw new IllegalArgumentException("Cette demande possède des opérations liées et ne peut plus revenir au brouillon.");
+        if(entry.has("localSnapshot"))throw new IllegalArgumentException("Cette demande a été finalisée sur le poste et doit conserver sa référence.");
         entry.put("state","DRAFT");put("entry:"+id,entry);
     }
-    public void retryBlocked(String id) throws Exception {
+    public synchronized void retryBlocked(String id) throws Exception {
         var entry=(ObjectNode)get("entry:"+id);
         if(!"BLOCKED".equals(entry.path("state").asText()))throw new IllegalArgumentException("Seules les opérations bloquées peuvent être retentées avec le même identifiant.");
         entry.put("state","PENDING");entry.remove("error");put("entry:"+id,entry);
     }
-    public void archive(String id) throws Exception {
+    public synchronized void archive(String id) throws Exception {
+        if(cashEvidence(id))throw new IllegalArgumentException("Un enregistrement d’espèces doit rester disponible pour le rapprochement et ne peut pas être archivé.");
         var e=(ObjectNode)get("entry:"+id);
         if(!"DRAFT".equals(e.path("state").asText()) && !"REJECTED".equals(e.path("state").asText()))throw new IllegalArgumentException("Impossible d'archiver une opération en cours ou confirmée.");
         e.put("state","ARCHIVED");put("entry:"+id,e);
     }
-    public ObjectNode queueMutation(String kind,JsonNode demand,String intention,String decision) throws Exception {
+    public synchronized ObjectNode queueMutation(String kind,JsonNode demand,String intention,String decision) throws Exception {
         if(!Set.of("UPDATE_INTENTION","VALIDATE_DEMANDE","DELETE_DEMANDE").contains(kind))throw new IllegalArgumentException("Opération inconnue");
         String target=demand.path("publicId").asText(),version=demand.path("updatedAt").asText();
         if(target.isBlank() || version.isBlank())throw new IllegalArgumentException("Actualisez la demande avant de la modifier.");
@@ -211,5 +230,5 @@ public final class LocalStore implements AutoCloseable {
         var entry=JSON.createObjectNode().put("id",UUID.randomUUID().toString()).put("kind",kind).put("state","PENDING").put("createdAt",Instant.now().toString()).put("codeSuivie",demand.path("codeSuivie").asText());
         entry.set("payload",payload);entry.put("parish",demand.path("paroissePublicId").asText());put("entry:"+entry.path("id").asText(),entry);return entry;
     }
-    @Override public void close(){if(key!=null){Arrays.fill(key,(byte)0);key=null;}}
+    @Override public synchronized void close(){if(key!=null){Arrays.fill(key,(byte)0);key=null;}}
 }

@@ -6,43 +6,65 @@ import com.lowagie.text.pdf.*;
 import com.missanye.desktop.model.ScreenFormats;
 import java.awt.Color;
 import java.io.ByteArrayOutputStream;
-import java.time.Instant;
+import java.time.*;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
 
-/** Local document; never represents a provider payment or a central confirmation that has not occurred. */
+/** Mirrors the web receipt: one A4 sheet, original and duplicate. Transport state stays in the journal. */
 public final class LocalReceipt {
-    private LocalReceipt(){}
-    public static byte[] render(String parish,JsonNode demand)throws Exception{
-        var bytes=new ByteArrayOutputStream();var document=new Document(PageSize.A4,42,42,42,42);PdfWriter.getInstance(document,bytes);document.addTitle("Reçu "+demand.path("localReference").asText());document.addAuthor(parish);document.open();
+    private static final Color INK=new Color(31,42,55), ACCENT=new Color(92,46,46), BORDER=new Color(208,213,221), MUTED=new Color(102,112,133);
+    private final BaseFont regular,heavy;
+    private LocalReceipt()throws Exception{regular=font("DejaVuSans.ttf");heavy=font("DejaVuSans-Bold.ttf");}
+    public static byte[] render(JsonNode parish,JsonNode demand)throws Exception{return new LocalReceipt().create(parish,demand);}
+    private Font text(float size,boolean bold,Color color){return new Font(bold?heavy:regular,size,Font.NORMAL,color);}
+    private byte[] create(JsonNode parish,JsonNode demand)throws Exception{
+        var bytes=new ByteArrayOutputStream();var document=new Document(PageSize.A4,20,20,12,12);var writer=PdfWriter.getInstance(document,bytes);
+        document.addTitle("Reçu "+reference(demand));document.addAuthor(parish.path("nom").asText("Paroisse"));document.open();
         try{
-            var blue=new Color(36,83,151);var regular=font("DejaVuSans.ttf");var heavy=font("DejaVuSans-Bold.ttf");var title=new Font(heavy,20,Font.NORMAL,blue);var normal=new Font(regular,11);var bold=new Font(heavy,11);
-            document.add(new Paragraph(parish,title));document.add(new Paragraph("MISSANYE — REÇU PAROISSIAL",bold));document.add(Chunk.NEWLINE);
-            boolean received=demand.path("localCashReceived").asBoolean(),pending=demand.path("localPending").asBoolean(),review=demand.path("localReconciliationRequired").asBoolean();
-            String status=review?"À RAPPROCHER AVEC LE SERVICE":pending?"DOCUMENT LOCAL — TRANSMISSION EN ATTENTE":"COPIE LOCALE DES INFORMATIONS DU SERVICE";
-            var banner=new PdfPTable(1);banner.setWidthPercentage(100);var cell=new PdfPCell(new Phrase(status,bold));cell.setPadding(12);cell.setBackgroundColor(review?new Color(255,230,224):new Color(237,243,252));banner.addCell(cell);document.add(banner);document.add(Chunk.NEWLINE);
-            var table=new PdfPTable(new float[]{1.1f,2.5f});table.setWidthPercentage(100);
-            row(table,"Référence de suivi",demand.path("localReference").asText(),normal);
-            row(table,"Document",(received?"LRC-"+demand.path("localCashId").asText():"LREQ-"+demand.path("localRequestId").asText()),normal);
-            if(!demand.path("publicId").asText().startsWith("local:"))row(table,"Code du service",demand.path("codeSuivie").asText(),normal);
-            row(table,"Fidèle",ScreenFormats.faithful(demand),normal);row(table,"Téléphone",demand.path("telFidele").asText(),normal);
-            row(table,"Montant relevé",ScreenFormats.money(demand.path("localQuotedMontant")),normal);
-            row(table,received?"Espèces":"Paiement",received?"Somme reçue sur le poste":"PAYE".equals(demand.path("statutPaiement").asText())?"Confirmé dans les dernières informations reçues du service":"Aucun encaissement attesté par ce document",normal);
-            row(table,"Décision",ScreenFormats.state(demand.path("localValidation").asText(demand.path("statutValidation").asText())),normal);
-            if(received)row(table,"Encaissement enregistré",date(demand.path("localCashRecordedAt").asText(demand.path("localRecordedAt").asText())),normal);row(table,"Enregistrement",date(demand.path("localRecordedAt").asText()),normal);document.add(table);document.add(Chunk.NEWLINE);
-            document.add(new Paragraph("Intention",bold));document.add(new Paragraph(demand.path("intention").asText(),normal));document.add(Chunk.NEWLINE);
-            document.add(new Paragraph("Dates de célébration",bold));if(demand.path("datesCelebration").isArray())for(var date:demand.path("datesCelebration"))document.add(new Paragraph(ScreenFormats.date(date.asText()),normal));else document.add(new Paragraph(ScreenFormats.date(demand.path("dateDebut").asText()),normal));
-            document.add(Chunk.NEWLINE);document.add(new Paragraph(pending?"La référence reste valable après transmission. Avant celle-ci, le suivi est disponible sur le poste d'enregistrement. Les disponibilités, tarifs et décisions seront contrôlés par le service.":"Conservez la référence de suivi. Le reçu officiel du service reste disponible auprès de la paroisse.",normal));
-            if(review)document.add(new Paragraph("Un retour du service nécessite un rapprochement. Les espèces déjà reçues restent à traiter par la paroisse ; ce document ne les annule pas.",bold));
-            document.add(Chunk.NEWLINE);document.add(new Paragraph("Édition : "+date(Instant.now().toString()),new Font(regular,8,Font.NORMAL,Color.GRAY)));
+            float width=PageSize.A4.getWidth()-40,half=(PageSize.A4.getHeight()-24-20)/2;
+            watermark(writer,"ORIGINAL",PageSize.A4.getHeight()*.72f);watermark(writer,"DUPLICATA",PageSize.A4.getHeight()*.28f);
+            var sheet=new PdfPTable(1);sheet.setTotalWidth(width);sheet.setLockedWidth(true);sheet.setSplitRows(false);sheet.setSplitLate(false);
+            for(String label:new String[]{"ORIGINAL","DUPLICATA"}){
+                var cell=new PdfPCell();cell.setBorder(0);cell.setPadding(0);cell.setFixedHeight(half);cell.addElement(block(parish,demand,label));sheet.addCell(cell);
+                if("ORIGINAL".equals(label)){var cut=new PdfPCell(new Phrase("— — —  Découper ici  — — —",text(8,false,MUTED)));cut.setBorder(Rectangle.TOP);cut.setBorderColor(MUTED);cut.setHorizontalAlignment(Element.ALIGN_CENTER);cut.setVerticalAlignment(Element.ALIGN_MIDDLE);cut.setFixedHeight(20);sheet.addCell(cut);}
+            }
+            document.add(sheet);
         }finally{document.close();}return bytes.toByteArray();
     }
-    private static BaseFont font(String name)throws Exception{
-        try(var stream=LocalReceipt.class.getResourceAsStream("/com/missanye/desktop/branding/fonts/"+name)){
-            if(stream==null)throw new java.io.IOException("Police du reçu introuvable");return BaseFont.createFont(name,BaseFont.IDENTITY_H,BaseFont.EMBEDDED,true,stream.readAllBytes(),null);
-        }
+    private PdfPTable block(JsonNode parish,JsonNode demand,String copy)throws Exception{
+        var block=new PdfPTable(1);block.setWidthPercentage(100);
+        var badge=cell(copy,9,true,MUTED);badge.setHorizontalAlignment(Element.ALIGN_RIGHT);block.addCell(badge);
+        var identity=new PdfPTable(new float[]{1,5});identity.setWidthPercentage(100);
+        Image logo=null;try{String encoded=parish.path("logoBase64").asText();if(!encoded.isBlank()){logo=Image.getInstance(Base64.getDecoder().decode(encoded));logo.scaleToFit(42,42);}}catch(Exception ignored){/* Same fallback as the web receipt. */}
+        if(logo!=null){var image=new PdfPCell(logo,false);image.setBorder(0);image.setHorizontalAlignment(Element.ALIGN_CENTER);image.setVerticalAlignment(Element.ALIGN_MIDDLE);identity.addCell(image);}
+        var name=new PdfPCell();name.setBorder(0);if(logo==null)name.setColspan(2);
+        centered(name,"ARCHIDIOCESE DE LOME",10,INK);centered(name,truncate(parish.path("nom").asText("Paroisse"),80),12,ACCENT);
+        var contact=new ArrayList<String>();for(String key:new String[]{"adresse","telephone","email"})if(!parish.path(key).asText().isBlank())contact.add(parish.path(key).asText());
+        if(!contact.isEmpty()){var p=new Paragraph(truncate(String.join(" · ",contact),115),text(8,false,MUTED));p.setAlignment(Element.ALIGN_CENTER);name.addElement(p);}identity.addCell(name);
+        var heading=new PdfPCell(identity);heading.setPadding(9);heading.setBackgroundColor(new Color(245,241,235));heading.setBorderColor(BORDER);block.addCell(heading);
+        var title=cell("REÇU DE DÉPÔT",12,true,Color.WHITE);title.setHorizontalAlignment(Element.ALIGN_CENTER);title.setBackgroundColor(INK);title.setPadding(7);block.addCell(title);
+        var highlights=new PdfPTable(new float[]{1.8f,1,1.15f});highlights.setWidthPercentage(100);
+        highlights.addCell(highlight("Code de suivi",reference(demand),7));highlights.addCell(highlight("Montant",ScreenFormats.money(demand.path("localQuotedMontant")),11));highlights.addCell(highlight("Dépôt",date(demand.path("localRecordedAt").asText()),10));block.addCell(wrap(highlights));
+        var intention=cell(truncate(demand.path("intention").asText(),160),11,true,INK);intention.setBackgroundColor(new Color(252,248,240));intention.setPadding(7);block.addCell(intention);
+        var meta=new PdfPTable(new float[]{1.2f,3.3f});meta.setWidthPercentage(100);
+        meta(meta,"Célébration",celebration(demand));meta(meta,"Type",demand.path("receiptType").asText(demand.path("typeDemandeLibelle").asText("—")));
+        meta(meta,"Demandeur",ScreenFormats.faithful(demand)+(demand.path("telFidele").asText().isBlank()?"":" · "+demand.path("telFidele").asText()));
+        boolean cash=demand.path("localCashReceived").asBoolean();String mode=demand.path("typePaiementLibelle").asText(demand.path("receiptPayment").asText("—"));
+        String status=switch(demand.path("statutPaiement").asText()){case "PAYE"->"Payée";case "EN_ATTENTE"->"En attente";case "ECHOUE"->"Échouée";default->"Non payée";};
+        String payment=cash?"Espèces · "+parish.path("nom").asText("Paroisse")+" · Payée":mode+" · "+status;
+        meta(meta,"Paiement",payment);if(!demand.path("refFacture").asText().isBlank())meta(meta,"Réf. facture",demand.path("refFacture").asText());block.addCell(wrap(meta));
+        var notice=cell("Conservez ce reçu. Code de suivi pour le suivi.",9,false,MUTED);notice.setPaddingTop(4);block.addCell(notice);return block;
     }
-    private static String date(String text){
-        var format=java.time.format.DateTimeFormatter.ofPattern("dd/MM/uuuu 'à' HH:mm").withZone(java.time.ZoneId.of("Africa/Lome"));
-        try{return format.format(Instant.parse(text));}catch(Exception ignored){try{return java.time.LocalDateTime.parse(text).format(format);}catch(Exception invalid){return text;}}
-    }
-    private static void row(PdfPTable table,String label,String value,Font font){for(String text:new String[]{label,value}){var cell=new PdfPCell(new Phrase(text,font));cell.setPadding(8);cell.setBorderColor(new Color(220,228,238));table.addCell(cell);}}
+    private void centered(PdfPCell cell,String value,int size,Color color){var p=new Paragraph(value,text(size,true,color));p.setAlignment(Element.ALIGN_CENTER);cell.addElement(p);}
+    private PdfPCell cell(String value,int size,boolean bold,Color color){var c=new PdfPCell(new Phrase(value,text(size,bold,color)));c.setBorder(0);c.setPadding(2);return c;}
+    private PdfPCell wrap(PdfPTable table){var c=new PdfPCell(table);c.setBorder(0);c.setPadding(0);return c;}
+    private PdfPCell highlight(String label,String value,int size){var inner=new PdfPTable(1);inner.addCell(cell(label,8,false,MUTED));inner.addCell(cell(value,size,true,INK));var c=new PdfPCell(inner);c.setPadding(6);c.setBackgroundColor(new Color(248,250,252));c.setBorderColor(BORDER);return c;}
+    private void meta(PdfPTable table,String label,String value){table.addCell(cell(label,9,true,MUTED));table.addCell(cell(truncate(value,120),9,false,INK));}
+    private static String reference(JsonNode demand){return demand.path("localReference").asText(demand.path("codeSuivie").asText());}
+    private static String celebration(JsonNode demand){var dates=new ArrayList<String>();if(demand.path("datesCelebration").isArray())for(var d:demand.path("datesCelebration"))dates.add(ScreenFormats.date(d.asText()));if(dates.isEmpty())dates.add(ScreenFormats.date(demand.path("dateDebut").asText()));String value=String.join(" · ",dates.subList(0,Math.min(4,dates.size())));if(dates.size()>4)value+=" · +"+(dates.size()-4);String time=demand.path("heurePersonnalisee").asText(demand.path("receiptTime").asText());return value+(time.isBlank()?"":" · "+formatTime(time));}
+    private static String formatTime(String value){try{return LocalTime.parse(value).format(DateTimeFormatter.ofPattern("HH' h 'mm"));}catch(Exception invalid){return value;}}
+    private void watermark(PdfWriter writer,String label,float y){var canvas=writer.getDirectContentUnder();canvas.saveState();var gs=new PdfGState();gs.setFillOpacity(.08f);canvas.setGState(gs);canvas.setColorFill(new Color(90,90,90));canvas.beginText();canvas.setFontAndSize(heavy,36);canvas.showTextAligned(Element.ALIGN_CENTER,label,PageSize.A4.getWidth()/2,y,28);canvas.endText();canvas.restoreState();}
+    private static String truncate(String value,int max){if(value==null||value.isBlank())return "—";return value.length()<=max?value:value.substring(0,max-1).trim()+"…";}
+    private static String date(String value){var f=DateTimeFormatter.ofPattern("dd/MM/yyyy HH' h 'mm");try{return Instant.parse(value).atZone(ZoneId.of("Africa/Lome")).format(f);}catch(Exception ignored){try{return LocalDateTime.parse(value).format(f);}catch(Exception invalid){return "—";}}}
+    private static BaseFont font(String name)throws Exception{try(var stream=LocalReceipt.class.getResourceAsStream("/com/missanye/desktop/branding/fonts/"+name)){if(stream==null)throw new java.io.IOException("Police du reçu introuvable");return BaseFont.createFont(name,BaseFont.IDENTITY_H,BaseFont.EMBEDDED,true,stream.readAllBytes(),null);}}
 }

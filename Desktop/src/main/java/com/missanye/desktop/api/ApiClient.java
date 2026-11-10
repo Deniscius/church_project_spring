@@ -35,11 +35,12 @@ public final class ApiClient {
         }
         return json.readTree(response.body());
     }
-    public JsonNode login(String username, String password) throws Exception {
+    public JsonNode login(String username, String password) throws Exception { return login(username,password,Duration.ofMinutes(2)); }
+    public JsonNode login(String username, String password,Duration timeout) throws Exception {
         clear();
         try {
-            request("auth/login-multi-tenant", json.writeValueAsString(Map.of("username", username, "password", password)),Duration.ofMinutes(2));
-            try{return request("auth/me", null);}catch(ApiException rejected){
+            request("auth/login-multi-tenant", json.writeValueAsString(Map.of("username", username, "password", password)),timeout);
+            try{return request("auth/me", null,timeout);}catch(ApiException rejected){
                 if(rejected.status()==401||rejected.status()==403)throw new IllegalArgumentException("Vos identifiants ont été acceptés, mais le serveur n'a pas confirmé la session du desktop. Vérifiez la configuration des cookies du backend et l'adresse du serveur.");
                 throw rejected;
             }

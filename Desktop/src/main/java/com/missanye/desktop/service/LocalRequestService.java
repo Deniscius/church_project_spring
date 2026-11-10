@@ -103,7 +103,7 @@ public final class LocalRequestService {
     public byte[] receiptFor(JsonNode demand)throws Exception{
         if(demand.has("localRequestId"))return receipt(demand.path("localRequestId").asText());
         receiptPermission();if(!WorkspaceBootstrap.allows(store.get("parishes"),demand.path("paroissePublicId").asText()))throw new IllegalArgumentException("Cette paroisse n’est pas autorisée pour ce compte.");var view=(ObjectNode)demand.deepCopy();String id=demand.path("publicId").asText();UUID.fromString(id);
-        view.put("localReference",demand.path("codeSuivie").asText()).put("localRequestId",id).put("localQuotedMontant",demand.path("localQuotedMontant").asInt(demand.path("montant").asInt())).put("localRecordedAt",demand.path("updatedAt").asText(demand.path("createdAt").asText())).put("localValidation",demand.path("statutValidation").asText());
+        view.put("localReference",demand.path("codeSuivie").asText()).put("localRequestId",id).put("localQuotedMontant",demand.path("localQuotedMontant").asInt(demand.path("montant").asInt())).put("localRecordedAt",demand.path("createdAt").asText(demand.path("updatedAt").asText())).put("localValidation",demand.path("statutValidation").asText());
         String name="Paroisse";for(var p:store.get("parishes"))if(demand.path("paroissePublicId").asText().equals(WorkspaceBootstrap.parishId(p)))name=p.path("nom").asText("Paroisse");
         return retainReceipt("server-"+id,name,view);
     }
@@ -117,8 +117,13 @@ public final class LocalRequestService {
         return retainReceipt(id,name,view);
     }
     private byte[] retainReceipt(String id,String name,ObjectNode view)throws Exception{
-        String fingerprint=java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(JSON.writeValueAsBytes(view)));String key="local-receipt:"+id+":"+fingerprint;
-        var retained=store.get(key);if(!retained.isNull())return retained.binaryValue();byte[] pdf=LocalReceipt.render(name,view);store.put(key,JSON.getNodeFactory().binaryNode(pdf));return pdf;
+        var catalogue=store.get("catalogue:"+view.path("paroissePublicId").asText());
+        for(var type:catalogue.path("types"))if(view.path("typeDemandePublicId").asText().equals(type.path("publicId").asText()))view.put("receiptType",type.path("libelle").asText());
+        for(var schedule:catalogue.path("horaires"))if(view.path("horairePublicId").asText().equals(schedule.path("publicId").asText()))view.put("receiptTime",schedule.path("heureCelebration").asText());
+        for(var payment:catalogue.path("paiements"))if(view.path("typePaiementPublicId").asText().equals(payment.path("publicId").asText()))view.put("receiptPayment",payment.path("libelle").asText());
+        String fingerprint=java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(JSON.writeValueAsBytes(view)));String key="local-receipt:v2:"+id+":"+fingerprint;
+        var retained=store.get(key);if(!retained.isNull())return retained.binaryValue();var branding=store.get("catalogue:"+view.path("paroissePublicId").asText()).path("receiptBranding");
+        byte[] pdf=LocalReceipt.render(branding.isObject()?branding:JSON.createObjectNode().put("nom",name),view);store.put(key,JSON.getNodeFactory().binaryNode(pdf));return pdf;
     }
     private ObjectNode command(ObjectNode root,String kind,ObjectNode payload,String parent)throws Exception{
         String id=UUID.randomUUID().toString();var command=JSON.createObjectNode().put("id",id).put("kind",kind).put("state","PENDING").put("createdAt",Instant.now().toString()).put("localRequestId",root.path("id").asText()).put("dependsOn",parent).put("parish",root.path("parish").asText()).put("codeSuivie",root.path("localReference").asText());command.set("payload",payload);store.put("entry:"+id,command);return command;

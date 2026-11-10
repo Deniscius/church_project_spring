@@ -10,7 +10,7 @@ Les fichiers se trouvent dans `src/main/resources/com/missanye/desktop/view/` :
 - `login-form.fxml` : connexion habituelle au compte de la paroisse, inspirée du formulaire
   `login_form.fxml` fourni dans `Church_Project.zip` (champs à droite).
 - `workbench.fxml` : navigation principale et identité de la paroisse.
-- `parish-deployment.fxml` : vérification administrateur et rattachement du poste.
+- `parish-deployment.fxml` : vérification du compte et rattachement du poste.
 - `request-form.fxml` : formulaire d'intention, forfaits, coordonnées et créneaux.
 - `demands.fxml` : liste des demandes, décisions, paiements et reçus.
 - `outbox.fxml` : brouillons et opérations en attente de synchronisation.
@@ -65,7 +65,7 @@ pour produire un installateur préconfiguré et migrer les anciens brouillons.
 La barre de session remplace le formulaire une fois connecté. Les tableaux
 proposent une recherche des demandes, un filtre de l'activité et des états
 lisibles. Les actions indisponibles sont désactivées selon la sélection, les
-droits et le mode de connexion. Les compteurs reflètent les données du poste.
+droits. Les compteurs reflètent les données du poste.
 
 ## Configuration réservée au développeur qui déploie
 
@@ -150,7 +150,7 @@ Un conflit d'encaissement ne doit pas être rejoué
 aveuglément : actualiser le serveur et rapprocher la caisse avant de décider.
 Une session expirée arrête l'envoi et exige une reconnexion. Un refus de droits
 sur une opération la marque **Bloquée** sans interrompre les autres. Après
-rétablissement des accès, **Réessayer la transmission** conserve son identifiant
+rétablissement des accès, **Réexaminer l’opération** conserve son identifiant
 initial ; une opération bloquée ne doit pas être recopiée comme un nouvel
 encaissement.
 
@@ -177,19 +177,23 @@ locale qu'après confirmation serveur et actualisation de la liste.
 
 ## Paiements et reçus
 
-- **Espèces** : sélectionner une demande serveur, confirmer le montant reçu.
-  L'encaissement est provisoire dans la file jusqu'à sa confirmation serveur.
+- **Espèces** : sélectionner une demande validée, confirmer le montant reçu.
+  L’encaissement est enregistré immédiatement et le reçu est disponible.
+  L’envoi et la confirmation centrale sont gérés en arrière-plan.
   Le serveur refuse un montant changé, un paiement déjà effectué ou des droits
   insuffisants. Deux postes ne peuvent pas confirmer deux fois la même commande.
 - **Paiement en ligne** : le desktop demande une URL au backend puis ouvre le
   navigateur pour FedaPay. Cliquer **Vérifier le règlement** après le parcours.
   Internet et la configuration FedaPay serveur sont nécessaires ; aucune
   confirmation électronique n'est inventée hors ligne.
-- **Reçus** : sélectionner une demande puis **Télécharger le reçu**.
-  En ligne, le PDF officiel est téléchargé et mis en cache chiffré. Hors ligne,
-  seuls les reçus déjà téléchargés sont disponibles. Une coupure du service peut
-  également utiliser cette copie conservée, signalée à l'utilisateur comme telle. Le fichier exporté est un
-  PDF ordinaire **non chiffré** ; l'impression se fait depuis le lecteur PDF.
+- **Reçus** : sélectionner une demande puis **Imprimer / exporter le reçu**.
+  Le modèle reprend le web : ORIGINAL et DUPLICATA sur une feuille A4, identité
+  et logo paroissiaux, code, montant, intention, célébrations et paiement.
+  Le PDF est disponible immédiatement sans dépendre d’un téléchargement préalable.
+  Les espèces reçues sont indiquées comme payées ; un document sans encaissement
+  indique « Non payée ». Les mentions de connexion et d’envoi sont absentes du
+  document. Le cache reste chiffré ; le PDF exporté est **non chiffré** et se lit
+  et s’imprime dans le lecteur PDF habituel.
 
 ## Stockage et sauvegarde
 

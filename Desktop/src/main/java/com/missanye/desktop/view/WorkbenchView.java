@@ -180,14 +180,14 @@ public final class WorkbenchView {
         demandSearch.textProperty().addListener((o,a,b)->visibleDemands.setPredicate(row->b==null || b.isBlank() || row.data().toString().toLowerCase(Locale.ROOT).contains(b.trim().toLowerCase(Locale.ROOT))));
         var visibleActivity=new FilteredList<>(activityRows);
         var sortedActivity=new SortedList<>(visibleActivity);sortedActivity.comparatorProperty().bind(outbox.comparatorProperty());outbox.setItems(sortedActivity);
-        queueFilter.getItems().setAll("Toutes les opérations","Brouillons","À transmettre","Confirmées","À corriger","Bloquées");queueFilter.getSelectionModel().selectFirst();
-        queueFilter.valueProperty().addListener((o,a,b)->visibleActivity.setPredicate(row->switch(b){case "Brouillons"->"DRAFT".equals(row.data().path("state").asText());case "À transmettre"->"PENDING".equals(row.data().path("state").asText());case "Confirmées"->"SENT".equals(row.data().path("state").asText());case "À corriger"->"REJECTED".equals(row.data().path("state").asText());case "Bloquées"->"BLOCKED".equals(row.data().path("state").asText());default->true;}));
+        queueFilter.getItems().setAll("Toutes les opérations","Brouillons","Enregistrées","Confirmées","À corriger","Bloquées");queueFilter.getSelectionModel().selectFirst();
+        queueFilter.valueProperty().addListener((o,a,b)->visibleActivity.setPredicate(row->switch(b){case "Brouillons"->"DRAFT".equals(row.data().path("state").asText());case "Enregistrées"->"PENDING".equals(row.data().path("state").asText());case "Confirmées"->"SENT".equals(row.data().path("state").asText());case "À corriger"->"REJECTED".equals(row.data().path("state").asText());case "Bloquées"->"BLOCKED".equals(row.data().path("state").asText());default->true;}));
         column("demandReference",ScreenFormats::reference);
         column("demandFaithful",ScreenFormats::faithful);
         column("demandDate",d->ScreenFormats.date(d.path("datesCelebration").path(0).asText()));
         column("demandAmount",d->ScreenFormats.money(d.path("montant")));
         column("demandPayment",d->ScreenFormats.state(d.path("statutPaiement").asText()));
-        column("demandValidation",d->d.path("localReconciliationRequired").asBoolean()?"À rapprocher":ScreenFormats.state(d.path("statutValidation").asText())+(d.path("localPending").asBoolean()?" (poste)":""));
+        column("demandValidation",d->d.path("localReconciliationRequired").asBoolean()?"À rapprocher":ScreenFormats.state(d.path("statutValidation").asText()));
         column("activityDate",d->ScreenFormats.date(d.path("createdAt").asText()));
         column("activityKind",d->ScreenFormats.kind(d.path("kind").asText()));
         column("activityReference",ScreenFormats::reference);

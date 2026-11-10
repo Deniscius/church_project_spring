@@ -92,7 +92,7 @@ public final class WorkbenchController implements AutoCloseable {
         v.correct.setOnAction(e->mutate("UPDATE_INTENTION"));v.validate.setOnAction(e->mutate("VALIDATE_DEMANDE"));v.remove.setOnAction(e->mutate("DELETE_DEMANDE"));
         v.refresh.setOnAction(e->refresh());v.sync.setOnAction(e->synchronize());v.cash.setOnAction(e->cash());v.receipt.setOnAction(e->receipt());v.checkout.setOnAction(e->checkout());v.reconcile.setOnAction(e->reconcile());
         v.demands.getSelectionModel().selectedItemProperty().addListener((o,a,b)->{v.detail.setText(b==null?"Sélectionnez une demande pour consulter son intention et agir.":description(b.data()));updateActions();});
-        v.outbox.getSelectionModel().selectedItemProperty().addListener((o,a,b)->{v.queueDetail.setText(b==null?"Sélectionnez une opération pour consulter son état.":b.data().path("error").asText("Cette opération est conservée sur votre poste. Les confirmations apparaissent après transmission."));updateActions();});
+        v.outbox.getSelectionModel().selectedItemProperty().addListener((o,a,b)->{v.queueDetail.setText(b==null?"Sélectionnez une opération pour consulter son état.":b.data().path("error").asText("Cette opération est enregistrée dans votre espace paroissial."));updateActions();});
         cleanForm=formData();
         readinessDelay.setOnFinished(e->inspectOfflineReadiness());v.username.textProperty().addListener((o,a,b)->{offlineReady=false;controls();readinessDelay.playFromStart();});
         controls();
@@ -114,7 +114,7 @@ public final class WorkbenchController implements AutoCloseable {
     }
     private void controls(){
         boolean opened=store!=null;v.setWorkspaceOpen(opened);v.workspace.setDisable(busy||!opened);v.lock.setDisable(busy||!opened);
-        v.busyIndicator.setVisible(busy||reconnecting||synchronizing);v.busyIndicator.setManaged(busy||reconnecting||synchronizing);
+        v.busyIndicator.setVisible(busy);v.busyIndicator.setManaged(busy);
         for(var n:List.of(v.username,v.password,v.localPassword,v.login,v.offline))n.setDisable(busy||opened);
         v.login.setDisable(busy||opened||!serverSettingsValid||(parishMode&&deployment==null));
         if(parishMode){v.parish.setDisable(true);if(deployment!=null)v.parishIdentity(deployment.parishName());}
@@ -163,7 +163,7 @@ public final class WorkbenchController implements AutoCloseable {
             if(result.api()!=null)clearReconnect();
             finishOpen(new Opened(result.api(),result.store(),result.session(),result.parishes(),result.parish(),true));
             v.session.setText(result.session().path("user").path("username").asText()+" — "+result.session().path("user").path("role").asText());
-            v.status.setText(result.api()==null?"Espace ouvert. Les opérations en attente seront transmises dès que le service sera disponible.":"Bienvenue dans l'espace de "+deployment.parishName()+".");
+            v.status.setText("Bienvenue dans l'espace de "+deployment.parishName()+".");
         });
     }
     private void unlock(boolean online){
@@ -230,8 +230,8 @@ public final class WorkbenchController implements AutoCloseable {
         api=opened.api();store=opened.store();session=opened.session();offlineReady=true;loading=true;v.parish.getItems().clear();
         for(var p:opened.parishes())v.parish.getItems().add(new Choice(WorkspaceBootstrap.parishId(p),p.path("nom").asText(p.path("paroisseNom").asText()),p));
         for(var p:v.parish.getItems())if(p.id().equals(opened.selected())){v.parish.setValue(p);break;}
-        loading=false;v.session.setText((api==null?"Hors ligne — ":"En ligne — ")+session.path("user").path("username").asText(v.username.getText()));controls();
-        v.status.setText(opened.preparedNow()?"Votre espace est prêt. L'accès hors connexion est activé pour cette paroisse.":api==null?"Votre espace est ouvert hors connexion. Les opérations seront transmises après reconnexion.":"Connexion réussie. Vos données sont disponibles.");
+        loading=false;v.session.setText(session.path("user").path("username").asText(v.username.getText()));controls();
+        v.status.setText("Connexion réussie. Votre espace paroissial est prêt.");
         openParish(v.parish.getValue(),!opened.preparedNow());
     }
     private void lock(){
@@ -294,7 +294,7 @@ public final class WorkbenchController implements AutoCloseable {
             boolean edit=hasPermission("demand:edit");
             for(var node:List.of(v.finalizeRequest,v.save,v.fresh,v.correct,v.edit,v.queue,v.returnToDraft)){node.setVisible(edit);node.setManaged(edit);}
             for(String id:List.of("navRequest","homeRequest"))v.showAction(id,edit);
-            boolean mutations=edit||hasPermission("payment:manage")||hasPermission("demand:validate")||hasPermission("demand:delete");v.sync.setVisible(mutations);v.sync.setManaged(mutations);v.auto.setVisible(mutations);v.auto.setManaged(mutations);v.retry.setVisible(mutations);v.retry.setManaged(mutations);v.archive.setVisible(mutations);v.archive.setManaged(mutations);if(!mutations)v.auto.setSelected(false);
+            boolean mutations=edit||hasPermission("payment:manage")||hasPermission("demand:validate")||hasPermission("demand:delete");v.sync.setVisible(false);v.sync.setManaged(false);v.auto.setVisible(false);v.auto.setManaged(false);v.auto.setSelected(mutations);v.retry.setVisible(mutations);v.retry.setManaged(mutations);v.archive.setVisible(mutations);v.archive.setManaged(mutations);if(!mutations)v.auto.setSelected(false);
             boolean payments=hasPermission("payment:manage");for(var node:List.of(v.cash,v.checkout,v.reconcile)){node.setVisible(payments);node.setManaged(payments);}
             v.validate.setVisible(hasPermission("demand:validate"));v.validate.setManaged(v.validate.isVisible());v.remove.setVisible(hasPermission("demand:delete"));v.remove.setManaged(v.remove.isVisible());
             boolean receipt=hasPermission("invoice:read")||hasPermission("receipt:manage");v.receipt.setVisible(receipt);v.receipt.setManaged(receipt);
@@ -321,18 +321,18 @@ public final class WorkbenchController implements AutoCloseable {
         else if("VALIDATE_DEMANDE".equals(kind)){var dialog=v.decorate(new ChoiceDialog<>("Valider",List.of("Valider","Rejeter")));dialog.setTitle("Décision sur la demande");dialog.setHeaderText(d.path("codeSuivie").asText());var value=dialog.showAndWait();if(value.isEmpty())return;decision="Valider".equals(value.get())?"VALIDEE":"REJETEE";}
         if(!confirm("Préparer cette opération pour "+d.path("codeSuivie").asText()+" ? Une vérification protégera les éventuelles modifications effectuées entre-temps."))return;
         if("VALIDATE_DEMANDE".equals(kind)&&d.path("publicId").asText().startsWith("local:")){
-            String local=d.path("localRequestId").asText(),chosen=decision,context=parish();run(()->{new LocalRequestService(store).decide(local,chosen);return snapshot(context);},s->{display(s);v.status.setText("Décision enregistrée sur le poste. Elle sera vérifiée lors de la synchronisation.");});return;
+            String local=d.path("localRequestId").asText(),chosen=decision,context=parish();run(()->{new LocalRequestService(store).decide(local,chosen);return snapshot(context);},s->{display(s);v.status.setText("Décision enregistrée.");});return;
         }
-        String intention=text,statut=decision,parish=parish();run(()->{store.queueMutation(kind,d,intention,statut);return snapshot(parish);},s->{display(s);v.tabs.getSelectionModel().select(2);v.status.setText("Opération préparée. Elle sera confirmée après transmission.");});
+        String intention=text,statut=decision,parish=parish();run(()->{store.queueMutation(kind,d,intention,statut);return snapshot(parish);},s->{display(s);v.tabs.getSelectionModel().select(2);v.status.setText("Opération enregistrée.");});
     }catch(Exception e){v.status.setText(e.getMessage());}}
-    private String description(JsonNode d){return (d.path("localReconciliationRequired").asBoolean()?"À RAPPROCHER — ":d.path("localPending").asBoolean()?"ENREGISTRÉ SUR LE POSTE — ":"")+ScreenFormats.reference(d)+" · "+ScreenFormats.faithful(d)+" · "+ScreenFormats.money(d.path("montant"))+" · "+ScreenFormats.state(d.path("statutPaiement").asText())+"\n"+d.path("intention").asText();}
+    private String description(JsonNode d){return (d.path("localReconciliationRequired").asBoolean()?"À RAPPROCHER — ":"")+ScreenFormats.reference(d)+" · "+ScreenFormats.faithful(d)+" · "+ScreenFormats.money(d.path("montant"))+" · "+ScreenFormats.state(d.path("statutPaiement").asText())+"\n"+d.path("intention").asText();}
     private void setChoices(ComboBox<Choice> box,JsonNode values,String label){box.getItems().clear();for(var value:values)if(value.path("isActive").asBoolean(true) && !value.path("statusDel").asBoolean()){String text=value.path(label).asText(value.path("publicId").asText());if(value.has("heureCelebration"))text+=" — "+value.path("jourSemaine").asText()+" "+value.path("heureCelebration").asText();box.getItems().add(new Choice(value.path("publicId").asText(),text,value));}if(!box.getItems().isEmpty())box.getSelectionModel().selectFirst();}
     private void fillPlans(){if(catalog==null || v.type.getValue()==null){v.plan.getItems().clear();return;}setChoices(v.plan,catalog.path("forfaits").path(v.type.getValue().id()),"nomForfait");price();}
     private void requirePermission(String permission){
         if(session!=null)for(var p:session.path("user").path("permissions"))if(permission.equals(p.asText()))return;
         throw new IllegalArgumentException("Vous ne disposez pas des droits nécessaires pour cette action.");
     }
-    private void price(){v.price.setText(v.plan.getValue()==null?"Aucun forfait disponible":"Montant indicatif : "+ScreenFormats.money(v.plan.getValue().data().path("montantForfait"))+" — confirmé lors de la transmission.");}
+    private void price(){v.price.setText(v.plan.getValue()==null?"Aucun forfait disponible":"Montant : "+ScreenFormats.money(v.plan.getValue().data().path("montantForfait")));}
     private void reset(){editing=null;correcting=null;configuredSlots=null;v.slotsSummary.setText("Horaire commun par défaut");v.surname.clear();v.firstname.clear();v.phone.clear();v.email.clear();v.courier.clear();v.intention.clear();v.extraDates.getItems().clear();v.customTime.clear();v.date.setValue(LocalDate.now().plusDays(2));v.date.getEditor().setText(v.date.getConverter().toString(v.date.getValue()));v.additionalDate.setValue(v.date.getValue().plusDays(1));cleanForm=formData();}
     private String required(ComboBox<Choice> box,String label){if(box.getValue()==null)throw new IllegalArgumentException(label+" obligatoire.");return box.getValue().id();}
     private String id(ComboBox<Choice> choice){return choice.getValue()==null?"":choice.getValue().id();}
@@ -391,8 +391,8 @@ public final class WorkbenchController implements AutoCloseable {
     private void finalizeForm(){try{
         requirePermission("demand:edit");var data=formData();RequestValidation.forSubmission(data);String id=editing,context=parish();
         if(correcting!=null)throw new IllegalArgumentException("Enregistrez d'abord le brouillon de correction.");
-        if(!confirm("Finaliser cette demande sur le poste ? Une référence de suivi sera conservée lors de la synchronisation."))return;
-        run(()->{var request=new LocalRequestService(store).finalizePayload(id,data);return new Finalized(snapshot(context),request.path("localRequestId").asText());},result->{display(result.snapshot());reset();v.tabs.getSelectionModel().select(1);v.demandSearch.clear();for(var row:v.demands.getItems())if(result.requestId().equals(row.data().path("localRequestId").asText())){v.demands.getSelectionModel().select(row);v.demands.scrollTo(row);break;}v.status.setText("Demande finalisée sur le poste. Vous pouvez la valider, enregistrer les espèces et éditer un reçu selon vos accès.");});
+        if(!confirm("Enregistrer définitivement cette demande ?"))return;
+        run(()->{var request=new LocalRequestService(store).finalizePayload(id,data);return new Finalized(snapshot(context),request.path("localRequestId").asText());},result->{display(result.snapshot());reset();v.tabs.getSelectionModel().select(1);v.demandSearch.clear();for(var row:v.demands.getItems())if(result.requestId().equals(row.data().path("localRequestId").asText())){v.demands.getSelectionModel().select(row);v.demands.scrollTo(row);break;}v.status.setText("Demande enregistrée. Vous pouvez poursuivre son traitement.");});
     }catch(Exception failure){v.status.setText(failure.getMessage());}}
     private void save(){saveDraft(null);}
     private void saveDraft(Runnable next){try{
@@ -402,7 +402,7 @@ public final class WorkbenchController implements AutoCloseable {
     }catch(Exception e){v.status.setText(e.getMessage());}}
     private JsonNode selected(TableView<Row> list){if(list.getSelectionModel().getSelectedItem()==null)throw new IllegalArgumentException("Sélectionnez une ligne.");return list.getSelectionModel().getSelectedItem().data();}
     private boolean confirm(String text){var dialog=v.decorate(new Alert(Alert.AlertType.CONFIRMATION,text,ButtonType.CANCEL,ButtonType.OK));dialog.setTitle("Confirmer votre action");dialog.setHeaderText(null);return dialog.showAndWait().orElse(ButtonType.CANCEL)==ButtonType.OK;}
-    private void queue(){try{requirePermission("demand:edit");var selected=selected(v.outbox);RequestValidation.forSubmission(selected.path("payload"));String id=selected.path("id").asText(),parish=parish();if(!confirm("Finaliser cette demande sur le poste ? Les dates et le montant seront revérifiés à la synchronisation."))return;run(()->{new LocalRequestService(store).finalizeDraft(id);return snapshot(parish);},s->{display(s);v.status.setText("Demande prête à être transmise.");});}catch(Exception e){v.status.setText(e.getMessage());}}
+    private void queue(){try{requirePermission("demand:edit");var selected=selected(v.outbox);RequestValidation.forSubmission(selected.path("payload"));String id=selected.path("id").asText(),parish=parish();if(!confirm("Enregistrer définitivement cette demande ?"))return;run(()->{new LocalRequestService(store).finalizeDraft(id);return snapshot(parish);},s->{display(s);v.status.setText("Demande enregistrée.");});}catch(Exception e){v.status.setText(e.getMessage());}}
     private void returnToDraft(){try{
         var entry=selected(v.outbox);String id=entry.path("id").asText(),context=parish();
         if(!confirm("Remettre cette demande en brouillon avant son premier envoi ? Elle ne sera plus transmise automatiquement."))return;
@@ -432,29 +432,27 @@ public final class WorkbenchController implements AutoCloseable {
         if(api==null){if(reconnectPassword!=null)reconnect();return;}
         if(closed||busy||synchronizing||store==null)return;
         LocalStore expected=store;ApiClient client=api;String context=parish();String bound=parishMode?deployment.parishId():null;long epoch=authEpoch;
-        synchronizing=true;v.status.setText("Transmission en cours. Votre travail sur le poste reste disponible.");controls();
+        synchronizing=true;controls();
         var task=new Task<String>(){protected String call()throws Exception{
             var sync=new SyncService(expected,client,bound,()->!closed&&!isCancelled()&&epoch==authEpoch);String result=sync.synchronize();
             if(!isCancelled()&&epoch==authEpoch)sync.refresh(context);return result;
         }};syncTask=task;
-        task.setOnSucceeded(event->{if(closed||store!=expected||epoch!=authEpoch)return;synchronizing=false;syncTask=null;transientFailures=0;automaticRetryAfter=0;v.status.setText(task.getValue());controls();reloadView(taskGeneration);});
+        task.setOnSucceeded(event->{if(closed||store!=expected||epoch!=authEpoch)return;synchronizing=false;syncTask=null;transientFailures=0;automaticRetryAfter=0;controls();reloadView(taskGeneration);});
         task.setOnFailed(event->{
             if(closed||store!=expected||epoch!=authEpoch)return;synchronizing=false;syncTask=null;Throwable failure=task.getException();
             if(failure instanceof SyncService.SessionMismatchException||(failure instanceof ApiClient.ApiException rejected&&rejected.status()==401)){client.clear();api=null;clearReconnect();}
-            transientFailures=Math.min(transientFailures+1,6);automaticRetryAfter=System.currentTimeMillis()+Math.min(300000L,30000L*(1L<<transientFailures));v.status.setText(OperationErrors.message(failure));controls();reloadView(taskGeneration);
+            transientFailures=Math.min(transientFailures+1,6);automaticRetryAfter=System.currentTimeMillis()+Math.min(300000L,30000L*(1L<<transientFailures));if(!DeviceCredentials.unavailable(failure))v.status.setText(OperationErrors.message(failure));controls();reloadView(taskGeneration);
         });reconnector.submit(task);
     }
-    private void cash(){try{requirePermission("payment:manage");var demand=selected(v.demands);if("PAYE".equals(demand.path("statutPaiement").asText()))throw new IllegalArgumentException("Cette demande est déjà payée.");if(!confirm("Confirmez-vous avoir reçu "+demand.path("montant").asText()+" XOF en espèces pour "+demand.path("codeSuivie").asText()+" ? L'enregistrement reste provisoire jusqu'à validation serveur."))return;String parish=parish();run(()->{if(demand.path("publicId").asText().startsWith("local:"))new LocalRequestService(store).receiveCash(demand.path("localRequestId").asText());else store.queueCash(demand);return snapshot(parish);},s->{display(s);v.tabs.getSelectionModel().select(2);v.status.setText("Encaissement enregistré sur ce poste. En attente de confirmation après transmission.");});}catch(Exception e){v.status.setText(e.getMessage());}}
+    private void cash(){try{requirePermission("payment:manage");var demand=selected(v.demands);if("PAYE".equals(demand.path("statutPaiement").asText()))throw new IllegalArgumentException("Cette demande est déjà payée.");if(!confirm("Confirmez-vous avoir reçu "+demand.path("montant").asText()+" XOF en espèces pour "+demand.path("codeSuivie").asText()+" ?"))return;String parish=parish();run(()->{if(demand.path("publicId").asText().startsWith("local:"))new LocalRequestService(store).receiveCash(demand.path("localRequestId").asText());else store.queueCash(demand);return snapshot(parish);},s->{display(s);v.status.setText("Encaissement enregistré. Le reçu est disponible.");});}catch(Exception e){v.status.setText(e.getMessage());}}
     private void receipt(){try{
         if(!hasPermission("invoice:read")&&!hasPermission("receipt:manage"))throw new IllegalArgumentException("Vous ne disposez pas des droits pour éditer un reçu.");
         var demand=selected(v.demands);String code=demand.path("localReference").asText(demand.path("codeSuivie").asText());if(code.isBlank())throw new IllegalArgumentException("Code de suivi absent");
         var chooser=new FileChooser();chooser.setTitle("Exporter le reçu");chooser.setInitialFileName("recu-"+code.replaceAll("[^A-Za-z0-9_-]","_")+".pdf");chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("PDF","*.pdf"));var target=chooser.showSaveDialog(v.root.getScene().getWindow());if(target==null)return;
         run(()->{
-            byte[] document;boolean local=demand.path("localPending").asBoolean()||api==null;
-            if(local)document=new LocalRequestService(store).receiptFor(demand);
-            else try{document=syncService().receipt(demand.path("codeSuivie").asText(),true);}catch(java.io.IOException failure){document=new LocalRequestService(store).receiptFor(demand);local=true;}
-            ReceiptExporter.write(target.toPath(),document);return local;
-        },local->{if(host!=null)host.showDocument(target.toURI().toString());v.status.setText(local?"Reçu établi sur le poste. Son état de transmission est indiqué sur le document.":"Reçu officiel téléchargé depuis le service.");});
+            byte[] document=new LocalRequestService(store).receiptFor(demand);
+            ReceiptExporter.write(target.toPath(),document);return true;
+        },exported->{if(host!=null)host.showDocument(target.toURI().toString());v.status.setText("Reçu prêt à imprimer.");});
     }catch(Exception failure){v.status.setText(failure.getMessage());}}
     private void checkout(){try{var d=selected(v.demands);if(api==null)throw new IllegalArgumentException("Une connexion est nécessaire pour effectuer un paiement en ligne.");String code=d.path("codeSuivie").asText();if(!confirm("Préparer le paiement en ligne de "+code+" ? Le prestataire affichera le montant avec ses frais."))return;run(()->api.post("paiements/checkout/"+java.net.URLEncoder.encode(code,java.nio.charset.StandardCharsets.UTF_8),json.createObjectNode()),result->{String url=result.path("paymentUrl").asText();if(!url.isBlank()){var uri=java.net.URI.create(url);if(!"https".equals(uri.getScheme()) || uri.getHost()==null || uri.getUserInfo()!=null){v.status.setText("Le lien de paiement ne peut pas être ouvert. Contactez votre administrateur.");return;}if(host!=null)host.showDocument(url);v.status.setText("Paiement ouvert dans le navigateur. Cliquez ensuite sur Vérifier le paiement.");}else v.status.setText(result.path("message").asText("Pas d'URL de paiement disponible."));});}catch(Exception e){v.status.setText(e.getMessage());}}
     private void reconcile(){try{String code=selected(v.demands).path("codeSuivie").asText();run(()->api.post("paiements/reconcile/"+java.net.URLEncoder.encode(code,java.nio.charset.StandardCharsets.UTF_8),json.createObjectNode()),r->{v.status.setText("État vérifié : "+ScreenFormats.state(r.path("statutPaiement").asText()));refresh();});}catch(Exception e){v.status.setText(e.getMessage());}}
@@ -463,7 +461,7 @@ public final class WorkbenchController implements AutoCloseable {
     private void reconnect(){
         if(closed||busy||reconnecting||synchronizing||store==null||deployment==null||reconnectPassword==null)return;
         String username=reconnectUsername;char[] secret=reconnectPassword.clone();LocalStore expected=store;var selected=deployment;long epoch=authEpoch;
-        reconnecting=true;v.status.setText("Recherche du service en cours. Vous pouvez continuer votre travail sur le poste.");controls();
+        reconnecting=true;controls();
         var task=new Task<ParishLoginService.Reconnected>(){protected ParishLoginService.Reconnected call()throws Exception{
             var result=ParishLoginService.authenticateReconnect(expected.owner(),selected,deviceCredentials,username,secret);if(isCancelled()||epoch!=authEpoch){result.api().clear();throw new InterruptedException();}return result;
         }};reconnectTask=task;
@@ -482,7 +480,7 @@ public final class WorkbenchController implements AutoCloseable {
         if(closed||store!=expected||epoch!=authEpoch)return;reconnecting=false;reconnectTask=null;
         if(failure instanceof ParishLoginService.ReauthenticationRequired||failure instanceof SyncService.SessionMismatchException)clearReconnect();
         transientFailures=Math.min(transientFailures+1,6);automaticRetryAfter=System.currentTimeMillis()+Math.min(300000L,30000L*(1L<<transientFailures));
-        v.status.setText(OperationErrors.message(failure));controls();
+        if(!DeviceCredentials.unavailable(failure))v.status.setText(OperationErrors.message(failure));controls();
     }
     @Override public void close(){closed=true;cancelReconnect();clearReconnect();reconnector.shutdownNow();readinessDelay.stop();timer.shutdownNow();worker.shutdownNow();if(api!=null)api.clear();if(!busy&&store!=null)store.close();}
 }

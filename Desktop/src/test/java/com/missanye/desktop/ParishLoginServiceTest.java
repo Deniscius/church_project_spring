@@ -50,4 +50,15 @@ class ParishLoginServiceTest{
   allowed.set(false);assertThrows(IllegalArgumentException.class,()->ParishLoginService.login(file,deployment,credentials,"alice","password".toCharArray()));assertEquals(0,credentials.read(url,"alice").expiresAt());loginStatus.set(503);assertThrows(IllegalArgumentException.class,()->ParishLoginService.login(file,deployment,credentials,"alice","password".toCharArray()));
  }
 
+ @Test void preparedIdentityDoesNotWaitForSlowServerStartup()throws Exception{
+  var deployment=new ParishDeployment(url,PARISH,"Saint Paul");var credentials=new DeviceCredentials(directory.resolve("identity"),DeviceCredentialsTest.testProtector());Path file=directory.resolve("slow.sqlite");
+  var prepared=ParishLoginService.login(file,deployment,credentials,"alice","password".toCharArray());prepared.store().close();prepared.api().clear();
+  server.removeContext("/auth/login-multi-tenant");var release=new java.util.concurrent.CountDownLatch(1);
+  server.createContext("/auth/login-multi-tenant",e->{try{release.await(6,java.util.concurrent.TimeUnit.SECONDS);reply(e,503,"{}");}catch(Exception ignored){e.close();}});
+  try{
+   var opened=assertTimeoutPreemptively(java.time.Duration.ofSeconds(7),()->ParishLoginService.login(file,deployment,credentials,"alice","password".toCharArray()));
+   assertNull(opened.api());assertTrue(opened.store().workspaceReady(PARISH));opened.store().close();
+  }finally{release.countDown();}
+ }
+
 }

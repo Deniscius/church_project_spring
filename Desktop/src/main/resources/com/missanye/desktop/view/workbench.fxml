@@ -24,7 +24,7 @@
         <Button fx:id="navDemands" text="Demandes et paiements" maxWidth="Infinity" styleClass="nav-button" accessibleText="Demandes et paiements"><graphic><SVGPath content="M3 4 H17 V18 H3 Z M3 8 H17 M7 4 V18 M10 12 H14 M10 15 H14" styleClass="nav-icon"/></graphic></Button>
         <Button fx:id="navActivity" text="Mon activité" maxWidth="Infinity" styleClass="nav-button" accessibleText="Mon activité"><graphic><SVGPath content="M3 10 A7 7 0 1 1 5 16 M3 4 V10 H9 M10 6 V11 L14 13" styleClass="nav-icon"/></graphic></Button>
         <Region minHeight="25" VBox.vgrow="ALWAYS"/>
-        <VBox fx:id="sidebarHelp" spacing="7" styleClass="sidebar-help"><Label text="UN TRAVAIL TOUJOURS PROTÉGÉ" wrapText="true" minHeight="-Infinity" styleClass="sidebar-caption"/><Label text="Vos brouillons restent sur ce poste. Suivez leur transmission dans Mon activité." wrapText="true" minHeight="-Infinity" styleClass="sidebar-caption"/></VBox>
+        <VBox fx:id="sidebarHelp" spacing="7" styleClass="sidebar-help"><Label text="UN TRAVAIL TOUJOURS PROTÉGÉ" wrapText="true" minHeight="-Infinity" styleClass="sidebar-caption"/><Label text="Retrouvez vos brouillons et votre historique dans Mon activité." wrapText="true" minHeight="-Infinity" styleClass="sidebar-caption"/></VBox>
       </VBox></content>
     </ScrollPane>
   </left>

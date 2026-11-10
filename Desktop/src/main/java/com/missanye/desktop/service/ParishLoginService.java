@@ -26,7 +26,9 @@ public final class ParishLoginService{
   var api=new ApiClient(deployment.apiUrl());LocalStore store=null;
   try{
    JsonNode session;
-   try{session=api.login(username,new String(password));}
+   boolean identityReady=false;
+   try{credentials.verify(deployment.apiUrl(),username,password);identityReady=LocalStore.inspect(file,deployment.apiUrl(),username)==LocalStore.ProfileStatus.READY;}catch(Exception ignored){/* First use or changed password keeps the full online authentication path. */}
+   try{session=api.login(username,new String(password),identityReady?java.time.Duration.ofSeconds(4):java.time.Duration.ofMinutes(2));}
    catch(Exception failure){
     api.clear();if(failure instanceof ApiClient.ApiException refused&&refused.status()==401){try{credentials.verify(deployment.apiUrl(),username,password);credentials.revoke(deployment.apiUrl(),username);}catch(Exception ignored){/* A wrong password must not invalidate another user's prepared identity. */}}
     if(!DeviceCredentials.unavailable(failure))throw failure;

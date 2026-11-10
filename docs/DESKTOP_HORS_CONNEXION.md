@@ -21,7 +21,7 @@ identifiant / mot de passe.
    nombre de dates sont vérifiés à partir des informations disponibles sur le
    poste. L'écriture de la demande complète intervient après ces contrôles.
 2. La demande apparaît immédiatement dans la liste, avec sa référence stable
-   `MSL-<UUID>`. Elle est marquée comme enregistrée sur le poste.
+   `MSL-<UUID>`. L’utilisateur voit une demande enregistrée dans son espace paroissial.
 3. Un forfait normal possède la validation automatique prévue par le modèle
    métier. Une demande spéciale attend une décision d'un utilisateur disposant
    de `demand:validate`. Une adresse e-mail est requise pour ce type de demande.
@@ -29,10 +29,21 @@ identifiant / mot de passe.
    après la validation. Cet enregistrement est durable et interdit un deuxième
    encaissement local de la même demande.
 5. Avec `invoice:read` ou `receipt:manage`, le reçu PDF est généré sur le poste.
-   Il précise la référence, le montant relevé, l'état de la décision, les espèces
-   reçues et l'état de transmission. Sans encaissement, le document ne prétend
-   pas attester le paiement. Les polices sont embarquées pour conserver un rendu
-   lisible et les accents sur Windows.
+   Il reprend le modèle web : une page A4 avec ORIGINAL et DUPLICATA, ligne de
+   découpe, identité de la paroisse, code de suivi, montant, dépôt, intention,
+   célébrations, demandeur et paiement. Les espèces réellement reçues sont
+   indiquées comme payées. Sans encaissement ni paiement confirmé, le reçu indique
+   « Non payée ». Aucune mention du réseau ou de la transmission n’est imprimée.
+   L’export utilise toujours les données du poste, sans attendre un téléchargement
+   réseau, avec ou sans Internet. Les polices sont embarquées pour conserver
+   les accents sur Windows.
+
+   L’identité et le logo paroissiaux sont chargés pendant la préparation via
+   `GET /desktop/paroisses/{id}/receipt-branding`, sous contrôle des permissions
+   et de l’accès à la paroisse, puis conservés dans le catalogue chiffré. Aucun
+   RIB ni paramètre de connexion n’est inclus. Sur un ancien backend sans cet
+   endpoint, le reçu conserve le nom paroissial disponible ; actualiser les
+   données après mise à jour pour récupérer la personnalisation complète.
 
 Les décisions et espèces peuvent aussi être enregistrées pour une demande
 serveur déjà chargée. Un encaissement dépendant d'une validation locale attend
@@ -57,11 +68,22 @@ pas une nouvelle demande, une nouvelle décision ou un second encaissement.
 Pour une session ouverte grâce à l'identité préparée, le mot de passe saisi reste
 seulement en mémoire le temps de rétablir une session auprès de l'API. Il est
 ensuite effacé, ainsi qu'à la déconnexion ou fermeture. Le minuteur tente la
-reconnexion avec temporisation ; **Actualiser** et **Transmettre les opérations**
-peuvent également la déclencher. Si l'authentification ou les accès sont refusés,
+reconnexion avec temporisation. Dans l’espace paroissial, les commandes d’envoi
+et le choix d’envoi automatique sont masqués : l’envoi reste automatique selon
+les permissions. **Actualiser** permet aussi une reprise immédiate. Une identité
+déjà préparée bénéficie d’un délai réseau court à la connexion pour éviter une
+longue attente en cas d’indisponibilité ; les vérifications d’identité, de durée
+de validité du cache et de révocation restent appliquées. Si l'authentification ou les accès sont refusés,
 une nouvelle connexion de l'utilisateur est nécessaire. Une saisie en cours
 n'est pas réinitialisée lors de la reconnexion. Les attentes réseau et la
 transmission s'exécutent en arrière-plan et laissent les formulaires disponibles.
+
+Les messages de bienvenue, de demande et d’encaissement restent les mêmes,
+avec ou sans Internet. Les formulaires et tableaux métier n’affichent pas de
+badge « hors connexion » ou « poste ». Les états techniques et erreurs restent
+conservés dans le journal ; les rejets nécessitant une action restent visibles
+comme « À rapprocher ». La connexion réseau ne conditionne pas l’attestation des
+espèces physiquement reçues.
 
 Les permissions fraîches du serveur sont appliquées avant la reprise. Les
 utilisateurs en consultation ne voient pas les actions d'écriture, de caisse

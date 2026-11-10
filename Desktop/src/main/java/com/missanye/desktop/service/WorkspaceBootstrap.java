@@ -35,6 +35,10 @@ public final class WorkspaceBootstrap {
         if(!types.isArray()||!schedules.isArray()||!payments.isArray())throw new IOException("Catalogue de paroisse incomplet");
         var result=JSON.createObjectNode();result.set("types",types);result.set("horaires",schedules);result.set("paiements",payments);var prices=result.putObject("forfaits");
         for(var type:types){String id=type.path("publicId").asText();UUID.fromString(id);var values=api.get("forfait-tarifs/type-demande/"+id+"/actifs");if(!values.isArray())throw new IOException("Catalogue de tarifs incomplet");prices.set(id,values);}
+        try {
+            var branding=api.get("desktop/paroisses/"+parish+"/receipt-branding");
+            if(branding.isObject()&&!branding.path("nom").asText().isBlank())result.set("receiptBranding",branding);
+        } catch(ApiClient.ApiException unavailable) { if(unavailable.status()!=403&&unavailable.status()!=404)throw unavailable; }
         return result;
     }
     public static ArrayNode demands(ApiClient api,String parish)throws Exception{

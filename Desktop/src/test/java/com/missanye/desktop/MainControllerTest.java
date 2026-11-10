@@ -76,7 +76,7 @@ class MainControllerTest {
             fx(()->{views[0].phone.setText("+22890123456");views[0].intention.setText("Intention enregistrée hors ligne");capture(views[0],"desktop-form-preview.png");views[0].save.fire();});
             await(()->views[0].outbox.getItems().size()==1);
             fx(()->{
-                views[0].queueFilter.setValue("À transmettre");assertTrue(views[0].outbox.getItems().isEmpty());
+                views[0].queueFilter.setValue("Enregistrées");assertTrue(views[0].outbox.getItems().isEmpty());
                 views[0].queueFilter.setValue("Brouillons");assertEquals(1,views[0].outbox.getItems().size());
                 views[0].queueFilter.getSelectionModel().selectFirst();views[0].outbox.getSelectionModel().selectFirst();
                 assertFalse(views[0].queue.isDisabled());capture(views[0],"desktop-preview.png");
@@ -218,7 +218,7 @@ class MainControllerTest {
             fx(()->{views[0]=new WorkbenchView();controllers[0]=new WorkbenchController(views[0],file,null,binding,credentials);stage[0]=new javafx.stage.Stage();stage[0].setScene(new javafx.scene.Scene(views[0].root,1366,768));stage[0].show();views[0].username.setText("alice");views[0].password.setText("normal password");views[0].login.fire();});await(()->!views[0].workspace.isDisabled()&&views[0].plan.getValue()!=null);
             fx(()->{var amount=views[0].demands.getColumns().get(3);amount.setSortType(javafx.scene.control.TableColumn.SortType.ASCENDING);views[0].demands.getSortOrder().setAll(amount);views[0].tabs.getSelectionModel().select(0);views[0].phone.setText("+22890123456");views[0].intention.setText("Intention enregistrée pendant la coupure");answerNextDialog(javafx.scene.control.ButtonBar.ButtonData.OK_DONE);views[0].finalizeRequest.fire();});await(()->!views[0].workspace.isDisabled()&&views[0].demands.getItems().size()==2);
             fx(()->{assertTrue(views[0].demands.getSelectionModel().getSelectedItem().data().path("codeSuivie").asText().startsWith("MSL-"));assertFalse(views[0].cash.isDisabled());answerNextDialog(javafx.scene.control.ButtonBar.ButtonData.OK_DONE);views[0].cash.fire();});await(()->!views[0].workspace.isDisabled()&&views[0].activityRows.size()==2);
-            status.set(200);gate.set(new java.util.concurrent.CountDownLatch(1));fx(()->{views[0].intention.setText("Saisie à conserver pendant la reconnexion");assertFalse(views[0].sync.isDisabled());views[0].sync.fire();});assertTrue(reconnectStarted.await(3,java.util.concurrent.TimeUnit.SECONDS));
+            status.set(200);gate.set(new java.util.concurrent.CountDownLatch(1));fx(()->{assertFalse(views[0].sync.isVisible());assertFalse(views[0].auto.isVisible());assertFalse(views[0].session.getText().contains("Hors"));assertFalse(views[0].status.getText().contains("transmission"));assertEquals("Payé",views[0].demands.getColumns().get(4).getCellData(views[0].demands.getSelectionModel().getSelectedItem()));views[0].intention.setText("Saisie à conserver pendant la reconnexion");assertFalse(views[0].sync.isDisabled());views[0].sync.fire();});assertTrue(reconnectStarted.await(3,java.util.concurrent.TimeUnit.SECONDS));
             fx(()->{assertFalse(views[0].workspace.isDisabled());assertFalse(views[0].intention.isDisabled());});gate.get().countDown();assertTrue(operationStarted.await(3,java.util.concurrent.TimeUnit.SECONDS));fx(()->{assertFalse(views[0].workspace.isDisabled());assertFalse(views[0].intention.isDisabled());});operationGate.countDown();await(()->calls.get()==2&&views[0].activityRows.stream().allMatch(r->"SENT".equals(r.data().path("state").asText())));
             fx(()->{assertEquals("Saisie à conserver pendant la reconnexion",views[0].intention.getText());assertTrue(views[0].activityRows.stream().allMatch(r->"SENT".equals(r.data().path("state").asText())));assertEquals("PAYE",views[0].demandRows.get(0).data().path("statutPaiement").asText());assertFalse(views[0].hasOpenDialog());capture(views[0],"desktop-local-synchronized-preview.png");});
         }finally{fx(()->{if(controllers[0]!=null)controllers[0].close();if(stage[0]!=null)stage[0].close();});server.stop(0);}
@@ -288,7 +288,7 @@ class MainControllerTest {
             await(()->views[0].workspace.isDisabled()&&!views[0].offline.isDisabled());server.stop(0);
             fx(()->{views[0].localPassword.setText("Local password 1234!");views[0].offline.fire();});
             await(()->!views[0].workspace.isDisabled()&&views[0].plan.getValue()!=null);
-            fx(()->{assertEquals("Saint Pierre",views[0].parish.getValue().label());assertTrue(views[0].session.getText().startsWith("Hors ligne"));});
+            fx(()->{assertEquals("Saint Pierre",views[0].parish.getValue().label());assertFalse(views[0].session.getText().contains("Hors ligne"));});
         }finally{fx(()->{if(controllers[0]!=null)controllers[0].close();if(stage[0]!=null)stage[0].close();});server.stop(0);}
     }
     @Test void refreshKeepsEditedFieldsAndSelectedPlan()throws Exception{

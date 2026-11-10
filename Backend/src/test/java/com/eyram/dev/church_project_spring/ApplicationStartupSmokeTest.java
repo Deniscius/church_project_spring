@@ -298,6 +298,12 @@ class ApplicationStartupSmokeTest {
         var desktopCreated = restTemplate.postForEntity("/desktop/operations", new HttpEntity<>(operation,cashHeaders),String.class);
         assertThat(desktopCreated.getStatusCode().value()).isEqualTo(200);
         JsonNode desktopDemand=objectMapper.readTree(desktopCreated.getBody());
+        var branding = restTemplate.exchange("/desktop/paroisses/"+parish.getPublicId()+"/receipt-branding",HttpMethod.GET,new HttpEntity<>(cashHeaders),String.class);
+        assertThat(branding.getStatusCode().value()).isEqualTo(200);
+        assertThat(objectMapper.readTree(branding.getBody()).path("nom").asText()).isEqualTo(parish.getNom());
+        assertThat(branding.getBody()).doesNotContain("ibanOrRib", "nomBanque");
+        var anonymousBranding=restTemplate.getForEntity("/desktop/paroisses/"+parish.getPublicId()+"/receipt-branding",String.class);
+        assertThat(anonymousBranding.getStatusCode().is4xxClientError()).isTrue();
         String localReference="MSL-"+operationId.toUpperCase(java.util.Locale.ROOT);
         assertThat(desktopDemand.path("localReference").asText()).isEqualTo(localReference);
         var localTracking=restTemplate.getForEntity("/demandes/code/"+localReference.toLowerCase(java.util.Locale.ROOT),String.class);
@@ -333,6 +339,9 @@ class ApplicationStartupSmokeTest {
         var localReceipt=restTemplate.getForEntity("/demandes/code/"+localReference+"/recu.pdf",byte[].class);
         assertThat(localReceipt.getStatusCode().value()).isEqualTo(200);
         assertThat(new String(localReceipt.getBody(),0,5,StandardCharsets.US_ASCII)).isEqualTo("%PDF-");
+        try(var pdf=new com.lowagie.text.pdf.PdfReader(localReceipt.getBody())) {
+            assertThat(new com.lowagie.text.pdf.parser.PdfTextExtractor(pdf).getTextFromPage(1).replaceAll("\\s+", "")).contains(localReference);
+        }
         var localInvoice=restTemplate.getForEntity("/facture/code-suivie/"+localReference,String.class);
         assertThat(localInvoice.getStatusCode().value()).isEqualTo(200);
     }

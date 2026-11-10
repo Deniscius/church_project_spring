@@ -135,3 +135,5 @@
 .compact-height .selection-panel { -fx-padding: 8 12; }
 .compact-height .welcome-card { -fx-padding: 20; }
 .compact-height .summary-card { -fx-padding: 14; -fx-min-height: 130; }
+
+.brand-logo { -fx-background-color: white; -fx-background-radius: 10; -fx-padding: 6; }

@@ -57,3 +57,8 @@ Le passage de validation de cette refonte a réussi 44 tests ; les deux tests
 optionnels avec backend réel ne sont pas exécutés par défaut. Les tests
 headless ne remplacent pas une recette manuelle Windows à 100 %, 125 % et 150 %,
 notamment pour les polices et le comportement du système de fenêtres.
+
+L’identité visuelle utilise le logo Missanye bleu et or dans la connexion, le
+menu latéral et les icônes Windows. Le nom de la paroisse remplace les choix de
+serveur et de paroisse dans le parcours utilisateur normal ; voir
+[le déploiement paroissial](DESKTOP_PAROISSE.md).

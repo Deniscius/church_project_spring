@@ -7,7 +7,7 @@ reste dans les services existants ; elle n'est pas ajoutée à l'application.
 
 | Parcours | Comportement livré | Vérification |
 |---|---|---|
-| Première connexion | Compte vérifié en ligne, sélection de paroisse, confirmation du mot de passe local et préparation complète avant ouverture ; un téléchargement interrompu n’active pas le hors-ligne | Serveur HTTP simulé et interface JavaFX |
+| Première connexion | Poste rattaché par le développeur ; l’utilisateur saisit ses identifiants habituels et les accès à cette paroisse sont vérifiés avant préparation | Serveur HTTP simulé, backend réel et interface JavaFX |
 | Test du serveur | Compteur pendant l’attente, panneau vert ou rouge et résultat visible ; enregistrement bloqué après échec | Contrôles HTTP et interface JavaFX redimensionnée |
 | Dialogues | Taille adaptée à l’écran, défilement des contenus longs, boutons accessibles ; un créneau invalide garde la fenêtre ouverte | Test de 30 célébrations et affichage compact |
 | Admin seed | Authentification initiale et session cookie vérifiées sur une base neuve ; absence de paroisse présentée après authentification comme un état de préparation | Seeder backend réel en HTTPS, refus de mauvais mot de passe et dialogue JavaFX |
@@ -43,7 +43,7 @@ La protection de saisie couvre la fermeture normale de l'application. Une
 coupure de courant ne peut préserver une saisie qui n'a jamais été enregistrée ;
 les brouillons enregistrés et les opérations en attente restent sur disque.
 
-## Première utilisation d'un poste
+## Ancien parcours avant rattachement paroissial
 
 Une connexion Internet est obligatoire pour chaque nouveau compte sur un poste.
 L'utilisateur se connecte avec son compte existant ; l'assistant propose les
@@ -87,3 +87,6 @@ validation.
 
 La refonte visuelle et les vérifications de résolutions sont détaillées dans
 [DESKTOP_INTERFACE.md](DESKTOP_INTERFACE.md).
+
+Le parcours courant utilise la connexion naturelle et la protection DPAPI :
+voir [DESKTOP_PAROISSE.md](DESKTOP_PAROISSE.md).

@@ -21,6 +21,9 @@ class LiveBackendTest {
         var parishes=api.get("paroisses");JsonNode selected=null;
         for(var p:parishes)if(!p.path("isSystem").asBoolean() && p.path("isActive").asBoolean()){selected=p;break;}
         assertNotNull(selected);String parish=selected.path("publicId").asText();
+        var credentials=new com.missanye.desktop.service.DeviceCredentials(temp.resolve("identities"),DeviceCredentialsTest.testProtector());
+        var bound=com.missanye.desktop.service.ParishLoginService.login(temp.resolve("parish-login.sqlite"),new com.missanye.desktop.config.ParishDeployment(api.baseUrl(),parish,selected.path("nom").asText("Paroisse de test")),credentials,"ci-platform-admin","CiStrongPassword-2026!".toCharArray());
+        assertEquals(parish,bound.parish());assertEquals(1,bound.parishes().size());assertTrue(bound.store().workspaceReady(parish));bound.store().close();bound.api().logout();
         String id,code;
         try(var store=LocalStore.unlock(temp.resolve("live.sqlite"),api.baseUrl(),"ci-platform-admin","Offline test password!".toCharArray(),owner)){
             var prepared=WorkspaceBootstrap.fetch(api,session,parish);store.installWorkspace(session,WorkspaceBootstrap.eligible(parishes),parish,prepared);assertTrue(store.workspaceReady(parish));

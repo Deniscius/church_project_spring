@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class MainControllerTest {
     @TempDir Path temp;
     @BeforeAll static void startToolkit()throws Exception{
-        System.setProperty("glass.platform","Monocle");System.setProperty("monocle.platform","Headless");System.setProperty("prism.order","sw");System.setProperty("quantum.multithreaded","false");
+        System.setProperty("glass.platform","Monocle");System.setProperty("monocle.platform","Headless");System.setProperty("prism.order","sw");System.setProperty("quantum.multithreaded","false");System.setProperty("prism.dirtyopts","false");
         System.setProperty("headless.geometry","2200x1400-32");
         var started=new CountDownLatch(1);Platform.startup(started::countDown);assertTrue(started.await(10,TimeUnit.SECONDS));Platform.setImplicitExit(false);
     }
@@ -181,6 +181,27 @@ class MainControllerTest {
             }
         }finally{fx(()->{if(controllers[0]!=null)controllers[0].close();if(stage[0]!=null)stage[0].close();});}
     }
+    private static javafx.scene.control.DialogPane deploymentDialog(){
+        for(var window:java.util.List.copyOf(javafx.stage.Window.getWindows())){if(window.getScene()==null)continue;var root=window.getScene().getRoot();var node=root instanceof javafx.scene.control.DialogPane?root:root.lookup(".dialog-pane");if(node instanceof javafx.scene.control.DialogPane pane&&pane.lookup("#deploymentServer")!=null)return pane;}return null;
+    }
+    @Test void developerBindsParishThenUsersSignInNormallyWithRbac()throws Exception{
+        var server=com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1",0),0);var info=identity();var c=catalogue();String type=TestRequests.complete().path("typeDemandePublicId").asText();var developer=new java.util.concurrent.atomic.AtomicBoolean(true);
+        ((com.fasterxml.jackson.databind.node.ObjectNode)info.path("user")).put("role","SUPER_ADMIN").put("isGlobal",true);
+        server.createContext("/actuator/health",e->reply(e,200,"{\"status\":\"UP\"}"));server.createContext("/auth/login-multi-tenant",e->reply(e,200,"{}"));server.createContext("/auth/me",e->reply(e,200,info.toString()));server.createContext("/auth/logout",e->reply(e,200,"{}"));server.createContext("/paroisses",e->reply(e,200,"[{\"publicId\":\""+TestRequests.PARISH+"\",\"nom\":\"Saint Paul\",\"isActive\":true}]"));
+        server.createContext("/type-demandes/",e->reply(e,200,c.path("types").toString()));server.createContext("/horaires/",e->reply(e,200,c.path("horaires").toString()));server.createContext("/type-paiement",e->reply(e,200,c.path("paiements").toString()));server.createContext("/forfait-tarifs/",e->reply(e,200,c.path("forfaits").path(type).toString()));server.createContext("/demandes/",e->reply(e,200,"{\"content\":[],\"last\":true}"));server.start();
+        String address="http://127.0.0.1:"+server.getAddress().getPort()+"/";Path file=temp.resolve("bound.sqlite");var views=new WorkbenchView[1];var controllers=new WorkbenchController[1];var stage=new javafx.stage.Stage[1];
+        try{
+            fx(()->{views[0]=new WorkbenchView();controllers[0]=new WorkbenchController(views[0],file,null);stage[0]=new javafx.stage.Stage();stage[0].setScene(new javafx.scene.Scene(views[0].root,1366,768));stage[0].show();assertTrue(views[0].login.isDisabled());Platform.runLater(views[0].configureServer::fire);});await(()->deploymentDialog()!=null);
+            fx(()->{var pane=deploymentDialog();((javafx.scene.control.TextField)pane.lookup("#deploymentServer")).setText(address);((javafx.scene.control.TextField)pane.lookup("#deploymentUser")).setText("admin");((javafx.scene.control.PasswordField)pane.lookup("#deploymentPassword")).setText("server admin password");((javafx.scene.control.Button)pane.lookup("#deploymentVerify")).fire();});
+            await(()->((javafx.scene.control.ComboBox<?>)deploymentDialog().lookup("#deploymentParish")).getValue()!=null);
+            fx(()->{var pane=deploymentDialog();captureNode(pane,"desktop-parish-deployment-preview.png");((javafx.scene.control.Button)pane.lookupButton(pane.getButtonTypes().get(1))).fire();});await(()->deploymentDialog()==null);
+            var binding=com.missanye.desktop.config.ServerSettings.deployment(file).orElseThrow();assertEquals(TestRequests.PARISH,binding.parishId());
+            ((com.fasterxml.jackson.databind.node.ObjectNode)info.path("user")).put("role","LECTEUR").put("isGlobal",false).putArray("permissions").add("demand:read").add("payment:read").add("invoice:read");
+            fx(()->{controllers[0].close();controllers[0]=new WorkbenchController(views[0],file,null,binding,new com.missanye.desktop.service.DeviceCredentials(temp.resolve("device"),DeviceCredentialsTest.testProtector()));assertFalse(views[0].offlinePane.isVisible());capture(views[0],"desktop-parish-login-preview.png");views[0].username.setText("alice");views[0].password.setText("normal password");views[0].login.fire();});
+            await(()->!views[0].workspace.isDisabled()&&views[0].plan.getValue()!=null);
+            fx(()->{assertTrue(views[0].parish.isDisabled());assertEquals(1,views[0].parish.getItems().size());assertEquals("Saint Paul",views[0].parish.getValue().label());assertFalse(views[0].save.isVisible(),"save");assertFalse(views[0].cash.isVisible(),"cash");assertFalse(views[0].edit.isVisible(),"draft edit");assertFalse(views[0].queue.isVisible(),"queue");assertFalse(views[0].sync.isVisible(),"sync");assertFalse(views[0].actionVisible("navRequest"),"nav");assertTrue(views[0].receipt.isVisible(),"receipt");assertFalse(views[0].hasOpenDialog(),"dialog");capture(views[0],"desktop-parish-reader-preview.png");});
+        }finally{fx(()->{if(controllers[0]!=null)controllers[0].close();if(stage[0]!=null)stage[0].close();});server.stop(0);}
+    }
     private static javafx.scene.control.DialogPane serverDialog(){
         for(var window:java.util.List.copyOf(javafx.stage.Window.getWindows())){
             if(window.getScene()==null)continue;var root=window.getScene().getRoot();var node=root instanceof javafx.scene.control.DialogPane?root:root.lookup(".dialog-pane");
@@ -204,8 +225,7 @@ class MainControllerTest {
             assertEquals(address,com.missanye.desktop.config.ServerSettings.load(file,"https://example.com/"));
             fx(()->{views[0].username.setText("alice");views[0].password.setText("not persisted");views[0].login.fire();});
             await(()->!views[0].login.isDisabled()&&logins.get()==1);assertFalse(java.nio.file.Files.exists(file));
-            fx(()->{controllers[0].close();controllers[0]=new WorkbenchController(views[0],file,null);Platform.runLater(views[0].configureServer::fire);});await(()->serverDialog()!=null);
-            fx(()->{assertEquals(address,((javafx.scene.control.TextField)serverDialog().lookup("#serverAddress")).getText());var pane=serverDialog();((javafx.scene.control.Button)pane.lookupButton(pane.getButtonTypes().get(0))).fire();});
+            fx(()->{controllers[0].close();controllers[0]=new WorkbenchController(views[0],file,null);assertTrue(views[0].login.isDisabled());assertTrue(views[0].serverEnvironment.getText().contains("rattaché"));});
         }finally{fx(()->{if(controllers[0]!=null)controllers[0].close();if(stage[0]!=null)stage[0].close();});server.stop(0);}
     }
     private static javafx.scene.control.DialogPane setupDialog(){

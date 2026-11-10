@@ -27,6 +27,7 @@ OutputBaseFilename=Missanye-Setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+SetupIconFile=..\branding\missanye.ico
 UninstallDisplayIcon={app}\Missanye.exe
 CloseApplications=yes
 CloseApplicationsFilter=Missanye.exe

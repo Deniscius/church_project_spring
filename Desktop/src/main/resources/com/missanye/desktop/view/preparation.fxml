@@ -3,10 +3,10 @@
 <?import javafx.scene.layout.*?>
 <VBox xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" alignment="CENTER" spacing="18" maxWidth="650" maxHeight="-Infinity" styleClass="preparation-card">
   <Label text="M" styleClass="app-monogram"/>
-  <Label text="Préparation de votre espace" styleClass="login-title"/>
+  <Label text="Ouverture de votre espace" styleClass="login-title"/>
   <Label fx:id="preparationParish" wrapText="true" minHeight="-Infinity" maxWidth="Infinity" styleClass="section-title"/>
   <ProgressIndicator prefWidth="46" prefHeight="46"/>
-  <Label text="Nous récupérons les informations et les demandes de votre paroisse." wrapText="true" minHeight="-Infinity" maxWidth="Infinity" styleClass="muted"/>
-  <VBox spacing="9" styleClass="preparation-checklist"><Label text="✓ Compte et accès vérifiés" styleClass="step-complete"/><Label text="• Chargement des offres, horaires et demandes"/><Label text="• Enregistrement protégé sur ce poste"/><Label text="• Activation de l'accès hors connexion"/></VBox>
-  <Label text="Patientez jusqu'à la fin de cette première préparation. Votre espace ne sera ouvert qu'une fois les données enregistrées." wrapText="true" minHeight="-Infinity" maxWidth="Infinity" styleClass="help-text"/>
+  <Label text="Nous ouvrons vos informations et vos demandes paroissiales." wrapText="true" minHeight="-Infinity" maxWidth="Infinity" styleClass="muted"/>
+  <VBox spacing="9" styleClass="preparation-checklist"><Label text="Vérification du compte et de la paroisse" styleClass="step-complete"/><Label text="• Chargement des offres, horaires et demandes"/><Label text="• Enregistrement protégé sur ce poste"/><Label text="• Application de vos accès paroissiaux"/></VBox>
+  <Label text="Nous vérifions vos accès et ouvrons les informations de votre paroisse." wrapText="true" minHeight="-Infinity" maxWidth="Infinity" styleClass="help-text"/>
 </VBox>

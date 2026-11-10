@@ -3,6 +3,10 @@ package com.missanye.desktop.controller;
 import com.missanye.desktop.api.ApiClient;
 import com.missanye.desktop.config.DesktopConfiguration;
 import com.missanye.desktop.config.ServerSettings;
+import com.missanye.desktop.config.ParishDeployment;
+import com.missanye.desktop.service.DeviceCredentials;
+import com.missanye.desktop.service.ParishLoginService;
+import com.missanye.desktop.view.ParishDeploymentDialog;
 import com.missanye.desktop.view.ServerSettingsDialog;
 import com.missanye.desktop.model.ScreenFormats;
 import com.missanye.desktop.model.RequestValidation;
@@ -30,6 +34,9 @@ public final class WorkbenchController implements AutoCloseable {
     private final WorkbenchView v;
     private final Path file;
     private String apiBaseUrl;
+    private boolean parishMode;
+    private ParishDeployment deployment;
+    private DeviceCredentials deviceCredentials;
     private final HostServices host;
     private final ObjectMapper json=new ObjectMapper();
     private final ExecutorService worker=Executors.newSingleThreadExecutor(r->{var t=new Thread(r,"desktop-io");t.setDaemon(true);return t;});
@@ -54,15 +61,22 @@ public final class WorkbenchController implements AutoCloseable {
         try{apiBaseUrl=ServerSettings.load(file,apiBaseUrl);}catch(Exception invalid){
             serverSettingsValid=false;v.status.setText("La configuration enregistrée est illisible. Ouvrez Configuration du serveur pour la corriger avant de vous connecter.");
         }
-        v.serverEnvironment.setText("Serveur : "+apiBaseUrl);controls();
+        parishMode=true;deviceCredentials=DeviceCredentials.windows(file);
+        try{deployment=ServerSettings.deployment(file).orElse(null);if(deployment!=null)apiBaseUrl=deployment.apiUrl();}catch(Exception invalid){serverSettingsValid=false;}
+        v.serverEnvironment.setText(deployment==null?"Ce poste doit être rattaché à une paroisse.":deployment.parishName());
+        v.status.setText(deployment==null?"Le développeur doit configurer la paroisse de ce poste avant la première connexion.":"Connectez-vous à l'espace de "+deployment.parishName()+".");controls();
     }
+    public WorkbenchController(WorkbenchView view,Path file,HostServices host,ParishDeployment selected,DeviceCredentials credentials){
+        this(view,file,host,selected.apiUrl());parishMode=true;deployment=selected;deviceCredentials=credentials;v.serverEnvironment.setText(selected.parishName());controls();
+    }
+    /** Legacy workspace harness retained for migration regression tests; the application loads a parish deployment. */
     public WorkbenchController(WorkbenchView view,Path file,HostServices host,String configuredApiUrl){
         apiBaseUrl=new DesktopConfiguration(configuredApiUrl).apiBaseUrl();
         v=view;this.file=file;this.host=host;
         v.serverEnvironment.setText("Serveur : "+apiBaseUrl);
         v.configureServer.setOnAction(e->configureServer());
         v.login.setOnAction(e->unlock(true));v.offline.setOnAction(e->unlock(false));v.lock.setOnAction(e->protectForm(this::lock));
-        v.parish.setOnAction(e->{if(!loading && !busy)changeParish();});
+        v.parish.valueProperty().addListener((o,a,b)->{if(!closed&&!loading&&!busy)changeParish();});
         v.addDate.setOnAction(e->addDate());v.removeDate.setOnAction(e->{var chosen=v.extraDates.getSelectionModel().getSelectedItem();if(chosen!=null)v.extraDates.getItems().remove(chosen);});
         v.configureSlots.setOnAction(e->configureSlots());
         v.type.setOnAction(e->{if(!loading)fillPlans();});v.plan.setOnAction(e->price());
@@ -87,19 +101,25 @@ public final class WorkbenchController implements AutoCloseable {
             if(x instanceof java.io.IOException || (x instanceof ApiClient.ApiException a && (a.status()==429 || a.status()>=500))) {transientFailures=Math.min(transientFailures+1,6);automaticRetryAfter=System.currentTimeMillis()+Math.min(3600000L,60000L*(1L<<transientFailures));}
             v.status.setText(OperationErrors.message(x));
             reloadAfterFailure(generation);
+            if(x instanceof ParishLoginService.LegacyMigrationRequired migration)migrateLegacy(migration);
         });worker.submit(task);
     }
     private void controls(){
         boolean opened=store!=null;v.setWorkspaceOpen(opened);v.workspace.setDisable(busy||!opened);v.lock.setDisable(busy||!opened);
         v.busyIndicator.setVisible(busy);v.busyIndicator.setManaged(busy);
         for(var n:List.of(v.username,v.password,v.localPassword,v.login,v.offline))n.setDisable(busy||opened);
-        v.login.setDisable(busy||opened||!serverSettingsValid);
+        v.login.setDisable(busy||opened||!serverSettingsValid||(parishMode&&deployment==null));
+        if(parishMode){v.parish.setDisable(true);if(deployment!=null)v.parishIdentity(deployment.parishName());}
         v.configureServer.setDisable(busy||opened);
         v.offlinePane.setDisable(busy||opened||!offlineReady||!serverSettingsValid);v.offline.setDisable(busy||opened||!offlineReady||!serverSettingsValid);
         v.refresh.setDisable(api==null);v.sync.setDisable(api==null);updateActions();
     }
     private void configureServer(){
         if(busy||store!=null)return;
+        if(parishMode){
+            try{ParishDeploymentDialog.show(v,file,apiBaseUrl).ifPresent(selected->{deployment=selected;apiBaseUrl=selected.apiUrl();serverSettingsValid=true;v.serverEnvironment.setText(selected.parishName());v.password.clear();v.localPassword.clear();offlineReady=false;v.status.setText("Poste configuré pour "+selected.parishName()+". Connectez-vous avec votre compte habituel.");controls();});}
+            catch(Exception failure){v.status.setText("Le rattachement du poste n'a pas pu être effectué.");}return;
+        }
         try{ServerSettingsDialog.show(v,file,apiBaseUrl).ifPresent(address->{
             readinessDelay.stop();apiBaseUrl=address;v.serverEnvironment.setText("Serveur : "+apiBaseUrl);serverSettingsValid=true;v.password.clear();v.localPassword.clear();offlineReady=false;transientFailures=0;automaticRetryAfter=0;
             v.status.setText("Serveur enregistré. Connectez-vous avec votre compte de cet environnement.");controls();inspectOfflineReadiness();
@@ -119,7 +139,25 @@ public final class WorkbenchController implements AutoCloseable {
     }
     private record Authenticated(ApiClient api,JsonNode session,JsonNode parishes,boolean firstProfile,String username){}
     private record Opened(ApiClient api,LocalStore store,JsonNode session,JsonNode parishes,String selected,boolean preparedNow){}
+    private SyncService syncService(){return new SyncService(store,api,parishMode&&deployment!=null?deployment.parishId():null);}
+    private void migrateLegacy(ParishLoginService.LegacyMigrationRequired migration){
+        var dialog=v.decorate(new Dialog<char[]>());dialog.setTitle("Retrouver vos brouillons existants");dialog.setHeaderText("Mise à jour de la protection de ce poste");
+        var secret=new PasswordField();secret.setPromptText("Ancien mot de passe local du poste");var content=new javafx.scene.layout.VBox(12,new Label("Une seule fois, saisissez l'ancien mot de passe local pour conserver votre travail. Les prochaines connexions utiliseront uniquement vos identifiants habituels."),secret);dialog.getDialogPane().setContent(content);
+        var apply=new ButtonType("Conserver mon travail",ButtonBar.ButtonData.OK_DONE);dialog.getDialogPane().getButtonTypes().addAll(new ButtonType("Annuler",ButtonBar.ButtonData.CANCEL_CLOSE),apply);dialog.setResultConverter(button->button==apply?secret.getText().toCharArray():null);
+        var selected=dialog.showAndWait();secret.clear();selected.ifPresent(password->run(()->{ParishLoginService.migrate(file,deployment,deviceCredentials,migration,password);return true;},done->v.status.setText("Vos brouillons sont conservés. Connectez-vous avec votre mot de passe habituel.")));
+    }
+    private void normalLogin(){
+        if(deployment==null||busy||!serverSettingsValid)return;String username=v.username.getText().strip();char[] password=v.password.getText().toCharArray();v.password.clear();
+        if(username.isBlank()||password.length==0){Arrays.fill(password,'\0');v.status.setText("Saisissez votre identifiant et votre mot de passe.");return;}
+        v.status.setText("Connexion à l'espace de "+deployment.parishName()+"…");v.showPreparation(deployment.parishName());
+        run(()->ParishLoginService.login(file,deployment,deviceCredentials,username,password),result->{
+            finishOpen(new Opened(result.api(),result.store(),result.session(),result.parishes(),result.parish(),true));
+            v.session.setText(result.session().path("user").path("username").asText()+" — "+result.session().path("user").path("role").asText());
+            v.status.setText(result.api()==null?"Espace ouvert. Les opérations en attente seront transmises dès que le service sera disponible.":"Bienvenue dans l'espace de "+deployment.parishName()+".");
+        });
+    }
     private void unlock(boolean online){
+        if(parishMode){normalLogin();return;}
         String username=v.username.getText().trim(),password=v.password.getText();
         if(username.isBlank()||(online&&password.isEmpty())){v.status.setText("Saisissez votre identifiant et votre mot de passe.");return;}
         readinessDelay.stop();String providedLocal=v.localPassword.getText();v.password.clear();v.localPassword.clear();
@@ -187,7 +225,7 @@ public final class WorkbenchController implements AutoCloseable {
         openParish(v.parish.getValue(),!opened.preparedNow());
     }
     private void lock(){
-        var client=api;run(()->{try{if(client!=null)client.logout();}catch(Exception ignored){}finally{if(store!=null)store.close();}return true;},ignored->{store=null;api=null;session=null;catalog=null;editing=null;currentParish=null;v.parish.getItems().clear();v.demandRows.clear();v.activityRows.clear();v.demandSearch.clear();v.queueFilter.getSelectionModel().selectFirst();v.type.getItems().clear();v.plan.getItems().clear();v.schedule.getItems().clear();v.payment.getItems().clear();reset();v.detail.setText("");v.queueDetail.setText("");v.session.setText("Coffre verrouillé");v.status.setText("Vous êtes déconnecté. Votre travail reste protégé sur ce poste.");controls();inspectOfflineReadiness();});
+        var client=api;run(()->{try{if(client!=null)client.logout();}catch(Exception ignored){}finally{if(store!=null)store.close();}return true;},ignored->{store=null;api=null;session=null;catalog=null;editing=null;currentParish=null;v.parish.getItems().clear();v.demandRows.clear();v.activityRows.clear();v.demandSearch.clear();v.queueFilter.getSelectionModel().selectFirst();v.type.getItems().clear();v.plan.getItems().clear();v.schedule.getItems().clear();v.payment.getItems().clear();reset();v.detail.setText("");v.queueDetail.setText("");v.session.setText(parishMode?"Déconnecté":"Coffre verrouillé");v.status.setText("Vous êtes déconnecté. Votre travail reste protégé sur ce poste.");controls();inspectOfflineReadiness();});
     }
     private record Snapshot(JsonNode catalogue,JsonNode demands,List<ObjectNode> entries,JsonNode session){}
     private Snapshot snapshot(String parish)throws Exception{return new Snapshot(store.get("catalogue:"+parish),store.get("demands:"+parish),store.entries(),store.get("session"));}
@@ -241,6 +279,16 @@ public final class WorkbenchController implements AutoCloseable {
     private void restoreSelection(TableView<Row> table,String field,String key){table.getSelectionModel().clearSelection();if(key.isBlank())return;for(var row:table.getItems())if(key.equals(row.data().path(field).asText())){table.getSelectionModel().select(row);break;}}
     private boolean hasPermission(String permission){if(session!=null)for(var p:session.path("user").path("permissions"))if(permission.equals(p.asText()))return true;return false;}
     private void updateActions(){
+        if(parishMode&&session!=null){
+            boolean edit=hasPermission("demand:edit");
+            for(var node:List.of(v.save,v.fresh,v.correct,v.edit,v.queue,v.returnToDraft)){node.setVisible(edit);node.setManaged(edit);}
+            for(String id:List.of("navRequest","homeRequest"))v.showAction(id,edit);
+            boolean mutations=edit||hasPermission("payment:manage")||hasPermission("demand:validate")||hasPermission("demand:delete");v.sync.setVisible(mutations);v.sync.setManaged(mutations);v.auto.setVisible(mutations);v.auto.setManaged(mutations);v.retry.setVisible(mutations);v.retry.setManaged(mutations);if(!mutations)v.auto.setSelected(false);
+            boolean payments=hasPermission("payment:manage");for(var node:List.of(v.cash,v.checkout,v.reconcile)){node.setVisible(payments);node.setManaged(payments);}
+            v.validate.setVisible(hasPermission("demand:validate"));v.validate.setManaged(v.validate.isVisible());v.remove.setVisible(hasPermission("demand:delete"));v.remove.setManaged(v.remove.isVisible());
+            boolean receipt=hasPermission("invoice:read")||hasPermission("receipt:manage");v.receipt.setVisible(receipt);v.receipt.setManaged(receipt);
+        }
+
         boolean ready=store!=null&&!busy;var demand=v.demands.getSelectionModel().getSelectedItem();var activity=v.outbox.getSelectionModel().getSelectedItem();
         boolean paid=demand!=null&&"PAYE".equals(demand.data().path("statutPaiement").asText());
         v.correct.setDisable(!ready||demand==null||!hasPermission("demand:edit"));
@@ -326,6 +374,7 @@ public final class WorkbenchController implements AutoCloseable {
     }catch(Exception e){v.status.setText(e.getMessage());}}
     private void save(){saveDraft(null);}
     private void saveDraft(Runnable next){try{
+        if(parishMode)requirePermission("demand:edit");
         parish();var data=formData();String id=editing,rejected=correcting,context=parish();
         run(()->{if(rejected!=null)store.correctDraft(rejected,data);else store.draft(id,data);return snapshot(context);},s->{display(s);reset();v.tabs.getSelectionModel().select(2);v.status.setText("Brouillon enregistré. Vous pourrez le compléter avant de le transmettre.");if(next!=null)next.run();});
     }catch(Exception e){v.status.setText(e.getMessage());}}
@@ -341,10 +390,11 @@ public final class WorkbenchController implements AutoCloseable {
         if(api==null)throw new IllegalArgumentException("Reconnectez-vous avant de retenter la transmission.");
         var selected=selected(v.outbox);String id=selected.path("id").asText(),context=parish();
         if(!confirm("Retenter la transmission de cette opération déjà enregistrée ? Le même identifiant sera conservé pour empêcher un doublon."))return;
-        run(()->{new SyncService(store,api).verifySession();store.retryBlocked(id);return snapshot(context);},this::display);
+        run(()->{syncService().verifySession();store.retryBlocked(id);return snapshot(context);},this::display);
     }catch(Exception e){v.status.setText(e.getMessage());}}
     private void archive(){try{String id=selected(v.outbox).path("id").asText(),parish=parish();if(!confirm("Archiver ce brouillon ou rejet ?"))return;run(()->{store.archive(id);return snapshot(parish);},this::display);}catch(Exception e){v.status.setText(e.getMessage());}}
     private void edit(){try{
+        if(parishMode)requirePermission("demand:edit");
         var e=selected(v.outbox);String state=e.path("state").asText();
         if(!"CREATE_DEMANDE".equals(e.path("kind").asText())||!("DRAFT".equals(state)||"REJECTED".equals(state)))throw new IllegalArgumentException("Seuls les brouillons et demandes rejetées sont modifiables.");
         if(!parish().equals(e.path("payload").path("paroissePublicId").asText()))throw new IllegalArgumentException("Choisissez la paroisse correspondant à ce brouillon.");
@@ -355,10 +405,10 @@ public final class WorkbenchController implements AutoCloseable {
         editing="DRAFT".equals(state)?e.path("id").asText():null;correcting="REJECTED".equals(state)?e.path("id").asText():null;choose(v.type,p.path("typeDemandePublicId").asText());fillPlans();choose(v.plan,p.path("forfaitTarifPublicId").asText());choose(v.schedule,p.path("horairePublicId").asText());choose(v.payment,p.path("typePaiementPublicId").asText());v.surname.setText(p.path("nomFidele").asText());v.firstname.setText(p.path("prenomFidele").asText());v.phone.setText(p.path("telFidele").asText());v.email.setText(p.path("emailFidele").asText());v.courier.setText(p.path("nomCoursier").asText());v.intention.setText(p.path("intention").asText());v.date.setValue(p.path("dateDebut").asText().isBlank()?null:LocalDate.parse(p.path("dateDebut").asText()));if(p.has("_invalidDateText"))v.date.getEditor().setText(p.path("_invalidDateText").asText());v.customTime.setText(p.path("_customTimeText").asText(p.path("heurePersonnalisee").asText("")));var extra=new ArrayList<String>();for(var d:p.path("datesCelebration"))if(!d.asText().equals(p.path("dateDebut").asText()))extra.add(d.asText());v.extraDates.getItems().setAll(extra.stream().map(LocalDate::parse).toList());configuredSlots=p.path("celebrationSlots").isArray()?(ArrayNode)p.path("celebrationSlots").deepCopy():null;v.slotsSummary.setText(configuredSlots==null?"Horaire commun par défaut":configuredSlots.size()+" créneau(x) configuré(s)");v.tabs.getSelectionModel().select(0);cleanForm=formData();
     }
     private void choose(ComboBox<Choice> box,String id){box.setValue(null);for(var c:box.getItems())if(c.id().equals(id)){box.setValue(c);break;}}
-    private void refresh(){if(api==null)return;try{String parish=parish();run(()->{var sync=new SyncService(store,api);sync.catalogue(parish);sync.refresh(parish);return snapshot(parish);},s->{display(s);v.status.setText("Les données de votre paroisse sont à jour.");});}catch(Exception e){v.status.setText(e.getMessage());}}
-    private void synchronize(){if(api==null)return;String parish=v.parish.getValue()==null?null:parish();run(()->{var sync=new SyncService(store,api);String result=sync.synchronize();transientFailures=0;automaticRetryAfter=0;if(parish!=null)sync.refresh(parish);return result;},result->{v.status.setText(result);if(parish!=null)run(()->snapshot(parish),this::display);});}
+    private void refresh(){if(api==null)return;try{String parish=parish();run(()->{var sync=syncService();sync.catalogue(parish);sync.refresh(parish);return snapshot(parish);},s->{display(s);v.status.setText("Les données de votre paroisse sont à jour.");});}catch(Exception e){v.status.setText(e.getMessage());}}
+    private void synchronize(){if(api==null)return;String parish=v.parish.getValue()==null?null:parish();run(()->{var sync=syncService();String result=sync.synchronize();transientFailures=0;automaticRetryAfter=0;if(parish!=null)sync.refresh(parish);return result;},result->{v.status.setText(result);if(parish!=null)run(()->snapshot(parish),this::display);});}
     private void cash(){try{requirePermission("payment:manage");var demand=selected(v.demands);if("PAYE".equals(demand.path("statutPaiement").asText()))throw new IllegalArgumentException("Cette demande est déjà payée.");if(!confirm("Confirmez-vous avoir reçu "+demand.path("montant").asText()+" XOF en espèces pour "+demand.path("codeSuivie").asText()+" ? L'enregistrement reste provisoire jusqu'à validation serveur."))return;String parish=parish();run(()->{store.queueCash(demand);return snapshot(parish);},s->{display(s);v.tabs.getSelectionModel().select(2);v.status.setText("Encaissement enregistré sur ce poste. En attente de confirmation après transmission.");});}catch(Exception e){v.status.setText(e.getMessage());}}
-    private void receipt(){try{var demand=selected(v.demands);String code=demand.path("codeSuivie").asText();if(code.isBlank())throw new IllegalArgumentException("Code de suivi absent");var chooser=new FileChooser();chooser.setTitle("Exporter le reçu (fichier non chiffré)");chooser.setInitialFileName("recu-"+code.replaceAll("[^A-Za-z0-9_-]","_")+".pdf");chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("PDF","*.pdf"));var target=chooser.showSaveDialog(v.root.getScene().getWindow());if(target==null)return;boolean online=api!=null;run(()->{var document=new SyncService(store,api).receiptDownload(code,online);ReceiptExporter.write(target.toPath(),document.bytes());return document.cached();},cached->{if(host!=null)host.showDocument(target.toURI().toString());v.status.setText(cached?"Copie du reçu conservée sur ce poste. Connectez-vous pour obtenir sa version la plus récente.":"Reçu téléchargé. Vous pouvez l’imprimer depuis votre lecteur PDF.");});}catch(Exception e){v.status.setText(e.getMessage());}}
+    private void receipt(){try{var demand=selected(v.demands);String code=demand.path("codeSuivie").asText();if(code.isBlank())throw new IllegalArgumentException("Code de suivi absent");var chooser=new FileChooser();chooser.setTitle("Exporter le reçu (fichier non chiffré)");chooser.setInitialFileName("recu-"+code.replaceAll("[^A-Za-z0-9_-]","_")+".pdf");chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("PDF","*.pdf"));var target=chooser.showSaveDialog(v.root.getScene().getWindow());if(target==null)return;boolean online=api!=null;run(()->{var document=syncService().receiptDownload(code,online);ReceiptExporter.write(target.toPath(),document.bytes());return document.cached();},cached->{if(host!=null)host.showDocument(target.toURI().toString());v.status.setText(cached?"Copie du reçu conservée sur ce poste. Connectez-vous pour obtenir sa version la plus récente.":"Reçu téléchargé. Vous pouvez l’imprimer depuis votre lecteur PDF.");});}catch(Exception e){v.status.setText(e.getMessage());}}
     private void checkout(){try{var d=selected(v.demands);if(api==null)throw new IllegalArgumentException("Une connexion est nécessaire pour effectuer un paiement en ligne.");String code=d.path("codeSuivie").asText();if(!confirm("Préparer le paiement en ligne de "+code+" ? Le prestataire affichera le montant avec ses frais."))return;run(()->api.post("paiements/checkout/"+java.net.URLEncoder.encode(code,java.nio.charset.StandardCharsets.UTF_8),json.createObjectNode()),result->{String url=result.path("paymentUrl").asText();if(!url.isBlank()){var uri=java.net.URI.create(url);if(!"https".equals(uri.getScheme()) || uri.getHost()==null || uri.getUserInfo()!=null){v.status.setText("Le lien de paiement ne peut pas être ouvert. Contactez votre administrateur.");return;}if(host!=null)host.showDocument(url);v.status.setText("Paiement ouvert dans le navigateur. Cliquez ensuite sur Vérifier le paiement.");}else v.status.setText(result.path("message").asText("Pas d'URL de paiement disponible."));});}catch(Exception e){v.status.setText(e.getMessage());}}
     private void reconcile(){try{String code=selected(v.demands).path("codeSuivie").asText();run(()->api.post("paiements/reconcile/"+java.net.URLEncoder.encode(code,java.nio.charset.StandardCharsets.UTF_8),json.createObjectNode()),r->{v.status.setText("État vérifié : "+ScreenFormats.state(r.path("statutPaiement").asText()));refresh();});}catch(Exception e){v.status.setText(e.getMessage());}}
     @Override public void close(){closed=true;readinessDelay.stop();timer.shutdownNow();worker.shutdownNow();if(api!=null)api.clear();if(!busy&&store!=null)store.close();}

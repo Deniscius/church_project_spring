@@ -148,6 +148,9 @@ public final class WorkbenchView {
             lockedPane.getChildren().setAll(connection);
         }
     }
+    public void parishIdentity(String name){var label=ref("parishIdentity",Label.class);label.setText(name);label.setVisible(true);label.setManaged(true);parish.setVisible(false);parish.setManaged(false);}
+    public boolean actionVisible(String id){return ref(id,javafx.scene.Node.class).isVisible();}
+    public void showAction(String id,boolean visible){var node=ref(id,javafx.scene.Node.class);node.setVisible(visible);node.setManaged(visible);}
     private void configureNavigation(){
         sidebarContainer.disableProperty().bind(workspace.disableProperty());
         var title=ref("pageTitle",Label.class);var overviewParish=ref("overviewParish",Label.class);
@@ -159,7 +162,7 @@ public final class WorkbenchView {
         tabs.getSelectionModel().selectedIndexProperty().addListener((o,a,b)->{int index=b.intValue();if(index<0)return;title.setText(labels.get(index));((ScrollPane)workspaceContainer).setVvalue(0);for(int i=0;i<navigation.size();i++){var classes=navigation.get(i).getStyleClass();classes.remove("nav-active");if(i==index)classes.add("nav-active");}});
         root.widthProperty().addListener((o,a,b)->{
             boolean compact=b.doubleValue()<1180;sidebarContainer.setPrefWidth(compact?76:228);
-            ref("sidebarBrand",Label.class).setText(compact?"M":"MISSANYE");
+            ref("sidebarBrand",Label.class).setText("MISSANYE");ref("sidebarBrand",Label.class).setVisible(!compact);ref("sidebarBrand",Label.class).setManaged(!compact);
             for(String id:List.of("sidebarCaption","sidebarHelp")){var node=ref(id,Region.class);node.setVisible(!compact);node.setManaged(!compact);}
             for(int i=0;i<navigation.size();i++)navigation.get(i).setText(compact?"":labels.get(i));
         });

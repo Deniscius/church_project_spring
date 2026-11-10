@@ -33,23 +33,21 @@ thread JavaFX. Le stockage local ne remplace pas les règles métier serveur.
 
 ## Configuration de livraison et interface
 
-Le développeur définit l'adresse du service au build avec `desktop.api.url`.
-`DesktopConfiguration` lit la valeur embarquée et permet les surcharges
-administrées `missanye.apiUrl` / `MISSANYE_API_URL`. Le déployeur peut aussi
-utiliser **Configuration du serveur** sur l'écran de connexion. Cette fenêtre
-valide l'URL et exige un contrôle de santé réussi avant un enregistrement atomique
-dans `server.properties`. Ce choix du poste est prioritaire sur les valeurs de
-lancement et de livraison. Une session ouverte doit d'abord être fermée.
-Le test n'envoie pas d'identifiants et ne désactive jamais la vérification TLS.
-Il affiche un compteur pendant l’attente puis un panneau explicite de réussite
-ou d’échec. Tous les dialogues passent par le même dimensionnement selon la
-zone visible du moniteur, avec contenu défilant et boutons accessibles.
+Le développeur rattache le poste à une paroisse via **Configurer ce poste**.
+La fenêtre vérifie le serveur et le compte `SUPER_ADMIN` global, puis enregistre
+le choix de paroisse sans conserver les identifiants administrateur. Un profil
+validé peut être inclus dans l'installateur. La configuration locale est
+prioritaire sur le profil embarqué ; aucun changement silencieux de paroisse
+n'est effectué lors d'une mise à jour.
 
-La connexion est centrée sur l'identifiant et le mot de passe. Le mot de passe
-local est demandé dans un assistant dédié ou dans l'accès hors connexion.
-Lors du premier accès en ligne, cet assistant exige la sélection d’une paroisse
-autorisée et la confirmation du secret local, puis prépare toutes les données
-avant d’activer le mode hors connexion. Voir [les parcours vérifiés](DESKTOP_PARCOURS.md).
+La connexion normale comporte uniquement l'identifiant et le mot de passe du
+compte web. La paroisse est fixée par le déploiement et les actions utilisent les
+permissions renvoyées par l'API. Windows DPAPI protège la clé du coffre ; aucun
+second mot de passe local n'est demandé, sauf lors de la migration unique d'un
+ancien coffre. Voir [le modèle paroissial](DESKTOP_PAROISSE.md).
+Tous les dialogues s'adaptent à la zone visible du moniteur et font défiler leur
+contenu lorsque nécessaire.
+
 Après déverrouillage, une barre de session compacte et des compteurs remplacent
 le formulaire. Les demandes et l'activité utilisent des tableaux, une recherche,
 des filtres, des états traduits et des actions dépendant de la sélection et des
@@ -85,7 +83,8 @@ incrémental avec marqueurs de suppression sera plus adapté.
 ## Hors ligne
 
 Première connexion obligatoirement en ligne. Les ouvertures suivantes utilisent
-un mot de passe local séparé, dont est dérivée la clé AES-GCM du coffre. Les
+les mêmes identifiants, avec protection Windows DPAPI et une identité de continuité
+limitée à 72 heures. Les
 sessions locales sont séparées par serveur, compte et propriétaire UUID.
 La reprise vérifie de nouveau la session et les autorisations serveur.
 
@@ -131,3 +130,6 @@ expiration de session interrompt l'envoi.
 
 La navigation latérale et l’accueil adaptatif sont décrits dans
 [la conception de l’interface](DESKTOP_INTERFACE.md).
+
+Le modèle courant rattache une installation à une paroisse :
+[comptes, RBAC, déploiement et migration](DESKTOP_PAROISSE.md).

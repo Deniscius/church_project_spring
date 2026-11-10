@@ -18,6 +18,7 @@ public final class DesktopApplication extends Application {
             applicationLock=ApplicationLock.acquire(directory);
             var view = new WorkbenchView(); controller = new WorkbenchController(view, directory.resolve("workflow.sqlite"), getHostServices());
             var bounds=javafx.stage.Screen.getPrimary().getVisualBounds();
+            stage.getIcons().add(new javafx.scene.image.Image(java.util.Objects.requireNonNull(getClass().getResourceAsStream("branding/missanye.png"))));
             stage.setTitle("Missanye Desktop — Gestion paroissiale");stage.setScene(new Scene(view.root,Math.min(1180,bounds.getWidth()-40),Math.min(820,bounds.getHeight()-40)));stage.setMinWidth(Math.min(960,bounds.getWidth()-40));stage.setMinHeight(Math.min(640,bounds.getHeight()-40)); stage.setOnCloseRequest(event->{event.consume();controller.requestClose(stage::hide);}); stage.show();
         } catch (Exception e) {
             if(applicationLock!=null)try{applicationLock.close();}catch(Exception ignored){}

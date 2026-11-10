@@ -3,6 +3,7 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 <?import javafx.scene.shape.SVGPath?>
+<?import javafx.scene.image.*?>
 <BorderPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" styleClass="workbench" stylesheets="@desktop.css">
   <top>
     <HBox fx:id="appHeader" spacing="18" alignment="CENTER_LEFT" styleClass="app-header">
@@ -14,6 +15,7 @@
   <left>
     <ScrollPane fx:id="sidebarContainer" fitToWidth="true" fitToHeight="true" hbarPolicy="NEVER" prefWidth="228" minWidth="76" styleClass="sidebar-scroll">
       <content><VBox fx:id="sidebar" spacing="10" styleClass="sidebar" minHeight="-Infinity">
+        <StackPane maxWidth="44" minWidth="44" styleClass="brand-logo"><ImageView fitWidth="32" fitHeight="32" preserveRatio="true"><image><Image url="@../branding/missanye.png"/></image></ImageView></StackPane>
         <Label fx:id="sidebarBrand" text="MISSANYE" styleClass="sidebar-brand"/>
         <Label fx:id="sidebarCaption" text="Votre paroisse, au quotidien." wrapText="true" minHeight="-Infinity" styleClass="sidebar-caption"/>
         <Separator/>
@@ -32,6 +34,7 @@
       <VBox spacing="12" styleClass="toolbar">
         <FlowPane hgap="10" vgap="10">
           <Label text="Paroisse" styleClass="field-label"/>
+          <Label fx:id="parishIdentity" visible="false" managed="false" styleClass="field-label" wrapText="true" minHeight="-Infinity" maxWidth="280"/>
           <ComboBox fx:id="parish" prefWidth="240" minWidth="160"/>
           <Button fx:id="refresh" text="Actualiser" styleClass="secondary-button"/>
           <Button fx:id="sync" text="Transmettre les opérations" styleClass="primary-button"/>

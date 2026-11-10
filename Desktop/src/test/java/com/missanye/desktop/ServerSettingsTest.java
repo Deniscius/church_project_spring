@@ -28,4 +28,12 @@ class ServerSettingsTest {
         try{ServerProbe.test(address);assertFalse(credential.get());answer.set("{\"status\":\"DOWN\"}");assertThrows(Exception.class,()->ServerProbe.test(address));answer.set("<html>Frontend</html>");assertThrows(Exception.class,()->ServerProbe.test(address));assertThrows(IllegalArgumentException.class,()->ServerProbe.test(address+"missing/"));}
         finally{server.stop(0);}
     }
+    @Test void parishProfileCanBeBundledAndOverriddenByValidatedLocalDeployment()throws Exception{
+        Path bundledDb=temp.resolve("bundle/ignored.sqlite"),localDb=temp.resolve("local/workflow.sqlite");
+        var bundled=new com.missanye.desktop.config.ParishDeployment("https://api.example.org",TestRequests.PARISH,"Saint Paul");ServerSettings.saveDeployment(bundledDb,bundled);
+        String previous=System.getProperty("missanye.deploymentFile");System.setProperty("missanye.deploymentFile",ServerSettings.file(bundledDb).toString());
+        try{assertEquals(bundled,ServerSettings.deployment(localDb).orElseThrow());var local=new com.missanye.desktop.config.ParishDeployment("https://api.example.org","731c7ab4-2fae-4d78-a17b-0ff7653f4599","Saint Pierre");ServerSettings.saveDeployment(localDb,local);assertEquals(local,ServerSettings.deployment(localDb).orElseThrow());String text=java.nio.file.Files.readString(ServerSettings.file(localDb));assertFalse(text.contains("password"));assertFalse(text.contains("token"));}
+        finally{if(previous==null)System.clearProperty("missanye.deploymentFile");else System.setProperty("missanye.deploymentFile",previous);}
+    }
+
 }

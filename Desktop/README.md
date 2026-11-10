@@ -7,9 +7,10 @@ Il communique avec le backend Spring Boot ; seul ce dernier accède à Neon.
 
 Les fichiers se trouvent dans `src/main/resources/com/missanye/desktop/view/` :
 
-- `login-form.fxml` : connexion en ligne et coffre local, inspirée du formulaire
+- `login-form.fxml` : connexion habituelle au compte de la paroisse, inspirée du formulaire
   `login_form.fxml` fourni dans `Church_Project.zip` (champs à droite).
-- `workbench.fxml` : structure principale, sélection de paroisse et onglets.
+- `workbench.fxml` : navigation principale et identité de la paroisse.
+- `parish-deployment.fxml` : vérification administrateur et rattachement du poste.
 - `request-form.fxml` : formulaire d'intention, forfaits, coordonnées et créneaux.
 - `demands.fxml` : liste des demandes, décisions, paiements et reçus.
 - `outbox.fxml` : brouillons et opérations en attente de synchronisation.
@@ -49,22 +50,17 @@ Le workflow Windows publie aussi les captures **Missanye-Interface-Previews**.
 
 ## Première utilisation
 
-1. Saisir l'identifiant et le mot de passe fournis par l'administrateur, puis
-   cliquer **Se connecter**. L'application connaît déjà son service : aucune
-   adresse technique n'est demandée à l'utilisateur.
-   Le service peut devoir sortir de veille : la connexion attend jusqu’à deux
-   minutes avant de signaler un dépassement de délai.
-2. Lors du premier accès **en ligne**, choisir la paroisse autorisée à préparer,
-   puis saisir et confirmer un **mot de passe local d'au moins 12 caractères**.
-   Ce secret protège ce poste ; il n'existe pas de récupération intégrée.
-3. Patienter sur l'écran de préparation. Les offres, horaires et demandes doivent
-   être enregistrés avant l'ouverture de l'espace métier. Un chargement
-   interrompu laisse l'accès hors connexion désactivé et peut être repris en ligne.
-4. Après cette préparation, ouvrir **Travailler hors connexion**, renseigner
-   l'identifiant et le mot de passe local puis **Ouvrir mon espace hors connexion**.
-   L'application retrouve la paroisse sélectionnée et propose seulement celles
-   déjà préparées. Les droits seront revérifiés avant la transmission des opérations.
-   Pour reconnecter, utiliser **Déconnexion**, puis **Se connecter**.
+Le développeur rattache une fois le poste à la paroisse via **Configurer ce
+poste**, avec le compte administrateur de la plateforme. Les comptes et leurs
+accès sont configurés sur le web.
+
+L'utilisateur saisit ensuite son **identifiant et son mot de passe habituels**.
+L'application ouvre directement la paroisse du poste, avec les permissions
+renvoyées par le service. Aucun choix de paroisse, mode de connexion ou second
+mot de passe ne fait partie du parcours normal.
+
+Voir [le déploiement par paroisse, le RBAC et la protection Windows](../docs/DESKTOP_PAROISSE.md)
+pour produire un installateur préconfiguré et migrer les anciens brouillons.
 
 La barre de session remplace le formulaire une fois connecté. Les tableaux
 proposent une recherche des demandes, un filtre de l'activité et des états
@@ -99,36 +95,18 @@ Le script shell accepte `MISSANYE_BUILD_API_URL`. Le fichier embarqué
 `com/missanye/desktop/config/deployment.properties` est filtré par Maven. Pour
 un lancement administré, `-Dmissanye.apiUrl=...` (option JVM) ou
 `MISSANYE_API_URL` peut surcharger cette valeur, dans cet ordre. Une adresse
-enregistrée depuis **Configuration du serveur** est prioritaire sur ces valeurs.
+enregistrée depuis **Configurer ce poste** est prioritaire sur ces valeurs.
 Les URL doivent être absolues, sans
 identifiant, query string ou fragment ; HTTPS est obligatoire sauf en local.
 Aucune clé Neon ou FedaPay ne doit être ajoutée à ce fichier.
 
-### Configuration du serveur sur le poste
+### Configuration de la paroisse sur le poste
 
-Avant la connexion, cliquer **Configuration du serveur**, saisir l'adresse du
-backend (par exemple `https://church-project-spring-pmbz.onrender.com`), puis
-**Tester la connexion**. Le contrôle appelle `actuator/health`, sans identifiant,
-mot de passe ni cookie. Il exige une réponse JSON `status: UP` et peut attendre
-jusqu'à deux minutes pendant le réveil du serveur. Ce contrôle ne remplace pas
-l'authentification du compte.
-
-**Enregistrer** est activé seulement après un test réussi de l'adresse saisie.
-Toute modification exige un nouveau test. **Annuler** conserve l'adresse actuelle.
-Pendant le test, un compteur indique le temps écoulé. Le résultat apparaît dans
-un panneau vert (réussite) ou rouge (échec), automatiquement rendu visible.
-Le fichier `server.properties`, placé à côté du coffre SQLite dans le répertoire
-`.missanye-desktop` (ou `missanye.dataDir`), mémorise uniquement l'adresse. Il est
-remplacé atomiquement lorsque le système de fichiers le permet. Une configuration
-illisible bloque la connexion et peut être corrigée depuis la même fenêtre.
-
-Le réglage est destiné à la personne qui déploie le poste ; il n'est pas protégé
-par une authentification administrateur supplémentaire. Il est accessible avant
-la connexion, et nécessite une déconnexion préalable si un espace est ouvert.
-Les URL HTTP distantes sont refusées ; pour un backend sur le réseau local,
-utiliser HTTPS. La connexion Neon reste configurée uniquement côté backend.
-Supprimer `server.properties` quand l'application est fermée rétablit les valeurs
-de lancement ou de livraison.
+**Configurer ce poste** vérifie l'API et les identifiants du `SUPER_ADMIN` global,
+puis propose les paroisses actives. Le choix est enregistré sans mot de passe
+ni cookie. Les utilisateurs ordinaires n'éditent pas le rattachement.
+Le profil peut être inclus dans l'installateur avec `-DeploymentFile` : voir
+[DESKTOP_PAROISSE.md](../docs/DESKTOP_PAROISSE.md).
 
 La séparation des coffres utilise l'adresse canonique du service et le compte.
 Changer d'environnement crée un espace local distinct. Avant de remplacer une
@@ -216,8 +194,9 @@ locale qu'après confirmation serveur et actualisation de la liste.
 ## Stockage et sauvegarde
 
 Le coffre est `~/.missanye-desktop/workflow.sqlite`. Les contenus, réponses,
-PDF et catalogues sont chiffrés en AES-256-GCM ; la clé est dérivée du mot de
-passe local avec PBKDF2-HMAC-SHA256 et un sel aléatoire propre au profil.
+PDF et catalogues sont chiffrés en AES-256-GCM. La clé aléatoire du nouveau
+parcours est protégée par Windows DPAPI. Les anciens coffres dérivés d’un mot de
+passe local sont migrés sans effacer leur contenu.
 Les profils sont séparés par serveur et compte, et la synchronisation compare
 l'identifiant serveur du propriétaire à la session courante. Les cookies ne
 vivent qu'en mémoire. Le coffre doit rester sur un compte système personnel.
@@ -228,8 +207,8 @@ Pour changer le répertoire sous Linux/macOS :
 JAVA_TOOL_OPTIONS="-Dmissanye.dataDir=/chemin/vers/donnees" mvn javafx:run
 ```
 
-Sauvegarder le fichier SQLite après verrouillage de l'application et conserver
-séparément le mot de passe local. Ne pas copier une base ouverte pendant une
+Sauvegarder après fermeture de l’application et préserver le profil Windows de
+protection DPAPI, ou transmettre les opérations au service avant de changer de poste. Ne pas copier une base ouverte pendant une
 écriture. Le prototype précédent `drafts.sqlite`, non chiffré, n'est ni importé
 ni supprimé automatiquement ; il n'est plus utilisé.
 
@@ -329,12 +308,11 @@ une réponse HTTP 401 est signalée séparément. Ne pas désactiver la vérific
 TLS pour contourner un problème de certificat.
 
 Les messages de connexion distinguent un refus des identifiants par l'API et un
-refus de session après authentification réussie. Le serveur effectivement utilisé
+refus de session après authentification réussie. La paroisse affectée au poste
 et le résultat apparaissent près des champs de connexion. Le compte créé par le
-seeder utilise les mêmes identifiants que sur le web. Un administrateur global
-sans paroisse active voit une confirmation d'authentification et une indication
-pour préparer une paroisse via le web ; aucun coffre vide utilisable hors ligne
-n'est créé dans ce cas.
+seeder utilise les mêmes identifiants que sur le web. Le compte administrateur global
+peut préparer le rattachement ; si aucune paroisse active n’existe, il doit en
+créer une depuis le web avant le déploiement.
 
 Les dialogues sont redimensionnables et limités à la zone visible de l'écran,
 avec défilement si nécessaire. La page de connexion masque le panneau décoratif

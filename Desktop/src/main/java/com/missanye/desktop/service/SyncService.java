@@ -11,19 +11,23 @@ import java.util.*;
 public final class SyncService {
     private final LocalStore store;
     private final ApiClient api;
+    private final String boundParish;
     private final ObjectMapper json=new ObjectMapper();
-    public SyncService(LocalStore store,ApiClient api){this.store=store;this.api=api;}
+    public SyncService(LocalStore store,ApiClient api){this(store,api,null);}
+    public SyncService(LocalStore store,ApiClient api,String parish){this.store=store;this.api=api;boundParish=parish;}
     public static final class SessionMismatchException extends IllegalArgumentException {
         public SessionMismatchException(){super("Reconnectez-vous avec le compte associé à cet espace de travail.");}
     }
     public JsonNode verifySession() throws Exception {
         var session=api.get("auth/me");
         if(!store.owner().equals(session.path("user").path("id").asText()))throw new SessionMismatchException();
+        if(boundParish!=null&&!session.path("user").path("isGlobal").asBoolean()&&!WorkspaceBootstrap.allows(session.path("paroisses"),boundParish))throw new IllegalArgumentException("Votre accès à la paroisse de ce poste a été retiré. Reconnectez-vous après vérification des accès sur le web.");
         store.put("session",session);return session;
     }
     public String synchronize() throws Exception {
         verifySession();int sent=0,rejected=0,blocked=0;
         for(var entry:store.entries()) {
+            if(boundParish!=null&&!boundParish.equals(entry.path("payload").path("paroissePublicId").asText(entry.path("parish").asText())))continue;
             if(!"PENDING".equals(entry.path("state").asText()))continue;
             entry.put("attempts",entry.path("attempts").asInt()+1);
             store.put("entry:"+entry.path("id").asText(),entry);

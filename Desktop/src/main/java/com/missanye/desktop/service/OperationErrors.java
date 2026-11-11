@@ -12,6 +12,8 @@ import java.util.*;
 public final class OperationErrors {
     private OperationErrors(){}
     public static String message(Throwable failure){
+        if(failure instanceof ParishLoginService.PreparationUnavailable)return failure.getMessage();
+        if(failure instanceof ApiClient.ApiException response&&response.status()>=500)return response.getMessage()+" (HTTP "+response.status()+")";
         if(failure instanceof ApiClient.ApiException||failure instanceof IllegalArgumentException)return failure.getMessage();
         var causes=new ArrayList<Throwable>();var seen=Collections.newSetFromMap(new IdentityHashMap<Throwable,Boolean>());
         for(var cause=failure;cause!=null&&seen.add(cause);cause=cause.getCause())causes.add(cause);

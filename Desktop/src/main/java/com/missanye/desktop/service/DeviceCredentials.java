@@ -34,7 +34,7 @@ public final class DeviceCredentials {
         if(!MessageDigest.isEqual(Base64.getDecoder().decode(ticket.verifier()),derive(password,Base64.getDecoder().decode(ticket.salt()))))throw new IllegalArgumentException("Identifiant ou mot de passe incorrect.");return ticket;
     }
     private static byte[] derive(char[] password,byte[] salt)throws Exception{var spec=new PBEKeySpec(password,salt,210000,256);try{return SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec).getEncoded();}finally{spec.clearPassword();}}
-    public static boolean unavailable(Throwable failure){return failure instanceof java.net.ConnectException||failure instanceof java.net.UnknownHostException||failure instanceof java.net.http.HttpTimeoutException||(failure instanceof com.missanye.desktop.api.ApiClient.ApiException e&&Set.of(502,503,504).contains(e.status()));}
+    public static boolean unavailable(Throwable failure){return failure instanceof java.net.ConnectException||failure instanceof java.net.UnknownHostException||failure instanceof java.net.http.HttpTimeoutException||(failure instanceof com.missanye.desktop.api.ApiClient.ApiException e&&Set.of(500,502,503,504).contains(e.status()));}
     public static final class WindowsProtector implements Protector{
         public byte[] protect(byte[] value)throws Exception{return run(value,true);}public byte[] unprotect(byte[] value)throws Exception{return run(value,false);}
         private byte[] run(byte[] value,boolean seal)throws Exception{

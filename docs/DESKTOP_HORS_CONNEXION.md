@@ -132,3 +132,24 @@ non encore transmises ne deviennent pas visibles sur un autre ordinateur ou un
 autre compte utilisateur isolé par simple génération d'un reçu. Le relais réseau
 local évoqué pour partager ces opérations pendant une coupure Internet reste
 à implémenter ; il devra conserver les mêmes UUID et les mêmes contrôles d'accès.
+
+## Dépannage d’une connexion indisponible
+
+Les erreurs HTTP 500, 502, 503 et 504 permettent de rouvrir un espace déjà
+préparé uniquement si l’identité locale reste valide, non révoquée et si le mot
+de passe correspond. Un refus 401 ou 403 ne déclenche jamais cette reprise ;
+un refus de connexion avec le mot de passe préparé révoque cette identité.
+
+Si le serveur accepte les identifiants et les accès mais échoue ensuite pendant
+le chargement des données, un catalogue et une liste de demandes déjà complets
+peuvent être réutilisés. Les droits fraîchement vérifiés sont appliqués, aucune
+réponse partielle ne remplace le cache, et les brouillons restent conservés.
+La première utilisation nécessite toujours un backend opérationnel ; elle ne
+crée pas d’identité locale si la préparation échoue.
+
+Pour diagnostiquer Render, refaire une tentative et consulter les logs du backend
+à la même heure. Le desktop distingue maintenant les identifiants acceptés suivis
+d’une préparation impossible et précise le statut HTTP des erreurs serveur, sans
+exposer de secrets ni de traces internes. Vérifier également `/actuator/health`.
+Ne pas supprimer le coffre ou les fichiers DPAPI pour tenter de réparer une erreur
+Neon/Flyway : cela risquerait de rendre le travail local inaccessible.

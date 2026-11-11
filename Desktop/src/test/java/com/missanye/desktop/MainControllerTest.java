@@ -37,6 +37,20 @@ class MainControllerTest {
         for(int y=0;y<buffered.getHeight();y++)for(int x=0;x<buffered.getWidth();x++)buffered.setRGB(x,y,image.getPixelReader().getArgb(x,y));
         try{javax.imageio.ImageIO.write(buffered,"png",Path.of("target",name).toFile());}catch(java.io.IOException e){throw new RuntimeException(e);}
     }
+    @Test void signInFillsCompactWindowAndRestoresWorkspaceAfterUserSwitch()throws Exception{
+        fx(()->{
+            var view=new WorkbenchView();var stage=new javafx.stage.Stage();stage.setScene(new javafx.scene.Scene(view.root));
+            com.missanye.desktop.view.WindowLayout.install(stage,view);stage.show();
+            try{
+                assertNull(view.root.getTop());assertNull(view.root.getLeft());assertNull(view.root.getBottom());
+                assertEquals(820,stage.getWidth(),2);assertEquals(570,stage.getHeight(),2);capture(view,"desktop-login-compact-preview.png");
+                view.setWorkspaceOpen(true);assertNotNull(view.root.getTop());assertNotNull(view.root.getBottom());
+                stage.setWidth(1024);stage.setHeight(700);view.setWorkspaceOpen(false);
+                assertNull(view.root.getBottom());assertEquals(820,stage.getWidth(),2);assertEquals(570,stage.getHeight(),2);
+                view.setWorkspaceOpen(true);assertEquals(1024,stage.getWidth(),2);assertEquals(700,stage.getHeight(),2);
+            }finally{stage.close();}
+        });
+    }
     @Test void offlineUnlockSaveAndLockUseRealEncryptedSqlite()throws Exception{
         Path file=temp.resolve("ui.sqlite");var json=new ObjectMapper();String parish="731c7ab4-2fae-4d78-a17b-0ff7653f4501";
         try(var store=LocalStore.unlock(file,"http://localhost:8081/","alice","Local password 1234!".toCharArray(),"alice-id")){

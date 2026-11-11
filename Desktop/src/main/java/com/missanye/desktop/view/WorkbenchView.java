@@ -38,24 +38,26 @@ public final class WorkbenchView {
     public final TabPane tabs;
     public final VBox workspace;
     private final Map<String,Object> namespace=new HashMap<>();
-    private final Region connection,header,workspaceContainer,sidebarContainer;
+    private final Region connection,header,workspaceContainer,sidebarContainer,footer;
     private final StackPane lockedPane=new StackPane();
     private boolean workspaceOpen;
+    private final javafx.beans.property.ReadOnlyBooleanWrapper opened=new javafx.beans.property.ReadOnlyBooleanWrapper(false);
+    public javafx.beans.property.ReadOnlyBooleanProperty workspaceOpenProperty(){return opened.getReadOnlyProperty();}
     private int openDialogs;
     public boolean hasOpenDialog(){return openDialogs>0;}
 
     public WorkbenchView() {
         try {
             root=(BorderPane)load("workbench.fxml");
-            header=(Region)root.getTop();workspaceContainer=(Region)root.getCenter();sidebarContainer=(Region)root.getLeft();
-            var loginCard=(Region)load("login-form.fxml");loginCard.setMaxHeight(Region.USE_PREF_SIZE);loginCard.setMinHeight(Region.USE_PREF_SIZE);
+            header=(Region)root.getTop();workspaceContainer=(Region)root.getCenter();sidebarContainer=(Region)root.getLeft();footer=(Region)root.getBottom();
+            var loginCard=(Region)load("login-form.fxml");loginCard.setMaxHeight(Double.MAX_VALUE);loginCard.setMinHeight(Region.USE_PREF_SIZE);loginCard.setMaxWidth(Double.MAX_VALUE);
             loginCard.setMinWidth(0);
             if(loginCard instanceof GridPane grid){
                 var brand=grid.getChildren().get(0);grid.widthProperty().addListener((o,a,b)->{
-                    boolean compact=b.doubleValue()<760;brand.setVisible(!compact);brand.setManaged(!compact);grid.getColumnConstraints().get(0).setPercentWidth(compact?0:43);grid.getColumnConstraints().get(1).setPercentWidth(compact?100:57);grid.setHgap(compact?0:36);
+                    boolean compact=b.doubleValue()<760;brand.setVisible(!compact);brand.setManaged(!compact);grid.getColumnConstraints().get(0).setPercentWidth(compact?0:43);grid.getColumnConstraints().get(1).setPercentWidth(compact?100:57);grid.setHgap(0);
                 });
             }
-            var loginHolder=new StackPane(loginCard);loginHolder.setMinHeight(Region.USE_PREF_SIZE);
+            var loginHolder=new StackPane(loginCard);loginHolder.getStyleClass().add("login-surface");loginHolder.setMinHeight(Region.USE_PREF_SIZE);
             var loginScroll=new ScrollPane(loginHolder);loginScroll.setFitToWidth(true);loginScroll.setFitToHeight(true);loginScroll.getStyleClass().add("workspace-scroll");connection=loginScroll;
             TabPane panes=ref("tabs",TabPane.class);
             panes.getTabs().get(0).setContent(load("request-form.fxml"));
@@ -123,7 +125,7 @@ public final class WorkbenchView {
                 return Math.max(360,content.minHeight(Math.max(300,tabs.getWidth()-32))+52);
             },tabs.widthProperty(),tabs.getSelectionModel().selectedItemProperty(),detail.textProperty(),queueDetail.textProperty()));
             loginStatus=ref("loginStatus",Label.class);serverEnvironment=ref("serverEnvironment",Label.class);loginStatus.textProperty().bind(status.textProperty());
-            root.setTop(null);root.setLeft(null);
+            root.setTop(null);root.setLeft(null);root.setBottom(null);
             lockedPane.getChildren().add(connection);
             root.setCenter(lockedPane);
         } catch(IOException e) {
@@ -141,12 +143,13 @@ public final class WorkbenchView {
         if(open) {
             lockedPane.getChildren().clear();
             root.setCenter(workspaceContainer);
-            root.setTop(header);root.setLeft(sidebarContainer);tabs.getSelectionModel().select(3);
+            root.setTop(header);root.setLeft(sidebarContainer);root.setBottom(footer);tabs.getSelectionModel().select(3);
         } else {
-            root.setTop(null);root.setLeft(null);
+            root.setTop(null);root.setLeft(null);root.setBottom(null);
             root.setCenter(lockedPane);
             lockedPane.getChildren().setAll(connection);
         }
+        opened.set(open);
     }
     public void parishIdentity(String name){var label=ref("parishIdentity",Label.class);label.setText(name);label.setVisible(true);label.setManaged(true);parish.setVisible(false);parish.setManaged(false);}
     public boolean actionVisible(String id){return ref(id,javafx.scene.Node.class).isVisible();}

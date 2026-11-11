@@ -81,4 +81,14 @@ class ParishLoginServiceTest{
   assertTrue(OperationErrors.message(failure).contains("acceptés"));assertTrue(OperationErrors.message(failure).contains("HTTP 503"));assertFalse(java.nio.file.Files.exists(file));assertNull(credentials.read(url,"alice"));
  }
 
+ @Test void anotherParishUserOnSameComputerGetsOwnIdentityRightsAndCache()throws Exception{
+  var current=new AtomicReference<>("alice");server.removeContext("/auth/login-multi-tenant");server.removeContext("/auth/me");
+  server.createContext("/auth/login-multi-tenant",e->{current.set(new ObjectMapper().readTree(e.getRequestBody()).path("username").asText());reply(e,loginStatus.get(),"{}");});
+  server.createContext("/auth/me",e->{boolean alice="alice".equals(current.get());reply(e,200,"{\"user\":{\"id\":\""+current.get()+"-id\",\"username\":\""+current.get()+"\",\"permissions\":[\"demand:read\""+(alice?",\"demand:edit\"":"")+"]},\"paroisses\":[{\"id\":\""+PARISH+"\",\"nom\":\"Saint Paul\"}]}");});
+  var deployment=new ParishDeployment(url,PARISH,"Saint Paul");var credentials=new DeviceCredentials(directory.resolve("identity"),DeviceCredentialsTest.testProtector());Path file=directory.resolve("shared-computer.sqlite");
+  var alice=ParishLoginService.login(file,deployment,credentials,"alice","alice password".toCharArray());String draft=alice.store().draft(null,TestRequests.complete()).path("id").asText();alice.store().close();alice.api().clear();
+  var bob=ParishLoginService.login(file,deployment,credentials,"bob","bob password".toCharArray());assertEquals(PARISH,bob.parish());assertEquals("bob-id",bob.store().owner());assertEquals(1,bob.session().path("user").path("permissions").size());assertTrue(bob.store().entries().isEmpty());bob.store().close();bob.api().clear();
+  loginStatus.set(503);var reopened=ParishLoginService.login(file,deployment,credentials,"alice","alice password".toCharArray());assertEquals("alice-id",reopened.store().owner());assertEquals("DRAFT",reopened.store().get("entry:"+draft).path("state").asText());reopened.store().close();
+ }
+
 }

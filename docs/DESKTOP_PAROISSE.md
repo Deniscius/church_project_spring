@@ -126,3 +126,9 @@ PostgreSQL réels teste aussi la connexion paroissiale en HTTPS.
 
 Le parcours complet des demandes et reçus avant transmission est décrit dans
 [DESKTOP_HORS_CONNEXION.md](DESKTOP_HORS_CONNEXION.md).
+
+## Affectation du stockage cloud
+
+La préparation à une future répartition des paroisses entre bases est décrite
+dans [SHARDING.md](SHARDING.md). La base Neon reste partagée ; aucune adresse
+de base ou affectation technique n’est demandée à l’utilisateur du desktop.

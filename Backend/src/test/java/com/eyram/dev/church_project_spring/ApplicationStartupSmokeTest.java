@@ -81,6 +81,20 @@ class ApplicationStartupSmokeTest {
     private TenantCatalogBootstrapService tenantCatalogBootstrapService;
     @Autowired
     private ObjectMapper objectMapper;
+    @Autowired
+    private org.springframework.transaction.PlatformTransactionManager transactionManager;
+
+    @Test
+    void storagePlacementFollowsNewParishTransaction() {
+        var id=java.util.UUID.randomUUID();
+        new org.springframework.transaction.support.TransactionTemplate(transactionManager).execute(status->{
+            jdbc.update("INSERT INTO paroisse(public_id,nom,adresse,doyenne_id,statut_tenant,is_active) SELECT ?, 'CI storage', 'Test', id, 'ACTIVE', TRUE FROM doyenne ORDER BY id LIMIT 1",id);
+            assertThat(jdbc.queryForObject("SELECT shard_key FROM parish_storage_placement WHERE parish_id=?",String.class,id)).isEqualTo("primary");
+            status.setRollbackOnly();return null;
+        });
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM paroisse WHERE public_id=?",Long.class,id)).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM parish_storage_placement WHERE parish_id=?",Long.class,id)).isZero();
+    }
 
     @BeforeEach
     void ensurePlatformUserExists() {
@@ -298,6 +312,17 @@ class ApplicationStartupSmokeTest {
         var desktopCreated = restTemplate.postForEntity("/desktop/operations", new HttpEntity<>(operation,cashHeaders),String.class);
         assertThat(desktopCreated.getStatusCode().value()).isEqualTo(200);
         JsonNode desktopDemand=objectMapper.readTree(desktopCreated.getBody());
+        assertThat(jdbc.queryForObject("SELECT shard_key FROM parish_storage_placement WHERE parish_id=?",String.class,parish.getPublicId())).isEqualTo("primary");
+        org.assertj.core.api.Assertions.assertThatThrownBy(()->jdbc.update("UPDATE parish_storage_placement SET shard_key='unconfigured' WHERE parish_id=?",parish.getPublicId()))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM paroisse p WHERE NOT EXISTS (SELECT 1 FROM parish_storage_placement s WHERE s.parish_id=p.public_id)",Long.class)).isZero();
+        jdbc.update("DELETE FROM parish_storage_placement WHERE parish_id=?",parish.getPublicId());
+        try {
+            var unavailablePlacement=restTemplate.postForEntity("/desktop/operations",new HttpEntity<>(operation,cashHeaders),String.class);
+            assertThat(unavailablePlacement.getStatusCode().value()).isEqualTo(503);
+        } finally {
+            jdbc.update("INSERT INTO parish_storage_placement(parish_id) VALUES (?)",parish.getPublicId());
+        }
         var branding = restTemplate.exchange("/desktop/paroisses/"+parish.getPublicId()+"/receipt-branding",HttpMethod.GET,new HttpEntity<>(cashHeaders),String.class);
         assertThat(branding.getStatusCode().value()).isEqualTo(200);
         assertThat(objectMapper.readTree(branding.getBody()).path("nom").asText()).isEqualTo(parish.getNom());

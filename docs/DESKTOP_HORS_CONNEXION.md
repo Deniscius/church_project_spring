@@ -128,8 +128,9 @@ initiale. Les captures et un PDF de démonstration sont publiés dans l'artefact
 ## Plusieurs postes
 
 Ces changements concernent le travail autonome de chaque poste. Les demandes
-non encore transmises ne deviennent pas visibles sur un autre ordinateur ou un
-autre compte utilisateur isolé par simple génération d'un reçu. Le relais réseau
+non encore transmises sont partagées entre comptes autorisés sur le même poste
+via le [journal de la paroisse](DESKTOP_JOURNAL_PAROISSE.md). Elles ne deviennent
+pas visibles sur un autre ordinateur par simple génération d’un reçu. Le relais réseau
 local évoqué pour partager ces opérations pendant une coupure Internet reste
 à implémenter ; il devra conserver les mêmes UUID et les mêmes contrôles d'accès.
 

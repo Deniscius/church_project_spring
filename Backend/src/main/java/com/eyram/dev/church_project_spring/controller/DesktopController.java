@@ -17,6 +17,9 @@ public class DesktopController {
     public com.eyram.dev.church_project_spring.service.DemandeReceiptService.Branding branding(@PathVariable java.util.UUID parishId) {
         return receipts.branding(parishId);
     }
+    @GetMapping("/capabilities")
+    @PreAuthorize("isAuthenticated()")
+    public java.util.Map<String,Integer> capabilities() { return java.util.Map.of("parishJournalVersion",1); }
     @PostMapping("/operations")
     @PreAuthorize("isAuthenticated()")
     public JsonNode execute(@Valid @RequestBody DesktopOperationService.Operation operation) throws Exception {

@@ -201,9 +201,11 @@ Le coffre est `~/.missanye-desktop/workflow.sqlite`. Les contenus, réponses,
 PDF et catalogues sont chiffrés en AES-256-GCM. La clé aléatoire du nouveau
 parcours est protégée par Windows DPAPI. Les anciens coffres dérivés d’un mot de
 passe local sont migrés sans effacer leur contenu.
-Les profils sont séparés par serveur et compte, et la synchronisation compare
-l'identifiant serveur du propriétaire à la session courante. Les cookies ne
-vivent qu'en mémoire. Le coffre doit rester sur un compte système personnel.
+Les identités sont séparées par serveur et compte. Le journal métier est partagé
+par serveur et paroisse entre utilisateurs autorisés du même profil Windows,
+avec contrôles RBAC. La synchronisation compare l’identité connectée à la session
+courante puis applique les permissions aux commandes partagées. Les cookies ne
+vivent qu’en mémoire. Le coffre reste local au poste.
 
 Pour changer le répertoire sous Linux/macOS :
 
@@ -334,3 +336,12 @@ respecte les dépendances et les identifiants initiaux.
 
 Mettre à jour le backend avec la migration **V32** avant ce client. Voir
 [le parcours et les vérifications](../docs/DESKTOP_HORS_CONNEXION.md).
+
+## Journal partagé de la paroisse
+
+Les utilisateurs autorisés du même poste partagent brouillons, demandes et
+opérations, avec leurs permissions respectives et l’auteur conservé dans le
+journal. Les identités et sessions restent individuelles. Déployer **V34** côté
+backend avant ce client : l’idempotence devient paroissiale pour permettre une
+reprise entre utilisateurs sans doublon. Voir
+[le fonctionnement et la migration](../docs/DESKTOP_JOURNAL_PAROISSE.md).

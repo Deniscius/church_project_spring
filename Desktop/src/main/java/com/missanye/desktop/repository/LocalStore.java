@@ -14,13 +14,18 @@ import java.sql.*;
 import java.time.Instant;
 import java.util.*;
 
-/** Encrypted account/server-scoped cache and durable outbox. No session credential is stored. */
+/** Private account identity/cache with an optional encrypted parish journal. No session credential is stored. */
 public final class LocalStore implements AutoCloseable {
     private static final ObjectMapper JSON=new ObjectMapper();
     private final String url, scope;
+    private final Path file;
+    private final String server;
+    private LocalStore parishJournal;
+    private String journalParish;
     private byte[] key;
     private String owner;
     private LocalStore(Path path, String server, String username) throws Exception {
+        file=path;this.server=server;
         Files.createDirectories(path.toAbsolutePath().getParent());
         url="jdbc:sqlite:"+path.toAbsolutePath();
         String exact=scope(server,username.trim());String canonical=scope(server,username.trim().toLowerCase(Locale.ROOT));
@@ -93,6 +98,35 @@ public final class LocalStore implements AutoCloseable {
         var cipher=Cipher.getInstance("AES/GCM/NoPadding");cipher.init(Cipher.DECRYPT_MODE,new SecretKeySpec(key,"AES"),new GCMParameterSpec(128,Arrays.copyOf(bytes,12)));
         cipher.updateAAD((scope+":"+name).getBytes(StandardCharsets.UTF_8));return cipher.doFinal(bytes,12,bytes.length-12);
     }
+    public boolean hasSharedJournal(){return parishJournal!=null;}
+    public static String mutationPermission(String kind){return switch(kind){case "CREATE_DEMANDE","UPDATE_INTENTION"->"demand:edit";case "VALIDATE_DEMANDE"->"demand:validate";case "CASH_PAYMENT"->"payment:manage";case "DELETE_DEMANDE"->"demand:delete";default->throw new IllegalArgumentException("Opération inconnue");};}
+    public synchronized boolean permits(String permission)throws Exception{for(var p:get("session").path("user").path("permissions"))if(permission.equals(p.asText()))return true;return false;}
+    private void sharedAccess(String parish)throws Exception{
+        if(!owner.equals(get("session").path("user").path("id").asText())||!WorkspaceBootstrap.allows(get("parishes"),parish)||!permits("demand:read"))throw new IllegalArgumentException("Vous n'avez pas accès à cet espace paroissial.");
+    }
+    private boolean sharedName(String name){return parishJournal!=null&&(name.startsWith("entry:")||name.startsWith("local-receipt:")||name.equals("catalogue:"+journalParish)||name.equals("demands:"+journalParish));}
+    private String entryParish(JsonNode entry){return entry.path("parish").asText(entry.path("payload").path("paroissePublicId").asText(entry.path("localSnapshot").path("paroissePublicId").asText()));}
+    private ObjectNode auditEntry(ObjectNode entry,JsonNode previous)throws Exception{
+        var value=entry.deepCopy();var user=get("session").path("user");
+        if(previous.isObject()&&previous.has("createdBy")){
+            for(String field:List.of("createdBy","createdByName","createdByRole"))value.set(field,previous.path(field));
+        }else{value.put("createdBy",owner).put("createdByName",user.path("username").asText()).put("createdByRole",user.path("role").asText());}
+        if("DRAFT".equals(previous.path("state").asText())&&"PENDING".equals(value.path("state").asText()))value.put("finalizedBy",owner);
+        value.put("updatedBy",owner).put("localUpdatedAt",Instant.now().toString());return value;
+    }
+    /** Called only after account identity and parish membership are checked. Old account copies remain as backups. */
+    public synchronized void attachParishJournal(String parish,char[] password,boolean freshData)throws Exception{
+        LocalStore shared=null;
+        try{
+            sharedAccess(parish);if(parishJournal!=null)throw new IllegalStateException("L'espace paroissial est déjà ouvert.");
+            shared=unlock(file,server,"@parish:"+parish,password,"parish:"+parish);
+            var imports=new LinkedHashMap<String,JsonNode>();
+            for(var entry:entries())if(parish.equals(entryParish(entry))&&shared.get("entry:"+entry.path("id").asText()).isNull())imports.put("entry:"+entry.path("id").asText(),auditEntry(entry,JSON.nullNode()).put("legacyImported",true).put("createdByRole",""));
+            for(String prefix:List.of("catalogue:","demands:")){String name=prefix+parish;var value=get(name);if(!value.isNull()&&(freshData||shared.get(name).isNull()))imports.put(name,value);}
+            if(!imports.isEmpty())shared.writeAll(imports);
+            journalParish=parish;parishJournal=shared;
+        }catch(Exception failure){if(shared!=null)shared.close();throw failure;}finally{Arrays.fill(password,'\0');}
+    }
     public String owner(){return owner;}
     public synchronized void saveSession(JsonNode session,JsonNode parishes)throws Exception{
         if(!owner.equals(session.path("user").path("id").asText()))throw new IllegalArgumentException("Ce compte ne correspond pas à cet espace de travail.");
@@ -126,6 +160,26 @@ public final class LocalStore implements AutoCloseable {
 
     public synchronized void put(String name,JsonNode value) throws Exception {writeAll(Map.of(name,value));}
     public synchronized void writeAll(Map<String,? extends JsonNode> values) throws Exception {
+        if(parishJournal!=null){
+            var accountValues=new LinkedHashMap<String,JsonNode>();var parishValues=new LinkedHashMap<String,JsonNode>();
+            for(var item:values.entrySet()){
+                if(!sharedName(item.getKey())){accountValues.put(item.getKey(),item.getValue());continue;}
+                sharedAccess(journalParish);JsonNode value=item.getValue();
+                if(item.getKey().startsWith("entry:")){
+                    if(!journalParish.equals(entryParish(value)))throw new IllegalArgumentException("Cette opération appartient à une autre paroisse.");
+                    if(!permits(mutationPermission(value.path("kind").asText())))throw new IllegalArgumentException("Vos droits ne permettent pas cette action.");
+                    var previous=parishJournal.get(item.getKey());
+                    if(previous.isObject()&&!previous.path("kind").equals(value.path("kind")))throw new IllegalArgumentException("Le type de cette opération ne peut pas être modifié.");
+                    if(previous.isObject()&&!"DRAFT".equals(previous.path("state").asText())&&(!previous.path("payload").equals(value.path("payload"))||!previous.path("localSnapshot").equals(value.path("localSnapshot"))))throw new IllegalArgumentException("Une opération finalisée ne peut pas être remplacée.");
+                    value=auditEntry((ObjectNode)value,previous);
+                }
+                if(item.getKey().startsWith("local-receipt:")&&!permits("invoice:read")&&!permits("receipt:manage"))throw new IllegalArgumentException("Vous ne pouvez pas éditer un reçu.");
+                parishValues.put(item.getKey(),value);
+            }
+            if(!parishValues.isEmpty())parishJournal.writeAll(parishValues);
+            if(accountValues.isEmpty())return;
+            values=accountValues;
+        }
         var encoded=new LinkedHashMap<String,byte[]>();
         for(var value:values.entrySet())encoded.put(value.getKey(),encrypt(value.getKey(),JSON.writeValueAsBytes(value.getValue())));
         try(var c=connect()) {
@@ -160,11 +214,13 @@ public final class LocalStore implements AutoCloseable {
         writeAll(updates);
     }
     public synchronized JsonNode get(String name) throws Exception {
+        if(sharedName(name)){sharedAccess(journalParish);if(name.startsWith("local-receipt:")&&!permits("invoice:read")&&!permits("receipt:manage"))throw new IllegalArgumentException("Vous ne pouvez pas consulter ce reçu.");return parishJournal.get(name);}
         try(var c=connect();var s=c.prepareStatement("SELECT value FROM vault_data WHERE scope=? AND name=?")) {
             s.setString(1,scope);s.setString(2,name);try(var r=s.executeQuery()){return r.next()?JSON.readTree(decrypt(name,r.getBytes(1))):JSON.nullNode();}
         }
     }
     public synchronized List<ObjectNode> entries() throws Exception {
+        if(parishJournal!=null){sharedAccess(journalParish);return parishJournal.entries();}
         var result=new ArrayList<ObjectNode>();
         try(var c=connect();var s=c.prepareStatement("SELECT name,value FROM vault_data WHERE scope=? AND name LIKE 'entry:%'")) {
             s.setString(1,scope);try(var r=s.executeQuery()){while(r.next())result.add((ObjectNode)JSON.readTree(decrypt(r.getString(1),r.getBytes(2))));}
@@ -230,5 +286,5 @@ public final class LocalStore implements AutoCloseable {
         var entry=JSON.createObjectNode().put("id",UUID.randomUUID().toString()).put("kind",kind).put("state","PENDING").put("createdAt",Instant.now().toString()).put("codeSuivie",demand.path("codeSuivie").asText());
         entry.set("payload",payload);entry.put("parish",demand.path("paroissePublicId").asText());put("entry:"+entry.path("id").asText(),entry);return entry;
     }
-    @Override public synchronized void close(){if(key!=null){Arrays.fill(key,(byte)0);key=null;}}
+    @Override public synchronized void close(){if(parishJournal!=null){parishJournal.close();parishJournal=null;}if(key!=null){Arrays.fill(key,(byte)0);key=null;}}
 }

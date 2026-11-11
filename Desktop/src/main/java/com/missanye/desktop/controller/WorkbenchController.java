@@ -92,7 +92,7 @@ public final class WorkbenchController implements AutoCloseable {
         v.correct.setOnAction(e->mutate("UPDATE_INTENTION"));v.validate.setOnAction(e->mutate("VALIDATE_DEMANDE"));v.remove.setOnAction(e->mutate("DELETE_DEMANDE"));
         v.refresh.setOnAction(e->refresh());v.sync.setOnAction(e->synchronize());v.cash.setOnAction(e->cash());v.receipt.setOnAction(e->receipt());v.checkout.setOnAction(e->checkout());v.reconcile.setOnAction(e->reconcile());
         v.demands.getSelectionModel().selectedItemProperty().addListener((o,a,b)->{v.detail.setText(b==null?"Sélectionnez une demande pour consulter son intention et agir.":description(b.data()));updateActions();});
-        v.outbox.getSelectionModel().selectedItemProperty().addListener((o,a,b)->{v.queueDetail.setText(b==null?"Sélectionnez une opération pour consulter son état.":b.data().path("error").asText("Cette opération est enregistrée dans votre espace paroissial."));updateActions();});
+        v.outbox.getSelectionModel().selectedItemProperty().addListener((o,a,b)->{v.queueDetail.setText(b==null?"Sélectionnez une opération pour consulter son état.":b.data().path("error").asText("Cette opération est enregistrée dans votre espace paroissial.")+"\nSaisi par : "+b.data().path("createdByName").asText("Non renseigné"));updateActions();});
         cleanForm=formData();
         readinessDelay.setOnFinished(e->inspectOfflineReadiness());v.username.textProperty().addListener((o,a,b)->{offlineReady=false;controls();readinessDelay.playFromStart();});
         controls();

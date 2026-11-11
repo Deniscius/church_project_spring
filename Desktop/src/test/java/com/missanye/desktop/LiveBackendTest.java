@@ -64,4 +64,23 @@ class LiveBackendTest {
             assertTrue(new SyncService(store,null).receipt(code,false).length>100);
         }
     }
+    @Test void sharedJournalResumesLostResponseUnderAnotherAuthenticatedUser()throws Exception{
+        String address=System.getenv().getOrDefault("DESKTOP_API_URL","http://127.0.0.1:18081");var api=new ApiClient(address);api.login("ci-platform-admin","CiStrongPassword-2026!");JsonNode selected=null;
+        for(var p:api.get("paroisses"))if(!p.path("isSystem").asBoolean()&&p.path("isActive").asBoolean()){selected=p;break;}assertNotNull(selected);String parish=selected.path("publicId").asText();
+        var deployment=new com.missanye.desktop.config.ParishDeployment(address,parish,selected.path("nom").asText());Path file=temp.resolve("shared.sqlite");var credentials=new com.missanye.desktop.service.DeviceCredentials(temp.resolve("shared-identities"),DeviceCredentialsTest.testProtector());
+        String id,creator;var first=com.missanye.desktop.service.ParishLoginService.login(file,deployment,credentials,"ci-platform-admin","CiStrongPassword-2026!".toCharArray());
+        try(var store=first.store()){
+            creator=store.owner();var source=store.get("demands:"+parish).get(0);var payload=new ObjectMapper().createObjectNode().put("intention","Demande partagée entre collègues").put("telFidele","+22890123459");
+            for(String field:new String[]{"paroissePublicId","typeDemandePublicId","forfaitTarifPublicId","horairePublicId","typePaiementPublicId"})payload.set(field,source.get(field));payload.put("dateDebut",source.path("datesCelebration").get(0).asText());
+            var local=new com.missanye.desktop.service.LocalRequestService(store);id=local.finalizePayload(null,payload).path("localRequestId").asText();if(local.view(id).path("validationRequise").asBoolean())local.decide(id,"VALIDEE");local.receiveCash(id);
+            var command=new ObjectMapper().createObjectNode().put("operationId",id).put("kind","CREATE_DEMANDE");command.set("payload",store.get("entry:"+id).path("payload"));first.api().post("desktop/operations",command); // Server committed; acknowledgement lost on the workstation.
+        }finally{first.api().clear();}
+        var second=com.missanye.desktop.service.ParishLoginService.login(file,deployment,credentials,"ci-colleague","CiStrongPassword-2026!".toCharArray());
+        try(var store=second.store()){
+            assertNotEquals(creator,store.owner());assertEquals(creator,store.get("entry:"+id).path("createdBy").asText());new SyncService(store,second.api(),parish).synchronize();
+            assertTrue(store.entries().stream().allMatch(e->"SENT".equals(e.path("state").asText())));assertEquals("PAYE",new com.missanye.desktop.service.LocalRequestService(store).view(id).path("statutPaiement").asText());
+            new SyncService(store,second.api(),parish).synchronize();assertTrue(new com.missanye.desktop.service.LocalRequestService(store).receipt(id).length>100);
+        }finally{second.api().clear();api.clear();}
+    }
+
 }

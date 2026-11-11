@@ -86,14 +86,14 @@ public class DesktopOperationService {
         String hash=HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(canonical.getBytes(StandardCharsets.UTF_8)));
         jdbc.update("INSERT INTO desktop_operation(owner_id,operation_id,kind,payload_hash,parish_id) VALUES (?,?,?,?,?) ON CONFLICT DO NOTHING",
                 owner,input.operationId(),input.kind(),hash,parish);
-        var row=jdbc.queryForMap("SELECT kind,payload_hash,parish_id,response FROM desktop_operation WHERE owner_id=? AND operation_id=? FOR UPDATE",owner,input.operationId());
+        var row=jdbc.queryForMap("SELECT kind,payload_hash,parish_id,response FROM desktop_operation WHERE parish_id=? AND operation_id=? FOR UPDATE",parish,input.operationId());
         if (!input.kind().equals(row.get("kind")) || !hash.equals(row.get("payload_hash")) || !parish.equals(row.get("parish_id")))
             throw new BusinessRuleException("Cet identifiant d'opération a déjà été utilisé pour un contenu différent");
         if (row.get("response")!=null) {
             JsonNode retained=json.readTree((String)row.get("response"));
             if(request!=null&&!retained.hasNonNull("localReference")){
                 attachTrackingReference(input,owner,retained);
-                jdbc.update("UPDATE desktop_operation SET response=? WHERE owner_id=? AND operation_id=?",json.writeValueAsString(retained),owner,input.operationId());
+                jdbc.update("UPDATE desktop_operation SET response=? WHERE parish_id=? AND operation_id=?",json.writeValueAsString(retained),parish,input.operationId());
             }
             return retained;
         }
@@ -124,7 +124,7 @@ public class DesktopOperationService {
         }
         JsonNode response=json.valueToTree(result);
         if(request!=null)attachTrackingReference(input,owner,response);
-        jdbc.update("UPDATE desktop_operation SET response=? WHERE owner_id=? AND operation_id=?",json.writeValueAsString(response),owner,input.operationId());
+        jdbc.update("UPDATE desktop_operation SET response=? WHERE parish_id=? AND operation_id=?",json.writeValueAsString(response),parish,input.operationId());
         return response;
     }
     private void attachTrackingReference(Operation input,UUID owner,JsonNode response){

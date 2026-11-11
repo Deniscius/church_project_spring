@@ -18,6 +18,16 @@ public final class DeviceCredentials {
     public DeviceCredentials(Path directory,Protector protector){this.directory=directory;this.protector=protector;}
     public static DeviceCredentials windows(Path database){return new DeviceCredentials(database.toAbsolutePath().getParent().resolve("identities"),new WindowsProtector());}
     private Path path(String server,String username)throws Exception{return directory.resolve(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest((server+"\n"+username.strip().toLowerCase(Locale.ROOT)).getBytes(StandardCharsets.UTF_8)))+".dpapi");}
+    /** Shared only within this Windows profile and this server/parish; account verifiers remain private. */
+    public synchronized char[] parishKey(String server,String parish)throws Exception{
+        java.util.UUID.fromString(parish);Files.createDirectories(directory);
+        String id=HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest((server+"\nparish:"+parish).getBytes(StandardCharsets.UTF_8)));
+        Path target=directory.resolve("parish-"+id+".dpapi");
+        if(Files.exists(target))return new String(protector.unprotect(Files.readAllBytes(target)),StandardCharsets.US_ASCII).toCharArray();
+        byte[] random=new byte[32];new SecureRandom().nextBytes(random);String key=Base64.getEncoder().encodeToString(random);byte[] sealed=protector.protect(key.getBytes(StandardCharsets.US_ASCII));
+        Path temp=Files.createTempFile(directory,"parish-",".tmp");try{Files.write(temp,sealed);Files.move(temp,target,StandardCopyOption.ATOMIC_MOVE);}finally{Files.deleteIfExists(temp);}
+        return key.toCharArray();
+    }
     public Ticket read(String server,String username)throws Exception{Path file=path(server,username);return Files.exists(file)?JSON.readValue(protector.unprotect(Files.readAllBytes(file)),Ticket.class):null;}
     public Ticket prepare(String server,String username,char[] password,String owner)throws Exception{
         Ticket previous=read(server,username);if(previous!=null&&!owner.equals(previous.owner()))throw new IllegalArgumentException("L'identité serveur de ce compte a changé. Contactez votre administrateur.");

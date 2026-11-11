@@ -18,7 +18,7 @@ class ParishLoginServiceTest{
  @BeforeEach void start()throws Exception{
   server=HttpServer.create(new InetSocketAddress("127.0.0.1",0),0);var json=new ObjectMapper();var payload=TestRequests.complete();String type=payload.path("typeDemandePublicId").asText();
   server.createContext("/auth/login-multi-tenant",e->reply(e,loginStatus.get(),"{}"));server.createContext("/auth/me",e->reply(e,200,"{\"user\":{\"id\":\"owner\",\"username\":\"alice\",\"role\":\"SECRETAIRE\",\"permissions\":[\"demand:read\",\"demand:edit\"]},\"paroisses\":"+(allowed.get()?"[{\"id\":\""+PARISH+"\",\"nom\":\"Saint Paul\"}]":"[]")+"}"));
-  server.createContext("/type-demandes/",e->reply(e,200,"[{\"publicId\":\""+type+"\"}]"));server.createContext("/horaires/",e->reply(e,200,"[]"));server.createContext("/type-paiement",e->reply(e,200,"[]"));server.createContext("/forfait-tarifs/",e->reply(e,200,"[]"));server.createContext("/demandes/",e->reply(e,demandsStatus.get(),"{\"content\":[],\"last\":true}"));server.start();url="http://127.0.0.1:"+server.getAddress().getPort()+"/";
+  server.createContext("/desktop/capabilities",e->reply(e,200,"{\"parishJournalVersion\":1}"));server.createContext("/type-demandes/",e->reply(e,200,"[{\"publicId\":\""+type+"\"}]"));server.createContext("/horaires/",e->reply(e,200,"[]"));server.createContext("/type-paiement",e->reply(e,200,"[]"));server.createContext("/forfait-tarifs/",e->reply(e,200,"[]"));server.createContext("/demandes/",e->reply(e,demandsStatus.get(),"{\"content\":[],\"last\":true}"));server.start();url="http://127.0.0.1:"+server.getAddress().getPort()+"/";
  }
  @AfterEach void stop(){server.stop(0);}
  static void reply(HttpExchange e,int status,String body)throws java.io.IOException{byte[] bytes=body.getBytes(StandardCharsets.UTF_8);e.sendResponseHeaders(status,bytes.length);e.getResponseBody().write(bytes);e.close();}
@@ -41,7 +41,7 @@ class ParishLoginServiceTest{
  @Test void installationNeverTransmitsPendingWorkOfAnotherParish()throws Exception{
   Path file=directory.resolve("scoped.sqlite");var credentials=new DeviceCredentials(directory.resolve("identity"),DeviceCredentialsTest.testProtector());var opened=ParishLoginService.login(file,new ParishDeployment(url,PARISH,"Saint Paul"),credentials,"alice","password".toCharArray());
   try(var store=opened.store()){
-   var payload=TestRequests.complete().put("paroissePublicId","731c7ab4-2fae-4d78-a17b-0ff7653f4599");String id=store.draft(null,payload).path("id").asText();store.queue(id);new SyncService(store,opened.api(),PARISH).synchronize();assertEquals("PENDING",store.get("entry:"+id).path("state").asText());assertEquals(0,store.get("entry:"+id).path("attempts").asInt());
+   var payload=TestRequests.complete().put("paroissePublicId","731c7ab4-2fae-4d78-a17b-0ff7653f4599");assertThrows(IllegalArgumentException.class,()->store.draft(null,payload));assertTrue(store.entries().isEmpty());
   }finally{opened.api().clear();}
  }
 
@@ -87,7 +87,7 @@ class ParishLoginServiceTest{
   server.createContext("/auth/me",e->{boolean alice="alice".equals(current.get());reply(e,200,"{\"user\":{\"id\":\""+current.get()+"-id\",\"username\":\""+current.get()+"\",\"permissions\":[\"demand:read\""+(alice?",\"demand:edit\"":"")+"]},\"paroisses\":[{\"id\":\""+PARISH+"\",\"nom\":\"Saint Paul\"}]}");});
   var deployment=new ParishDeployment(url,PARISH,"Saint Paul");var credentials=new DeviceCredentials(directory.resolve("identity"),DeviceCredentialsTest.testProtector());Path file=directory.resolve("shared-computer.sqlite");
   var alice=ParishLoginService.login(file,deployment,credentials,"alice","alice password".toCharArray());String draft=alice.store().draft(null,TestRequests.complete()).path("id").asText();alice.store().close();alice.api().clear();
-  var bob=ParishLoginService.login(file,deployment,credentials,"bob","bob password".toCharArray());assertEquals(PARISH,bob.parish());assertEquals("bob-id",bob.store().owner());assertEquals(1,bob.session().path("user").path("permissions").size());assertTrue(bob.store().entries().isEmpty());bob.store().close();bob.api().clear();
+  var bob=ParishLoginService.login(file,deployment,credentials,"bob","bob password".toCharArray());assertEquals(PARISH,bob.parish());assertEquals("bob-id",bob.store().owner());assertEquals(1,bob.session().path("user").path("permissions").size());assertEquals(1,bob.store().entries().size());assertEquals("alice-id",bob.store().get("entry:"+draft).path("createdBy").asText());assertThrows(IllegalArgumentException.class,()->bob.store().draft(draft,TestRequests.complete()));assertThrows(IllegalArgumentException.class,()->bob.store().archive(draft));bob.store().close();bob.api().clear();
   loginStatus.set(503);var reopened=ParishLoginService.login(file,deployment,credentials,"alice","alice password".toCharArray());assertEquals("alice-id",reopened.store().owner());assertEquals("DRAFT",reopened.store().get("entry:"+draft).path("state").asText());reopened.store().close();
  }
 

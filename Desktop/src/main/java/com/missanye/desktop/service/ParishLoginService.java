@@ -37,6 +37,7 @@ public final class ParishLoginService{
     if(!DeviceCredentials.unavailable(failure)||credentials.read(deployment.apiUrl(),username)==null)throw failure;
     var ticket=credentials.verify(deployment.apiUrl(),username,password);store=LocalStore.unlock(file,deployment.apiUrl(),username,ticket.key().toCharArray(),ticket.owner());
     if(!store.workspaceReady(deployment.parishId()))throw new IllegalArgumentException("Une première connexion au service est nécessaire sur ce poste.");
+    store.attachParishJournal(deployment.parishId(),credentials.parishKey(deployment.apiUrl(),deployment.parishId()),false);
     return new Result(null,store,store.get("session"),onlyParish(store.get("parishes"),deployment.parishId()),deployment.parishId());
    }
    String owner=session.path("user").path("id").asText();if(owner.isBlank())throw new IllegalArgumentException("La session renvoyée par le service est incomplète.");
@@ -55,6 +56,7 @@ public final class ParishLoginService{
      api.clear();store=LocalStore.unlock(file,deployment.apiUrl(),username,ticket.key().toCharArray(),owner);
      if(!store.workspaceReady(deployment.parishId()))throw failure;
      store.saveSession(session,allowed);credentials.save(deployment.apiUrl(),username,ticket);
+     store.attachParishJournal(deployment.parishId(),credentials.parishKey(deployment.apiUrl(),deployment.parishId()),false);
      return new Result(null,store,session,allowed,deployment.parishId());
     }
     if(DeviceCredentials.unavailable(failure))throw new PreparationUnavailable(failure);
@@ -62,6 +64,7 @@ public final class ParishLoginService{
    }
    // Persist the protected key before creating a vault so an interrupted installation cannot lose it.
    credentials.save(deployment.apiUrl(),username,ticket);store=LocalStore.unlock(file,deployment.apiUrl(),username,ticket.key().toCharArray(),owner);store.installWorkspace(prepared.session(),allowed,deployment.parishId(),prepared);
+   store.attachParishJournal(deployment.parishId(),credentials.parishKey(deployment.apiUrl(),deployment.parishId()),true);
    return new Result(api,store,prepared.session(),allowed,deployment.parishId());
   }catch(Exception failure){api.clear();if(store!=null)store.close();throw failure;}finally{Arrays.fill(password,'\0');}
  }

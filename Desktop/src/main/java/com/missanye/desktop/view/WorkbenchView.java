@@ -159,7 +159,7 @@ public final class WorkbenchView {
         var title=ref("pageTitle",Label.class);var overviewParish=ref("overviewParish",Label.class);
         parish.valueProperty().addListener((o,a,b)->overviewParish.setText(b==null?"Votre paroisse":b.label()));
         var navigation=List.of(ref("navRequest",Button.class),ref("navDemands",Button.class),ref("navActivity",Button.class),ref("navHome",Button.class));
-        var labels=List.of("Nouvelle demande","Demandes et paiements","Mon activité","Tableau de bord");
+        var labels=List.of("Nouvelle demande","Demandes et paiements","Activité paroissiale","Tableau de bord");
         for(int i=0;i<navigation.size();i++){final int index=i;var button=navigation.get(i);button.setTooltip(new Tooltip(labels.get(i)));button.setOnAction(e->tabs.getSelectionModel().select(index));}
         ref("homeRequest",Button.class).setOnAction(e->tabs.getSelectionModel().select(0));ref("homeDemands",Button.class).setOnAction(e->tabs.getSelectionModel().select(1));ref("homeActivity",Button.class).setOnAction(e->tabs.getSelectionModel().select(2));
         tabs.getSelectionModel().selectedIndexProperty().addListener((o,a,b)->{int index=b.intValue();if(index<0)return;title.setText(labels.get(index));((ScrollPane)workspaceContainer).setVvalue(0);for(int i=0;i<navigation.size();i++){var classes=navigation.get(i).getStyleClass();classes.remove("nav-active");if(i==index)classes.add("nav-active");}});

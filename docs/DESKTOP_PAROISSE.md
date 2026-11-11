@@ -143,12 +143,11 @@ sont affichées selon ses permissions, gérées sur le web.
 
 Chaque compte effectue une première connexion avec Internet sur ce poste pour
 préparer son identité et ses données. Il peut ensuite ouvrir son espace avec les
-conditions de validité déjà décrites. Le cache, les brouillons et les opérations
-non transmises restent séparés par compte ; un second compte ne voit pas
-immédiatement les nouvelles opérations privées du premier pendant une coupure.
-Les demandes transmises sont retrouvées via l’API selon les accès autorisés.
-Un partage immédiat pendant une coupure nécessite le mécanisme de journal partagé
-ou le relais local qui reste à implémenter.
+conditions de validité déjà décrites. Les brouillons et opérations appartiennent
+à la paroisse et sont partagés sur ce poste selon les permissions du compte.
+Les identités et sessions restent séparées. Voir
+[le journal paroissial partagé](DESKTOP_JOURNAL_PAROISSE.md) pour la migration V34,
+les rôles complémentaires et les limites entre postes et profils Windows.
 
 ## Présentation des fenêtres
 

@@ -62,4 +62,25 @@ class SyncRecoveryTest {
         }finally{server.stop(0);}
     }
 
+    @Test void staleSyncSnapshotCannotSendAnEntryReturnedToDraft()throws Exception{
+        try(var store=store()){
+            var draft=store.draft(null,TestRequests.complete());String id=draft.path("id").asText();store.queue(id);
+            var pending=(com.fasterxml.jackson.databind.node.ObjectNode)store.get("entry:"+id);
+            store.returnToDraft(id);
+            assertNull(store.claimAttempt(pending,(com.fasterxml.jackson.databind.node.ObjectNode)pending.path("payload")));
+            assertEquals("DRAFT",store.get("entry:"+id).path("state").asText());
+        }
+    }
+    @Test void logoutDuringAcceptedCommandLeavesSameOperationForSafeReplayAndStopsNextSend()throws Exception{
+        var server=server();var active=new AtomicBoolean(true);var calls=new AtomicInteger();
+        server.createContext("/desktop/operations",e->{calls.incrementAndGet();active.set(false);reply(e,200,"{\"publicId\":\"demand-id\",\"codeSuivie\":\"MS-123\",\"paroissePublicId\":\""+TestRequests.PARISH+"\"}");});server.start();
+        try(var store=store()){
+            var first=store.draft(null,TestRequests.complete());store.queue(first.path("id").asText());
+            var second=store.draft(null,TestRequests.complete());store.queue(second.path("id").asText());
+            assertThrows(InterruptedException.class,()->new SyncService(store,client(server),null,active::get).synchronize());
+            assertEquals(1,calls.get());assertTrue(store.entries().stream().allMatch(e->"PENDING".equals(e.path("state").asText())));
+            assertEquals(1,store.entries().stream().mapToInt(e->e.path("attempts").asInt()).sum());
+        }finally{server.stop(0);}
+    }
+
 }

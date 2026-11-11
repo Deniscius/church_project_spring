@@ -62,6 +62,8 @@ class ApplicationStartupSmokeTest {
     @Autowired
     private TestRestTemplate restTemplate;
     @Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbc;
+    @Autowired
     private UserRepository userRepository;
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -79,6 +81,20 @@ class ApplicationStartupSmokeTest {
     private TenantCatalogBootstrapService tenantCatalogBootstrapService;
     @Autowired
     private ObjectMapper objectMapper;
+    @Autowired
+    private org.springframework.transaction.PlatformTransactionManager transactionManager;
+
+    @Test
+    void storagePlacementFollowsNewParishTransaction() {
+        var id=java.util.UUID.randomUUID();
+        new org.springframework.transaction.support.TransactionTemplate(transactionManager).execute(status->{
+            jdbc.update("INSERT INTO paroisse(public_id,nom,adresse,doyenne_id,statut_tenant,is_active) SELECT ?, 'CI storage', 'Test', id, 'ACTIVE', TRUE FROM doyenne ORDER BY id LIMIT 1",id);
+            assertThat(jdbc.queryForObject("SELECT shard_key FROM parish_storage_placement WHERE parish_id=?",String.class,id)).isEqualTo("primary");
+            status.setRollbackOnly();return null;
+        });
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM paroisse WHERE public_id=?",Long.class,id)).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM parish_storage_placement WHERE parish_id=?",Long.class,id)).isZero();
+    }
 
     @BeforeEach
     void ensurePlatformUserExists() {
@@ -296,6 +312,32 @@ class ApplicationStartupSmokeTest {
         var desktopCreated = restTemplate.postForEntity("/desktop/operations", new HttpEntity<>(operation,cashHeaders),String.class);
         assertThat(desktopCreated.getStatusCode().value()).isEqualTo(200);
         JsonNode desktopDemand=objectMapper.readTree(desktopCreated.getBody());
+        assertThat(jdbc.queryForObject("SELECT shard_key FROM parish_storage_placement WHERE parish_id=?",String.class,parish.getPublicId())).isEqualTo("primary");
+        org.assertj.core.api.Assertions.assertThatThrownBy(()->jdbc.update("UPDATE parish_storage_placement SET shard_key='unconfigured' WHERE parish_id=?",parish.getPublicId()))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM paroisse p WHERE NOT EXISTS (SELECT 1 FROM parish_storage_placement s WHERE s.parish_id=p.public_id)",Long.class)).isZero();
+        jdbc.update("DELETE FROM parish_storage_placement WHERE parish_id=?",parish.getPublicId());
+        try {
+            var unavailablePlacement=restTemplate.postForEntity("/desktop/operations",new HttpEntity<>(operation,cashHeaders),String.class);
+            assertThat(unavailablePlacement.getStatusCode().value()).isEqualTo(503);
+        } finally {
+            jdbc.update("INSERT INTO parish_storage_placement(parish_id) VALUES (?)",parish.getPublicId());
+        }
+        var branding = restTemplate.exchange("/desktop/paroisses/"+parish.getPublicId()+"/receipt-branding",HttpMethod.GET,new HttpEntity<>(cashHeaders),String.class);
+        assertThat(branding.getStatusCode().value()).isEqualTo(200);
+        assertThat(objectMapper.readTree(branding.getBody()).path("nom").asText()).isEqualTo(parish.getNom());
+        assertThat(branding.getBody()).doesNotContain("ibanOrRib", "nomBanque");
+        var anonymousBranding=restTemplate.getForEntity("/desktop/paroisses/"+parish.getPublicId()+"/receipt-branding",String.class);
+        assertThat(anonymousBranding.getStatusCode().is4xxClientError()).isTrue();
+        String localReference="MSL-"+operationId.toUpperCase(java.util.Locale.ROOT);
+        assertThat(desktopDemand.path("localReference").asText()).isEqualTo(localReference);
+        var localTracking=restTemplate.getForEntity("/demandes/code/"+localReference.toLowerCase(java.util.Locale.ROOT),String.class);
+        assertThat(localTracking.getStatusCode().value()).isEqualTo(200);
+        assertThat(objectMapper.readTree(localTracking.getBody()).path("codeSuivie").asText()).isEqualTo(desktopDemand.path("codeSuivie").asText());
+        // Simulate a V31 response: upgrade/replay backfills its reference without recreating the demand.
+        jdbc.update("DELETE FROM desktop_tracking_reference WHERE reference=?",localReference);
+        var legacy=(com.fasterxml.jackson.databind.node.ObjectNode)desktopDemand.deepCopy();legacy.remove("localReference");
+        jdbc.update("UPDATE desktop_operation SET response=? WHERE operation_id=?",legacy.toString(),java.util.UUID.fromString(operationId));
         var replay=restTemplate.postForEntity("/desktop/operations", new HttpEntity<>(operation,cashHeaders),String.class);
         assertThat(replay.getStatusCode().value()).isEqualTo(200);
         assertThat(objectMapper.readTree(replay.getBody())).isEqualTo(desktopDemand);
@@ -319,6 +361,14 @@ class ApplicationStartupSmokeTest {
         assertThat(secondPaid.getStatusCode().value()).isEqualTo(200);
         assertThat(objectMapper.readTree(firstPaid.getBody()).path("statutPaiement").asText()).isEqualTo("PAYE");
         assertThat(objectMapper.readTree(secondPaid.getBody())).isEqualTo(objectMapper.readTree(firstPaid.getBody()));
+        var localReceipt=restTemplate.getForEntity("/demandes/code/"+localReference+"/recu.pdf",byte[].class);
+        assertThat(localReceipt.getStatusCode().value()).isEqualTo(200);
+        assertThat(new String(localReceipt.getBody(),0,5,StandardCharsets.US_ASCII)).isEqualTo("%PDF-");
+        try(var pdf=new com.lowagie.text.pdf.PdfReader(localReceipt.getBody())) {
+            assertThat(new com.lowagie.text.pdf.parser.PdfTextExtractor(pdf).getTextFromPage(1).replaceAll("\\s+", "")).contains(localReference);
+        }
+        var localInvoice=restTemplate.getForEntity("/facture/code-suivie/"+localReference,String.class);
+        assertThat(localInvoice.getStatusCode().value()).isEqualTo(200);
     }
 
     @Test

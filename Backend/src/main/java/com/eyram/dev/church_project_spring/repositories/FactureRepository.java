@@ -18,7 +18,8 @@ public interface FactureRepository extends JpaRepository<Facture, Long> {
 
     Optional<Facture> findByDemandePublicIdAndStatusDelFalse(UUID demandePublicId);
 
-    Optional<Facture> findByDemandeCodeSuivieAndStatusDelFalse(String codeSuivie);
+    @Query("select f from Facture f join f.demande d where f.statusDel=false and d.statusDel=false and (d.codeSuivie=:codeSuivie or exists (select r.reference from DesktopTrackingReference r where r.demandePublicId=d.publicId and r.reference=:codeSuivie))")
+    Optional<Facture> findByDemandeCodeSuivieAndStatusDelFalse(@Param("codeSuivie") String codeSuivie);
 
     List<Facture> findAllByStatusDelFalse();
 

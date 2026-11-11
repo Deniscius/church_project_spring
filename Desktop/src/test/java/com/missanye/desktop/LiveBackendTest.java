@@ -21,18 +21,24 @@ class LiveBackendTest {
         var parishes=api.get("paroisses");JsonNode selected=null;
         for(var p:parishes)if(!p.path("isSystem").asBoolean() && p.path("isActive").asBoolean()){selected=p;break;}
         assertNotNull(selected);String parish=selected.path("publicId").asText();
-        String id,code;
+        var credentials=new com.missanye.desktop.service.DeviceCredentials(temp.resolve("identities"),DeviceCredentialsTest.testProtector());
+        var bound=com.missanye.desktop.service.ParishLoginService.login(temp.resolve("parish-login.sqlite"),new com.missanye.desktop.config.ParishDeployment(api.baseUrl(),parish,selected.path("nom").asText("Paroisse de test")),credentials,"ci-platform-admin","CiStrongPassword-2026!".toCharArray());
+        assertEquals(parish,bound.parish());assertEquals(1,bound.parishes().size());assertTrue(bound.store().workspaceReady(parish));bound.store().close();bound.api().logout();
+        String id,code,cashId;
         try(var store=LocalStore.unlock(temp.resolve("live.sqlite"),api.baseUrl(),"ci-platform-admin","Offline test password!".toCharArray(),owner)){
             var prepared=WorkspaceBootstrap.fetch(api,session,parish);store.installWorkspace(session,WorkspaceBootstrap.eligible(parishes),parish,prepared);assertTrue(store.workspaceReady(parish));
             var rows=prepared.demands();assertFalse(rows.isEmpty());JsonNode source=rows.get(0);
             var p=new ObjectMapper().createObjectNode().put("intention","Demande desktop de bout en bout").put("telFidele","+22890123458").put("nomFidele","Test desktop").put("prenomFidele","CI");
             for(String field:new String[]{"paroissePublicId","typeDemandePublicId","forfaitTarifPublicId","horairePublicId","typePaiementPublicId"})p.set(field,source.get(field));
             p.put("dateDebut",source.path("datesCelebration").get(0).asText());
-            var draft=store.draft(null,p);id=draft.path("id").asText();store.queue(id);
+            var draft=store.draft(null,p);id=draft.path("id").asText();var local=new com.missanye.desktop.service.LocalRequestService(store);local.finalizeDraft(id);
+            if(local.view(id).path("validationRequise").asBoolean())local.decide(id,"VALIDEE");cashId=local.receiveCash(id).path("id").asText();byte[] provisional=local.receipt(id);assertEquals("%PDF-",new String(provisional,0,5,java.nio.charset.StandardCharsets.US_ASCII));assertTrue(local.view(id).path("localPending").asBoolean());
         }
         try(var store=LocalStore.unlock(temp.resolve("live.sqlite"),api.baseUrl(),"ci-platform-admin","Offline test password!".toCharArray(),null)){
             var sync=new SyncService(store,api);sync.synchronize();var created=store.get("entry:"+id);assertEquals("SENT",created.path("state").asText());var result=created.path("result");code=result.path("codeSuivie").asText();assertFalse(code.isBlank());
-            var cash=store.queueCash(result);sync.synchronize();assertEquals("PAYE",store.get("entry:"+cash.path("id").asText()).path("result").path("statutPaiement").asText());
+            assertEquals("PAYE",store.get("entry:"+cashId).path("result").path("statutPaiement").asText());
+            String localCode=com.missanye.desktop.service.LocalRequestService.reference(id);assertEquals(code,api.get("demandes/code/"+localCode).path("codeSuivie").asText());assertEquals("%PDF-",new String(api.pdf(localCode),0,5,java.nio.charset.StandardCharsets.US_ASCII));
+            sync.synchronize();assertEquals("SENT",store.get("entry:"+cashId).path("state").asText());
             JsonNode current=api.get("demandes/"+result.path("publicId").asText());
             var correction=store.queueMutation("UPDATE_INTENTION",current,"Intention corrigée depuis le desktop",null);
             sync.synchronize();assertEquals("SENT",store.get("entry:"+correction.path("id").asText()).path("state").asText());

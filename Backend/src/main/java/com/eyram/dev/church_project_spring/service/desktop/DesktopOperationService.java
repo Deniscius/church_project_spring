@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 import com.eyram.dev.church_project_spring.repositories.*;
 import com.eyram.dev.church_project_spring.security.*;
 import com.eyram.dev.church_project_spring.service.*;
+import com.eyram.dev.church_project_spring.service.tenant.ParishStorageDirectory;
 import com.eyram.dev.church_project_spring.utils.exception.BusinessRuleException;
 import com.fasterxml.jackson.databind.*;
 import jakarta.validation.*;
@@ -35,11 +36,12 @@ public class DesktopOperationService {
     private final ParoisseRepository parishes;
     private final DemandeRepository demandeRepository;
     private final TenantAccessService access;
+    private final ParishStorageDirectory storage;
     public DesktopOperationService(JdbcTemplate jdbc, ObjectMapper json, Validator validator,
             DemandeService demandes, DetailsPaiementService paiements, ParoisseRepository parishes,
-            DemandeRepository demandeRepository, TenantAccessService access, EntityManager entities) {
+            DemandeRepository demandeRepository, TenantAccessService access, EntityManager entities, ParishStorageDirectory storage) {
         this.jdbc=jdbc; this.json=json; this.validator=validator; this.demandes=demandes;
-        this.paiements=paiements; this.parishes=parishes; this.demandeRepository=demandeRepository; this.access=access; this.entities=entities;
+        this.paiements=paiements; this.parishes=parishes; this.demandeRepository=demandeRepository; this.access=access; this.entities=entities; this.storage=storage;
     }
     private <T> T validate(T value) {
         var errors=validator.validate(value);
@@ -77,16 +79,24 @@ public class DesktopOperationService {
                     .orElseThrow(() -> new IllegalArgumentException("Demande introuvable"));
             access.checkParoisseAccess(target.getParoisse()); parish=target.getParoisse().getPublicId();
         } else throw new IllegalArgumentException("Opération desktop inconnue");
+        storage.requireSharedStorage(parish);
         // Normalize object keys so equivalent JSON produces the same digest.
         Object normalized=json.convertValue(input.payload(), Object.class);
         String canonical=json.copy().configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS,true).writeValueAsString(normalized);
         String hash=HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(canonical.getBytes(StandardCharsets.UTF_8)));
         jdbc.update("INSERT INTO desktop_operation(owner_id,operation_id,kind,payload_hash,parish_id) VALUES (?,?,?,?,?) ON CONFLICT DO NOTHING",
                 owner,input.operationId(),input.kind(),hash,parish);
-        var row=jdbc.queryForMap("SELECT kind,payload_hash,response FROM desktop_operation WHERE owner_id=? AND operation_id=? FOR UPDATE",owner,input.operationId());
-        if (!input.kind().equals(row.get("kind")) || !hash.equals(row.get("payload_hash")))
+        var row=jdbc.queryForMap("SELECT kind,payload_hash,parish_id,response FROM desktop_operation WHERE owner_id=? AND operation_id=? FOR UPDATE",owner,input.operationId());
+        if (!input.kind().equals(row.get("kind")) || !hash.equals(row.get("payload_hash")) || !parish.equals(row.get("parish_id")))
             throw new BusinessRuleException("Cet identifiant d'opération a déjà été utilisé pour un contenu différent");
-        if (row.get("response")!=null) return json.readTree((String)row.get("response"));
+        if (row.get("response")!=null) {
+            JsonNode retained=json.readTree((String)row.get("response"));
+            if(request!=null&&!retained.hasNonNull("localReference")){
+                attachTrackingReference(input,owner,retained);
+                jdbc.update("UPDATE desktop_operation SET response=? WHERE owner_id=? AND operation_id=?",json.writeValueAsString(retained),owner,input.operationId());
+            }
+            return retained;
+        }
         Object result;
         if (request!=null) result=demandes.create(request);
         else {
@@ -113,7 +123,15 @@ public class DesktopOperationService {
             result=Boolean.TRUE.equals(target.getStatusDel())?Map.of("publicId",id,"deleted",true):demandes.getByPublicId(id);
         }
         JsonNode response=json.valueToTree(result);
+        if(request!=null)attachTrackingReference(input,owner,response);
         jdbc.update("UPDATE desktop_operation SET response=? WHERE owner_id=? AND operation_id=?",json.writeValueAsString(response),owner,input.operationId());
         return response;
     }
+    private void attachTrackingReference(Operation input,UUID owner,JsonNode response){
+            String reference="MSL-"+input.operationId().toString().toUpperCase(Locale.ROOT);UUID demandId=UUID.fromString(response.path("publicId").asText());
+            int inserted=jdbc.update("INSERT INTO desktop_tracking_reference(reference,demande_public_id,owner_id,operation_id) VALUES (?,?,?,?) ON CONFLICT DO NOTHING",reference,demandId,owner,input.operationId());
+            if(inserted==0&&!demandId.equals(jdbc.queryForObject("SELECT demande_public_id FROM desktop_tracking_reference WHERE reference=?",UUID.class,reference)))throw new BusinessRuleException("La référence locale est déjà utilisée par une autre demande");
+            ((com.fasterxml.jackson.databind.node.ObjectNode)response).put("localReference",reference);
+    }
+
 }

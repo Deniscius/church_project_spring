@@ -7,9 +7,10 @@ Il communique avec le backend Spring Boot ; seul ce dernier accède à Neon.
 
 Les fichiers se trouvent dans `src/main/resources/com/missanye/desktop/view/` :
 
-- `login-form.fxml` : connexion en ligne et coffre local, inspirée du formulaire
+- `login-form.fxml` : connexion habituelle au compte de la paroisse, inspirée du formulaire
   `login_form.fxml` fourni dans `Church_Project.zip` (champs à droite).
-- `workbench.fxml` : structure principale, sélection de paroisse et onglets.
+- `workbench.fxml` : navigation principale et identité de la paroisse.
+- `parish-deployment.fxml` : vérification du compte et rattachement du poste.
 - `request-form.fxml` : formulaire d'intention, forfaits, coordonnées et créneaux.
 - `demands.fxml` : liste des demandes, décisions, paiements et reçus.
 - `outbox.fxml` : brouillons et opérations en attente de synchronisation.
@@ -36,27 +37,35 @@ Flyway applique V31 sans réinitialiser les données existantes. Le fichier
 `render-neon.yaml` reste utilisable ; aucune nouvelle connexion directe à Neon
 n'est nécessaire dans le desktop.
 
+## Présentation et résolutions
+
+L'application s'ouvre sur un tableau de bord après connexion. Le menu latéral
+permet d'accéder à la saisie, aux demandes et à l'activité sans perdre les champs
+en cours. Il se réduit à des icônes sur les petites largeurs. Les cartes, les
+barres d'actions et les tableaux s'adaptent à la place disponible.
+
+Les vues sont vérifiées de 900 × 600 à 1920 × 1080 unités JavaFX. Voir
+[la conception et les vérifications de l'interface](../docs/DESKTOP_INTERFACE.md).
+Le workflow Windows publie aussi les captures **Missanye-Interface-Previews**.
+
 ## Première utilisation
 
-1. Saisir l'identifiant et le mot de passe fournis par l'administrateur, puis
-   cliquer **Se connecter**. L'application connaît déjà son service : aucune
-   adresse technique n'est demandée à l'utilisateur.
-2. Lors du premier accès **en ligne**, choisir la paroisse autorisée à préparer,
-   puis saisir et confirmer un **mot de passe local d'au moins 12 caractères**.
-   Ce secret protège ce poste ; il n'existe pas de récupération intégrée.
-3. Patienter sur l'écran de préparation. Les offres, horaires et demandes doivent
-   être enregistrés avant l'ouverture de l'espace métier. Un chargement
-   interrompu laisse l'accès hors connexion désactivé et peut être repris en ligne.
-4. Après cette préparation, ouvrir **Travailler hors connexion**, renseigner
-   l'identifiant et le mot de passe local puis **Ouvrir mon espace hors connexion**.
-   L'application retrouve la paroisse sélectionnée et propose seulement celles
-   déjà préparées. Les droits seront revérifiés avant la transmission des opérations.
-   Pour reconnecter, utiliser **Déconnexion**, puis **Se connecter**.
+Lors de l’activation du poste, l’utilisateur se connecte et choisit une paroisse
+à laquelle il est autorisé. Le développeur peut également fournir le profil
+préconfiguré. Les comptes et leurs accès sont configurés sur le web.
+
+L'utilisateur saisit ensuite son **identifiant et son mot de passe habituels**.
+L'application ouvre directement la paroisse du poste, avec les permissions
+renvoyées par le service. Aucun choix de paroisse, mode de connexion ou second
+mot de passe ne fait partie du parcours normal.
+
+Voir [le déploiement par paroisse, le RBAC et la protection Windows](../docs/DESKTOP_PAROISSE.md)
+pour produire un installateur préconfiguré et migrer les anciens brouillons.
 
 La barre de session remplace le formulaire une fois connecté. Les tableaux
 proposent une recherche des demandes, un filtre de l'activité et des états
 lisibles. Les actions indisponibles sont désactivées selon la sélection, les
-droits et le mode de connexion. Les compteurs reflètent les données du poste.
+droits. Les compteurs reflètent les données du poste.
 
 ## Configuration réservée au développeur qui déploie
 
@@ -85,10 +94,19 @@ mvn javafx:run -Ddesktop.api.url=http://localhost:8081
 Le script shell accepte `MISSANYE_BUILD_API_URL`. Le fichier embarqué
 `com/missanye/desktop/config/deployment.properties` est filtré par Maven. Pour
 un lancement administré, `-Dmissanye.apiUrl=...` (option JVM) ou
-`MISSANYE_API_URL` peut surcharger cette valeur, dans cet ordre. L'interface ne
-propose pas d'éditeur de configuration. Les URL doivent être absolues, sans
+`MISSANYE_API_URL` peut surcharger cette valeur, dans cet ordre. Une adresse
+enregistrée depuis **Configurer ce poste** est prioritaire sur ces valeurs.
+Les URL doivent être absolues, sans
 identifiant, query string ou fragment ; HTTPS est obligatoire sauf en local.
 Aucune clé Neon ou FedaPay ne doit être ajoutée à ce fichier.
+
+### Configuration de la paroisse sur le poste
+
+**Activer / configurer ce poste** vérifie l’API et les identifiants du compte,
+puis propose uniquement les paroisses autorisées et actives. Le choix est
+enregistré sans mot de passe ni cookie.
+Le profil peut être inclus dans l'installateur avec `-DeploymentFile` : voir
+[DESKTOP_PAROISSE.md](../docs/DESKTOP_PAROISSE.md).
 
 La séparation des coffres utilise l'adresse canonique du service et le compte.
 Changer d'environnement crée un espace local distinct. Avant de remplacer une
@@ -132,7 +150,7 @@ Un conflit d'encaissement ne doit pas être rejoué
 aveuglément : actualiser le serveur et rapprocher la caisse avant de décider.
 Une session expirée arrête l'envoi et exige une reconnexion. Un refus de droits
 sur une opération la marque **Bloquée** sans interrompre les autres. Après
-rétablissement des accès, **Réessayer la transmission** conserve son identifiant
+rétablissement des accès, **Réexaminer l’opération** conserve son identifiant
 initial ; une opération bloquée ne doit pas être recopiée comme un nouvel
 encaissement.
 
@@ -159,25 +177,30 @@ locale qu'après confirmation serveur et actualisation de la liste.
 
 ## Paiements et reçus
 
-- **Espèces** : sélectionner une demande serveur, confirmer le montant reçu.
-  L'encaissement est provisoire dans la file jusqu'à sa confirmation serveur.
+- **Espèces** : sélectionner une demande validée, confirmer le montant reçu.
+  L’encaissement est enregistré immédiatement et le reçu est disponible.
+  L’envoi et la confirmation centrale sont gérés en arrière-plan.
   Le serveur refuse un montant changé, un paiement déjà effectué ou des droits
   insuffisants. Deux postes ne peuvent pas confirmer deux fois la même commande.
 - **Paiement en ligne** : le desktop demande une URL au backend puis ouvre le
   navigateur pour FedaPay. Cliquer **Vérifier le règlement** après le parcours.
   Internet et la configuration FedaPay serveur sont nécessaires ; aucune
   confirmation électronique n'est inventée hors ligne.
-- **Reçus** : sélectionner une demande puis **Télécharger le reçu**.
-  En ligne, le PDF officiel est téléchargé et mis en cache chiffré. Hors ligne,
-  seuls les reçus déjà téléchargés sont disponibles. Une coupure du service peut
-  également utiliser cette copie conservée, signalée à l'utilisateur comme telle. Le fichier exporté est un
-  PDF ordinaire **non chiffré** ; l'impression se fait depuis le lecteur PDF.
+- **Reçus** : sélectionner une demande puis **Imprimer / exporter le reçu**.
+  Le modèle reprend le web : ORIGINAL et DUPLICATA sur une feuille A4, identité
+  et logo paroissiaux, code, montant, intention, célébrations et paiement.
+  Le PDF est disponible immédiatement sans dépendre d’un téléchargement préalable.
+  Les espèces reçues sont indiquées comme payées ; un document sans encaissement
+  indique « Non payée ». Les mentions de connexion et d’envoi sont absentes du
+  document. Le cache reste chiffré ; le PDF exporté est **non chiffré** et se lit
+  et s’imprime dans le lecteur PDF habituel.
 
 ## Stockage et sauvegarde
 
 Le coffre est `~/.missanye-desktop/workflow.sqlite`. Les contenus, réponses,
-PDF et catalogues sont chiffrés en AES-256-GCM ; la clé est dérivée du mot de
-passe local avec PBKDF2-HMAC-SHA256 et un sel aléatoire propre au profil.
+PDF et catalogues sont chiffrés en AES-256-GCM. La clé aléatoire du nouveau
+parcours est protégée par Windows DPAPI. Les anciens coffres dérivés d’un mot de
+passe local sont migrés sans effacer leur contenu.
 Les profils sont séparés par serveur et compte, et la synchronisation compare
 l'identifiant serveur du propriétaire à la session courante. Les cookies ne
 vivent qu'en mémoire. Le coffre doit rester sur un compte système personnel.
@@ -188,8 +211,8 @@ Pour changer le répertoire sous Linux/macOS :
 JAVA_TOOL_OPTIONS="-Dmissanye.dataDir=/chemin/vers/donnees" mvn javafx:run
 ```
 
-Sauvegarder le fichier SQLite après verrouillage de l'application et conserver
-séparément le mot de passe local. Ne pas copier une base ouverte pendant une
+Sauvegarder après fermeture de l’application et préserver le profil Windows de
+protection DPAPI, ou transmettre les opérations au service avant de changer de poste. Ne pas copier une base ouverte pendant une
 écriture. Le prototype précédent `drafts.sqlite`, non chiffré, n'est ni importé
 ni supprimé automatiquement ; il n'est plus utilisé.
 
@@ -278,3 +301,36 @@ Ce test utilise exclusivement le compte de test créé par la suite backend. Il
 crée une demande, simule son encaissement et télécharge un reçu. Ne pas le lancer
 contre la production. Le paiement FedaPay réel reste à valider avec un compte
 sandbox configuré ; aucun paiement externe n'est exécuté par les tests.
+
+## Problème de connexion
+
+Le desktop distingue un serveur trop lent, un service introuvable (DNS), un
+serveur injoignable et une erreur de connexion sécurisée (TLS). Les messages ne
+contiennent ni mot de passe ni détails internes renvoyés par le serveur.
+Une erreur après le délai d'attente ne prouve pas que les identifiants sont faux :
+une réponse HTTP 401 est signalée séparément. Ne pas désactiver la vérification
+TLS pour contourner un problème de certificat.
+
+Les messages de connexion distinguent un refus des identifiants par l'API et un
+refus de session après authentification réussie. La paroisse affectée au poste
+et le résultat apparaissent près des champs de connexion. Le compte créé par le
+seeder utilise les mêmes identifiants que sur le web. Le compte administrateur global
+peut préparer le rattachement ; si aucune paroisse active n’existe, il doit en
+créer une depuis le web avant le déploiement.
+
+Les dialogues sont redimensionnables et limités à la zone visible de l'écran,
+avec défilement si nécessaire. La page de connexion masque le panneau décoratif
+sur les petites largeurs et défile en hauteur. Les confirmations et boutons
+standard sont présentés en français. L'éditeur d'intention est multiligne et
+bloque une correction de longueur invalide ; la fenêtre de créneaux reste
+ouverte quand une heure doit être corrigée.
+
+## Finalisation, reçu local et retour de connexion
+
+**Finaliser la demande** enregistre une demande complète et sa référence avant
+toute transmission. Les décisions et espèces suivent les permissions du compte,
+et le reçu PDF peut être généré immédiatement sur le poste. La synchronisation
+respecte les dépendances et les identifiants initiaux.
+
+Mettre à jour le backend avec la migration **V32** avant ce client. Voir
+[le parcours et les vérifications](../docs/DESKTOP_HORS_CONNEXION.md).

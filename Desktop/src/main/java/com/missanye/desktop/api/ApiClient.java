@@ -21,8 +21,9 @@ public final class ApiClient {
         http = HttpClient.newBuilder().cookieHandler(cookies).connectTimeout(Duration.ofSeconds(10))
                 .followRedirects(HttpClient.Redirect.NEVER).build();
     }
-    private JsonNode request(String path, String body) throws Exception {
-        var b = HttpRequest.newBuilder(base.resolve(path)).timeout(Duration.ofSeconds(30))
+    private JsonNode request(String path, String body) throws Exception {return request(path,body,Duration.ofSeconds(30));}
+    private JsonNode request(String path,String body,Duration timeout)throws Exception {
+        var b = HttpRequest.newBuilder(base.resolve(path)).timeout(timeout)
                 .header("Accept", "application/json").header("X-Requested-With", "XMLHttpRequest");
         if (body == null) b.GET(); else b.header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(body));
         var response = http.send(b.build(), HttpResponse.BodyHandlers.ofString());
@@ -34,11 +35,17 @@ public final class ApiClient {
         }
         return json.readTree(response.body());
     }
-    public JsonNode login(String username, String password) throws Exception {
+    public JsonNode login(String username, String password) throws Exception { return login(username,password,Duration.ofMinutes(2)); }
+    public JsonNode login(String username, String password,Duration timeout) throws Exception {
         clear();
         try {
-            request("auth/login-multi-tenant", json.writeValueAsString(Map.of("username", username, "password", password)));
-            return request("auth/me", null);
+            request("auth/login-multi-tenant", json.writeValueAsString(Map.of("username", username, "password", password)),timeout);
+            try{return request("auth/me", null,timeout);}catch(ApiException rejected){
+                if(rejected.status()==401||rejected.status()==403)throw new IllegalArgumentException("Vos identifiants ont été acceptés, mais le serveur n'a pas confirmé la session du desktop. Vérifiez la configuration des cookies du backend et l'adresse du serveur.");
+                throw rejected;
+            }
+        } catch (ApiException refused) {
+            clear();if(refused.status()==401)throw new ApiException("Identifiant ou mot de passe refusé par ce serveur. Utilisez les mêmes identifiants que sur le web et vérifiez le serveur sélectionné.",401);throw refused;
         } catch (Exception e) { clear(); throw e; }
     }
     public void logout() throws Exception {
@@ -61,6 +68,7 @@ public final class ApiClient {
         private final int status;
         public ApiException(int status) { this(status, ""); }
         public ApiException(int status, String detail) { super((status == 401 ? "Connexion refusée ou session expirée." : status == 403 ? "Vous ne disposez pas des droits nécessaires." : status == 429 ? "Trop de tentatives. Veuillez patienter avant de réessayer." : status >= 500 ? "Le service est momentanément indisponible. Votre travail est conservé." : "Cette opération n'a pas pu être confirmée.") + (detail.isBlank() || status >= 500 || status == 401 || status == 403 ? "" : " " + detail)); this.status = status; }
+        private ApiException(String message,int status){super(message);this.status=status;}
         public int status() { return status; }
     }
 }

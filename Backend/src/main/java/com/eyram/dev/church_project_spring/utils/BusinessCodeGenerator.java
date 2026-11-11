@@ -122,6 +122,10 @@ public final class BusinessCodeGenerator {
         String trimmed = raw.trim().toUpperCase(Locale.ROOT);
         String compact = trimmed.replaceAll("[\\s_-]+", "");
 
+        if(compact.matches("MSL[0-9A-F]{32}")){
+            String id=compact.substring(3);
+            return "MSL-"+id.substring(0,8)+"-"+id.substring(8,12)+"-"+id.substring(12,16)+"-"+id.substring(16,20)+"-"+id.substring(20);
+        }
         // Nouveau format renforcé : MS + initiales (2–4 lettres) + jeton 10 (50 bits).
         if (compact.matches("MS[A-Z]{2,4}[A-Z2-9]{10}")) {
             String body = compact.substring(2);

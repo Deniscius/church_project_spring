@@ -49,7 +49,15 @@ class DesktopTest {
         server.createContext("/auth/login-multi-tenant", e -> { e.sendResponseHeaders(401,-1); e.close(); }); server.start();
         try {
             var client = new ApiClient("http://127.0.0.1:"+server.getAddress().getPort());
-            assertEquals(401, assertThrows(ApiClient.ApiException.class, () -> client.login("x","y")).status());
+            var failure=assertThrows(ApiClient.ApiException.class, () -> client.login("x","y"));assertEquals(401,failure.status());assertTrue(failure.getMessage().contains("Identifiant ou mot de passe refusé"));
         } finally { server.stop(0); }
     }
+    @Test void acceptedCredentialsWithRejectedSessionAreNotReportedAsWrongPassword()throws Exception{
+        var server=HttpServer.create(new InetSocketAddress("127.0.0.1",0),0);
+        server.createContext("/auth/login-multi-tenant",e->{byte[] body="{}".getBytes();e.sendResponseHeaders(200,body.length);e.getResponseBody().write(body);e.close();});
+        server.createContext("/auth/me",e->{e.sendResponseHeaders(401,-1);e.close();});server.start();
+        try{var client=new ApiClient("http://127.0.0.1:"+server.getAddress().getPort());var failure=assertThrows(IllegalArgumentException.class,()->client.login("admin","test password"));assertTrue(failure.getMessage().contains("identifiants ont été acceptés"));assertTrue(failure.getMessage().contains("cookies"));}
+        finally{server.stop(0);}
+    }
+
 }

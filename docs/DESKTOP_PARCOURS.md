@@ -7,7 +7,10 @@ reste dans les services existants ; elle n'est pas ajoutée à l'application.
 
 | Parcours | Comportement livré | Vérification |
 |---|---|---|
-| Première connexion | Compte vérifié en ligne, sélection de paroisse, confirmation du mot de passe local et préparation complète avant ouverture ; un téléchargement interrompu n’active pas le hors-ligne | Serveur HTTP simulé et interface JavaFX |
+| Première connexion | Poste rattaché par le développeur ; l’utilisateur saisit ses identifiants habituels et les accès à cette paroisse sont vérifiés avant préparation | Serveur HTTP simulé, backend réel et interface JavaFX |
+| Test du serveur | Compteur pendant l’attente, panneau vert ou rouge et résultat visible ; enregistrement bloqué après échec | Contrôles HTTP et interface JavaFX redimensionnée |
+| Dialogues | Taille adaptée à l’écran, défilement des contenus longs, boutons accessibles ; un créneau invalide garde la fenêtre ouverte | Test de 30 célébrations et affichage compact |
+| Admin seed | Authentification initiale et session cookie vérifiées sur une base neuve ; absence de paroisse présentée après authentification comme un état de préparation | Seeder backend réel en HTTPS, refus de mauvais mot de passe et dialogue JavaFX |
 | Accès local | Mot de passe local, propriétaire et environnement isolés ; les droits sont revérifiés en ligne | SQLite chiffré et contrats HTTP |
 | Saisie incomplète | Un brouillon peut être enregistré sans téléphone ou avec une date à compléter ; il ne peut pas être transmis ainsi | Réouverture du coffre et action de sauvegarde réelle |
 | Nouveau formulaire, changement de paroisse, déconnexion, fermeture | Choix enregistrer / abandonner / annuler avant de perdre une saisie ; pas de fermeture en plein traitement | Dialogues JavaFX et vérification du brouillon après déconnexion |
@@ -25,8 +28,8 @@ reste dans les services existants ; elle n'est pas ajoutée à l'application.
 
 ## Validation réalisée
 
-La suite desktop compte 36 tests exécutés et réussis, y compris le test contre
-Spring Boot et PostgreSQL locaux sur une base jetable. Ce parcours prépare réellement le coffre, crée une
+La validation métier a réussi 45 tests, y compris le test contre
+Spring Boot et PostgreSQL locaux sur des bases jetables, en HTTPS avec cookie Secure / SameSite=None. Ce parcours prépare réellement le coffre, crée une
 demande, enregistre un encaissement de test, vérifie les conflits de correction,
 supprime une autre demande et relit un PDF hors connexion.
 
@@ -40,7 +43,7 @@ La protection de saisie couvre la fermeture normale de l'application. Une
 coupure de courant ne peut préserver une saisie qui n'a jamais été enregistrée ;
 les brouillons enregistrés et les opérations en attente restent sur disque.
 
-## Première utilisation d'un poste
+## Ancien parcours avant rattachement paroissial
 
 Une connexion Internet est obligatoire pour chaque nouveau compte sur un poste.
 L'utilisateur se connecte avec son compte existant ; l'assistant propose les
@@ -62,3 +65,28 @@ une nouvelle paroisse déclenche sa préparation. Les coffres existants qui
 contiennent déjà un catalogue et une liste de demandes complets restent
 compatibles. Les nouveaux profils acceptent les variations de casse de
 l'identifiant sans créer plusieurs coffres.
+
+## Diagnostic des refus de connexion
+
+Un refus HTTP 401 de `login-multi-tenant` indique que le serveur sélectionné
+refuse l'identifiant ou le mot de passe. Si cet appel réussit mais que `auth/me`
+refuse la session, le message précise que les identifiants ont été acceptés et
+invite à vérifier les cookies et l'adresse du backend. Aucun secret, cookie ou
+corps de requête n'est affiché. Le serveur effectif et le résultat sont visibles
+près des champs de connexion.
+
+Le test du vrai seeder (`LiveSeedAccountTest`) utilise une seconde base jetable,
+initialement vide, avec `APP_ADMIN_SEED_USERNAME=desktop-seed-admin` et le mot de
+passe de test `CiDesktopSeed-2026!`. Le lancer uniquement dans cet environnement
+avec `DESKTOP_SEED_E2E=true` et `DESKTOP_SEED_API_URL=https://localhost:18444`.
+Le serveur de validation utilise un certificat local explicitement approuvé par
+le truststore de test ; la validation TLS n'est jamais désactivée.
+Ces tests n'établissent pas la validité d'un compte ou de la configuration Render
+réels : le refus constaté en production n'a pas été reproduit sur les bases de
+validation.
+
+La refonte visuelle et les vérifications de résolutions sont détaillées dans
+[DESKTOP_INTERFACE.md](DESKTOP_INTERFACE.md).
+
+Le parcours courant utilise la connexion naturelle et la protection DPAPI :
+voir [DESKTOP_PAROISSE.md](DESKTOP_PAROISSE.md).

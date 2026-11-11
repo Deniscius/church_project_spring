@@ -70,6 +70,23 @@ public class DemandeReceiptService {
     private final TenantAccessService tenantAccessService;
     private final StoredFileService storedFileService;
 
+    /** Only public receipt identity is cached by the desktop; no bank or tenant administration data. */
+    public record Branding(String nom, String adresse, String telephone, String email, String logoBase64) {}
+
+    @Transactional(readOnly = true)
+    public Branding branding(UUID parishId) {
+        Paroisse parish = paroisseRepository.findByPublicIdAndStatusDelFalse(parishId)
+                .orElseThrow(() -> new ResourceNotFoundException("Paroisse introuvable"));
+        tenantAccessService.checkParoisseAccess(parish);
+        String logo = null;
+        Path path = resolveLogo(parish);
+        try {
+            if (path != null && java.nio.file.Files.size(path) <= 2_000_000)
+                logo = java.util.Base64.getEncoder().encodeToString(java.nio.file.Files.readAllBytes(path));
+        } catch (java.io.IOException ignored) { /* The identity remains printable without a logo. */ }
+        return new Branding(parish.getNom(), parish.getAdresse(), parish.getTelephone(), parish.getEmail(), logo);
+    }
+
     @Transactional(readOnly = true)
     public byte[] generate(String trackingCode) {
         String code = BusinessCodeGenerator.normalizeDemandeTrackingCode(trackingCode);
@@ -83,7 +100,7 @@ public class DemandeReceiptService {
                 .findByDemandePublicIdAndStatusDelFalse(demande.getPublicId())
                 .orElse(null);
 
-        ReceiptData data = ReceiptData.fromDemande(demande, dates, facture);
+        ReceiptData data = ReceiptData.fromDemande(demande, dates, facture, code.startsWith("MSL-") ? code : demande.getCodeSuivie());
         return renderSingleA4(data, "Reçu " + demande.getCodeSuivie());
     }
 
@@ -369,7 +386,7 @@ public class DemandeReceiptService {
             String refFacture,
             String notice
     ) {
-        static ReceiptData fromDemande(Demande demande, List<DemandeDate> dates, Facture facture) {
+        static ReceiptData fromDemande(Demande demande, List<DemandeDate> dates, Facture facture, String trackingReference) {
             String depot = demande.getCreatedAt() != null
                     ? demande.getCreatedAt().format(DATE_TIME_FORMAT)
                     : "—";
@@ -381,7 +398,7 @@ public class DemandeReceiptService {
                     : null;
             return new ReceiptData(
                     demande.getParoisse(),
-                    demande.getCodeSuivie(),
+                    trackingReference,
                     montant + " FCFA",
                     depot,
                     demande.getIntention(),

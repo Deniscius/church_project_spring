@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<VBox xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" spacing="12" prefWidth="560">
+ <Label text="DÉPLOIEMENT DU POSTE" styleClass="eyebrow"/>
+ <Label text="Rattacher ce poste à une paroisse" styleClass="section-title"/>
+ <Label text="Connectez-vous avec votre compte habituel et choisissez une paroisse à laquelle vous êtes autorisé. Ce poste conservera ce rattachement." wrapText="true" minHeight="-Infinity"/>
+ <Label text="Serveur API"/><TextField fx:id="deploymentServer"/>
+ <Label text="Identifiant"/><TextField fx:id="deploymentUser"/>
+ <Label text="Mot de passe"/><PasswordField fx:id="deploymentPassword"/>
+ <Button fx:id="deploymentVerify" text="Vérifier et charger les paroisses" styleClass="primary-button"/>
+ <ProgressIndicator fx:id="deploymentProgress" prefWidth="24" prefHeight="24" visible="false" managed="false"/>
+ <Label text="Paroisse de cette installation"/><ComboBox fx:id="deploymentParish" maxWidth="Infinity" disable="true"/>
+ <Label fx:id="deploymentResult" text="Vos identifiants servent uniquement à vérifier vos accès et ne sont pas enregistrés." wrapText="true" minHeight="-Infinity" styleClass="login-notice"/>
+</VBox>

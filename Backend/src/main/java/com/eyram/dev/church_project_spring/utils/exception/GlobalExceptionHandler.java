@@ -197,6 +197,12 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, INTERNAL_ERROR_MESSAGE, request, traceId);
     }
 
+    @ExceptionHandler(ParishStorageUnavailableException.class)
+    public ResponseEntity<ErrorMessage> handleStorageUnavailable(ParishStorageUnavailableException ex, WebRequest request) {
+        log.error("Missing or unsupported parish storage placement on {}", request.getDescription(false));
+        return buildResponse(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage(), request);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorMessage> handleAllException(
             Exception ex,

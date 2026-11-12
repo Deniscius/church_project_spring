@@ -23,6 +23,7 @@
         <Button fx:id="navRequest" text="Nouvelle demande" maxWidth="Infinity" styleClass="nav-button" accessibleText="Nouvelle demande"><graphic><SVGPath content="M4 2 H13 L17 6 V19 H4 Z M8 11 H13 M10.5 8.5 V13.5" styleClass="nav-icon"/></graphic></Button>
         <Button fx:id="navDemands" text="Demandes et paiements" maxWidth="Infinity" styleClass="nav-button" accessibleText="Demandes et paiements"><graphic><SVGPath content="M3 4 H17 V18 H3 Z M3 8 H17 M7 4 V18 M10 12 H14 M10 15 H14" styleClass="nav-icon"/></graphic></Button>
         <Button fx:id="navActivity" text="Activité paroissiale" maxWidth="Infinity" styleClass="nav-button" accessibleText="Activité paroissiale"><graphic><SVGPath content="M3 10 A7 7 0 1 1 5 16 M3 4 V10 H9 M10 6 V11 L14 13" styleClass="nav-icon"/></graphic></Button>
+        <Button fx:id="settings" text="Paramètres" maxWidth="Infinity" styleClass="nav-button" accessibleText="Paramètres"><graphic><SVGPath content="M10 2 V5 M10 15 V18 M2 10 H5 M15 10 H18 M4 4 L6 6 M14 14 L16 16 M4 16 L6 14 M14 6 L16 4 M13 10 A3 3 0 1 1 7 10 A3 3 0 1 1 13 10" styleClass="nav-icon"/></graphic></Button>
         <Region minHeight="25" VBox.vgrow="ALWAYS"/>
         <VBox fx:id="sidebarHelp" spacing="7" styleClass="sidebar-help"><Label text="UN TRAVAIL TOUJOURS PROTÉGÉ" wrapText="true" minHeight="-Infinity" styleClass="sidebar-caption"/><Label text="Retrouvez les brouillons et opérations dans Activité paroissiale." wrapText="true" minHeight="-Infinity" styleClass="sidebar-caption"/></VBox>
       </VBox></content>

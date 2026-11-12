@@ -17,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class MainControllerTest {
     @TempDir Path temp;
     @BeforeAll static void startToolkit()throws Exception{
+        System.setProperty("missanye.disableAutomaticUpdateChecks","true");
         System.setProperty("glass.platform","Monocle");System.setProperty("monocle.platform","Headless");System.setProperty("prism.order","sw");System.setProperty("quantum.multithreaded","false");System.setProperty("prism.dirtyopts","false");
         System.setProperty("headless.geometry","2200x1400-32");
         var started=new CountDownLatch(1);Platform.startup(started::countDown);assertTrue(started.await(10,TimeUnit.SECONDS));Platform.setImplicitExit(false);
@@ -62,7 +63,7 @@ class MainControllerTest {
             store.put("demands:"+parish,json.readTree("""
               [
                 {"publicId":"demo-1","codeSuivie":"MS-DEMO-001","prenomFidele":"Claire","nomFidele":"Mensah","intention":"Action de grâce pour la famille","datesCelebration":["2027-01-10"],"montant":5000,"statutPaiement":"PAYE","statutValidation":"VALIDEE"},
-                {"publicId":"demo-2","codeSuivie":"MS-DEMO-002","prenomFidele":"Ama","nomFidele":"Amega","intention":"Intention pour un anniversaire","datesCelebration":["2027-01-11"],"montant":5000,"statutPaiement":"NON_PAYE","statutValidation":"VALIDEE"},
+                {"publicId":"demo-2","telFidele":"+22890123456","codeSuivie":"MS-DEMO-002","prenomFidele":"Ama","nomFidele":"Amega","intention":"Intention pour un anniversaire","datesCelebration":["2027-01-11"],"montant":5000,"statutPaiement":"NON_PAYE","statutValidation":"VALIDEE"},
                 {"publicId":"demo-3","codeSuivie":"MS-DEMO-003","prenomFidele":"Pierre","nomFidele":"Dossou","intention":"Prière pour un proche","datesCelebration":["2027-01-12"],"montant":20000,"statutPaiement":"NON_PAYE","statutValidation":"EN_ATTENTE","validationRequise":true}
               ]
               """));
@@ -80,7 +81,7 @@ class MainControllerTest {
                 assertEquals(1,views[0].tabs.getSelectionModel().getSelectedIndex());assertTrue(views[0].demandSearch.getText().isEmpty());assertEquals(recent.getSelectionModel().getSelectedItem(),views[0].demands.getSelectionModel().getSelectedItem());
                 var amountColumn=views[0].demands.getColumns().get(3);amountColumn.setSortType(javafx.scene.control.TableColumn.SortType.DESCENDING);views[0].demands.getSortOrder().setAll(amountColumn);views[0].demands.sort();assertEquals(20000,views[0].demands.getItems().get(0).data().path("montant").asInt());views[0].demands.getSortOrder().clear();
                 views[0].demandSearch.setText("AMEGA");assertEquals(1,views[0].demands.getItems().size());
-                views[0].demands.getSelectionModel().selectFirst();assertFalse(views[0].cash.isDisabled());
+                views[0].demands.getSelectionModel().selectFirst();assertFalse(views[0].cash.isDisabled());views[0].copyCode.fire();assertEquals("MS-DEMO-002",javafx.scene.input.Clipboard.getSystemClipboard().getString());views[0].copyPhone.fire();assertEquals("+22890123456",javafx.scene.input.Clipboard.getSystemClipboard().getString());views[0].copyDetails.fire();assertTrue(javafx.scene.input.Clipboard.getSystemClipboard().getString().contains("anniversaire"));
                 views[0].demandSearch.clear();views[0].demands.getSelectionModel().selectFirst();assertTrue(views[0].cash.isDisabled());
                 views[0].tabs.getSelectionModel().select(1);capture(views[0],"desktop-demands-preview.png");
                 views[0].tabs.getSelectionModel().select(0);
@@ -124,7 +125,7 @@ class MainControllerTest {
         var p=TestRequests.complete();var json=new ObjectMapper();var c=json.createObjectNode();
         c.putArray("types").addObject().put("publicId",p.path("typeDemandePublicId").asText()).put("libelle","Normale");
         c.putObject("forfaits").putArray(p.path("typeDemandePublicId").asText()).addObject().put("publicId",p.path("forfaitTarifPublicId").asText()).put("nomForfait","Un jour").put("natureForfait","NORMALE").put("nombreCelebration",1).put("montantForfait",2000);
-        c.putArray("horaires").addObject().put("publicId",p.path("horairePublicId").asText()).put("libelle","Matin");
+        c.putArray("horaires").addObject().put("publicId",p.path("horairePublicId").asText()).put("libelle","Matin").put("heureCelebration","08:00:00");
         c.putArray("paiements").addObject().put("publicId",p.path("typePaiementPublicId").asText()).put("libelle","Espèces");return c;
     }
     private static void prepare(Path file,String address)throws Exception{
@@ -132,6 +133,22 @@ class MainControllerTest {
             store.put("session",identity());store.put("parishes",identity().path("paroisses"));store.put("catalogue:"+TestRequests.PARISH,catalogue());store.put("demands:"+TestRequests.PARISH,new ObjectMapper().createArrayNode());
             store.put("catalogue:731c7ab4-2fae-4d78-a17b-0ff7653f4599",catalogue());store.put("demands:731c7ab4-2fae-4d78-a17b-0ff7653f4599",new ObjectMapper().createArrayNode());
         }
+    }
+    @Test void calendarTariffAndSettingsFollowTheBusinessWorkflow()throws Exception{
+        Path file=temp.resolve("calendar.sqlite");prepare(file,"http://localhost:8081/");var json=new ObjectMapper();
+        try(var store=LocalStore.unlock(file,"http://localhost:8081/","alice","Local password 1234!".toCharArray(),null)){
+            var c=catalogue();var plans=(com.fasterxml.jackson.databind.node.ArrayNode)c.path("forfaits").elements().next();var special=plans.get(0).deepCopy();((com.fasterxml.jackson.databind.node.ObjectNode)special).put("publicId","731c7ab4-2fae-4d78-a17b-0ff7653f4510").put("natureForfait","SPECIALE").put("heurePersonnalise",true);plans.add(special);var series=plans.get(0).deepCopy();((com.fasterxml.jackson.databind.node.ObjectNode)series).put("publicId","731c7ab4-2fae-4d78-a17b-0ff7653f4511").put("nombreCelebration",3).put("nombreJour",3);plans.add(series);
+            var schedules=(com.fasterxml.jackson.databind.node.ArrayNode)c.path("horaires");schedules.removeAll();for(int day=1;day<=4;day++)schedules.addObject().put("publicId","731c7ab4-2fae-4d78-a17b-0ff7653f452"+day).put("jourSemaine",new String[]{"LUNDI","MARDI","MERCREDI","JEUDI"}[day-1]).put("heureCelebration",day==2?"06:30:00":"08:00:00").put("libelle","Horaire "+day);store.put("catalogue:"+TestRequests.PARISH,c);
+        }
+        var views=new WorkbenchView[1];var controllers=new WorkbenchController[1];var stage=new javafx.stage.Stage[1];
+        try{
+            fx(()->{views[0]=new WorkbenchView();controllers[0]=new WorkbenchController(views[0],file,null,"http://localhost:8081/");stage[0]=new javafx.stage.Stage();stage[0].setScene(new javafx.scene.Scene(views[0].root,1366,850));stage[0].show();views[0].username.setText("alice");views[0].localPassword.setText("Local password 1234!");});await(()->!views[0].offline.isDisabled());fx(()->views[0].offline.fire());await(()->!views[0].workspace.isDisabled()&&views[0].plan.getValue()!=null);
+            fx(()->{
+                var v=views[0];v.tabs.getSelectionModel().select(0);v.date.setValue(java.time.LocalDate.parse("2027-01-11"));assertEquals("08:00:00",v.schedule.getValue().data().path("heureCelebration").asText());assertFalse(v.customTime.isVisible());v.date.setValue(java.time.LocalDate.parse("2027-01-12"));assertEquals("06:30:00",v.schedule.getValue().data().path("heureCelebration").asText());
+                v.plan.getSelectionModel().select(1);assertTrue(v.customTime.isVisible());v.customTime.setText("10:15");v.plan.getSelectionModel().select(2);assertFalse(v.customTime.isVisible());assertTrue(v.customTime.getText().isEmpty());assertEquals(2,v.extraDates.getItems().size());v.intention.setText("court");v.finalizeRequest.fire();assertTrue(v.root.lookup("#formError").isVisible());capture(v,"desktop-calendar-preview.png");
+                Platform.runLater(()->{for(var window:java.util.List.copyOf(javafx.stage.Window.getWindows())){if(window.getScene()!=null&&window.getScene().getRoot() instanceof javafx.scene.control.DialogPane pane&&"settingsDialog".equals(pane.getId())){try{captureNode(pane,"desktop-settings-preview.png");}finally{((javafx.scene.control.Button)pane.lookupButton(pane.getButtonTypes().get(0))).fire();}return;}}fail("Fenêtre Paramètres absente");});v.settings.fire();
+            });
+        }finally{fx(()->{if(controllers[0]!=null)controllers[0].close();if(stage[0]!=null)stage[0].close();});}
     }
     @Test void cancelProtectsSaisieAndSaveBeforeLogoutKeepsIncompleteDraft()throws Exception{
         Path file=temp.resolve("guards.sqlite");prepare(file,"http://localhost:8081/");var views=new WorkbenchView[1];var controllers=new WorkbenchController[1];var stage=new javafx.stage.Stage[1];
@@ -159,6 +176,7 @@ class MainControllerTest {
             fx(()->{views[0]=new WorkbenchView();controllers[0]=new WorkbenchController(views[0],file,null,"http://localhost:8081/");stage[0]=new javafx.stage.Stage();stage[0].setScene(new javafx.scene.Scene(views[0].root,1024,700));stage[0].show();views[0].username.setText("alice");views[0].localPassword.setText("Local password 1234!");});
             await(()->!views[0].offline.isDisabled());fx(()->views[0].offline.fire());await(()->!views[0].workspace.isDisabled()&&views[0].plan.getValue()!=null);
             fx(()->{
+                ((com.fasterxml.jackson.databind.node.ObjectNode)views[0].plan.getValue().data()).put("natureForfait","SPECIALE").put("heurePersonnalise",true).put("nombreCelebration",30).put("nombreJour",30);
                 for(int day=1;day<30;day++)views[0].extraDates.getItems().add(views[0].date.getValue().plusDays(day));
                 Platform.runLater(()->{
                     for(var window:java.util.List.copyOf(javafx.stage.Window.getWindows())){

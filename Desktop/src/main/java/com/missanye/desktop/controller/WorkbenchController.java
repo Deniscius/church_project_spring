@@ -46,7 +46,15 @@ public final class WorkbenchController implements AutoCloseable {
     private ApiClient api;
     private char[] reconnectPassword;
     private String reconnectUsername;
-    private boolean reconnecting,synchronizing;
+    private boolean reconnecting,synchronizing,scheduling,checkingUpdates;
+    private boolean settingsRefreshing;
+    private final Label dataMessage=new Label("Actualisation automatique toutes les minutes.");
+    private long updateCheckedAt;
+    private com.missanye.desktop.service.UpdateService.Release latestRelease;
+    private final Label updateMessage=new Label("Recherchez les versions publiées de Missanye Desktop.");
+    private final javafx.scene.control.Hyperlink updateDownload=new javafx.scene.control.Hyperlink("Télécharger la nouvelle version");
+    private final ExecutorService updater=Executors.newSingleThreadExecutor(r->{var t=new Thread(r,"desktop-updates");t.setDaemon(true);return t;});
+    private final com.missanye.desktop.model.CelebrationPlanner planner=new com.missanye.desktop.model.CelebrationPlanner();
     private Task<?> syncTask;
     private volatile long authEpoch;
     private Task<?> reconnectTask;
@@ -82,24 +90,27 @@ public final class WorkbenchController implements AutoCloseable {
         apiBaseUrl=new DesktopConfiguration(configuredApiUrl).apiBaseUrl();
         v=view;this.file=file;this.host=host;
         v.serverEnvironment.setText("Serveur : "+apiBaseUrl);
+        v.settings.setOnAction(e->settings());
         v.configureServer.setOnAction(e->configureServer());
         v.login.setOnAction(e->unlock(true));v.offline.setOnAction(e->unlock(false));v.lock.setOnAction(e->protectForm(this::lock));
         v.parish.valueProperty().addListener((o,a,b)->{if(!closed&&!loading&&!busy)changeParish();});
         v.addDate.setOnAction(e->addDate());v.removeDate.setOnAction(e->{var chosen=v.extraDates.getSelectionModel().getSelectedItem();if(chosen!=null)v.extraDates.getItems().remove(chosen);});
+        v.date.setDayCellFactory(picker->new DateCell(){@Override public void updateItem(LocalDate day,boolean empty){super.updateItem(day,empty);if(empty||day==null)return;try{var type=v.type.getValue()==null?json.missingNode():v.type.getValue().data();var plan=v.plan.getValue()==null?json.missingNode():v.plan.getValue().data();setDisable(!planner.allowedStart(type,plan,catalog==null?json.createArrayNode():catalog.path("horaires"),day));}catch(Exception invalid){setDisable(true);}}});
         v.configureSlots.setOnAction(e->configureSlots());
-        v.type.setOnAction(e->{if(!loading)fillPlans();});v.plan.setOnAction(e->price());
+        v.type.setOnAction(e->{if(!loading)fillPlans();});v.plan.setOnAction(e->{price();calendarChanged(true);});v.date.valueProperty().addListener((o,a,b)->calendarChanged(true));
+        v.showAction("formError",false);
         v.finalizeRequest.setOnAction(e->finalizeForm());v.fresh.setOnAction(e->protectForm(this::reset));v.save.setOnAction(e->save());v.queue.setOnAction(e->queue());v.edit.setOnAction(e->edit());v.archive.setOnAction(e->archive());v.retry.setOnAction(e->retry());v.returnToDraft.setOnAction(e->returnToDraft());
         v.correct.setOnAction(e->mutate("UPDATE_INTENTION"));v.validate.setOnAction(e->mutate("VALIDATE_DEMANDE"));v.remove.setOnAction(e->mutate("DELETE_DEMANDE"));
-        v.refresh.setOnAction(e->refresh());v.sync.setOnAction(e->synchronize());v.cash.setOnAction(e->cash());v.receipt.setOnAction(e->receipt());v.checkout.setOnAction(e->checkout());v.reconcile.setOnAction(e->reconcile());
+        v.refresh.setOnAction(e->refresh());v.sync.setOnAction(e->synchronize());v.cash.setOnAction(e->cash());v.receipt.setOnAction(e->receipt());v.printIntention.setOnAction(e->printIntention());v.copyCode.setOnAction(e->copyDemand("code"));v.copyPhone.setOnAction(e->copyDemand("phone"));v.copyDetails.setOnAction(e->copyDemand("details"));v.checkout.setOnAction(e->checkout());v.reconcile.setOnAction(e->reconcile());
         v.demands.getSelectionModel().selectedItemProperty().addListener((o,a,b)->{v.detail.setText(b==null?"Sélectionnez une demande pour consulter son intention et agir.":description(b.data()));updateActions();});
         v.outbox.getSelectionModel().selectedItemProperty().addListener((o,a,b)->{v.queueDetail.setText(b==null?"Sélectionnez une opération pour consulter son état.":b.data().path("error").asText("Cette opération est enregistrée dans votre espace paroissial.")+"\nSaisi par : "+b.data().path("createdByName").asText("Non renseigné"));updateActions();});
         cleanForm=formData();
         readinessDelay.setOnFinished(e->inspectOfflineReadiness());v.username.textProperty().addListener((o,a,b)->{offlineReady=false;controls();readinessDelay.playFromStart();});
         controls();
-        timer.scheduleWithFixedDelay(()->Platform.runLater(()->{if(!closed && !busy && store!=null && ((api!=null&&v.auto.isSelected())||(api==null&&reconnectPassword!=null)) && !v.hasOpenDialog() && System.currentTimeMillis()>=automaticRetryAfter){if(api==null)reconnect();else synchronize();}}),60,60,TimeUnit.SECONDS);
+        timer.scheduleWithFixedDelay(()->Platform.runLater(()->{if(!closed && !busy && store!=null && ((api!=null)||(api==null&&reconnectPassword!=null)) && !v.hasOpenDialog() && System.currentTimeMillis()>=automaticRetryAfter){if(api==null)reconnect();else{checkUpdates(false);synchronize();}}}),60,60,TimeUnit.SECONDS);
     }
     private <T> void run(Callable<T> action,Consumer<T> success){
-        if(busy||closed)return;busy=true;long generation=++taskGeneration;controls();
+        if(busy||closed)return;v.clearError();busy=true;long generation=++taskGeneration;controls();
         var task=new Task<T>(){@Override protected T call()throws Exception{try{return action.call();}finally{if(closed&&store!=null)store.close();}}};
         task.setOnSucceeded(e->{if(closed)return;busy=false;controls();try{success.accept(task.getValue());}catch(Exception x){v.status.setText("Affichage impossible : "+x.getMessage());}});
         task.setOnFailed(e->{if(closed)return;busy=false;
@@ -107,7 +118,7 @@ public final class WorkbenchController implements AutoCloseable {
             Throwable x=task.getException();if(x instanceof SyncService.SessionMismatchException||x instanceof ParishLoginService.ReauthenticationRequired){if(api!=null)api.clear();api=null;clearReconnect();}
             if(store==null){v.showLogin();clearReconnect();}controls();
             if(x instanceof java.io.IOException || (x instanceof ApiClient.ApiException a && (a.status()==429 || a.status()>=500))) {transientFailures=Math.min(transientFailures+1,6);automaticRetryAfter=System.currentTimeMillis()+Math.min(3600000L,60000L*(1L<<transientFailures));}
-            v.status.setText(OperationErrors.message(x));
+            v.error(OperationErrors.message(x));
             reloadView(generation);
             if(x instanceof ParishLoginService.LegacyMigrationRequired migration)migrateLegacy(migration);
         });worker.submit(task);
@@ -232,7 +243,7 @@ public final class WorkbenchController implements AutoCloseable {
         for(var p:v.parish.getItems())if(p.id().equals(opened.selected())){v.parish.setValue(p);break;}
         loading=false;v.session.setText(session.path("user").path("username").asText(v.username.getText()));controls();
         v.status.setText("Connexion réussie. Votre espace paroissial est prêt.");
-        openParish(v.parish.getValue(),!opened.preparedNow());
+        openParish(v.parish.getValue(),!opened.preparedNow());if(api!=null)checkUpdates(false);
     }
     private void lock(){
         cancelReconnect();clearReconnect();
@@ -274,7 +285,7 @@ public final class WorkbenchController implements AutoCloseable {
             setChoices(v.type,catalog.path("types"),"libelle");if(dirty||!oldType.isBlank())choose(v.type,oldType);
             setChoices(v.schedule,catalog.path("horaires"),"libelle");if(dirty||!oldSchedule.isBlank())choose(v.schedule,oldSchedule);
             setChoices(v.payment,catalog.path("paiements"),"libelle");if(dirty||!oldPayment.isBlank())choose(v.payment,oldPayment);
-            fillPlans();if(dirty||!oldPlan.isBlank())choose(v.plan,oldPlan);loading=false;price();
+            fillPlans();if(dirty||!oldPlan.isBlank())choose(v.plan,oldPlan);loading=false;price();calendarChanged(!dirty);
         }
         if(s.session().path("user").path("id").asText().equals(store.owner())){session=s.session();if(parishMode)v.session.setText(session.path("user").path("username").asText()+" — "+session.path("user").path("role").asText());}
         if(!dirty)cleanForm=formData();
@@ -307,6 +318,7 @@ public final class WorkbenchController implements AutoCloseable {
         v.remove.setDisable(!ready||demand==null||paid||demand.data().path("localPending").asBoolean()||!hasPermission("demand:delete"));
         boolean waiting=demand!=null&&v.activityRows.stream().anyMatch(row->Set.of("PENDING","BLOCKED").contains(row.data().path("state").asText())&&!("VALIDATE_DEMANDE".equals(row.data().path("kind").asText())&&"VALIDEE".equals(row.data().path("payload").path("statut").asText()))&&demand.data().path("publicId").asText().equals(row.data().path("payload").path("demandePublicId").asText()));
         v.cash.setDisable(!ready||demand==null||paid||demand.data().path("localCashReceived").asBoolean()||waiting||!hasPermission("payment:manage")||(demand.data().has("paiementDisponible")&&!demand.data().path("paiementDisponible").asBoolean()));
+        v.printIntention.setDisable(!ready||demand==null||!hasPermission("demand:read"));v.copyActions.setDisable(!ready||demand==null);
         v.receipt.setDisable(!ready||demand==null);v.checkout.setDisable(!ready||api==null||demand==null||paid||demand.data().path("localPending").asBoolean());v.reconcile.setDisable(!ready||api==null||demand==null||demand.data().path("localPending").asBoolean());
         boolean financial=activity!=null&&("CASH_PAYMENT".equals(activity.data().path("kind").asText())||v.activityRows.stream().anyMatch(row->"CASH_PAYMENT".equals(row.data().path("kind").asText())&&(activity.data().path("id").asText().equals(row.data().path("localRequestId").asText())||activity.data().path("id").asText().equals(row.data().path("dependsOn").asText()))));
         String state=activity==null?"":activity.data().path("state").asText();boolean editable=activity!=null&&!financial&&"CREATE_DEMANDE".equals(activity.data().path("kind").asText())&&(state.equals("DRAFT")||state.equals("REJECTED"));
@@ -324,16 +336,35 @@ public final class WorkbenchController implements AutoCloseable {
             String local=d.path("localRequestId").asText(),chosen=decision,context=parish();run(()->{new LocalRequestService(store).decide(local,chosen);return snapshot(context);},s->{display(s);v.status.setText("Décision enregistrée.");});return;
         }
         String intention=text,statut=decision,parish=parish();run(()->{store.queueMutation(kind,d,intention,statut);return snapshot(parish);},s->{display(s);v.tabs.getSelectionModel().select(2);v.status.setText("Opération enregistrée.");});
-    }catch(Exception e){v.status.setText(e.getMessage());}}
+    }catch(Exception e){v.error(e.getMessage());}}
     private String description(JsonNode d){return (d.path("localReconciliationRequired").asBoolean()?"À RAPPROCHER — ":"")+ScreenFormats.reference(d)+" · "+ScreenFormats.faithful(d)+" · "+ScreenFormats.money(d.path("montant"))+" · "+ScreenFormats.state(d.path("statutPaiement").asText())+"\n"+d.path("intention").asText();}
     private void setChoices(ComboBox<Choice> box,JsonNode values,String label){box.getItems().clear();for(var value:values)if(value.path("isActive").asBoolean(true) && !value.path("statusDel").asBoolean()){String text=value.path(label).asText(value.path("publicId").asText());if(value.has("heureCelebration"))text+=" — "+value.path("jourSemaine").asText()+" "+value.path("heureCelebration").asText();box.getItems().add(new Choice(value.path("publicId").asText(),text,value));}if(!box.getItems().isEmpty())box.getSelectionModel().selectFirst();}
     private void fillPlans(){if(catalog==null || v.type.getValue()==null){v.plan.getItems().clear();return;}setChoices(v.plan,catalog.path("forfaits").path(v.type.getValue().id()),"nomForfait");price();}
+    private void calendarChanged(boolean regenerate){
+        if(loading||scheduling||catalog==null||v.type.getValue()==null||v.plan.getValue()==null||v.date.getValue()==null)return;
+        scheduling=true;
+        try{
+            var type=v.type.getValue().data();var plan=v.plan.getValue().data();
+            var preferred=regenerate?planner.preferredPlan(catalog.path("forfaits").path(id(v.type)),plan,catalog.path("horaires"),v.date.getValue()):plan;
+            if(!preferred.path("publicId").asText().equals(id(v.plan))){choose(v.plan,preferred.path("publicId").asText());plan=preferred;price();v.status.setText("Forfait adapté au calendrier : "+v.plan.getValue().label()+". Vérifiez le montant avant de finaliser.");}
+            boolean custom=com.missanye.desktop.model.CelebrationPlanner.customAllowed(type,plan);v.customTime.setDisable(!custom);v.showAction("customTimeLabel",custom);v.customTime.setVisible(custom);v.customTime.setManaged(custom);javafx.scene.layout.GridPane.setColumnIndex(v.configureSlots,custom?1:0);javafx.scene.layout.GridPane.setColumnSpan(v.configureSlots,custom?1:2);if(!custom)v.customTime.clear();
+            String selected=id(v.schedule);var options=planner.schedules(catalog.path("horaires"),v.date.getValue(),type,plan);var rows=json.createArrayNode();options.forEach(rows::add);setChoices(v.schedule,rows,"libelle");for(var choice:v.schedule.getItems())if(choice.id().equals(selected)){v.schedule.setValue(choice);break;}
+            if(regenerate){
+                var dates=plan.path("nombreCelebration").asInt(1)==1?List.of(v.date.getValue()):planner.dates(v.date.getValue(),type,plan);
+                v.extraDates.getItems().setAll(dates.stream().skip(1).toList());var slots=json.createArrayNode();
+                for(var date:dates){var slot=slots.addObject().put("date",date.toString());var available=planner.schedules(catalog.path("horaires"),date,type,plan);var chosen=available.stream().filter(h->id(v.schedule).equals(h.path("publicId").asText())).findFirst().orElse(available.isEmpty()?null:available.get(0));if(chosen!=null)slot.put("horairePublicId",chosen.path("publicId").asText());}
+                configuredSlots=slots;v.slotsSummary.setText(dates.size()+" célébration(s) — horaires adaptés au programme paroissial.");
+            }
+            if(options.isEmpty()&&!custom)v.slotsSummary.setText("Aucun horaire disponible pour cette date et ce forfait. Choisissez une autre date.");
+        }catch(IllegalArgumentException invalid){v.slotsSummary.setText(invalid.getMessage());v.status.setText(invalid.getMessage());configuredSlots=null;}
+        finally{scheduling=false;}
+    }
     private void requirePermission(String permission){
         if(session!=null)for(var p:session.path("user").path("permissions"))if(permission.equals(p.asText()))return;
         throw new IllegalArgumentException("Vous ne disposez pas des droits nécessaires pour cette action.");
     }
     private void price(){v.price.setText(v.plan.getValue()==null?"Aucun forfait disponible":"Montant : "+ScreenFormats.money(v.plan.getValue().data().path("montantForfait")));}
-    private void reset(){editing=null;correcting=null;configuredSlots=null;v.slotsSummary.setText("Horaire commun par défaut");v.surname.clear();v.firstname.clear();v.phone.clear();v.email.clear();v.courier.clear();v.intention.clear();v.extraDates.getItems().clear();v.customTime.clear();v.date.setValue(LocalDate.now().plusDays(2));v.date.getEditor().setText(v.date.getConverter().toString(v.date.getValue()));v.additionalDate.setValue(v.date.getValue().plusDays(1));cleanForm=formData();}
+    private void reset(){editing=null;correcting=null;configuredSlots=null;v.slotsSummary.setText("Horaire commun par défaut");v.surname.clear();v.firstname.clear();v.phone.clear();v.email.clear();v.courier.clear();v.intention.clear();v.extraDates.getItems().clear();v.customTime.clear();v.date.setValue(LocalDate.now().plusDays(2));v.date.getEditor().setText(v.date.getConverter().toString(v.date.getValue()));v.additionalDate.setValue(v.date.getValue().plusDays(1));calendarChanged(true);cleanForm=formData();}
     private String required(ComboBox<Choice> box,String label){if(box.getValue()==null)throw new IllegalArgumentException(label+" obligatoire.");return box.getValue().id();}
     private String id(ComboBox<Choice> choice){return choice.getValue()==null?"":choice.getValue().id();}
     private ObjectNode formData(){
@@ -343,7 +374,7 @@ public final class WorkbenchController implements AutoCloseable {
         p.put("nomFidele",v.surname.getText()).put("prenomFidele",v.firstname.getText()).put("telFidele",v.phone.getText().trim()).put("emailFidele",v.email.getText().trim()).put("nomCoursier",v.courier.getText()).put("intention",v.intention.getText()).put("dateDebut",first==null?"":first.toString()).put("_customTimeText",v.customTime.getText());
         p.put("_expectedCelebrations",v.plan.getValue()==null?0:v.plan.getValue().data().path("nombreCelebration").asInt(1));
         var dates=new TreeSet<LocalDate>();if(first!=null)dates.add(first);dates.addAll(v.extraDates.getItems());var list=p.putArray("datesCelebration");dates.forEach(d->list.add(d.toString()));
-        if(configuredSlots!=null)p.set("celebrationSlots",configuredSlots.deepCopy());return p;
+        if(configuredSlots!=null){var slots=configuredSlots.deepCopy();for(var slot:slots)if(first!=null&&first.toString().equals(slot.path("date").asText())){var row=(ObjectNode)slot;row.remove(List.of("horairePublicId","heurePersonnalisee"));if(!v.customTime.getText().isBlank())row.put("heurePersonnalisee",v.customTime.getText().trim());else if(v.schedule.getValue()!=null)row.put("horairePublicId",id(v.schedule));}p.set("celebrationSlots",slots);}return p;
     }
     public boolean isDirty(){return store!=null&&cleanForm!=null&&!cleanForm.equals(formData());}
     public void requestClose(Runnable close){if(busy){v.status.setText("Une opération est en cours. Attendez sa fin avant de fermer l'application.");return;}protectForm(close);}
@@ -379,55 +410,57 @@ public final class WorkbenchController implements AutoCloseable {
         for(double percent:new double[]{24,38,38}){var column=new javafx.scene.layout.ColumnConstraints();column.setPercentWidth(percent);grid.getColumnConstraints().add(column);}
         grid.addRow(0,new Label("Date"),new Label("Horaire"),new Label("Heure personnalisée"));
         var choices=new ArrayList<ComboBox<Choice>>();var hours=new ArrayList<TextField>();int row=1;
-        for(var date:dates){var box=new ComboBox<Choice>();box.setMaxWidth(Double.MAX_VALUE);box.setMinWidth(0);box.getItems().setAll(v.schedule.getItems());box.setValue(v.schedule.getValue());var time=new TextField(v.customTime.getText());time.setId("slotTime"+(row-1));time.setMinWidth(0);time.setPromptText("HH:mm");grid.addRow(row++,new Label(date.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/uuuu"))),box,time);choices.add(box);hours.add(time);}
+        for(var date:dates){var box=new ComboBox<Choice>();box.setMaxWidth(Double.MAX_VALUE);box.setMinWidth(0);var available=json.createArrayNode();planner.schedules(catalog.path("horaires"),date,v.type.getValue().data(),v.plan.getValue().data()).forEach(available::add);setChoices(box,available,"libelle");var time=new TextField(v.customTime.getText());time.setId("slotTime"+(row-1));time.setMinWidth(0);time.setPromptText("HH:mm");boolean allowCustom=com.missanye.desktop.model.CelebrationPlanner.customAllowed(v.type.getValue().data(),v.plan.getValue().data());time.setDisable(!allowCustom);if(!allowCustom)time.clear();grid.addRow(row++,new Label(date.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/uuuu"))),box,time);choices.add(box);hours.add(time);}
         var error=new Label();error.setId("slotValidation");error.setStyle("-fx-text-fill: #8a3325;");dialog.getDialogPane().setContent(new javafx.scene.layout.VBox(12,grid,error));
         ArrayNode[] prepared={null};dialog.getDialogPane().lookupButton(apply).addEventFilter(javafx.event.ActionEvent.ACTION,event->{
-            try{var slots=json.createArrayNode();int i=0;for(var date:dates){var slot=slots.addObject().put("date",date.toString());String time=hours.get(i).getText().trim();if(!time.isBlank())slot.put("heurePersonnalisee",parseTime(time).toString());else slot.put("horairePublicId",required(choices.get(i),"Horaire du "+date));i++;}prepared[0]=slots;}
+            try{var slots=json.createArrayNode();int i=0;for(var date:dates){var slot=slots.addObject().put("date",date.toString());String time=hours.get(i).getText().trim();if(!time.isBlank()){if(!com.missanye.desktop.model.CelebrationPlanner.customAllowed(v.type.getValue().data(),v.plan.getValue().data()))throw new IllegalArgumentException("Heure personnalisée réservée aux demandes spéciales autorisées.");slot.put("heurePersonnalisee",parseTime(time).toString());}else slot.put("horairePublicId",required(choices.get(i),"Horaire du "+date));i++;}prepared[0]=slots;}
             catch(Exception invalid){event.consume();error.setText("Corrigez le créneau : "+invalid.getMessage());}
         });dialog.setResultConverter(button->button==apply?prepared[0]:null);
-        var result=dialog.showAndWait();if(result.isPresent()){configuredSlots=result.get();v.slotsSummary.setText(configuredSlots.size()+" créneau(x) configuré(s)");}
-    }catch(Exception e){v.status.setText(e.getMessage());}}
+        var result=dialog.showAndWait();if(result.isPresent()){configuredSlots=result.get();var first=configuredSlots.get(0);v.customTime.setText(first.path("heurePersonnalisee").asText());choose(v.schedule,first.path("horairePublicId").asText());v.slotsSummary.setText(configuredSlots.size()+" créneau(x) configuré(s)");}
+    }catch(Exception e){v.error(e.getMessage());}}
     private record Finalized(Snapshot snapshot,String requestId){}
     private void finalizeForm(){try{
+        v.showAction("formError",false);
         requirePermission("demand:edit");var data=formData();RequestValidation.forSubmission(data);String id=editing,context=parish();
         if(correcting!=null)throw new IllegalArgumentException("Enregistrez d'abord le brouillon de correction.");
-        if(!confirm("Enregistrer définitivement cette demande ?"))return;
-        run(()->{var request=new LocalRequestService(store).finalizePayload(id,data);return new Finalized(snapshot(context),request.path("localRequestId").asText());},result->{display(result.snapshot());reset();v.tabs.getSelectionModel().select(1);v.demandSearch.clear();for(var row:v.demands.getItems())if(result.requestId().equals(row.data().path("localRequestId").asText())){v.demands.getSelectionModel().select(row);v.demands.scrollTo(row);break;}v.status.setText("Demande enregistrée. Vous pouvez poursuivre son traitement.");});
-    }catch(Exception failure){v.status.setText(failure.getMessage());}}
+        int confirmedAmount=v.plan.getValue().data().path("montantForfait").decimalValue().intValueExact();
+        if(!confirm("Enregistrer cette demande pour "+ScreenFormats.money(v.plan.getValue().data().path("montantForfait"))+" ?"))return;
+        run(()->{var request=new LocalRequestService(store).finalizePayload(id,data,confirmedAmount);return new Finalized(snapshot(context),request.path("localRequestId").asText());},result->{display(result.snapshot());reset();v.tabs.getSelectionModel().select(1);v.demandSearch.clear();for(var row:v.demands.getItems())if(result.requestId().equals(row.data().path("localRequestId").asText())){v.demands.getSelectionModel().select(row);v.demands.scrollTo(row);break;}v.status.setText("Demande enregistrée. Vous pouvez poursuivre son traitement.");});
+    }catch(Exception failure){v.error(failure.getMessage());}}
     private void save(){saveDraft(null);}
     private void saveDraft(Runnable next){try{
         if(parishMode)requirePermission("demand:edit");
         parish();var data=formData();String id=editing,rejected=correcting,context=parish();
         run(()->{if(rejected!=null)store.correctDraft(rejected,data);else store.draft(id,data);return snapshot(context);},s->{display(s);reset();v.tabs.getSelectionModel().select(2);v.status.setText("Brouillon enregistré. Vous pourrez le compléter avant de le transmettre.");if(next!=null)next.run();});
-    }catch(Exception e){v.status.setText(e.getMessage());}}
+    }catch(Exception e){v.error(e.getMessage());}}
     private JsonNode selected(TableView<Row> list){if(list.getSelectionModel().getSelectedItem()==null)throw new IllegalArgumentException("Sélectionnez une ligne.");return list.getSelectionModel().getSelectedItem().data();}
     private boolean confirm(String text){var dialog=v.decorate(new Alert(Alert.AlertType.CONFIRMATION,text,ButtonType.CANCEL,ButtonType.OK));dialog.setTitle("Confirmer votre action");dialog.setHeaderText(null);return dialog.showAndWait().orElse(ButtonType.CANCEL)==ButtonType.OK;}
-    private void queue(){try{requirePermission("demand:edit");var selected=selected(v.outbox);RequestValidation.forSubmission(selected.path("payload"));String id=selected.path("id").asText(),parish=parish();if(!confirm("Enregistrer définitivement cette demande ?"))return;run(()->{new LocalRequestService(store).finalizeDraft(id);return snapshot(parish);},s->{display(s);v.status.setText("Demande enregistrée.");});}catch(Exception e){v.status.setText(e.getMessage());}}
+    private void queue(){try{requirePermission("demand:edit");var selected=selected(v.outbox);RequestValidation.forSubmission(selected.path("payload"));String id=selected.path("id").asText(),parish=parish();JsonNode quote=json.missingNode();for(var candidate:catalog.path("forfaits").path(selected.path("payload").path("typeDemandePublicId").asText()))if(candidate.path("publicId").asText().equals(selected.path("payload").path("forfaitTarifPublicId").asText()))quote=candidate.path("montantForfait");if(!quote.isNumber())throw new IllegalArgumentException("Le forfait doit être actualisé avant la finalisation.");int confirmedAmount=quote.decimalValue().intValueExact();if(!confirm("Enregistrer cette demande pour "+ScreenFormats.money(quote)+" ?"))return;run(()->{new LocalRequestService(store).finalizeDraft(id,confirmedAmount);return snapshot(parish);},s->{display(s);v.status.setText("Demande enregistrée.");});}catch(Exception e){v.error(e.getMessage());}}
     private void returnToDraft(){try{
         var entry=selected(v.outbox);String id=entry.path("id").asText(),context=parish();
         if(!confirm("Remettre cette demande en brouillon avant son premier envoi ? Elle ne sera plus transmise automatiquement."))return;
         run(()->{store.returnToDraft(id);return snapshot(context);},s->{display(s);v.status.setText("Demande remise en brouillon. Vous pouvez la modifier avant de la transmettre.");});
-    }catch(Exception e){v.status.setText(e.getMessage());}}
+    }catch(Exception e){v.error(e.getMessage());}}
     private void retry(){try{
         if(api==null)throw new IllegalArgumentException("Reconnectez-vous avant de retenter la transmission.");
         var selected=selected(v.outbox);String id=selected.path("id").asText(),context=parish();
         if(!confirm("Retenter la transmission de cette opération déjà enregistrée ? Le même identifiant sera conservé pour empêcher un doublon."))return;
         run(()->{syncService().verifySession();store.retryBlocked(id);return snapshot(context);},this::display);
-    }catch(Exception e){v.status.setText(e.getMessage());}}
-    private void archive(){try{String id=selected(v.outbox).path("id").asText(),parish=parish();if(!confirm("Archiver ce brouillon ou rejet ?"))return;run(()->{store.archive(id);return snapshot(parish);},this::display);}catch(Exception e){v.status.setText(e.getMessage());}}
+    }catch(Exception e){v.error(e.getMessage());}}
+    private void archive(){try{String id=selected(v.outbox).path("id").asText(),parish=parish();if(!confirm("Archiver ce brouillon ou rejet ?"))return;run(()->{store.archive(id);return snapshot(parish);},this::display);}catch(Exception e){v.error(e.getMessage());}}
     private void edit(){try{
         if(parishMode)requirePermission("demand:edit");
         var e=selected(v.outbox);String state=e.path("state").asText();
         if(!"CREATE_DEMANDE".equals(e.path("kind").asText())||!("DRAFT".equals(state)||"REJECTED".equals(state)))throw new IllegalArgumentException("Seuls les brouillons et demandes rejetées sont modifiables.");
         if(!parish().equals(e.path("payload").path("paroissePublicId").asText()))throw new IllegalArgumentException("Choisissez la paroisse correspondant à ce brouillon.");
         protectForm(()->loadDraft(e));
-    }catch(Exception e){v.status.setText(e.getMessage());}}
+    }catch(Exception e){v.error(e.getMessage());}}
     private void loadDraft(JsonNode e){
         String state=e.path("state").asText();var p=e.path("payload");
-        editing="DRAFT".equals(state)?e.path("id").asText():null;correcting="REJECTED".equals(state)?e.path("id").asText():null;choose(v.type,p.path("typeDemandePublicId").asText());fillPlans();choose(v.plan,p.path("forfaitTarifPublicId").asText());choose(v.schedule,p.path("horairePublicId").asText());choose(v.payment,p.path("typePaiementPublicId").asText());v.surname.setText(p.path("nomFidele").asText());v.firstname.setText(p.path("prenomFidele").asText());v.phone.setText(p.path("telFidele").asText());v.email.setText(p.path("emailFidele").asText());v.courier.setText(p.path("nomCoursier").asText());v.intention.setText(p.path("intention").asText());v.date.setValue(p.path("dateDebut").asText().isBlank()?null:LocalDate.parse(p.path("dateDebut").asText()));if(p.has("_invalidDateText"))v.date.getEditor().setText(p.path("_invalidDateText").asText());v.customTime.setText(p.path("_customTimeText").asText(p.path("heurePersonnalisee").asText("")));var extra=new ArrayList<String>();for(var d:p.path("datesCelebration"))if(!d.asText().equals(p.path("dateDebut").asText()))extra.add(d.asText());v.extraDates.getItems().setAll(extra.stream().map(LocalDate::parse).toList());configuredSlots=p.path("celebrationSlots").isArray()?(ArrayNode)p.path("celebrationSlots").deepCopy():null;v.slotsSummary.setText(configuredSlots==null?"Horaire commun par défaut":configuredSlots.size()+" créneau(x) configuré(s)");v.tabs.getSelectionModel().select(0);cleanForm=formData();
+        loading=true;editing="DRAFT".equals(state)?e.path("id").asText():null;correcting="REJECTED".equals(state)?e.path("id").asText():null;choose(v.type,p.path("typeDemandePublicId").asText());fillPlans();choose(v.plan,p.path("forfaitTarifPublicId").asText());choose(v.schedule,p.path("horairePublicId").asText());choose(v.payment,p.path("typePaiementPublicId").asText());v.surname.setText(p.path("nomFidele").asText());v.firstname.setText(p.path("prenomFidele").asText());v.phone.setText(p.path("telFidele").asText());v.email.setText(p.path("emailFidele").asText());v.courier.setText(p.path("nomCoursier").asText());v.intention.setText(p.path("intention").asText());v.date.setValue(p.path("dateDebut").asText().isBlank()?null:LocalDate.parse(p.path("dateDebut").asText()));if(p.has("_invalidDateText"))v.date.getEditor().setText(p.path("_invalidDateText").asText());v.customTime.setText(p.path("_customTimeText").asText(p.path("heurePersonnalisee").asText("")));var extra=new ArrayList<String>();for(var d:p.path("datesCelebration"))if(!d.asText().equals(p.path("dateDebut").asText()))extra.add(d.asText());v.extraDates.getItems().setAll(extra.stream().map(LocalDate::parse).toList());configuredSlots=p.path("celebrationSlots").isArray()?(ArrayNode)p.path("celebrationSlots").deepCopy():null;v.slotsSummary.setText(configuredSlots==null?"Horaire commun par défaut":configuredSlots.size()+" créneau(x) configuré(s)");v.tabs.getSelectionModel().select(0);loading=false;calendarChanged(false);cleanForm=formData();
     }
     private void choose(ComboBox<Choice> box,String id){box.setValue(null);for(var c:box.getItems())if(c.id().equals(id)){box.setValue(c);break;}}
-    private void refresh(){if(api==null){if(reconnectPassword!=null)reconnect();return;}try{String parish=parish();run(()->{var sync=syncService();sync.catalogue(parish);sync.refresh(parish);return snapshot(parish);},s->{display(s);v.status.setText("Les données de votre paroisse sont à jour.");});}catch(Exception e){v.status.setText(e.getMessage());}}
+    private void refresh(){if(api==null){if(reconnectPassword!=null)reconnect();return;}try{String parish=parish();run(()->{var sync=syncService();sync.catalogue(parish);sync.refresh(parish);return snapshot(parish);},s->{display(s);v.status.setText("Les données de votre paroisse sont à jour.");});}catch(Exception e){v.error(e.getMessage());}}
     private void synchronize(){
         if(api==null){if(reconnectPassword!=null)reconnect();return;}
         if(closed||busy||synchronizing||store==null)return;
@@ -435,16 +468,42 @@ public final class WorkbenchController implements AutoCloseable {
         synchronizing=true;controls();
         var task=new Task<String>(){protected String call()throws Exception{
             var sync=new SyncService(expected,client,bound,()->!closed&&!isCancelled()&&epoch==authEpoch);String result=sync.synchronize();
-            if(!isCancelled()&&epoch==authEpoch)sync.refresh(context);return result;
+            if(!isCancelled()&&epoch==authEpoch){sync.catalogue(context);sync.refresh(context);}return result;
         }};syncTask=task;
-        task.setOnSucceeded(event->{if(closed||store!=expected||epoch!=authEpoch)return;synchronizing=false;syncTask=null;transientFailures=0;automaticRetryAfter=0;controls();reloadView(taskGeneration);});
+        task.setOnSucceeded(event->{if(closed||store!=expected||epoch!=authEpoch)return;synchronizing=false;syncTask=null;transientFailures=0;automaticRetryAfter=0;if(settingsRefreshing){settingsRefreshing=false;dataMessage.setText("Les données de la paroisse sont à jour.");}controls();reloadView(taskGeneration);});
         task.setOnFailed(event->{
-            if(closed||store!=expected||epoch!=authEpoch)return;synchronizing=false;syncTask=null;Throwable failure=task.getException();
+            if(closed||store!=expected||epoch!=authEpoch)return;synchronizing=false;syncTask=null;Throwable failure=task.getException();if(settingsRefreshing){settingsRefreshing=false;dataMessage.setText(OperationErrors.message(failure));}
             if(failure instanceof SyncService.SessionMismatchException||(failure instanceof ApiClient.ApiException rejected&&rejected.status()==401)){client.clear();api=null;clearReconnect();}
             transientFailures=Math.min(transientFailures+1,6);automaticRetryAfter=System.currentTimeMillis()+Math.min(300000L,30000L*(1L<<transientFailures));if(!DeviceCredentials.unavailable(failure))v.status.setText(OperationErrors.message(failure));controls();reloadView(taskGeneration);
         });reconnector.submit(task);
     }
-    private void cash(){try{requirePermission("payment:manage");var demand=selected(v.demands);if("PAYE".equals(demand.path("statutPaiement").asText()))throw new IllegalArgumentException("Cette demande est déjà payée.");if(!confirm("Confirmez-vous avoir reçu "+demand.path("montant").asText()+" XOF en espèces pour "+demand.path("codeSuivie").asText()+" ?"))return;String parish=parish();run(()->{if(demand.path("publicId").asText().startsWith("local:"))new LocalRequestService(store).receiveCash(demand.path("localRequestId").asText());else store.queueCash(demand);return snapshot(parish);},s->{display(s);v.status.setText("Encaissement enregistré. Le reçu est disponible.");});}catch(Exception e){v.status.setText(e.getMessage());}}
+    private void cash(){try{requirePermission("payment:manage");var demand=selected(v.demands);if("PAYE".equals(demand.path("statutPaiement").asText()))throw new IllegalArgumentException("Cette demande est déjà payée.");if(!confirm("Confirmez-vous avoir reçu "+demand.path("montant").asText()+" XOF en espèces pour "+demand.path("codeSuivie").asText()+" ?"))return;String parish=parish();run(()->{if(demand.path("publicId").asText().startsWith("local:"))new LocalRequestService(store).receiveCash(demand.path("localRequestId").asText());else store.queueCash(demand);return snapshot(parish);},s->{display(s);v.status.setText("Encaissement enregistré. Le reçu est disponible.");});}catch(Exception e){v.error(e.getMessage());}}
+    private void settings(){
+        if(session==null||store==null)return;
+        var dialog=v.decorate(new Dialog<Void>());dialog.setTitle("Paramètres");dialog.getDialogPane().setId("settingsDialog");dialog.setHeaderText("Votre espace paroissial");dialog.getDialogPane().getButtonTypes().add(new ButtonType("Fermer",ButtonBar.ButtonData.CANCEL_CLOSE));
+        String role=ScreenFormats.role(session.path("user").path("role").asText(""));var identity=new Label((deployment==null?(v.parish.getValue()==null?"Votre paroisse":v.parish.getValue().label()):deployment.parishName())+"\n"+session.path("user").path("username").asText("")+(role.isBlank()?"":" · "+role));identity.setWrapText(true);
+        var refresh=new Button("Actualiser les données maintenant");refresh.setOnAction(e->{settingsRefreshing=true;dataMessage.setText("Actualisation en cours…");if(api==null)reconnect();else synchronize();});var info=new Label("Les horaires, forfaits et demandes sont actualisés automatiquement lorsque le service est accessible. Votre saisie en cours est conservée.");info.setWrapText(true);
+        var version=new Label("Missanye Desktop · version "+com.missanye.desktop.service.UpdateService.currentVersion());var check=new Button("Rechercher une mise à jour");check.setOnAction(e->checkUpdates(true));updateMessage.setWrapText(true);
+        updateDownload.setVisible(latestRelease!=null);updateDownload.setManaged(latestRelease!=null);updateDownload.setOnAction(e->{if(host!=null&&latestRelease!=null)host.showDocument(latestRelease.page().toString());});
+        dataMessage.setWrapText(true);
+        var box=new javafx.scene.layout.VBox(14,identity,new Separator(),new Label("Données de la paroisse"),info,refresh,dataMessage,new Separator(),version,check,updateMessage,updateDownload);box.setPrefWidth(490);dialog.getDialogPane().setContent(box);
+        try{dialog.showAndWait();}finally{box.getChildren().removeAll(updateMessage,updateDownload,dataMessage);}
+    }
+    private void checkUpdates(boolean explicit){
+        if((!explicit&&Boolean.getBoolean("missanye.disableAutomaticUpdateChecks"))||closed||checkingUpdates||(!explicit&&System.currentTimeMillis()-updateCheckedAt<3600000))return;
+        checkingUpdates=true;updateCheckedAt=System.currentTimeMillis();if(explicit)updateMessage.setText("Vérification des versions publiées…");
+        var task=new Task<java.util.Optional<com.missanye.desktop.service.UpdateService.Release>>(){protected java.util.Optional<com.missanye.desktop.service.UpdateService.Release> call()throws Exception{return new com.missanye.desktop.service.UpdateService().check();}};
+        task.setOnSucceeded(e->{if(closed)return;checkingUpdates=false;latestRelease=task.getValue().orElse(null);updateMessage.setText(latestRelease==null?"Aucune version publiée plus récente n'est disponible.":"La version "+latestRelease.version()+" est disponible.");updateDownload.setVisible(latestRelease!=null);updateDownload.setManaged(latestRelease!=null);v.setUpdateAvailable(latestRelease!=null);});
+        task.setOnFailed(e->{checkingUpdates=false;if(!closed&&explicit)updateMessage.setText("Impossible de vérifier les versions pour le moment. Vous pouvez continuer à travailler.");});updater.submit(task);
+    }
+    private void copyDemand(String field){try{
+        var demand=selected(v.demands);String value=switch(field){case "code"->ScreenFormats.reference(demand);case "phone"->demand.path("telFidele").asText("");default->ScreenFormats.details(demand);};
+        if(value.isBlank())throw new IllegalArgumentException("Aucune information à copier.");var content=new javafx.scene.input.ClipboardContent();content.putString(value);javafx.scene.input.Clipboard.getSystemClipboard().setContent(content);v.clearError();v.status.setText("Copié dans le presse-papiers.");
+    }catch(Exception invalid){v.error(invalid.getMessage());}}
+    private void printIntention(){try{
+        requirePermission("demand:read");var demand=selected(v.demands);var chooser=new FileChooser();chooser.setTitle("Imprimer / exporter la fiche d’intention");chooser.setInitialFileName("intention-"+ScreenFormats.reference(demand).replaceAll("[^A-Za-z0-9_-]","_")+".pdf");chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("PDF","*.pdf"));var target=chooser.showSaveDialog(v.root.getScene().getWindow());if(target==null)return;
+        run(()->{ReceiptExporter.write(target.toPath(),new LocalRequestService(store).intentionSheetFor(demand));return true;},done->{if(host!=null)host.showDocument(target.toURI().toString());v.status.setText("Fiche prête à imprimer dans votre lecteur PDF.");});
+    }catch(Exception invalid){v.error(invalid.getMessage());}}
     private void receipt(){try{
         if(!hasPermission("invoice:read")&&!hasPermission("receipt:manage"))throw new IllegalArgumentException("Vous ne disposez pas des droits pour éditer un reçu.");
         var demand=selected(v.demands);String code=demand.path("localReference").asText(demand.path("codeSuivie").asText());if(code.isBlank())throw new IllegalArgumentException("Code de suivi absent");
@@ -453,9 +512,9 @@ public final class WorkbenchController implements AutoCloseable {
             byte[] document=new LocalRequestService(store).receiptFor(demand);
             ReceiptExporter.write(target.toPath(),document);return true;
         },exported->{if(host!=null)host.showDocument(target.toURI().toString());v.status.setText("Reçu prêt à imprimer.");});
-    }catch(Exception failure){v.status.setText(failure.getMessage());}}
-    private void checkout(){try{var d=selected(v.demands);if(api==null)throw new IllegalArgumentException("Une connexion est nécessaire pour effectuer un paiement en ligne.");String code=d.path("codeSuivie").asText();if(!confirm("Préparer le paiement en ligne de "+code+" ? Le prestataire affichera le montant avec ses frais."))return;run(()->api.post("paiements/checkout/"+java.net.URLEncoder.encode(code,java.nio.charset.StandardCharsets.UTF_8),json.createObjectNode()),result->{String url=result.path("paymentUrl").asText();if(!url.isBlank()){var uri=java.net.URI.create(url);if(!"https".equals(uri.getScheme()) || uri.getHost()==null || uri.getUserInfo()!=null){v.status.setText("Le lien de paiement ne peut pas être ouvert. Contactez votre administrateur.");return;}if(host!=null)host.showDocument(url);v.status.setText("Paiement ouvert dans le navigateur. Cliquez ensuite sur Vérifier le paiement.");}else v.status.setText(result.path("message").asText("Pas d'URL de paiement disponible."));});}catch(Exception e){v.status.setText(e.getMessage());}}
-    private void reconcile(){try{String code=selected(v.demands).path("codeSuivie").asText();run(()->api.post("paiements/reconcile/"+java.net.URLEncoder.encode(code,java.nio.charset.StandardCharsets.UTF_8),json.createObjectNode()),r->{v.status.setText("État vérifié : "+ScreenFormats.state(r.path("statutPaiement").asText()));refresh();});}catch(Exception e){v.status.setText(e.getMessage());}}
+    }catch(Exception failure){v.error(failure.getMessage());}}
+    private void checkout(){try{var d=selected(v.demands);if(api==null)throw new IllegalArgumentException("Une connexion est nécessaire pour effectuer un paiement en ligne.");String code=d.path("codeSuivie").asText();if(!confirm("Préparer le paiement en ligne de "+code+" ? Le prestataire affichera le montant avec ses frais."))return;run(()->api.post("paiements/checkout/"+java.net.URLEncoder.encode(code,java.nio.charset.StandardCharsets.UTF_8),json.createObjectNode()),result->{String url=result.path("paymentUrl").asText();if(!url.isBlank()){var uri=java.net.URI.create(url);if(!"https".equals(uri.getScheme()) || uri.getHost()==null || uri.getUserInfo()!=null){v.status.setText("Le lien de paiement ne peut pas être ouvert. Contactez votre administrateur.");return;}if(host!=null)host.showDocument(url);v.status.setText("Paiement ouvert dans le navigateur. Cliquez ensuite sur Vérifier le paiement.");}else v.status.setText(result.path("message").asText("Pas d'URL de paiement disponible."));});}catch(Exception e){v.error(e.getMessage());}}
+    private void reconcile(){try{String code=selected(v.demands).path("codeSuivie").asText();run(()->api.post("paiements/reconcile/"+java.net.URLEncoder.encode(code,java.nio.charset.StandardCharsets.UTF_8),json.createObjectNode()),r->{v.status.setText("État vérifié : "+ScreenFormats.state(r.path("statutPaiement").asText()));refresh();});}catch(Exception e){v.error(e.getMessage());}}
     private void clearReconnect(){if(reconnectPassword!=null)Arrays.fill(reconnectPassword,'\0');reconnectPassword=null;reconnectUsername=null;}
     private void cancelReconnect(){authEpoch++;if(syncTask!=null)syncTask.cancel(true);syncTask=null;synchronizing=false;if(reconnectTask!=null)reconnectTask.cancel(true);reconnectTask=null;reconnecting=false;}
     private void reconnect(){
@@ -471,16 +530,16 @@ public final class WorkbenchController implements AutoCloseable {
             worker.submit(()->{try{
                 if(closed||store!=expected||epoch!=authEpoch){result.api().clear();return;}
                 expected.saveSession(result.session(),result.parishes());deviceCredentials.save(selected.apiUrl(),username,result.ticket());
-                Platform.runLater(()->{if(closed||store!=expected||epoch!=authEpoch){result.api().clear();return;}api=result.api();session=result.session();reconnecting=false;reconnectTask=null;clearReconnect();automaticRetryAfter=0;controls();if(!busy){if(v.auto.isSelected())synchronize();else refresh();}});
+                Platform.runLater(()->{if(closed||store!=expected||epoch!=authEpoch){result.api().clear();return;}api=result.api();session=result.session();reconnecting=false;reconnectTask=null;clearReconnect();automaticRetryAfter=0;controls();if(!busy){checkUpdates(false);synchronize();}});
             }catch(Exception failure){result.api().clear();Platform.runLater(()->reconnectFailure(expected,epoch,failure));}});
         });
         task.setOnFailed(event->reconnectFailure(expected,epoch,task.getException()));reconnector.submit(task);
     }
     private void reconnectFailure(LocalStore expected,long epoch,Throwable failure){
-        if(closed||store!=expected||epoch!=authEpoch)return;reconnecting=false;reconnectTask=null;
+        if(closed||store!=expected||epoch!=authEpoch)return;reconnecting=false;reconnectTask=null;if(settingsRefreshing){settingsRefreshing=false;dataMessage.setText(OperationErrors.message(failure));}
         if(failure instanceof ParishLoginService.ReauthenticationRequired||failure instanceof SyncService.SessionMismatchException)clearReconnect();
         transientFailures=Math.min(transientFailures+1,6);automaticRetryAfter=System.currentTimeMillis()+Math.min(300000L,30000L*(1L<<transientFailures));
         if(!DeviceCredentials.unavailable(failure))v.status.setText(OperationErrors.message(failure));controls();
     }
-    @Override public void close(){closed=true;cancelReconnect();clearReconnect();reconnector.shutdownNow();readinessDelay.stop();timer.shutdownNow();worker.shutdownNow();if(api!=null)api.clear();if(!busy&&store!=null)store.close();}
+    @Override public void close(){closed=true;cancelReconnect();clearReconnect();reconnector.shutdownNow();updater.shutdownNow();readinessDelay.stop();timer.shutdownNow();worker.shutdownNow();if(api!=null)api.clear();if(!busy&&store!=null)store.close();}
 }

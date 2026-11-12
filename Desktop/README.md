@@ -345,3 +345,11 @@ journal. Les identités et sessions restent individuelles. Déployer **V34** cô
 backend avant ce client : l’idempotence devient paroissiale pour permettre une
 reprise entre utilisateurs sans doublon. Voir
 [le fonctionnement et la migration](../docs/DESKTOP_JOURNAL_PAROISSE.md).
+
+## Calendrier, fiche d’intention, copie et mises à jour
+
+Voir [les parcours métier et paramètres](../docs/DESKTOP_PARCOURS_METIER.md) pour
+les horaires automatiques, séries de célébrations, heures spéciales, recherches
+par téléphone, reçus lisibles, fiches imprimables et copie des demandes. Le menu
+Paramètres permet l’actualisation et la recherche de releases publiées ; les
+référentiels web sont également actualisés en arrière-plan.

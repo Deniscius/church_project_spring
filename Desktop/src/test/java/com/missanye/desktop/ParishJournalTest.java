@@ -17,7 +17,7 @@ class ParishJournalTest {
         var store=LocalStore.unlock(directory.resolve("journal.sqlite"),server,user,"Local test password 123!".toCharArray(),user+"-id");
         var session=LocalRequestServiceTest.session(permissions);((ObjectNode)session.path("user")).put("id",user+"-id").put("username",user);
         ((ObjectNode)session.path("paroisses").get(0)).put("id",parish);
-        var p=TestRequests.complete();var catalogue=json.createObjectNode();catalogue.putArray("types").addObject().put("publicId",p.path("typeDemandePublicId").asText()).put("libelle","Messe");catalogue.putArray("horaires");catalogue.putArray("paiements");
+        var p=TestRequests.complete();var catalogue=json.createObjectNode();catalogue.putArray("types").addObject().put("publicId",p.path("typeDemandePublicId").asText()).put("libelle","Messe");catalogue.putArray("horaires").addObject().put("publicId",p.path("horairePublicId").asText()).put("heureCelebration","08:00:00");catalogue.putArray("paiements");
         catalogue.putObject("forfaits").putArray(p.path("typeDemandePublicId").asText()).addObject().put("publicId",p.path("forfaitTarifPublicId").asText()).put("natureForfait","SPECIALE").put("nombreCelebration",1).put("montantForfait",2000);
         store.installWorkspace(session,session.path("paroisses"),parish,new WorkspaceBootstrap.Prepared(session,catalogue,json.createArrayNode()));return store;
     }

@@ -11,6 +11,7 @@ public final class RequestValidation {
     public static ObjectNode forSubmission(JsonNode stored) {
         if(!(stored instanceof ObjectNode))throw new IllegalArgumentException("Le brouillon est introuvable.");
         ObjectNode request=stored.deepCopy();request.put("intention",request.path("intention").asText().trim());
+        request.put("telFidele",request.path("telFidele").asText().replaceAll("[\\s().-]",""));
         String rawTime=request.path("_customTimeText").asText(request.path("heurePersonnalisee").asText(""));
         int expected=request.path("_expectedCelebrations").asInt(0);
         request.remove(List.of("_customTimeText","_expectedCelebrations","_invalidDateText"));

@@ -22,6 +22,9 @@ public final class WorkbenchView {
     public final TextArea intention;
     public final TextField demandSearch, username, surname, firstname, phone, email, courier, customTime;
     public final PasswordField password, localPassword;
+    public final Button settings,printIntention;
+    public final MenuButton copyActions;
+    public final MenuItem copyCode,copyPhone,copyDetails;
     public final Button finalizeRequest, configureServer, returnToDraft, retry, login, offline, lock, configureSlots, save, fresh, edit, queue, archive, sync, refresh, cash, receipt, checkout, reconcile, correct, validate, remove;
     public final Label serverEnvironment, loginStatus, offlineAvailability, session, status, slotsSummary, price, detail, queueDetail;
     public final ComboBox<Choice> parish, type, plan, schedule, payment;
@@ -40,7 +43,7 @@ public final class WorkbenchView {
     private final Map<String,Object> namespace=new HashMap<>();
     private final Region connection,header,workspaceContainer,sidebarContainer,footer;
     private final StackPane lockedPane=new StackPane();
-    private boolean workspaceOpen;
+    private boolean workspaceOpen,updateAvailable;
     private final javafx.beans.property.ReadOnlyBooleanWrapper opened=new javafx.beans.property.ReadOnlyBooleanWrapper(false);
     public javafx.beans.property.ReadOnlyBooleanProperty workspaceOpenProperty(){return opened.getReadOnlyProperty();}
     private int openDialogs;
@@ -64,6 +67,8 @@ public final class WorkbenchView {
             panes.getTabs().get(1).setContent(load("demands.fxml"));
             panes.getTabs().get(2).setContent(load("outbox.fxml"));
             panes.getTabs().get(3).setContent(load("overview.fxml"));
+            settings=ref("settings",Button.class);
+            printIntention=ref("printIntention",Button.class);copyActions=ref("copyActions",MenuButton.class);copyCode=ref("copyCode",MenuItem.class);copyPhone=ref("copyPhone",MenuItem.class);copyDetails=ref("copyDetails",MenuItem.class);
             demandSearch=ref("demandSearch",TextField.class);
             username=ref("username",TextField.class);
             surname=ref("surname",TextField.class);
@@ -151,6 +156,13 @@ public final class WorkbenchView {
         }
         opened.set(open);
     }
+    public void setUpdateAvailable(boolean available){updateAvailable=available;settingsLabel();settings.getStyleClass().remove("update-available");if(available)settings.getStyleClass().add("update-available");}
+    private void settingsLabel(){settings.setText(root.getWidth()<1180?"":updateAvailable?"Paramètres · Mise à jour":"Paramètres");settings.setTooltip(new Tooltip(updateAvailable?"Paramètres — une nouvelle version est disponible":"Paramètres et mises à jour"));}
+    public void error(String message){
+        status.setText(message==null?"Cette opération n'a pas pu être terminée.":message);if(!status.getStyleClass().contains("error-message"))status.getStyleClass().add("error-message");
+        var label=ref("formError",Label.class);label.setText(status.getText());boolean form=workspaceOpen&&tabs.getSelectionModel().getSelectedIndex()==0;label.setVisible(form);label.setManaged(form);
+    }
+    public void clearError(){status.getStyleClass().remove("error-message");showAction("formError",false);}
     public void parishIdentity(String name){var label=ref("parishIdentity",Label.class);label.setText(name);label.setVisible(true);label.setManaged(true);parish.setVisible(false);parish.setManaged(false);}
     public boolean actionVisible(String id){return ref(id,javafx.scene.Node.class).isVisible();}
     public void showAction(String id,boolean visible){var node=ref(id,javafx.scene.Node.class);node.setVisible(visible);node.setManaged(visible);}
@@ -164,7 +176,7 @@ public final class WorkbenchView {
         ref("homeRequest",Button.class).setOnAction(e->tabs.getSelectionModel().select(0));ref("homeDemands",Button.class).setOnAction(e->tabs.getSelectionModel().select(1));ref("homeActivity",Button.class).setOnAction(e->tabs.getSelectionModel().select(2));
         tabs.getSelectionModel().selectedIndexProperty().addListener((o,a,b)->{int index=b.intValue();if(index<0)return;title.setText(labels.get(index));((ScrollPane)workspaceContainer).setVvalue(0);for(int i=0;i<navigation.size();i++){var classes=navigation.get(i).getStyleClass();classes.remove("nav-active");if(i==index)classes.add("nav-active");}});
         root.widthProperty().addListener((o,a,b)->{
-            boolean compact=b.doubleValue()<1180;sidebarContainer.setPrefWidth(compact?76:228);
+            boolean compact=b.doubleValue()<1180;settingsLabel();sidebarContainer.setPrefWidth(compact?76:228);
             ref("sidebarBrand",Label.class).setText("MISSANYE");ref("sidebarBrand",Label.class).setVisible(!compact);ref("sidebarBrand",Label.class).setManaged(!compact);
             for(String id:List.of("sidebarCaption","sidebarHelp")){var node=ref(id,Region.class);node.setVisible(!compact);node.setManaged(!compact);}
             for(int i=0;i<navigation.size();i++)navigation.get(i).setText(compact?"":labels.get(i));
@@ -180,7 +192,10 @@ public final class WorkbenchView {
     private void configureTables() {
         var visibleDemands=new FilteredList<>(demandRows);
         var sortedDemands=new SortedList<>(visibleDemands);sortedDemands.comparatorProperty().bind(demands.comparatorProperty());demands.setItems(sortedDemands);
-        demandSearch.textProperty().addListener((o,a,b)->visibleDemands.setPredicate(row->b==null || b.isBlank() || row.data().toString().toLowerCase(Locale.ROOT).contains(b.trim().toLowerCase(Locale.ROOT))));
+        demandSearch.textProperty().addListener((o,a,b)->visibleDemands.setPredicate(row->ScreenFormats.matchesDemand(row.data(),b)));
+        var menu=new ContextMenu();for(var source:List.of(copyCode,copyPhone,copyDetails)){var item=new MenuItem(source.getText());item.setOnAction(e->source.fire());menu.getItems().add(item);}demands.setContextMenu(menu);
+        demands.setRowFactory(table->{var row=new TableRow<Row>();row.setOnContextMenuRequested(e->{if(!row.isEmpty())table.getSelectionModel().select(row.getIndex());});return row;});
+        demands.addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED,e->{if(e.isShortcutDown()&&e.getCode()==javafx.scene.input.KeyCode.C){copyCode.fire();e.consume();}});
         var visibleActivity=new FilteredList<>(activityRows);
         var sortedActivity=new SortedList<>(visibleActivity);sortedActivity.comparatorProperty().bind(outbox.comparatorProperty());outbox.setItems(sortedActivity);
         queueFilter.getItems().setAll("Toutes les opérations","Brouillons","Enregistrées","Confirmées","À corriger","Bloquées");queueFilter.getSelectionModel().selectFirst();

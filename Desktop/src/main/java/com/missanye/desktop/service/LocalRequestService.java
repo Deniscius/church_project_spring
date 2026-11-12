@@ -18,12 +18,14 @@ public final class LocalRequestService {
     }
     private ObjectNode entry(String id)throws Exception{var node=store.get("entry:"+id);if(!(node instanceof ObjectNode object))throw new IllegalArgumentException("Demande locale introuvable.");return object;}
     public static String reference(String id){return "MSL-"+UUID.fromString(id).toString().toUpperCase(Locale.ROOT);}
-    public ObjectNode finalizeDraft(String id)throws Exception{return finalizeEntry(entry(id));}
-    public ObjectNode finalizePayload(String id,JsonNode payload)throws Exception{
+    public ObjectNode finalizeDraft(String id)throws Exception{return finalizeEntry(entry(id),null);}
+    public ObjectNode finalizeDraft(String id,Integer confirmedAmount)throws Exception{return finalizeEntry(entry(id),confirmedAmount);}
+    public ObjectNode finalizePayload(String id,JsonNode payload)throws Exception{return finalizePayload(id,payload,null);}
+    public ObjectNode finalizePayload(String id,JsonNode payload,Integer confirmedAmount)throws Exception{
         var candidate=id==null?JSON.createObjectNode().put("id",UUID.randomUUID().toString()).put("kind","CREATE_DEMANDE").put("state","DRAFT").put("createdAt",Instant.now().toString()):entry(id);
-        candidate.set("payload",payload.deepCopy());return finalizeEntry(candidate);
+        candidate.set("payload",payload.deepCopy());return finalizeEntry(candidate,confirmedAmount);
     }
-    private ObjectNode finalizeEntry(ObjectNode entry)throws Exception{
+    private ObjectNode finalizeEntry(ObjectNode entry,Integer confirmedAmount)throws Exception{
         permission("demand:edit");String id=entry.path("id").asText();if(!"DRAFT".equals(entry.path("state").asText()))throw new IllegalArgumentException("Seul un brouillon peut être finalisé.");
         var payload=RequestValidation.forSubmission(entry.path("payload"));String parish=payload.path("paroissePublicId").asText();
         if(!WorkspaceBootstrap.allows(store.get("parishes"),parish))throw new IllegalArgumentException("Cette paroisse n'est pas autorisée.");
@@ -31,10 +33,13 @@ public final class LocalRequestService {
         for(var candidate:catalogue.path("forfaits").path(payload.path("typeDemandePublicId").asText()))if(payload.path("forfaitTarifPublicId").asText().equals(candidate.path("publicId").asText())&&candidate.path("isActive").asBoolean(true)&&!candidate.path("statusDel").asBoolean())plan=candidate;
         if(plan==null||!plan.path("montantForfait").isNumber()||plan.path("montantForfait").decimalValue().signum()<=0)throw new IllegalArgumentException("Le forfait et son montant doivent avoir été chargés sur ce poste.");
         int amount;try{amount=plan.path("montantForfait").decimalValue().intValueExact();}catch(Exception invalid){throw new IllegalArgumentException("Montant de forfait invalide.");}
+        if(confirmedAmount!=null&&confirmedAmount!=amount)throw new IllegalArgumentException("Le tarif a changé. Vérifiez le nouveau montant avant de finaliser la demande.");
         int days=payload.path("datesCelebration").isEmpty()?1:payload.path("datesCelebration").size();if(days!=plan.path("nombreCelebration").asInt(1))throw new IllegalArgumentException("Les dates ne correspondent pas au forfait.");
         if(LocalDate.parse(payload.path("dateDebut").asText()).isBefore(LocalDate.now()))throw new IllegalArgumentException("La première célébration est déjà passée.");
-        if(!Set.of("NORMALE","SPECIALE").contains(plan.path("natureForfait").asText()))throw new IllegalArgumentException("La nature du forfait doit être actualisée sur ce poste.");
+        if(!Set.of("NORMALE","DOMINICALE","SPECIALE").contains(plan.path("natureForfait").asText()))throw new IllegalArgumentException("La nature du forfait doit être actualisée sur ce poste.");
         boolean special="SPECIALE".equals(plan.path("natureForfait").asText());if(special&&payload.path("emailFidele").asText().isBlank())throw new IllegalArgumentException("Une adresse e-mail est nécessaire pour une demande spéciale.");
+        JsonNode requestType=JSON.missingNode();for(var t:catalogue.path("types"))if(payload.path("typeDemandePublicId").asText().equals(t.path("publicId").asText()))requestType=t;
+        new com.missanye.desktop.model.CelebrationPlanner().validate(payload,requestType,plan,catalogue.path("horaires"));
         var view=payload.deepCopy();view.put("publicId","local:"+id).put("localRequestId",id).put("localReference",reference(id)).put("codeSuivie",reference(id)).put("montant",amount).put("validationRequise",special).put("statutValidation",special?"EN_ATTENTE":"VALIDEE").put("statutPaiement","NON_PAYE").put("paiementDisponible",!special).put("localPending",true);
         view.put("recordedAt",Instant.now().toString());entry.set("payload",payload);entry.set("localSnapshot",view);entry.put("localRequestId",id).put("localReference",reference(id)).put("codeSuivie",reference(id)).put("parish",parish).put("state","PENDING");store.put("entry:"+id,entry);return view;
     }
@@ -100,6 +105,12 @@ public final class LocalRequestService {
         String parent=id;for(var e:related(id)){if("CASH_PAYMENT".equals(e.path("kind").asText()))throw new IllegalArgumentException("Un encaissement existe déjà pour cette demande.");if("VALIDATE_DEMANDE".equals(e.path("kind").asText()))parent=e.path("id").asText();}
         return command(root,"CASH_PAYMENT",JSON.createObjectNode().put("expectedMontant",root.path("localSnapshot").path("montant").asInt()),parent);
     }
+    public byte[] intentionSheetFor(JsonNode demand)throws Exception{
+        permission("demand:read");var value=demand.has("localRequestId")?view(demand.path("localRequestId").asText()):demand;String parish=value.path("paroissePublicId").asText();
+        if(!WorkspaceBootstrap.allows(store.get("parishes"),parish))throw new IllegalArgumentException("Cette paroisse n'est pas autorisée.");
+        String name="Paroisse";for(var p:store.get("parishes"))if(parish.equals(WorkspaceBootstrap.parishId(p)))name=p.path("nom").asText(name);
+        return IntentionSheet.render(name,value,store.get("catalogue:"+parish));
+    }
     public byte[] receiptFor(JsonNode demand)throws Exception{
         if(demand.has("localRequestId"))return receipt(demand.path("localRequestId").asText());
         receiptPermission();if(!WorkspaceBootstrap.allows(store.get("parishes"),demand.path("paroissePublicId").asText()))throw new IllegalArgumentException("Cette paroisse n’est pas autorisée pour ce compte.");var view=(ObjectNode)demand.deepCopy();String id=demand.path("publicId").asText();UUID.fromString(id);
@@ -121,7 +132,7 @@ public final class LocalRequestService {
         for(var type:catalogue.path("types"))if(view.path("typeDemandePublicId").asText().equals(type.path("publicId").asText()))view.put("receiptType",type.path("libelle").asText());
         for(var schedule:catalogue.path("horaires"))if(view.path("horairePublicId").asText().equals(schedule.path("publicId").asText()))view.put("receiptTime",schedule.path("heureCelebration").asText());
         for(var payment:catalogue.path("paiements"))if(view.path("typePaiementPublicId").asText().equals(payment.path("publicId").asText()))view.put("receiptPayment",payment.path("libelle").asText());
-        String fingerprint=java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(JSON.writeValueAsBytes(view)));String key="local-receipt:v2:"+id+":"+fingerprint;
+        String fingerprint=java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(JSON.writeValueAsBytes(view)));String key="local-receipt:v3:"+id+":"+fingerprint;
         var retained=store.get(key);if(!retained.isNull())return retained.binaryValue();var branding=store.get("catalogue:"+view.path("paroissePublicId").asText()).path("receiptBranding");
         byte[] pdf=LocalReceipt.render(branding.isObject()?branding:JSON.createObjectNode().put("nom",name),view);store.put(key,JSON.getNodeFactory().binaryNode(pdf));return pdf;
     }

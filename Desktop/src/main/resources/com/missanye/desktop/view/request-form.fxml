@@ -4,7 +4,7 @@
 <ScrollPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" fitToWidth="true" styleClass="form-scroll">
   <content><VBox spacing="16" styleClass="content-card">
     <Label text="Nouvelle intention de messe" styleClass="section-title"/>
-    <Label text="Préparez votre intention, puis enregistrez-la comme brouillon avant de la transmettre." wrapText="true" minHeight="-Infinity" styleClass="muted"/>
+    <Label text="Renseignez l’intention et choisissez une date : le calendrier et les horaires s’adaptent au forfait." wrapText="true" minHeight="-Infinity" styleClass="muted"/>
     <GridPane hgap="20" vgap="10">
       <columnConstraints><ColumnConstraints percentWidth="50" hgrow="ALWAYS"/><ColumnConstraints percentWidth="50" hgrow="ALWAYS"/></columnConstraints>
       <children>
@@ -21,7 +21,7 @@
         <Label text="3  ·  Le calendrier des célébrations" styleClass="form-section-title" GridPane.rowIndex="11" GridPane.columnSpan="2"/>
         <Label text="Première célébration" GridPane.rowIndex="12"/><Label text="Horaire" GridPane.rowIndex="12" GridPane.columnIndex="1"/>
         <DatePicker fx:id="date" maxWidth="Infinity" minWidth="0" GridPane.rowIndex="13"/><ComboBox fx:id="schedule" maxWidth="Infinity" minWidth="0" GridPane.rowIndex="13" GridPane.columnIndex="1"/>
-        <Label text="Heure personnalisée (optionnelle)" wrapText="true" minHeight="-Infinity" GridPane.rowIndex="14"/>
+        <Label fx:id="customTimeLabel" text="Heure personnalisée (demande spéciale)" wrapText="true" minHeight="-Infinity" GridPane.rowIndex="14"/>
         <TextField fx:id="customTime" promptText="Ex. 06:30" GridPane.rowIndex="15"/><Button fx:id="configureSlots" text="Configurer chaque date et horaire" wrapText="true" maxWidth="Infinity" GridPane.rowIndex="15" GridPane.columnIndex="1"/>
         <Label fx:id="slotsSummary" text="Horaire commun par défaut" wrapText="true" minHeight="-Infinity" styleClass="muted" GridPane.rowIndex="16" GridPane.columnSpan="2"/>
         <Label text="Autres dates du forfait" GridPane.rowIndex="17" GridPane.columnSpan="2"/>
@@ -36,6 +36,7 @@
         <TextArea fx:id="intention" prefRowCount="4" wrapText="true" GridPane.rowIndex="23" GridPane.columnSpan="2"/>
       </children>
     </GridPane>
+    <Label fx:id="formError" visible="false" managed="false" wrapText="true" minHeight="-Infinity" styleClass="validation-error"/>
     <FlowPane hgap="8" vgap="8"><Button fx:id="finalizeRequest" text="Finaliser la demande" styleClass="primary-button"/><Button fx:id="save" text="Enregistrer le brouillon" styleClass="secondary-button"/><Button fx:id="fresh" text="Nouveau"/></FlowPane>
   </VBox></content>
 </ScrollPane>

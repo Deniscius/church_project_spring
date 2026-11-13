@@ -9,6 +9,9 @@ import java.util.Arrays;
 /** Normal parish login: server identity, parish membership, then protected local workspace. */
 public final class ParishLoginService{
  public static final class ReauthenticationRequired extends IllegalArgumentException{public ReauthenticationRequired(String message){super(message);}}
+ public static final class PreparationUnavailable extends Exception {
+  public PreparationUnavailable(Exception cause){super("Vos identifiants ont été acceptés, mais le chargement de l’espace paroissial a échoué"+(cause instanceof ApiClient.ApiException response?" (HTTP "+response.status()+")":"")+". Réessayez ; si le problème persiste, contactez votre administrateur.",cause);}
+ }
  public record Result(ApiClient api,LocalStore store,JsonNode session,JsonNode parishes,String parish){}
  public static final class LegacyMigrationRequired extends IllegalArgumentException{
   private final DeviceCredentials.Ticket ticket;private final String username;private final JsonNode session,parishes;
@@ -30,10 +33,11 @@ public final class ParishLoginService{
    try{credentials.verify(deployment.apiUrl(),username,password);identityReady=LocalStore.inspect(file,deployment.apiUrl(),username)==LocalStore.ProfileStatus.READY;}catch(Exception ignored){/* First use or changed password keeps the full online authentication path. */}
    try{session=api.login(username,new String(password),identityReady?java.time.Duration.ofSeconds(4):java.time.Duration.ofMinutes(2));}
    catch(Exception failure){
-    api.clear();if(failure instanceof ApiClient.ApiException refused&&refused.status()==401){try{credentials.verify(deployment.apiUrl(),username,password);credentials.revoke(deployment.apiUrl(),username);}catch(Exception ignored){/* A wrong password must not invalidate another user's prepared identity. */}}
-    if(!DeviceCredentials.unavailable(failure))throw failure;
+    api.clear();if(failure instanceof ApiClient.ApiException refused&&(refused.status()==401||refused.status()==403)){try{credentials.verify(deployment.apiUrl(),username,password);credentials.revoke(deployment.apiUrl(),username);}catch(Exception ignored){/* A wrong password must not invalidate another user's prepared identity. */}}
+    if(!DeviceCredentials.unavailable(failure)||credentials.read(deployment.apiUrl(),username)==null)throw failure;
     var ticket=credentials.verify(deployment.apiUrl(),username,password);store=LocalStore.unlock(file,deployment.apiUrl(),username,ticket.key().toCharArray(),ticket.owner());
     if(!store.workspaceReady(deployment.parishId()))throw new IllegalArgumentException("Une première connexion au service est nécessaire sur ce poste.");
+    store.attachParishJournal(deployment.parishId(),credentials.parishKey(deployment.apiUrl(),deployment.parishId()),false);
     return new Result(null,store,store.get("session"),onlyParish(store.get("parishes"),deployment.parishId()),deployment.parishId());
    }
    String owner=session.path("user").path("id").asText();if(owner.isBlank())throw new IllegalArgumentException("La session renvoyée par le service est incomplète.");
@@ -43,9 +47,24 @@ public final class ParishLoginService{
    if(!read){credentials.revoke(deployment.apiUrl(),username);throw new IllegalArgumentException("Ce compte ne dispose pas des accès de consultation nécessaires à cet espace.");}
    var ticket=credentials.prepare(deployment.apiUrl(),username,password,owner);
    if(credentials.read(deployment.apiUrl(),username)==null&&LocalStore.inspect(file,deployment.apiUrl(),username)!=LocalStore.ProfileStatus.ABSENT)throw new LegacyMigrationRequired(username,ticket,session,allowed);
-   var prepared=WorkspaceBootstrap.fetch(api,session,deployment.parishId());
+   WorkspaceBootstrap.Prepared prepared;
+   try{prepared=WorkspaceBootstrap.fetch(api,session,deployment.parishId());}
+   catch(Exception failure){
+    if(DeviceCredentials.unavailable(failure)&&credentials.read(deployment.apiUrl(),username)!=null&&LocalStore.inspect(file,deployment.apiUrl(),username)==LocalStore.ProfileStatus.READY){
+     // Authentication, parish membership and current permissions were checked above.
+     // Reuse the complete cached workspace; never replace it with partially loaded data.
+     api.clear();store=LocalStore.unlock(file,deployment.apiUrl(),username,ticket.key().toCharArray(),owner);
+     if(!store.workspaceReady(deployment.parishId()))throw failure;
+     store.saveSession(session,allowed);credentials.save(deployment.apiUrl(),username,ticket);
+     store.attachParishJournal(deployment.parishId(),credentials.parishKey(deployment.apiUrl(),deployment.parishId()),false);
+     return new Result(null,store,session,allowed,deployment.parishId());
+    }
+    if(DeviceCredentials.unavailable(failure))throw new PreparationUnavailable(failure);
+    throw failure;
+   }
    // Persist the protected key before creating a vault so an interrupted installation cannot lose it.
    credentials.save(deployment.apiUrl(),username,ticket);store=LocalStore.unlock(file,deployment.apiUrl(),username,ticket.key().toCharArray(),owner);store.installWorkspace(prepared.session(),allowed,deployment.parishId(),prepared);
+   store.attachParishJournal(deployment.parishId(),credentials.parishKey(deployment.apiUrl(),deployment.parishId()),true);
    return new Result(api,store,prepared.session(),allowed,deployment.parishId());
   }catch(Exception failure){api.clear();if(store!=null)store.close();throw failure;}finally{Arrays.fill(password,'\0');}
  }

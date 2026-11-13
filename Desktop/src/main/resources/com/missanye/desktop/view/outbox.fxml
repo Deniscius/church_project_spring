@@ -3,7 +3,7 @@
 <?import javafx.scene.layout.*?>
 <VBox xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" spacing="14" styleClass="content-card">
   <VBox spacing="14">
-    <VBox spacing="5"><Label text="Mon activité" styleClass="section-title"/><Label text="Retrouvez vos brouillons et l’historique de vos opérations." wrapText="true" minHeight="-Infinity" styleClass="muted"/></VBox>
+    <VBox spacing="5"><Label text="Activité paroissiale" styleClass="section-title"/><Label text="Retrouvez les brouillons et l’historique des opérations de la paroisse." wrapText="true" minHeight="-Infinity" styleClass="muted"/></VBox>
     <ComboBox fx:id="queueFilter" prefWidth="230" maxWidth="320"/>
   </VBox>
   <Label text="Les opérations nécessitant votre attention sont indiquées dans cet historique." wrapText="true" minHeight="-Infinity" styleClass="notice"/>

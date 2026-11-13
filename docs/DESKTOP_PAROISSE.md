@@ -132,3 +132,33 @@ Le parcours complet des demandes et reçus avant transmission est décrit dans
 La préparation à une future répartition des paroisses entre bases est décrite
 dans [SHARDING.md](SHARDING.md). La base Neon reste partagée ; aucune adresse
 de base ou affectation technique n’est demandée à l’utilisateur du desktop.
+
+## Plusieurs utilisateurs sur un même poste
+
+Après **Déconnexion**, le second utilisateur saisit son propre identifiant et
+son mot de passe. Il ne réactive pas le poste et ne choisit pas une autre paroisse :
+le rattachement reste celui de l’installation. Son compte doit disposer d’un accès
+actif à cette paroisse et des permissions de consultation requises. Les actions
+sont affichées selon ses permissions, gérées sur le web.
+
+Chaque compte effectue une première connexion avec Internet sur ce poste pour
+préparer son identité et ses données. Il peut ensuite ouvrir son espace avec les
+conditions de validité déjà décrites. Les brouillons et opérations appartiennent
+à la paroisse et sont partagés sur ce poste selon les permissions du compte.
+Les identités et sessions restent séparées. Voir
+[le journal paroissial partagé](DESKTOP_JOURNAL_PAROISSE.md) pour la migration V34,
+les rôles complémentaires et les limites entre postes et profils Windows.
+
+## Présentation des fenêtres
+
+La connexion utilise une fenêtre compacte de 820 × 570 au maximum initial,
+limitée à la surface disponible sur l’écran. Seul le module de connexion est
+visible : pas de barre d’état doublonnée, d’en-tête du bureau ni de panneau de
+navigation autour. Les erreurs restent affichées dans le formulaire. Sur un écran
+étroit, la présentation de marque se masque et le formulaire reste défilable.
+
+L’ouverture de session agrandit la fenêtre pour le travail. Une déconnexion
+rétablit le format de connexion ; l’ouverture suivante restaure les dimensions
+du bureau, sa position et son état maximisé. Les espacements, boutons, cartes et
+lignes de tableaux sont plus compacts, sans réduction globale de la taille de
+police. Les dialogues et le défilement des contenus longs restent disponibles.

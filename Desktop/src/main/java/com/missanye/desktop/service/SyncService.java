@@ -30,10 +30,15 @@ public final class SyncService {
     }
     public String synchronize() throws Exception {
         verifySession();int sent=0,rejected=0,blocked=0;
+        if(store.hasSharedJournal()){
+            try{if(api.get("desktop/capabilities").path("parishJournalVersion").asInt()<1)throw sharedProtocolRequired();}
+            catch(ApiClient.ApiException old){if(old.status()==404||old.status()==405)throw sharedProtocolRequired();throw old;}
+        }
         for(var entry:store.entries()) {
             if(!active.getAsBoolean())throw new InterruptedException("Transmission interrompue");
             if(boundParish!=null&&!boundParish.equals(entry.path("payload").path("paroissePublicId").asText(entry.path("parish").asText())))continue;
             if(!"PENDING".equals(entry.path("state").asText()))continue;
+            if(store.hasSharedJournal()&&!store.permits(LocalStore.mutationPermission(entry.path("kind").asText())))continue;
             ObjectNode payload;
             if(entry.path("preparedPayload").isObject())payload=(ObjectNode)entry.path("preparedPayload").deepCopy();
             else{
@@ -64,6 +69,7 @@ public final class SyncService {
         if(sent+rejected+blocked==0)return "Aucune opération en attente de transmission.";
         return "Transmission terminée : "+sent+" confirmée(s), "+rejected+" à corriger, "+blocked+" bloquée(s).";
     }
+    private IllegalArgumentException sharedProtocolRequired(){return new IllegalArgumentException("Le service doit être mis à jour avant la transmission de l'espace paroissial partagé. Votre travail est conservé.");}
     private void validateConfirmation(ObjectNode entry,JsonNode result)throws IOException{
         String kind=entry.path("kind").asText();var payload=entry.path("payload");
         if(result==null||!result.isObject()||result.path("publicId").asText().isBlank())invalidConfirmation();

@@ -2,7 +2,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { clearAuthStorage, setActiveParishId } from '../constants/authStorage';
 import { authService } from '../services/auth.service';
-import { mapJwtToUser } from '../utils/mapJwtToUser';
+
+import { advanceSessionEpoch, currentSessionEpoch } from '../services/http/sessionEpoch';
 
 const AuthContext = createContext(null);
 
@@ -34,7 +35,9 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(initialSession);
 
   useEffect(() => {
-    const handleSessionExpired = () => {
+    const handleSessionExpired = (event) => {
+      if (event.detail?.epoch != null && event.detail.epoch !== currentSessionEpoch()) return;
+      advanceSessionEpoch();
       clearAuthStorage();
       setSession({
         isAuthenticated: false,
@@ -53,6 +56,7 @@ export function AuthProvider({ children }) {
   // Valide le cookie HttpOnly au démarrage (purge si expiré / révoqué).
   useEffect(() => {
     let cancelled = false;
+    const bootstrapEpoch = currentSessionEpoch();
 
     async function bootstrap() {
       const persisted = authService.getPersistedSession();
@@ -64,7 +68,7 @@ export function AuthProvider({ children }) {
       }
       try {
         const live = await authService.fetchCurrentSession();
-        if (cancelled) return;
+        if (cancelled || bootstrapEpoch !== currentSessionEpoch()) return;
         authService.persistSession(live.user, live.paroisses, live.selectedParoisse);
         setSession({
           isAuthenticated: true,
@@ -75,8 +79,12 @@ export function AuthProvider({ children }) {
           selectedParoisse: live.selectedParoisse,
           sessionExpired: false,
         });
-      } catch {
-        if (cancelled) return;
+      } catch (error) {
+        if (cancelled || bootstrapEpoch !== currentSessionEpoch()) return;
+        if (error.status !== 401 && error.status !== 403) {
+          setSession((prev) => ({ ...prev, authReady: true, sessionError: 'La session ne peut pas être vérifiée pour le moment. Réessayez lorsque le service est disponible.' }));
+          return;
+        }
         clearAuthStorage();
         setSession({
           isAuthenticated: false,
@@ -97,12 +105,14 @@ export function AuthProvider({ children }) {
   }, []);
 
   const loginMultiTenant = useCallback(async (payload) => {
+    const loginEpoch = advanceSessionEpoch();
     try {
       const response = await authService.loginMultiTenant({
         username: payload.username,
         password: payload.password,
       });
 
+      if (loginEpoch !== currentSessionEpoch()) throw new Error('Cette tentative de connexion a été remplacée. Réessayez.');
       const { user, paroisses = [], selectedParoisse } = response;
       authService.persistSession(user, paroisses, selectedParoisse);
       setSession({
@@ -113,6 +123,7 @@ export function AuthProvider({ children }) {
         paroisses,
         selectedParoisse,
         sessionExpired: false,
+        sessionError: null,
       });
       return { user, paroisses, selectedParoisse };
     } catch (error) {
@@ -121,31 +132,10 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const login = useCallback(async (payload) => {
-    try {
-      const jwt = await authService.login({
-        username: payload.username,
-        password: payload.password,
-      });
-      const user = mapJwtToUser(jwt);
-      authService.persistSession(user, [], null);
-      setSession({
-        isAuthenticated: true,
-        authReady: true,
-        user,
-        token: 'cookie',
-        paroisses: [],
-        selectedParoisse: null,
-        sessionExpired: false,
-      });
-      return { user };
-    } catch (error) {
-      console.error('Login failed:', error);
-      throw error;
-    }
-  }, []);
+  const login = useCallback((payload) => loginMultiTenant(payload), [loginMultiTenant]);
 
   const logout = useCallback(async () => {
+    advanceSessionEpoch();
     setActiveParishId(null);
     await authService.logout();
     setSession({

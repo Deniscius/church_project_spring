@@ -1,3 +1,4 @@
+import { currentSessionEpoch } from './sessionEpoch';
 import { getApiBaseUrl } from '../../config/apiBaseUrl';
 
 /**
@@ -12,6 +13,7 @@ export async function apiClient(path, options = {}, clientOptions = {}) {
     signal,
     credentials = 'include',
   } = clientOptions;
+  const sessionEpoch = currentSessionEpoch();
   const urlPath = path.startsWith('/') ? path : `/${path}`;
   const method = (options.method || 'GET').toUpperCase();
   const isMutation = method !== 'GET' && method !== 'HEAD';
@@ -70,7 +72,7 @@ export async function apiClient(path, options = {}, clientOptions = {}) {
 
   if (!response.ok) {
     if (response.status === 401 && auth && typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('church:session-expired'));
+      window.dispatchEvent(new CustomEvent('church:session-expired', { detail: { epoch: sessionEpoch } }));
     }
     let message = response.status >= 500
       ? 'Une erreur interne est survenue. Veuillez réessayer plus tard.'

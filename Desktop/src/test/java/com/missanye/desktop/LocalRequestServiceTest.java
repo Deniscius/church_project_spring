@@ -36,6 +36,9 @@ class LocalRequestServiceTest {
   }
   try(var reopened=open(file)){assertEquals(3,reopened.entries().size());assertArrayEquals(pdf,new LocalRequestService(reopened).receipt(id));assertEquals("PENDING",reopened.get("entry:"+id).path("state").asText());}
  }
+ @Test void changedPriceRequiresNewConfirmationWithoutCreatingAnotherDraft()throws Exception{
+  try(var store=open(temp.resolve("confirmed-price.sqlite"))){seed(store,false);var service=new LocalRequestService(store);assertThrows(IllegalArgumentException.class,()->service.finalizePayload(null,TestRequests.complete(),1000));assertTrue(store.entries().isEmpty());}
+ }
  @Test void roleChecksAndMissingPriceFailBeforeProducingBusinessFacts()throws Exception{
   try(var store=open(temp.resolve("rights.sqlite"))){seed(store,true);var s=session("demand:edit");store.saveSession(s,s.path("paroisses"));String id=store.draft(null,TestRequests.complete().put("emailFidele","a@example.test")).path("id").asText();var service=new LocalRequestService(store);service.finalizeDraft(id);assertThrows(IllegalArgumentException.class,()->service.decide(id,"VALIDEE"));assertThrows(IllegalArgumentException.class,()->service.receiveCash(id));assertThrows(IllegalArgumentException.class,()->service.receipt(id));assertEquals(1,store.entries().size());}
   try(var store=open(temp.resolve("price.sqlite"))){seed(store,false);var c=(ObjectNode)store.get("catalogue:"+TestRequests.PARISH);((ObjectNode)c.path("forfaits").elements().next().get(0)).put("montantForfait",-1);store.put("catalogue:"+TestRequests.PARISH,c);String id=store.draft(null,TestRequests.complete()).path("id").asText();assertThrows(IllegalArgumentException.class,()->new LocalRequestService(store).finalizeDraft(id));assertEquals("DRAFT",store.get("entry:"+id).path("state").asText());}

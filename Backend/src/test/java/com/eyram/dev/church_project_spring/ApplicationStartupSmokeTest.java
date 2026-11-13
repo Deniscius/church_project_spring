@@ -341,6 +341,12 @@ class ApplicationStartupSmokeTest {
         var replay=restTemplate.postForEntity("/desktop/operations", new HttpEntity<>(operation,cashHeaders),String.class);
         assertThat(replay.getStatusCode().value()).isEqualTo(200);
         assertThat(objectMapper.readTree(replay.getBody())).isEqualTo(desktopDemand);
+        User colleague=new User();colleague.setNom("Collègue");colleague.setPrenom("CI");colleague.setUsername("ci-colleague");colleague.setEmail("ci-colleague@example.test");colleague.setPassword(passwordEncoder.encode(PASSWORD));colleague.setRole(UserRole.SUPER_ADMIN);colleague.setIsGlobal(true);colleague.setIsActive(true);colleague.setStatusDel(false);userRepository.save(colleague);
+        var colleagueLogin=restTemplate.postForEntity("/auth/login",new HttpEntity<>(Map.of("username","ci-colleague","password",PASSWORD),loginHeaders),String.class);
+        HttpHeaders colleagueHeaders=new HttpHeaders();colleagueHeaders.putAll(cashHeaders);colleagueHeaders.set(HttpHeaders.COOKIE,colleagueLogin.getHeaders().getFirst(HttpHeaders.SET_COOKIE).split(";",2)[0]);
+        var colleagueReplay=restTemplate.postForEntity("/desktop/operations",new HttpEntity<>(operation,colleagueHeaders),String.class);
+        assertThat(colleagueReplay.getStatusCode().value()).isEqualTo(200);assertThat(objectMapper.readTree(colleagueReplay.getBody())).isEqualTo(desktopDemand);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM desktop_operation WHERE parish_id=? AND operation_id=?",Long.class,parish.getPublicId(),java.util.UUID.fromString(operationId))).isEqualTo(1L);
         var changed=new LinkedHashMap<>(payload); changed.put("intention","Une autre intention après le premier envoi");
         var conflict=restTemplate.postForEntity("/desktop/operations",new HttpEntity<>(Map.of("operationId",operationId,"kind","CREATE_DEMANDE","payload",changed),cashHeaders),String.class);
         assertThat(conflict.getStatusCode().value()).isEqualTo(409);
@@ -361,6 +367,9 @@ class ApplicationStartupSmokeTest {
         assertThat(secondPaid.getStatusCode().value()).isEqualTo(200);
         assertThat(objectMapper.readTree(firstPaid.getBody()).path("statutPaiement").asText()).isEqualTo("PAYE");
         assertThat(objectMapper.readTree(secondPaid.getBody())).isEqualTo(objectMapper.readTree(firstPaid.getBody()));
+        var colleagueCashReplay=restTemplate.postForEntity("/desktop/operations",new HttpEntity<>(cashOperation,colleagueHeaders),String.class);
+        assertThat(colleagueCashReplay.getStatusCode().value()).isEqualTo(200);assertThat(objectMapper.readTree(colleagueCashReplay.getBody())).isEqualTo(objectMapper.readTree(firstPaid.getBody()));
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM desktop_operation WHERE parish_id=? AND operation_id=?",Long.class,parish.getPublicId(),java.util.UUID.fromString(cashId))).isEqualTo(1L);
         var localReceipt=restTemplate.getForEntity("/demandes/code/"+localReference+"/recu.pdf",byte[].class);
         assertThat(localReceipt.getStatusCode().value()).isEqualTo(200);
         assertThat(new String(localReceipt.getBody(),0,5,StandardCharsets.US_ASCII)).isEqualTo("%PDF-");

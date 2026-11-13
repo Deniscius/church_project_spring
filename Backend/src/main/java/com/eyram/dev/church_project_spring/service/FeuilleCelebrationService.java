@@ -15,22 +15,10 @@ import com.eyram.dev.church_project_spring.service.storage.StoredFileService;
 import com.eyram.dev.church_project_spring.utils.FideleNameUtils;
 import com.eyram.dev.church_project_spring.utils.ForfaitDureeLabels;
 import com.eyram.dev.church_project_spring.utils.exception.ResourceNotFoundException;
-import com.eyram.dev.church_project_spring.utils.pdf.PdfDocumentStyles;
-import com.lowagie.text.Document;
-import com.lowagie.text.DocumentException;
-import com.lowagie.text.Element;
-import com.lowagie.text.FontFactory;
-import com.lowagie.text.PageSize;
-import com.lowagie.text.Paragraph;
-import com.lowagie.text.Phrase;
-import com.lowagie.text.pdf.PdfPCell;
-import com.lowagie.text.pdf.PdfPTable;
-import com.lowagie.text.pdf.PdfWriter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.ByteArrayOutputStream;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -94,107 +82,11 @@ public class FeuilleCelebrationService {
                 groupByMesse(loadSorted(paroisse.getPublicId(), date, inclureNonPayees)),
                 heures
         );
-        int totalIntentions = messes.stream()
-                .mapToInt(CelebrationMesseGroupResponse::nombreIntentions)
-                .sum();
-
-        try (ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-            Document document = new Document(PageSize.A4, 36, 36, 36, 40);
-            PdfWriter.getInstance(document, output);
-            document.addTitle("Feuille d'intentions — " + date.format(DATE_SHORT));
-            document.open();
-
-            java.nio.file.Path logoPath = null;
-            if (org.springframework.util.StringUtils.hasText(paroisse.getLogoPath())) {
-                try {
-                    logoPath = storedFileService.resolveAbsolute(paroisse.getLogoPath());
-                } catch (Exception ignored) {
-                    logoPath = null;
-                }
-            }
-            document.add(PdfDocumentStyles.parishBrandedHeader(
-                    paroisse,
-                    logoPath,
-                    "FEUILLE D'INTENTIONS DE MESSES"
-            ));
-
-            PdfPTable celebrationBanner = new PdfPTable(1);
-            celebrationBanner.setWidthPercentage(100);
-            celebrationBanner.setSpacingAfter(12);
-            PdfPCell celebrationCell = new PdfPCell();
-            celebrationCell.setBackgroundColor(PdfDocumentStyles.SECTION_BG);
-            celebrationCell.setBorderColor(PdfDocumentStyles.BORDER);
-            celebrationCell.setPadding(10);
-            celebrationCell.setHorizontalAlignment(Element.ALIGN_CENTER);
-            celebrationCell.addElement(new Paragraph("DATE DE CÉLÉBRATION", PdfDocumentStyles.labelFont()));
-            Paragraph celebrationDate = new Paragraph(
-                    capitalize(date.format(DATE_LONG)),
-                    FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13, PdfDocumentStyles.HEADER_BG)
-            );
-            celebrationDate.setAlignment(Element.ALIGN_CENTER);
-            celebrationDate.setSpacingBefore(3);
-            celebrationCell.addElement(celebrationDate);
-            celebrationBanner.addCell(celebrationCell);
-            document.add(celebrationBanner);
-
-            String filterNote = inclureNonPayees
-                    ? "Intentions validées (payées et non payées)."
-                    : "Intentions validées et payées uniquement.";
-            if (heures != null && !heures.isEmpty()) {
-                filterNote += "  ·  Messes de " + formatHeures(heures) + ".";
-            }
-            Paragraph summary = new Paragraph(
-                    filterNote + "  ·  " + totalIntentions + " intention" + (totalIntentions > 1 ? "s" : "")
-                            + "  ·  " + messes.size() + " messe" + (messes.size() > 1 ? "s" : "") + ".",
-                    PdfDocumentStyles.mutedFont()
-            );
-            summary.setAlignment(Element.ALIGN_CENTER);
-            summary.setSpacingAfter(10);
-            document.add(summary);
-
-            if (messes.isEmpty()) {
-                Paragraph empty = new Paragraph(
-                        "Aucune intention à célébrer pour cette date de célébration.",
-                        PdfDocumentStyles.bodyFont()
-                );
-                empty.setAlignment(Element.ALIGN_CENTER);
-                document.add(empty);
-            } else {
-                Paragraph plan = new Paragraph(
-                        "Plan des messes : "
-                                + messes.stream()
-                                .map(g -> g.libelleMesse() + " (" + g.nombreIntentions() + ")")
-                                .reduce((a, b) -> a + "  ·  " + b)
-                                .orElse("—"),
-                        PdfDocumentStyles.mutedFont()
-                );
-                plan.setAlignment(Element.ALIGN_CENTER);
-                plan.setSpacingAfter(12);
-                document.add(plan);
-
-                for (CelebrationMesseGroupResponse messe : messes) {
-                    document.add(buildMesseBanner(messe));
-                    int index = 1;
-                    for (CelebrationIntentionResponse intention : messe.intentions()) {
-                        document.add(buildIntentionCard(intention, index++));
-                    }
-                }
-            }
-
-            Paragraph footer = new Paragraph(
-                    "Document destiné à la sacristie et au célébrant. "
-                            + "Les intentions sont regroupées par heure de messe. "
-                            + "La date ci-dessus est celle de la célébration (distincte de la date de dépôt).",
-                    PdfDocumentStyles.mutedFont()
-            );
-            footer.setSpacingBefore(16);
-            document.add(footer);
-
-            document.close();
-            return output.toByteArray();
-        } catch (DocumentException | java.io.IOException exception) {
-            throw new IllegalStateException("Impossible de générer la feuille d'intentions PDF", exception);
-        }
+        byte[] logo=null;
+        if(org.springframework.util.StringUtils.hasText(paroisse.getLogoPath()))try{logo=java.nio.file.Files.readAllBytes(storedFileService.resolveAbsolute(paroisse.getLogoPath()));}catch(Exception ignored){}
+        var branding=new com.missanye.printing.CelebrationSheetPdf.Branding(paroisse.getNom(),paroisse.getEmail(),paroisse.getTelephone(),logo);
+        var groups=messes.stream().map(m->new com.missanye.printing.CelebrationSheetPdf.Mass(m.heure(),m.libelleMesse(),m.intentions().stream().map(i->new com.missanye.printing.CelebrationSheetPdf.Intention(i.intention(),fullName(i.demandeurPrenom(),i.demandeurNom()),i.progressionLabel(),i.celebre())).toList())).toList();
+        return com.missanye.printing.CelebrationSheetPdf.render(branding,date,inclureNonPayees,heures==null?List.of():heures.stream().filter(java.util.Objects::nonNull).map(FeuilleCelebrationService::normalizeTime).distinct().sorted().toList(),groups);
     }
 
     /**
@@ -295,55 +187,6 @@ public class FeuilleCelebrationService {
             return fromHoraire + " (" + heure.format(TIME_FORMAT) + ")";
         }
         return "Messe de " + heure.format(TIME_FORMAT);
-    }
-
-    private PdfPTable buildMesseBanner(CelebrationMesseGroupResponse messe) {
-        PdfPTable banner = new PdfPTable(1);
-        banner.setWidthPercentage(100);
-        banner.setSpacingBefore(12);
-        banner.setSpacingAfter(8);
-
-        String title = messe.libelleMesse().toUpperCase(Locale.FRENCH)
-                + "  —  "
-                + messe.nombreIntentions()
-                + " intention"
-                + (messe.nombreIntentions() > 1 ? "s" : "");
-
-        PdfPCell cell = new PdfPCell(new Phrase(title, PdfDocumentStyles.whiteSmallBold()));
-        cell.setBackgroundColor(PdfDocumentStyles.ACCENT);
-        cell.setBorderColor(PdfDocumentStyles.ACCENT);
-        cell.setPadding(10);
-        banner.addCell(cell);
-        return banner;
-    }
-
-    private PdfPTable buildIntentionCard(CelebrationIntentionResponse info, int indexInMesse)
-            throws DocumentException {
-        PdfPTable table = new PdfPTable(new float[]{1.35f, 3.15f});
-        table.setWidthPercentage(100);
-        table.setSpacingAfter(10);
-
-        String rankLabel = "Intention n° " + indexInMesse;
-        if (info.heure() != null) {
-            rankLabel += "  ·  " + info.heure().format(TIME_FORMAT);
-        }
-        PdfPCell rank = new PdfPCell(new Phrase(rankLabel, PdfDocumentStyles.whiteSmallBold()));
-        rank.setBackgroundColor(PdfDocumentStyles.HEADER_BG);
-        rank.setBorderColor(PdfDocumentStyles.HEADER_BG);
-        rank.setPadding(7);
-        rank.setColspan(2);
-        table.addCell(rank);
-
-        // Feuille légère pour le célébrant : intention, demandeur, progression (triduum/neuvaine).
-        table.addCell(PdfDocumentStyles.intentionCell(info.intention()));
-        PdfDocumentStyles.addMetaRow(table, "Demandeur", fullName(info.demandeurPrenom(), info.demandeurNom()));
-        if (info.progressionLabel() != null && !info.progressionLabel().isBlank()) {
-            PdfDocumentStyles.addMetaRow(table, "Progression", info.progressionLabel());
-        }
-        if (info.celebre()) {
-            PdfDocumentStyles.addMetaRow(table, "Statut", "Célébrée");
-        }
-        return table;
     }
 
     private CelebrationIntentionResponse toResponse(DemandeDate dd) {

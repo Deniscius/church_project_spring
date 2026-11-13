@@ -22,6 +22,9 @@ public final class WorkbenchView {
     public final TextArea intention;
     public final TextField demandSearch, username, surname, firstname, phone, email, courier, customTime;
     public final PasswordField password, localPassword;
+    public final Button settings,printIntention;
+    public final MenuButton copyActions;
+    public final MenuItem copyCode,copyPhone,copyDetails;
     public final Button finalizeRequest, configureServer, returnToDraft, retry, login, offline, lock, configureSlots, save, fresh, edit, queue, archive, sync, refresh, cash, receipt, checkout, reconcile, correct, validate, remove;
     public final Label serverEnvironment, loginStatus, offlineAvailability, session, status, slotsSummary, price, detail, queueDetail;
     public final ComboBox<Choice> parish, type, plan, schedule, payment;
@@ -38,30 +41,34 @@ public final class WorkbenchView {
     public final TabPane tabs;
     public final VBox workspace;
     private final Map<String,Object> namespace=new HashMap<>();
-    private final Region connection,header,workspaceContainer,sidebarContainer;
+    private final Region connection,header,workspaceContainer,sidebarContainer,footer;
     private final StackPane lockedPane=new StackPane();
-    private boolean workspaceOpen;
+    private boolean workspaceOpen,updateAvailable;
+    private final javafx.beans.property.ReadOnlyBooleanWrapper opened=new javafx.beans.property.ReadOnlyBooleanWrapper(false);
+    public javafx.beans.property.ReadOnlyBooleanProperty workspaceOpenProperty(){return opened.getReadOnlyProperty();}
     private int openDialogs;
     public boolean hasOpenDialog(){return openDialogs>0;}
 
     public WorkbenchView() {
         try {
             root=(BorderPane)load("workbench.fxml");
-            header=(Region)root.getTop();workspaceContainer=(Region)root.getCenter();sidebarContainer=(Region)root.getLeft();
-            var loginCard=(Region)load("login-form.fxml");loginCard.setMaxHeight(Region.USE_PREF_SIZE);loginCard.setMinHeight(Region.USE_PREF_SIZE);
+            header=(Region)root.getTop();workspaceContainer=(Region)root.getCenter();sidebarContainer=(Region)root.getLeft();footer=(Region)root.getBottom();
+            var loginCard=(Region)load("login-form.fxml");loginCard.setMaxHeight(Double.MAX_VALUE);loginCard.setMinHeight(Region.USE_PREF_SIZE);loginCard.setMaxWidth(Double.MAX_VALUE);
             loginCard.setMinWidth(0);
             if(loginCard instanceof GridPane grid){
                 var brand=grid.getChildren().get(0);grid.widthProperty().addListener((o,a,b)->{
-                    boolean compact=b.doubleValue()<760;brand.setVisible(!compact);brand.setManaged(!compact);grid.getColumnConstraints().get(0).setPercentWidth(compact?0:43);grid.getColumnConstraints().get(1).setPercentWidth(compact?100:57);grid.setHgap(compact?0:36);
+                    boolean compact=b.doubleValue()<760;brand.setVisible(!compact);brand.setManaged(!compact);grid.getColumnConstraints().get(0).setPercentWidth(compact?0:43);grid.getColumnConstraints().get(1).setPercentWidth(compact?100:57);grid.setHgap(0);
                 });
             }
-            var loginHolder=new StackPane(loginCard);loginHolder.setMinHeight(Region.USE_PREF_SIZE);
+            var loginHolder=new StackPane(loginCard);loginHolder.getStyleClass().add("login-surface");loginHolder.setMinHeight(Region.USE_PREF_SIZE);
             var loginScroll=new ScrollPane(loginHolder);loginScroll.setFitToWidth(true);loginScroll.setFitToHeight(true);loginScroll.getStyleClass().add("workspace-scroll");connection=loginScroll;
             TabPane panes=ref("tabs",TabPane.class);
             panes.getTabs().get(0).setContent(load("request-form.fxml"));
             panes.getTabs().get(1).setContent(load("demands.fxml"));
             panes.getTabs().get(2).setContent(load("outbox.fxml"));
             panes.getTabs().get(3).setContent(load("overview.fxml"));
+            settings=ref("settings",Button.class);
+            printIntention=ref("printIntention",Button.class);copyActions=ref("copyActions",MenuButton.class);copyCode=ref("copyCode",MenuItem.class);copyPhone=ref("copyPhone",MenuItem.class);copyDetails=ref("copyDetails",MenuItem.class);
             demandSearch=ref("demandSearch",TextField.class);
             username=ref("username",TextField.class);
             surname=ref("surname",TextField.class);
@@ -123,7 +130,7 @@ public final class WorkbenchView {
                 return Math.max(360,content.minHeight(Math.max(300,tabs.getWidth()-32))+52);
             },tabs.widthProperty(),tabs.getSelectionModel().selectedItemProperty(),detail.textProperty(),queueDetail.textProperty()));
             loginStatus=ref("loginStatus",Label.class);serverEnvironment=ref("serverEnvironment",Label.class);loginStatus.textProperty().bind(status.textProperty());
-            root.setTop(null);root.setLeft(null);
+            root.setTop(null);root.setLeft(null);root.setBottom(null);
             lockedPane.getChildren().add(connection);
             root.setCenter(lockedPane);
         } catch(IOException e) {
@@ -141,13 +148,21 @@ public final class WorkbenchView {
         if(open) {
             lockedPane.getChildren().clear();
             root.setCenter(workspaceContainer);
-            root.setTop(header);root.setLeft(sidebarContainer);tabs.getSelectionModel().select(3);
+            root.setTop(header);root.setLeft(sidebarContainer);root.setBottom(footer);tabs.getSelectionModel().select(3);
         } else {
-            root.setTop(null);root.setLeft(null);
+            root.setTop(null);root.setLeft(null);root.setBottom(null);
             root.setCenter(lockedPane);
             lockedPane.getChildren().setAll(connection);
         }
+        opened.set(open);
     }
+    public void setUpdateAvailable(boolean available){updateAvailable=available;settingsLabel();settings.getStyleClass().remove("update-available");if(available)settings.getStyleClass().add("update-available");}
+    private void settingsLabel(){settings.setText(root.getWidth()<1180?"":updateAvailable?"Paramètres · Mise à jour":"Paramètres");settings.setTooltip(new Tooltip(updateAvailable?"Paramètres — une nouvelle version est disponible":"Paramètres et mises à jour"));}
+    public void error(String message){
+        status.setText(message==null?"Cette opération n'a pas pu être terminée.":message);if(!status.getStyleClass().contains("error-message"))status.getStyleClass().add("error-message");
+        var label=ref("formError",Label.class);label.setText(status.getText());boolean form=workspaceOpen&&tabs.getSelectionModel().getSelectedIndex()==0;label.setVisible(form);label.setManaged(form);
+    }
+    public void clearError(){status.getStyleClass().remove("error-message");showAction("formError",false);}
     public void parishIdentity(String name){var label=ref("parishIdentity",Label.class);label.setText(name);label.setVisible(true);label.setManaged(true);parish.setVisible(false);parish.setManaged(false);}
     public boolean actionVisible(String id){return ref(id,javafx.scene.Node.class).isVisible();}
     public void showAction(String id,boolean visible){var node=ref(id,javafx.scene.Node.class);node.setVisible(visible);node.setManaged(visible);}
@@ -156,12 +171,12 @@ public final class WorkbenchView {
         var title=ref("pageTitle",Label.class);var overviewParish=ref("overviewParish",Label.class);
         parish.valueProperty().addListener((o,a,b)->overviewParish.setText(b==null?"Votre paroisse":b.label()));
         var navigation=List.of(ref("navRequest",Button.class),ref("navDemands",Button.class),ref("navActivity",Button.class),ref("navHome",Button.class));
-        var labels=List.of("Nouvelle demande","Demandes et paiements","Mon activité","Tableau de bord");
+        var labels=List.of("Nouvelle demande","Demandes et paiements","Activité paroissiale","Tableau de bord");
         for(int i=0;i<navigation.size();i++){final int index=i;var button=navigation.get(i);button.setTooltip(new Tooltip(labels.get(i)));button.setOnAction(e->tabs.getSelectionModel().select(index));}
         ref("homeRequest",Button.class).setOnAction(e->tabs.getSelectionModel().select(0));ref("homeDemands",Button.class).setOnAction(e->tabs.getSelectionModel().select(1));ref("homeActivity",Button.class).setOnAction(e->tabs.getSelectionModel().select(2));
         tabs.getSelectionModel().selectedIndexProperty().addListener((o,a,b)->{int index=b.intValue();if(index<0)return;title.setText(labels.get(index));((ScrollPane)workspaceContainer).setVvalue(0);for(int i=0;i<navigation.size();i++){var classes=navigation.get(i).getStyleClass();classes.remove("nav-active");if(i==index)classes.add("nav-active");}});
         root.widthProperty().addListener((o,a,b)->{
-            boolean compact=b.doubleValue()<1180;sidebarContainer.setPrefWidth(compact?76:228);
+            boolean compact=b.doubleValue()<1180;settingsLabel();sidebarContainer.setPrefWidth(compact?76:228);
             ref("sidebarBrand",Label.class).setText("MISSANYE");ref("sidebarBrand",Label.class).setVisible(!compact);ref("sidebarBrand",Label.class).setManaged(!compact);
             for(String id:List.of("sidebarCaption","sidebarHelp")){var node=ref(id,Region.class);node.setVisible(!compact);node.setManaged(!compact);}
             for(int i=0;i<navigation.size();i++)navigation.get(i).setText(compact?"":labels.get(i));
@@ -177,7 +192,10 @@ public final class WorkbenchView {
     private void configureTables() {
         var visibleDemands=new FilteredList<>(demandRows);
         var sortedDemands=new SortedList<>(visibleDemands);sortedDemands.comparatorProperty().bind(demands.comparatorProperty());demands.setItems(sortedDemands);
-        demandSearch.textProperty().addListener((o,a,b)->visibleDemands.setPredicate(row->b==null || b.isBlank() || row.data().toString().toLowerCase(Locale.ROOT).contains(b.trim().toLowerCase(Locale.ROOT))));
+        demandSearch.textProperty().addListener((o,a,b)->visibleDemands.setPredicate(row->ScreenFormats.matchesDemand(row.data(),b)));
+        var menu=new ContextMenu();for(var source:List.of(copyCode,copyPhone,copyDetails)){var item=new MenuItem(source.getText());item.setOnAction(e->source.fire());menu.getItems().add(item);}demands.setContextMenu(menu);
+        demands.setRowFactory(table->{var row=new TableRow<Row>();row.setOnContextMenuRequested(e->{if(!row.isEmpty())table.getSelectionModel().select(row.getIndex());});return row;});
+        demands.addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED,e->{if(e.isShortcutDown()&&e.getCode()==javafx.scene.input.KeyCode.C){copyCode.fire();e.consume();}});
         var visibleActivity=new FilteredList<>(activityRows);
         var sortedActivity=new SortedList<>(visibleActivity);sortedActivity.comparatorProperty().bind(outbox.comparatorProperty());outbox.setItems(sortedActivity);
         queueFilter.getItems().setAll("Toutes les opérations","Brouillons","Enregistrées","Confirmées","À corriger","Bloquées");queueFilter.getSelectionModel().selectFirst();

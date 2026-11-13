@@ -1676,7 +1676,9 @@ public class DemandeServiceImpl implements DemandeService {
                 dd.getOrdre(),
                 heure,
                 libelle,
-                horaireId
+                horaireId,
+                Boolean.TRUE.equals(dd.getCelebre()),
+                dd.getCelebreAt()
         );
     }
 

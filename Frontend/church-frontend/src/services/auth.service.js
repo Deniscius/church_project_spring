@@ -49,11 +49,27 @@ export const authService = {
       method: 'POST',
       body: JSON.stringify({ username, password }),
     });
+    // A successful password check does not prove the browser retained its HttpOnly cookie.
+    let verified;
+    try {
+      verified = await apiClient('/auth/me');
+    } catch (error) {
+      if (error.status === 401 || error.status === 403) {
+        const refused = new Error('Vos identifiants sont acceptés, mais le navigateur ne confirme pas la session. Vérifiez les paramètres de cookies du site ou contactez votre administrateur.');
+        refused.status = error.status;
+        throw refused;
+      }
+      throw error;
+    }
+    const user = mapLoginUser(verified?.user);
+    if (!user?.id || user.id !== mapLoginUser(response?.user)?.id) {
+      throw new Error('La session a changé pendant la connexion. Veuillez réessayer.');
+    }
     return {
-      user: mapLoginUser(response?.user),
-      paroisses: mapParoisses(response?.paroisses),
-      selectedParoisse: response?.selectedParoisse
-        ? mapParoisses([response.selectedParoisse])[0]
+      user,
+      paroisses: mapParoisses(verified?.paroisses),
+      selectedParoisse: verified?.selectedParoisse
+        ? mapParoisses([verified.selectedParoisse])[0]
         : null,
     };
   },
@@ -67,6 +83,7 @@ export const authService = {
   /** Restaure la session depuis le cookie (sans JWT côté client). */
   fetchCurrentSession: async () => {
     const response = await apiClient('/auth/me', {}, { auth: true });
+    if (!mapLoginUser(response?.user)?.id) throw new Error('Le service a renvoyé une session incomplète. Réessayez.');
     return {
       user: mapLoginUser(response?.user),
       paroisses: mapParoisses(response?.paroisses),

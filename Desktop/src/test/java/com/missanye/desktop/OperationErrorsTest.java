@@ -18,6 +18,10 @@ class OperationErrorsTest {
         assertFalse(OperationErrors.message(new SSLHandshakeException("secret")).contains("secret"));
         assertFalse(OperationErrors.message(new IOException("secret")).contains("secret"));
     }
+    @Test void serverFailureIncludesStatusWithoutExposingBackendDetails(){
+        var failure=new ApiClient.ApiException(500,"password=private backend stacktrace");String message=OperationErrors.message(failure);
+        assertTrue(message.contains("HTTP 500"));assertFalse(message.contains("private"));assertFalse(message.contains("password"));
+    }
     @Test void authenticationFailureKeepsItsSpecificMessage(){
         var refused=new ApiClient.ApiException(401,"private backend details");assertEquals(refused.getMessage(),OperationErrors.message(refused));
         assertFalse(OperationErrors.message(refused).contains("private"));

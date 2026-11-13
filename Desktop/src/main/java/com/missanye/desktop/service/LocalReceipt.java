@@ -39,12 +39,12 @@ public final class LocalReceipt {
         if(logo!=null){var image=new PdfPCell(logo,false);image.setBorder(0);image.setHorizontalAlignment(Element.ALIGN_CENTER);image.setVerticalAlignment(Element.ALIGN_MIDDLE);identity.addCell(image);}
         var name=new PdfPCell();name.setBorder(0);if(logo==null)name.setColspan(2);
         centered(name,"ARCHIDIOCESE DE LOME",10,INK);centered(name,truncate(parish.path("nom").asText("Paroisse"),80),12,ACCENT);
-        var contact=new ArrayList<String>();for(String key:new String[]{"adresse","telephone","email"})if(!parish.path(key).asText().isBlank())contact.add(parish.path(key).asText());
+        var contact=new ArrayList<String>();for(String key:new String[]{"adresse","telephone","email"})if(!parish.path(key).asText("").isBlank())contact.add(parish.path(key).asText(""));
         if(!contact.isEmpty()){var p=new Paragraph(truncate(String.join(" · ",contact),115),text(8,false,MUTED));p.setAlignment(Element.ALIGN_CENTER);name.addElement(p);}identity.addCell(name);
         var heading=new PdfPCell(identity);heading.setPadding(9);heading.setBackgroundColor(new Color(245,241,235));heading.setBorderColor(BORDER);block.addCell(heading);
         var title=cell("REÇU DE DÉPÔT",12,true,Color.WHITE);title.setHorizontalAlignment(Element.ALIGN_CENTER);title.setBackgroundColor(INK);title.setPadding(7);block.addCell(title);
-        var highlights=new PdfPTable(new float[]{1.8f,1,1.15f});highlights.setWidthPercentage(100);
-        highlights.addCell(highlight("Code de suivi",reference(demand),7));highlights.addCell(highlight("Montant",ScreenFormats.money(demand.path("localQuotedMontant")),11));highlights.addCell(highlight("Dépôt",date(demand.path("localRecordedAt").asText()),10));block.addCell(wrap(highlights));
+        var highlights=new PdfPTable(new float[]{1,1});highlights.setWidthPercentage(100);
+        block.addCell(highlight("Code de suivi",reference(demand),12));highlights.addCell(highlight("Montant",ScreenFormats.money(demand.path("localQuotedMontant")),11));highlights.addCell(highlight("Dépôt",date(demand.path("localRecordedAt").asText()),10));block.addCell(wrap(highlights));
         var intention=cell(truncate(demand.path("intention").asText(),160),11,true,INK);intention.setBackgroundColor(new Color(252,248,240));intention.setPadding(7);block.addCell(intention);
         var meta=new PdfPTable(new float[]{1.2f,3.3f});meta.setWidthPercentage(100);
         meta(meta,"Célébration",celebration(demand));meta(meta,"Type",demand.path("receiptType").asText(demand.path("typeDemandeLibelle").asText("—")));
@@ -66,5 +66,5 @@ public final class LocalReceipt {
     private void watermark(PdfWriter writer,String label,float y){var canvas=writer.getDirectContentUnder();canvas.saveState();var gs=new PdfGState();gs.setFillOpacity(.08f);canvas.setGState(gs);canvas.setColorFill(new Color(90,90,90));canvas.beginText();canvas.setFontAndSize(heavy,36);canvas.showTextAligned(Element.ALIGN_CENTER,label,PageSize.A4.getWidth()/2,y,28);canvas.endText();canvas.restoreState();}
     private static String truncate(String value,int max){if(value==null||value.isBlank())return "—";return value.length()<=max?value:value.substring(0,max-1).trim()+"…";}
     private static String date(String value){var f=DateTimeFormatter.ofPattern("dd/MM/yyyy HH' h 'mm");try{return Instant.parse(value).atZone(ZoneId.of("Africa/Lome")).format(f);}catch(Exception ignored){try{return LocalDateTime.parse(value).format(f);}catch(Exception invalid){return "—";}}}
-    private static BaseFont font(String name)throws Exception{try(var stream=LocalReceipt.class.getResourceAsStream("/com/missanye/desktop/branding/fonts/"+name)){if(stream==null)throw new java.io.IOException("Police du reçu introuvable");return BaseFont.createFont(name,BaseFont.IDENTITY_H,BaseFont.EMBEDDED,true,stream.readAllBytes(),null);}}
+    static BaseFont font(String name)throws Exception{try(var stream=LocalReceipt.class.getResourceAsStream("/com/missanye/printing/fonts/"+name)){if(stream==null)throw new java.io.IOException("Police du reçu introuvable");return BaseFont.createFont(name,BaseFont.IDENTITY_H,BaseFont.EMBEDDED,true,stream.readAllBytes(),null);}}
 }

@@ -137,3 +137,35 @@
 .compact-height .summary-card { -fx-padding: 14; -fx-min-height: 130; }
 
 .brand-logo { -fx-background-color: white; -fx-background-radius: 10; -fx-padding: 6; }
+
+/* Compact spacing keeps labels and targets readable without scaling the whole application. */
+.workspace-body { -fx-padding: 14 18; -fx-spacing: 12; }
+.app-header { -fx-padding: 10 18; }
+.content-card { -fx-padding: 14; -fx-spacing: 10; }
+.toolbar { -fx-padding: 9 12; }
+.button { -fx-padding: 7 11; }
+.nav-button { -fx-padding: 10 10; }
+.welcome-card { -fx-padding: 18; }
+.welcome-title { -fx-font-size: 22px; }
+.summary-card { -fx-padding: 12 16; -fx-min-height: 108; }
+.summary-value { -fx-font-size: 26px; }
+.data-table { -fx-fixed-cell-size: 38; }
+.data-table .table-cell { -fx-padding: 7 8; }
+.data-table .column-header { -fx-padding: 9 5; }
+.selection-panel { -fx-padding: 8 12; }
+.status-bar { -fx-padding: 7 18; }
+.compact-height .summary-card { -fx-min-height: 108; }
+.login-surface { -fx-background-color: white; }
+.login-card { -fx-background-radius: 0; -fx-border-width: 0; -fx-border-radius: 0; }
+.login-card .brand-panel { -fx-padding: 24; -fx-background-radius: 0; }
+.login-card .brand-title { -fx-font-size: 22px; }
+.login-card .login-fields { -fx-padding: 22 26; }
+.login-card .login-title { -fx-font-size: 23px; }
+.login-card .login-notice { -fx-padding: 8 10; }
+
+.validation-error { -fx-background-color: #fff0ec; -fx-border-color: #dfaa9e; -fx-border-radius: 6; -fx-background-radius: 6; -fx-padding: 10 12; -fx-text-fill: #8a3325; }
+.error-message { -fx-text-fill: #9d283b; -fx-font-weight: bold; }
+.menu-button { -fx-background-color: white; -fx-border-color: #ccd8e7; -fx-border-radius: 6; -fx-padding: 5 8; }
+
+.nav-button.update-available { -fx-background-color: #e9c77d; -fx-text-fill: #173b63; }
+.nav-button.update-available .nav-icon { -fx-stroke: #173b63; }

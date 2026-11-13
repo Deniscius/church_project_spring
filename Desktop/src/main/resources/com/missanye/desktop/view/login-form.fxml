@@ -2,18 +2,19 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 <?import javafx.scene.image.*?>
-<GridPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" styleClass="login-card" hgap="36" maxWidth="960">
+<GridPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" styleClass="login-card" hgap="0" maxWidth="Infinity">
+  <rowConstraints><RowConstraints vgrow="ALWAYS" fillHeight="true"/></rowConstraints>
   <columnConstraints><ColumnConstraints percentWidth="43" hgrow="ALWAYS"/><ColumnConstraints percentWidth="57" hgrow="ALWAYS"/></columnConstraints>
   <children>
-    <VBox GridPane.columnIndex="0" spacing="18" alignment="CENTER_LEFT" styleClass="brand-panel">
-      <StackPane maxWidth="98" minWidth="98" styleClass="brand-logo"><ImageView fitWidth="82" fitHeight="82" preserveRatio="true"><image><Image url="@../branding/missanye.png"/></image></ImageView></StackPane>
+    <VBox GridPane.columnIndex="0" spacing="12" alignment="CENTER_LEFT" styleClass="brand-panel">
+      <StackPane maxWidth="98" minWidth="98" styleClass="brand-logo"><ImageView fitWidth="64" fitHeight="64" preserveRatio="true"><image><Image url="@../branding/missanye.png"/></image></ImageView></StackPane>
       <Label text="MISSANYE" styleClass="brand-name"/>
       <Label text="Le quotidien de votre paroisse, simplifié." wrapText="true" minHeight="-Infinity" styleClass="brand-title"/>
       <Label text="Accompagnez les fidèles. Retrouvez vos demandes, encaissements et reçus dans un seul espace." wrapText="true" minHeight="-Infinity" styleClass="brand-description"/>
       <Region prefHeight="18"/>
       <Label text="Un espace dédié à votre paroisse, avec les accès et les responsabilités de chacun." wrapText="true" minHeight="-Infinity" styleClass="brand-caption"/>
     </VBox>
-    <VBox GridPane.columnIndex="1" spacing="12" styleClass="login-fields">
+    <VBox GridPane.columnIndex="1" spacing="9" styleClass="login-fields">
       <Label text="Bienvenue" styleClass="login-title"/>
       <Label text="Connectez-vous à votre espace de travail." wrapText="true" minHeight="-Infinity" styleClass="muted"/>
       <Label fx:id="serverEnvironment" wrapText="true" minHeight="-Infinity" maxWidth="Infinity" styleClass="help-text"/>

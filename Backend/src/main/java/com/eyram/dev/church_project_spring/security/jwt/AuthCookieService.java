@@ -46,11 +46,13 @@ public class AuthCookieService {
 
     public void writeAccessCookie(HttpServletResponse response, String jwt) {
         String value = properties.cookieEncrypt() ? encrypt(jwt) : jwt;
+        if (partitioned()) response.addHeader(HttpHeaders.SET_COOKIE, buildCookie("", Duration.ZERO, false).toString());
         response.addHeader(HttpHeaders.SET_COOKIE, buildCookie(value, Duration.ofMillis(properties.expirationMs())).toString());
     }
 
     public void clearAccessCookie(HttpServletResponse response) {
         response.addHeader(HttpHeaders.SET_COOKIE, buildCookie("", Duration.ZERO).toString());
+        if (partitioned()) response.addHeader(HttpHeaders.SET_COOKIE, buildCookie("", Duration.ZERO, false).toString());
     }
 
     public Optional<String> readAccessToken(HttpServletRequest request) {
@@ -81,7 +83,9 @@ public class AuthCookieService {
         }
     }
 
-    private ResponseCookie buildCookie(String value, Duration maxAge) {
+    private boolean partitioned() { return properties.cookieSecure() && "None".equalsIgnoreCase(properties.cookieSameSite() == null ? "Lax" : properties.cookieSameSite().trim()); }
+    private ResponseCookie buildCookie(String value, Duration maxAge) { return buildCookie(value,maxAge,partitioned()); }
+    private ResponseCookie buildCookie(String value, Duration maxAge, boolean partitioned) {
         ResponseCookie.ResponseCookieBuilder builder = ResponseCookie.from(properties.cookieName(), value)
                 .httpOnly(true)
                 .secure(properties.cookieSecure())
@@ -90,6 +94,9 @@ public class AuthCookieService {
 
         String sameSite = properties.cookieSameSite() == null ? "Lax" : properties.cookieSameSite().trim();
         builder.sameSite(sameSite);
+        // Render static frontend and API have different sites. CHIPS retains this
+        // HttpOnly cookie when the browser blocks ordinary third-party cookies.
+        builder.partitioned(partitioned);
         return builder.build();
     }
 

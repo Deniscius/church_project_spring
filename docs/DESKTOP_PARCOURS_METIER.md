@@ -58,13 +58,18 @@ Son UUID n’est pas raccourci : la référence remise avant transmission demeur
 utilisable après synchronisation. Les anciennes références restent acceptées.
 Le PDF garde ORIGINAL et DUPLICATA sur une seule feuille A4.
 
-**Imprimer la fiche d’intention** exporte un PDF individuel avec le nom paroissial,
-le fidèle, le téléphone, le code, l’intégralité de l’intention et toutes les dates
-et heures connues. Le document s’ouvre dans le lecteur PDF habituel pour impression.
-Cette fiche ne tronque pas les intentions longues. Elle ne nécessite que l’accès
-de consultation des demandes et l’accès à la paroisse ; les permissions propres
-aux reçus demeurent distinctes. Le document est disponible depuis les données
-présentes sur le poste, sans téléchargement préalable.
+**Feuille d’intentions du jour** reprend le document du web : date de célébration,
+sélection d’une ou plusieurs messes et regroupement des intentions par heure.
+Par défaut, seules les demandes validées et payées sont retenues ; une option
+permet d’inclure les demandes validées non payées. La progression des séries
+utilise les célébrations réellement enregistrées, sans déduire leur exécution
+du seul passage de la date. Le fidèle non renseigné devient « Un(e) chrétien(ne) ».
+Le PDF s’ouvre dans le lecteur habituel pour impression. Il utilise les données
+présentes sur le poste et exige l’accès de consultation à la paroisse.
+
+Le web et le desktop utilisent le même moteur de mise en page et les mêmes
+polices embarquées. Le backend doit être redéployé pour fournir les indicateurs
+de célébration de chaque date ; reconstruire ensuite l’installateur desktop.
 
 Les fichiers exportés sont des PDF ordinaires. Les captures et exemples de PDF
 se trouvent dans l’artefact CI `Missanye-Interface-Previews`.

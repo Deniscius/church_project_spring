@@ -6,10 +6,14 @@ on:
     tags: ['desktop-v*']
     paths:
       - 'Desktop/**'
+      - 'Backend/src/main/java/com/missanye/printing/**'
+      - 'Backend/src/main/resources/com/missanye/printing/**'
       - '.github/workflows/desktop-windows.yml'
   pull_request:
     paths:
       - 'Desktop/**'
+      - 'Backend/src/main/java/com/missanye/printing/**'
+      - 'Backend/src/main/resources/com/missanye/printing/**'
       - '.github/workflows/desktop-windows.yml'
 permissions:
   contents: read

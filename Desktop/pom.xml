@@ -13,10 +13,12 @@
   </dependencies>
   <build>
     <resources>
+      <resource><directory>../Backend/src/main/resources</directory><filtering>false</filtering><includes><include>com/missanye/printing/fonts/**</include></includes></resource>
       <resource><directory>src/main/resources</directory><filtering>false</filtering><excludes><exclude>**/deployment.properties</exclude><exclude>**/desktop-version.properties</exclude></excludes></resource>
       <resource><directory>src/main/resources</directory><filtering>true</filtering><includes><include>**/deployment.properties</include><include>**/desktop-version.properties</include></includes></resource>
     </resources>
     <plugins>
+    <plugin><groupId>org.codehaus.mojo</groupId><artifactId>build-helper-maven-plugin</artifactId><version>3.6.1</version><executions><execution><id>shared-print-template</id><phase>generate-sources</phase><goals><goal>add-source</goal></goals><configuration><sources><source>${project.basedir}/../Backend/src/main/java/com/missanye/printing</source></sources></configuration></execution></executions></plugin>
     <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId><version>3.14.0</version></plugin>
     <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId><version>3.5.3</version></plugin>
     <plugin><groupId>org.openjfx</groupId><artifactId>javafx-maven-plugin</artifactId><version>0.0.8</version><configuration><mainClass>com.missanye.desktop.DesktopApplication</mainClass></configuration></plugin>

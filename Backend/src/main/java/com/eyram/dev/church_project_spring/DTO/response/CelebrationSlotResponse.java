@@ -10,6 +10,8 @@ public record CelebrationSlotResponse(
         Integer ordre,
         LocalTime heure,
         String horaireLibelle,
-        UUID horairePublicId
+        UUID horairePublicId,
+        boolean celebre,
+        java.time.LocalDateTime celebreAt
 ) {
 }

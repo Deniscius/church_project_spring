@@ -105,11 +105,11 @@ public final class LocalRequestService {
         String parent=id;for(var e:related(id)){if("CASH_PAYMENT".equals(e.path("kind").asText()))throw new IllegalArgumentException("Un encaissement existe déjà pour cette demande.");if("VALIDATE_DEMANDE".equals(e.path("kind").asText()))parent=e.path("id").asText();}
         return command(root,"CASH_PAYMENT",JSON.createObjectNode().put("expectedMontant",root.path("localSnapshot").path("montant").asInt()),parent);
     }
-    public byte[] intentionSheetFor(JsonNode demand)throws Exception{
-        permission("demand:read");var value=demand.has("localRequestId")?view(demand.path("localRequestId").asText()):demand;String parish=value.path("paroissePublicId").asText();
-        if(!WorkspaceBootstrap.allows(store.get("parishes"),parish))throw new IllegalArgumentException("Cette paroisse n'est pas autorisée.");
-        String name="Paroisse";for(var p:store.get("parishes"))if(parish.equals(WorkspaceBootstrap.parishId(p)))name=p.path("nom").asText(name);
-        return IntentionSheet.render(name,value,store.get("catalogue:"+parish));
+    public byte[] celebrationSheet(String parish,java.time.LocalDate date,boolean includeUnpaid,List<java.time.LocalTime> hours)throws Exception{
+        permission("demand:read");if(!WorkspaceBootstrap.allows(store.get("parishes"),parish))throw new IllegalArgumentException("Cette paroisse n'est pas autorisée.");
+        var catalogue=store.get("catalogue:"+parish);JsonNode branding=catalogue.path("receiptBranding");
+        if(!branding.isObject()){String name="Paroisse";for(var p:store.get("parishes"))if(parish.equals(WorkspaceBootstrap.parishId(p)))name=p.path("nom").asText(name);branding=JSON.createObjectNode().put("nom",name);}
+        return IntentionSheet.render(branding,overlay(parish,store.get("demands:"+parish)),catalogue,date,includeUnpaid,hours);
     }
     public byte[] receiptFor(JsonNode demand)throws Exception{
         if(demand.has("localRequestId"))return receipt(demand.path("localRequestId").asText());

@@ -353,3 +353,9 @@ les horaires automatiques, séries de célébrations, heures spéciales, recherc
 par téléphone, reçus lisibles, fiches imprimables et copie des demandes. Le menu
 Paramètres permet l’actualisation et la recherche de releases publiées ; les
 référentiels web sont également actualisés en arrière-plan.
+
+
+La feuille quotidienne partage son moteur PDF avec le backend. La compilation
+Maven du desktop exige donc le dépôt complet : `Backend/src/main/java/com/missanye/printing`
+et les polices de `Backend/src/main/resources/com/missanye/printing/fonts` sont
+intégrés au JAR desktop. L’application installée reste autonome.

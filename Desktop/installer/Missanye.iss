@@ -63,4 +63,4 @@ begin
   Result := ExpandConstant('{param:MISSANYEUPDATE|0}') = '1';
 end;
 
-; Do not delete ~/.missanye-desktop: uninstalling must preserve the user's vault.
+// Do not delete ~/.missanye-desktop: uninstalling must preserve the user's vault.

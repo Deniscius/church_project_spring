@@ -64,8 +64,9 @@ class MainControllerTest {
             await(()->pane[0].lookup("#admin-username")!=null);
             fx(()->{var table=(javafx.scene.control.TableView<?>)pane[0].lookup(".table-view");assertEquals("Nom",table.getColumns().get(0).getText());table.getSelectionModel().selectFirst();assertNull(pane[0].lookup("#admin-password"));assertNull(pane[0].lookup("#admin-username"));assertNotNull(pane[0].lookup("#admin-role"));assertNotNull(pane[0].lookup("#admin-isActive"));captureNode(pane[0],"desktop-team-preview.png");});
             var poll=pane[0].getClass().getDeclaredMethod("pollChanges");poll.setAccessible(true);
+            var polling=pane[0].getClass().getDeclaredField("polling");polling.setAccessible(true);
             fx(()->{try{poll.invoke(pane[0]);}catch(Exception e){throw new RuntimeException(e);}});
-            await(()->((javafx.scene.control.Label)pane[0].lookup("#administrationMessage")).getText().contains("confirmées"));
+            await(()->{try{return !polling.getBoolean(pane[0])&&!pane[0].lookup("#administrationModule").isDisabled()&&pane[0].lookup("#admin-role")!=null;}catch(Exception e){throw new RuntimeException(e);}});
             fx(()->{((javafx.scene.control.ComboBox<?>)pane[0].lookup("#admin-role")).getSelectionModel().select(1);});revision.set("b".repeat(64));
             fx(()->{try{poll.invoke(pane[0]);}catch(Exception e){throw new RuntimeException(e);}});
             await(()->((javafx.scene.control.Label)pane[0].lookup("#administrationMessage")).getText().contains("Des données ont changé"));

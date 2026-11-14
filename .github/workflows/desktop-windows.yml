@@ -128,7 +128,7 @@ jobs:
             echo "Version already published: $RELEASE_TAG (installer preserved)"
             exit 0
           fi
-          tag_commit=$(gh api "repos/$GH_REPO/commits/$RELEASE_TAG" --jq .sha 2>/dev/null || true)
+          tag_commit=$(gh api "repos/$GH_REPO/commits/$RELEASE_TAG" --jq .sha 2>/dev/null) || tag_commit=""
           if [ -n "$tag_commit" ] && [ "$tag_commit" != "$RELEASE_SHA" ]; then
             echo "Existing tag does not match the tested commit: $RELEASE_TAG" >&2
             exit 1

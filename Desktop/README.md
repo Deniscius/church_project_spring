@@ -247,7 +247,7 @@ terminé, télécharger l'artefact **Missanye-Windows**, extraire le ZIP puis ou
 
 L'image Linux a été construite ici ; les paquets Windows/macOS doivent être
 construits et vérifiés sur leurs systèmes. Il n'y a pas encore de signature
-numérique de l'application ni de système de mise à jour automatique.
+numérique de l'application. La mise à jour intégrée est décrite ci-dessous.
 
 ## Installateur Windows Inno Setup
 
@@ -257,8 +257,8 @@ SHA-256. Télécharger l'artefact depuis GitHub Actions, extraire l'archive puis
 exécuter `Missanye-Setup.exe`. Java et JavaFX sont inclus.
 
 L'installation est destinée à Windows 10/11 compatible x64 et se fait pour le
-compte courant, sans demande de droits administrateur, dans
-`%LOCALAPPDATA%\Programs\Missanye` par défaut. L'assistant propose le français
+poste avec demande de droits administrateur, dans
+`C:\Program Files\Missanye` par défaut. L'assistant propose le français
 et l'anglais, un raccourci menu Démarrer et un raccourci Bureau optionnel.
 Une seule instance de l'application peut ouvrir un même répertoire de données.
 La désinstallation préserve le coffre `~/.missanye-desktop` et ses données.
@@ -359,3 +359,18 @@ La feuille quotidienne partage son moteur PDF avec le backend. La compilation
 Maven du desktop exige donc le dépôt complet : `Backend/src/main/java/com/missanye/printing`
 et les polices de `Backend/src/main/resources/com/missanye/printing/fonts` sont
 intégrés au JAR desktop. L’application installée reste autonome.
+
+## Mise à jour intégrée (à partir de 0.1.1)
+
+La recherche de versions commence en arrière-plan au lancement, même avant la
+connexion, puis à la reconnexion et au plus une fois par heure en session.
+Dans Paramètres, **Installer la mise à jour** télécharge l’installateur officiel,
+vérifie sa taille et son SHA-256, puis lance l’installation et le redémarrage.
+Une saisie en cours peut être enregistrée avant de quitter. Windows demande
+l’autorisation administrateur ; son refus conserve l’application ouverte.
+Le coffre local et `app/parish.properties` sont conservés.
+
+Les versions détectables doivent être publiées comme releases stables
+`desktop-vX.Y.Z` avec `Missanye-Setup.exe` et `Missanye-Setup.exe.sha256`.
+Un artefact Actions seul n’est pas détecté. La version 0.1.0 doit être remplacée
+une première fois avec le nouveau setup pour bénéficier de ce parcours.

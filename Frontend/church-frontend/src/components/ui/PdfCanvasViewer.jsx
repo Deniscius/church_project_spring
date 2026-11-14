@@ -1,12 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
-import pdfWorkerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist/legacy/build/pdf.mjs';
+import pdfWorkerSrc from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url';
 
 if (typeof window !== 'undefined') {
   GlobalWorkerOptions.workerSrc = pdfWorkerSrc;
 }
 
-async function resolvePdfData(source) {
+async function resolvePdfData(source, signal) {
   if (!source) return null;
 
   if (source instanceof ArrayBuffer) {
@@ -23,7 +23,7 @@ async function resolvePdfData(source) {
   // certains navigateurs renvoient alors un statut réseau 0. On récupère les
   // octets dans le thread principal puis on les transmet directement à PDF.js.
   if (source.startsWith('blob:') || source.startsWith('data:')) {
-    const res = await fetch(source);
+    const res = await fetch(source, { signal });
     if (!res.ok) {
       throw new Error(`Impossible de charger le PDF (HTTP ${res.status})`);
     }
@@ -34,6 +34,7 @@ async function resolvePdfData(source) {
   // (évite iframe cross-origin / CSP).
   const absolute = /^https?:\/\//i.test(source);
   const res = await fetch(source, {
+    signal,
     credentials: absolute ? 'include' : 'same-origin',
     headers: {
       Accept: 'application/pdf',
@@ -60,6 +61,9 @@ export default function PdfCanvasViewer({ source, fileName = 'document.pdf' }) {
   useEffect(() => {
     let cancelled = false;
     let pdfDoc = null;
+    let loadingTask = null;
+    let renderTask = null;
+    const controller = new AbortController();
 
     const render = async () => {
       setStatus('loading');
@@ -76,7 +80,7 @@ export default function PdfCanvasViewer({ source, fileName = 'document.pdf' }) {
       }
 
       try {
-        const docParams = await resolvePdfData(source);
+        const docParams = await resolvePdfData(source, controller.signal);
         if (cancelled) return;
         if (!docParams) {
           setStatus('empty');
@@ -84,12 +88,16 @@ export default function PdfCanvasViewer({ source, fileName = 'document.pdf' }) {
           return;
         }
 
-        const loadingTask = getDocument({
+        loadingTask = getDocument({
           ...docParams,
           useSystemFonts: true,
+          isEvalSupported: false,
         });
         pdfDoc = await loadingTask.promise;
-        if (cancelled) return;
+        if (cancelled) {
+          await pdfDoc.destroy();
+          return;
+        }
 
         const maxPages = Math.min(pdfDoc.numPages, 12);
         setPageInfo(
@@ -113,7 +121,10 @@ export default function PdfCanvasViewer({ source, fileName = 'document.pdf' }) {
           canvas.height = Math.floor(viewport.height);
 
           const ctx = canvas.getContext('2d', { alpha: false });
-          await page.render({ canvasContext: ctx, viewport }).promise;
+          if (!ctx) throw new Error("Le navigateur ne peut pas dessiner l’aperçu PDF.");
+          renderTask = page.render({ canvasContext: ctx, viewport });
+          await renderTask.promise;
+          renderTask = null;
           if (!cancelled) host.appendChild(canvas);
         }
 
@@ -138,13 +149,11 @@ export default function PdfCanvasViewer({ source, fileName = 'document.pdf' }) {
 
     return () => {
       cancelled = true;
-      if (pdfDoc) {
-        try {
-          pdfDoc.destroy();
-        } catch {
-          /* ignore */
-        }
-      }
+      controller.abort();
+      renderTask?.cancel();
+      // Destroy a pending load too: closing/reopening must not leave a worker alive.
+      const cleanup = loadingTask?.destroy();
+      cleanup?.catch(() => {});
     };
   }, [source, fileName]);
 

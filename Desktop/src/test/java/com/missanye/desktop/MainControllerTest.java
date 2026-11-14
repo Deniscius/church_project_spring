@@ -40,11 +40,12 @@ class MainControllerTest {
     }
     @Test void nativeParishParametersCanCreateScheduleAndExposeWebTypeFields()throws Exception{
         var json=new ObjectMapper();var posted=new java.util.concurrent.atomic.AtomicReference<com.fasterxml.jackson.databind.JsonNode>();
-        var permissions=json.readTree("[\"schedule:read\",\"schedule:manage\",\"request-type:read\",\"request-type:manage\"]");
+        var permissions=json.readTree("[\"schedule:read\",\"schedule:manage\",\"request-type:read\",\"request-type:manage\",\"user:manage\"]");
         var identity=json.createObjectNode();identity.putObject("user").put("id","alice-id").set("permissions",permissions);identity.putArray("paroisses").addObject().put("id",TestRequests.PARISH);
         var server=com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1",0),0);
         server.createContext("/auth/me",e->reply(e,200,identity.toString()));
         server.createContext("/horaires/paroisse/",e->reply(e,200,"[]"));server.createContext("/type-demandes/paroisse/",e->reply(e,200,"[]"));
+        server.createContext("/admin/users/paroisse/",e->reply(e,200,"[]"));
         server.createContext("/horaires",e->{posted.set(json.readTree(e.getRequestBody()));reply(e,201,"{}");});server.start();
         var pane=new com.missanye.desktop.admin.AdministrationPane[1];var stage=new javafx.stage.Stage[1];
         try(var store=LocalStore.unlock(temp.resolve("administration.sqlite"),"http://localhost:8081/","alice","Local password 1234!".toCharArray(),"alice-id")){
@@ -57,6 +58,9 @@ class MainControllerTest {
             fx(()->{@SuppressWarnings("unchecked") var modules=(javafx.scene.control.ComboBox<com.missanye.desktop.admin.ParishModules.Module>)pane[0].lookup("#administrationModule");modules.getSelectionModel().select(modules.getItems().stream().filter(m->m.id().equals("types")).findFirst().orElseThrow());});
             await(()->pane[0].lookup("#admin-delaiMinimumHeures")!=null);
             fx(()->{assertNotNull(pane[0].lookup("#admin-typeDemandeEnum"));assertNotNull(pane[0].lookup("#admin-description"));assertNotNull(pane[0].lookup("#admin-joursCelebrationAutorises"));assertEquals(7,((javafx.scene.layout.FlowPane)pane[0].lookup("#admin-joursCelebrationAutorises")).getChildren().size());captureNode(pane[0],"desktop-parish-parameters-preview.png");});
+            fx(()->{@SuppressWarnings("unchecked") var modules=(javafx.scene.control.ComboBox<com.missanye.desktop.admin.ParishModules.Module>)pane[0].lookup("#administrationModule");modules.getSelectionModel().select(modules.getItems().stream().filter(m->m.id().equals("team")).findFirst().orElseThrow());});
+            await(()->pane[0].lookup("#admin-username")!=null);
+            fx(()->{var table=(javafx.scene.control.TableView<?>)pane[0].lookup(".table-view");assertEquals("Nom",table.getColumns().get(0).getText());});
             api.clear();
         }finally{fx(()->{if(pane[0]!=null)pane[0].close();if(stage[0]!=null)stage[0].close();});server.stop(0);}
     }

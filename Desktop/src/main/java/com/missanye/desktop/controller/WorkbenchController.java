@@ -52,7 +52,7 @@ public final class WorkbenchController implements AutoCloseable {
     private long updateCheckedAt;
     private com.missanye.desktop.service.UpdateService.Release latestRelease;
     private final Label updateMessage=new Label("Recherchez les versions publiées de Missanye Desktop.");
-    private final javafx.scene.control.Hyperlink updateDownload=new javafx.scene.control.Hyperlink("Télécharger la nouvelle version");
+    private final javafx.scene.control.Hyperlink updateDownload=new javafx.scene.control.Hyperlink("Installer la mise à jour");
     private final ExecutorService updater=Executors.newSingleThreadExecutor(r->{var t=new Thread(r,"desktop-updates");t.setDaemon(true);return t;});
     private final com.missanye.desktop.model.CelebrationPlanner planner=new com.missanye.desktop.model.CelebrationPlanner();
     private Task<?> syncTask;
@@ -107,6 +107,7 @@ public final class WorkbenchController implements AutoCloseable {
         cleanForm=formData();
         readinessDelay.setOnFinished(e->inspectOfflineReadiness());v.username.textProperty().addListener((o,a,b)->{offlineReady=false;controls();readinessDelay.playFromStart();});
         controls();
+        Platform.runLater(()->checkUpdates(false));
         timer.scheduleWithFixedDelay(()->Platform.runLater(()->{if(!closed && !busy && store!=null && ((api!=null)||(api==null&&reconnectPassword!=null)) && !v.hasOpenDialog() && System.currentTimeMillis()>=automaticRetryAfter){if(api==null)reconnect();else{checkUpdates(false);synchronize();}}}),60,60,TimeUnit.SECONDS);
     }
     private <T> void run(Callable<T> action,Consumer<T> success){
@@ -484,7 +485,7 @@ public final class WorkbenchController implements AutoCloseable {
         String role=ScreenFormats.role(session.path("user").path("role").asText(""));var identity=new Label((deployment==null?(v.parish.getValue()==null?"Votre paroisse":v.parish.getValue().label()):deployment.parishName())+"\n"+session.path("user").path("username").asText("")+(role.isBlank()?"":" · "+role));identity.setWrapText(true);
         var refresh=new Button("Actualiser les données maintenant");refresh.setOnAction(e->{settingsRefreshing=true;dataMessage.setText("Actualisation en cours…");if(api==null)reconnect();else synchronize();});var info=new Label("Les horaires, forfaits et demandes sont actualisés automatiquement lorsque le service est accessible. Votre saisie en cours est conservée.");info.setWrapText(true);
         var version=new Label("Missanye Desktop · version "+com.missanye.desktop.service.UpdateService.currentVersion());var check=new Button("Rechercher une mise à jour");check.setOnAction(e->checkUpdates(true));updateMessage.setWrapText(true);
-        updateDownload.setVisible(latestRelease!=null);updateDownload.setManaged(latestRelease!=null);updateDownload.setOnAction(e->{if(host!=null&&latestRelease!=null)host.showDocument(latestRelease.page().toString());});
+        updateDownload.setVisible(latestRelease!=null);updateDownload.setManaged(latestRelease!=null);updateDownload.setOnAction(e->upgrade());
         dataMessage.setWrapText(true);
         var box=new javafx.scene.layout.VBox(14,identity,new Separator(),new Label("Données de la paroisse"),info,refresh,dataMessage,new Separator(),version,check,updateMessage,updateDownload);box.setPrefWidth(490);dialog.getDialogPane().setContent(box);
         try{dialog.showAndWait();}finally{box.getChildren().removeAll(updateMessage,updateDownload,dataMessage);}
@@ -495,6 +496,20 @@ public final class WorkbenchController implements AutoCloseable {
         var task=new Task<java.util.Optional<com.missanye.desktop.service.UpdateService.Release>>(){protected java.util.Optional<com.missanye.desktop.service.UpdateService.Release> call()throws Exception{return new com.missanye.desktop.service.UpdateService().check();}};
         task.setOnSucceeded(e->{if(closed)return;checkingUpdates=false;latestRelease=task.getValue().orElse(null);updateMessage.setText(latestRelease==null?"Aucune version publiée plus récente n'est disponible.":"La version "+latestRelease.version()+" est disponible.");updateDownload.setVisible(latestRelease!=null);updateDownload.setManaged(latestRelease!=null);v.setUpdateAvailable(latestRelease!=null);});
         task.setOnFailed(e->{checkingUpdates=false;if(!closed&&explicit)updateMessage.setText("Impossible de vérifier les versions pour le moment. Vous pouvez continuer à travailler.");});updater.submit(task);
+    }
+    private void upgrade(){
+        if(latestRelease==null||checkingUpdates||closed||busy)return;
+        if(!System.getProperty("os.name","").startsWith("Windows")){if(host!=null)host.showDocument(latestRelease.page().toString());return;}
+        protectForm(()->{
+            var release=latestRelease;checkingUpdates=true;updateDownload.setDisable(true);updateMessage.setText("Téléchargement et vérification de la version "+release.version()+"… Vous pouvez continuer à travailler.");
+            var task=new Task<java.nio.file.Path>(){protected java.nio.file.Path call()throws Exception{return new com.missanye.desktop.service.UpdateService().prepare(release,file.toAbsolutePath().getParent().resolve("updates"));}};
+            task.setOnSucceeded(event->{checkingUpdates=false;updateDownload.setDisable(false);if(closed)return;
+                updateMessage.setText("Mise à jour vérifiée. Prête à installer.");
+                // Recheck pending work: the user may have edited while the download was running.
+                requestClose(()->run(()->{com.missanye.desktop.service.UpdateService.install(task.getValue());return true;},installed->Platform.exit()));
+            });
+            task.setOnFailed(event->{checkingUpdates=false;updateDownload.setDisable(false);if(!closed)updateMessage.setText("La mise à jour n’a pas pu être téléchargée ou vérifiée. Réessayez. Votre version reste utilisable.");});updater.submit(task);
+        });
     }
     private void copyDemand(String field){try{
         var demand=selected(v.demands);String value=switch(field){case "code"->ScreenFormats.reference(demand);case "phone"->demand.path("telFidele").asText("");default->ScreenFormats.details(demand);};

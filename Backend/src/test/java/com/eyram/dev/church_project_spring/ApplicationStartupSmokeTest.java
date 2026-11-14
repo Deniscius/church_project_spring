@@ -96,6 +96,22 @@ class ApplicationStartupSmokeTest {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM parish_storage_placement WHERE parish_id=?",Long.class,id)).isZero();
     }
 
+    private void assertTenantObjectIsolation(Paroisse target,String demandId)throws Exception{
+        // Real cookie-authenticated HTTP requests: knowing another tenant's UUID grants no access.
+        var other=new Paroisse();other.setNom("CI IDOR isolated parish");other.setAdresse("Test");other.setDoyenne(target.getDoyenne());other.appliquerStatut(StatutTenant.ACTIVE);other=paroisseRepository.save(other);
+        var user=new User();user.setNom("Local");user.setPrenom("IDOR");user.setUsername("ci-idor-secretary");user.setEmail("ci-idor@example.test");user.setPassword(passwordEncoder.encode(PASSWORD));user.setRole(UserRole.SECRETAIRE);user.setIsGlobal(false);user.setIsActive(true);user.setStatusDel(false);user=userRepository.save(user);
+        jdbc.update("INSERT INTO paroisse_access(public_id,user_id,paroisse_id,role_paroisse,active,status_del) VALUES (?,?,?,'SECRETAIRE',true,false)",java.util.UUID.randomUUID(),user.getId(),other.getId());
+        var loginHeaders=new HttpHeaders();loginHeaders.setContentType(MediaType.APPLICATION_JSON);
+        var login=restTemplate.postForEntity("/auth/login",new HttpEntity<>(Map.of("username","ci-idor-secretary","password",PASSWORD),loginHeaders),String.class);
+        assertThat(login.getStatusCode().value()).isEqualTo(200);
+        var headers=new HttpHeaders();headers.set(HttpHeaders.COOKIE,login.getHeaders().getFirst(HttpHeaders.SET_COOKIE).split(";",2)[0]);headers.setOrigin("http://localhost:5173");headers.set("X-Requested-With","XMLHttpRequest");headers.setContentType(MediaType.APPLICATION_JSON);
+        var allowed=restTemplate.exchange("/desktop/paroisses/"+other.getPublicId()+"/receipt-branding",HttpMethod.GET,new HttpEntity<>(headers),String.class);assertThat(allowed.getStatusCode().value()).isEqualTo(200);
+        var deniedBranding=restTemplate.exchange("/desktop/paroisses/"+target.getPublicId()+"/receipt-branding",HttpMethod.GET,new HttpEntity<>(headers),String.class);assertThat(deniedBranding.getStatusCode().value()).isIn(403,404);assertThat(deniedBranding.getBody()).doesNotContain(target.getNom());
+        var deniedRead=restTemplate.exchange("/demandes/"+demandId,HttpMethod.GET,new HttpEntity<>(headers),String.class);assertThat(deniedRead.getStatusCode().value()).isIn(403,404);
+        var deniedWrite=restTemplate.exchange("/demandes/"+demandId+"/intention",HttpMethod.PATCH,new HttpEntity<>(Map.of("intention","Tentative de modification par une autre paroisse"),headers),String.class);assertThat(deniedWrite.getStatusCode().value()).isIn(403,404);
+        assertThat(jdbc.queryForObject("SELECT intention FROM demande WHERE public_id=?",String.class,java.util.UUID.fromString(demandId))).isEqualTo("Action de grâce pour le parcours automatisé");
+    }
+
     @BeforeEach
     void ensurePlatformUserExists() {
         if (!userRepository.existsByUsernameIgnoreCaseAndStatusDelFalse(USERNAME)) {
@@ -239,6 +255,7 @@ class ApplicationStartupSmokeTest {
         cashHeaders.set("X-Requested-With", "XMLHttpRequest");
         cashHeaders.setContentType(MediaType.APPLICATION_JSON);
         String demandPublicId = created.path("publicId").asText();
+        assertTenantObjectIsolation(parish, demandPublicId);
 
         assertThat(created.path("natureForfait").asText()).isEqualTo("NORMALE");
         assertThat(created.path("validationRequise").asBoolean()).isFalse();

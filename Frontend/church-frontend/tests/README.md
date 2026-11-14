@@ -22,3 +22,12 @@ En production, redéployer ensemble backend et frontend : le cookie sécurisé
 SameSite=None est partitionné, la connexion est confirmée par `/auth/me` avant
 succès et les anciennes requêtes ne peuvent pas effacer une nouvelle session.
 Une reconnexion peut être nécessaire après remplacement de l’ancien cookie.
+
+### Aperçu des reçus administratifs
+
+`receipt_browser.py` utilise uniquement des réponses API synthétiques. Construire
+avec `VITE_API_BASE_URL=https://api.example.test npm run build`, lancer
+`npm run preview -- --host 127.0.0.1`, puis `python tests/receipt_browser.py`.
+Python Playwright et Chromium sont requis. La suite vérifie le rendu réel du PDF,
+sa réouverture, le téléchargement et la reprise après HTTP 503 sur des écrans
+390 et 1280 pixels, avec et sans `Promise.withResolvers` natif.

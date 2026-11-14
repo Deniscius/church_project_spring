@@ -94,11 +94,15 @@ session. Seules les releases stables nommées `desktop-vX.Y.Z` possédant un
 installateur non vide `Missanye-Setup.exe` sont proposées. Une release de la partie
 web, un brouillon, une préversion ou un lien hors du dépôt est ignoré.
 
-La vérification automatique a lieu à l’ouverture d’une session disponible, après
-reconnexion et au plus une fois par heure. Une recherche manuelle reste disponible
-dans Paramètres. Une version trouvée signale le menu ; le lien ouvre sa page
-publique. Aucun téléchargement ou lancement d’installateur n’est automatique.
-L’échec de cette recherche ne bloque pas le métier.
+La vérification automatique a lieu au lancement, à la reconnexion et au plus
+une fois par heure en session. Une recherche manuelle reste disponible dans
+Paramètres. **Installer la mise à jour** télécharge l’installateur et son empreinte
+SHA-256 depuis la release officielle, vérifie la taille et l’intégrité, puis lance
+le setup avec demande d’autorisation administrateur Windows. Le travail non
+sauvegardé est protégé avant la fermeture et l’application redémarre après
+installation. Les coffres et le rattachement paroissial sont conservés.
+Un échec de recherche, de vérification ou un refus UAC laisse la version courante
+utilisable. Le setup installe par défaut dans `C:\Program Files\Missanye`.
 
 ### Publier une version détectable
 

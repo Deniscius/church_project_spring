@@ -1,6 +1,6 @@
 ; Compile with scripts/installer.ps1 after building the jpackage app-image.
 #ifndef AppVersion
-  #define AppVersion "0.1.0"
+  #define AppVersion "0.1.1"
 #endif
 #ifndef AppImage
   #define AppImage SourcePath + "..\target\distribution\Missanye"
@@ -15,10 +15,12 @@ AppId={{E6849DEB-2845-461C-AB8B-386A8F635DD9}
 AppName=Missanye
 AppVersion={#AppVersion}
 AppPublisher=Missanye
-DefaultDirName={localappdata}\Programs\Missanye
+DefaultDirName={commonpf}\Missanye
 DefaultGroupName=Missanye
 DisableProgramGroupPage=yes
-PrivilegesRequired=lowest
+PrivilegesRequired=admin
+DisableDirPage=no
+UsePreviousAppDir=yes
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0
@@ -52,4 +54,13 @@ Name: "{autodesktop}\Missanye"; Filename: "{app}\Missanye.exe"; WorkingDir: "{ap
 [Run]
 Filename: "{app}\Missanye.exe"; Description: "{cm:LaunchProgram,Missanye}"; Flags: nowait postinstall skipifsilent
 
-; Do not delete ~/.missanye-desktop: uninstalling must preserve the user's vault.
+Filename: "{app}\Missanye.exe"; Flags: nowait skipifnotsilent; Check: IsIntegratedUpdate
+
+; An integrated upgrade relaunches the app after files are replaced.
+[Code]
+function IsIntegratedUpdate: Boolean;
+begin
+  Result := ExpandConstant('{param:MISSANYEUPDATE|0}') = '1';
+end;
+
+// Do not delete ~/.missanye-desktop: uninstalling must preserve the user's vault.

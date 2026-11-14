@@ -61,6 +61,10 @@ class MainControllerTest {
             fx(()->{@SuppressWarnings("unchecked") var modules=(javafx.scene.control.ComboBox<com.missanye.desktop.admin.ParishModules.Module>)pane[0].lookup("#administrationModule");modules.getSelectionModel().select(modules.getItems().stream().filter(m->m.id().equals("team")).findFirst().orElseThrow());});
             await(()->pane[0].lookup("#admin-username")!=null);
             fx(()->{var table=(javafx.scene.control.TableView<?>)pane[0].lookup(".table-view");assertEquals("Nom",table.getColumns().get(0).getText());});
+            server.removeContext("/type-demandes/paroisse/");server.createContext("/type-demandes/paroisse/",e->reply(e,503,"{}"));
+            fx(()->{@SuppressWarnings("unchecked") var modules=(javafx.scene.control.ComboBox<com.missanye.desktop.admin.ParishModules.Module>)pane[0].lookup("#administrationModule");modules.getSelectionModel().select(modules.getItems().stream().filter(m->m.id().equals("types")).findFirst().orElseThrow());});
+            await(()->!pane[0].lookup("#administrationModule").isDisabled());
+            fx(()->{assertTrue(pane[0].lookup("#administrationSave").isDisabled());assertNull(pane[0].lookup("#admin-username"));});
             api.clear();
         }finally{fx(()->{if(pane[0]!=null)pane[0].close();if(stage[0]!=null)stage[0].close();});server.stop(0);}
     }

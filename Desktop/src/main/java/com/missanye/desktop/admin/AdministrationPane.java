@@ -44,7 +44,7 @@ public final class AdministrationPane extends BorderPane implements AutoCloseabl
     private final Map<String,CheckBox> dayBoxes=new LinkedHashMap<>();
     private final Map<String,Supplier<JsonNode>> values=new LinkedHashMap<>();
     private JsonNode selected,data=JSON.nullNode(),types=JSON.createArrayNode(),daySlots=JSON.createArrayNode();
-    private boolean filling,internal,dirty,busy,closed,changingDate;
+    private boolean filling,internal,dirty,busy,closed,changingDate,loaded;
     private LocalDate loadedDate=date.getValue();
     private long generation;
 
@@ -79,8 +79,8 @@ public final class AdministrationPane extends BorderPane implements AutoCloseabl
         task.setOnFailed(e->{if(closed||token!=generation||!active.getAsBoolean())return;busy=false;message.setText(OperationErrors.message(task.getException()));buttons();});worker.submit(task);
     }
     private void load(){
-        if(module()==null||busy)return;var chosen=module();LocalDate selectedDate=date.getValue();if(selectedDate==null){message.setText("Choisissez une date valide.");return;}record Loaded(JsonNode data,JsonNode types,JsonNode slots){}
-        execute(()->new Loaded(service.load(chosen,selectedDate),chosen.id().equals("prices")?service.types():JSON.createArrayNode(),chosen.id().equals("celebrations")?service.daySlots(selectedDate):JSON.createArrayNode()),loaded->{loadedDate=selectedDate;data=loaded.data();types=loaded.types();daySlots=loaded.slots();selected=null;rows.clear();
+        if(module()==null||busy)return;var chosen=module();LocalDate selectedDate=date.getValue();if(selectedDate==null){message.setText("Choisissez une date valide.");return;}loaded=false;selected=null;data=JSON.nullNode();rows.clear();values.clear();controls.clear();dayBoxes.clear();form.getChildren().clear();summary.getChildren().clear();extras.getChildren().clear();record Loaded(JsonNode data,JsonNode types,JsonNode slots){}
+        execute(()->new Loaded(service.load(chosen,selectedDate),chosen.id().equals("prices")?service.types():JSON.createArrayNode(),chosen.id().equals("celebrations")?service.daySlots(selectedDate):JSON.createArrayNode()),loaded->{this.loaded=true;loadedDate=selectedDate;data=loaded.data();types=loaded.types();daySlots=loaded.slots();selected=null;rows.clear();
             if(data.isArray())data.forEach(rows::add);else if(chosen.id().equals("cash")&&data.path("encaissements").isArray())data.path("encaissements").forEach(rows::add);
             else if(data.path("content").isArray())data.path("content").forEach(rows::add);else if(!chosen.singleton()&&data.isObject())rows.add(data);
             columns(chosen);if(chosen.singleton())selected=data;showForm();
@@ -166,7 +166,7 @@ public final class AdministrationPane extends BorderPane implements AutoCloseabl
             execute(()->service.save(chosen,body,target),r->{dirty=false;message.setText("Enregistrement confirmé.");changed.run();if(chosen.id().equals("password")){values.clear();showForm();passwordChanged.run();}else load();});
         }catch(Exception invalid){message.setText(invalid.getMessage());}
     }
-    private void buttons(){var m=module();boolean write=m!=null&&m.write()!=null&&service.allowed(m.write())&&service.online();save.setVisible(m!=null&&!m.fields().isEmpty());save.setManaged(save.isVisible());save.setDisable(busy||!write||(m!=null&&!m.singleton()&&selected!=null&&m.updatePath()==null));fresh.setVisible(m!=null&&!m.singleton()&&m.createPath()!=null);fresh.setManaged(fresh.isVisible());fresh.setDisable(busy||!write);remove.setVisible(m!=null&&m.removable());remove.setManaged(remove.isVisible());remove.setDisable(busy||!write||selected==null);modules.setDisable(busy);refresh.setDisable(busy);form.setDisable(busy||!write);extras.setDisable(busy);summary.setDisable(busy);}
+    private void buttons(){var m=module();boolean write=m!=null&&m.write()!=null&&service.allowed(m.write())&&service.online();save.setVisible(m!=null&&!m.fields().isEmpty());save.setManaged(save.isVisible());save.setDisable(busy||!loaded||!write||(m!=null&&!m.singleton()&&selected!=null&&m.updatePath()==null));fresh.setVisible(m!=null&&!m.singleton()&&m.createPath()!=null);fresh.setManaged(fresh.isVisible());fresh.setDisable(busy||!loaded||!write);remove.setVisible(m!=null&&m.removable());remove.setManaged(remove.isVisible());remove.setDisable(busy||!write||selected==null);modules.setDisable(busy);refresh.setDisable(busy);form.setDisable(busy||!loaded||!write);extras.setDisable(busy);summary.setDisable(busy);}
     private void changeDate(){
         if(changingDate||busy)return;
         if(date.getValue()==null||(dirty&&!discard())){changingDate=true;date.setValue(loadedDate);changingDate=false;return;}

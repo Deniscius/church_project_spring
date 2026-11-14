@@ -16,6 +16,7 @@ const PaymentReturnPage = lazy(() => import('../../pages/public/PaymentReturnPag
 const OffersPage = lazy(() => import('../../pages/public/OffersPage'));
 const ParishRegistrationPage = lazy(() => import('../../pages/public/ParishRegistrationPage'));
 const PublicSchedulesPage = lazy(() => import('../../pages/public/PublicSchedulesPage'));
+const DesktopDownloadPage = lazy(() => import('../../pages/public/DesktopDownloadPage'));
 const SiteMapPage = lazy(() => import('../../pages/public/SiteMapPage'));
 
 function LazyOutlet() {
@@ -45,6 +46,7 @@ export function PublicRoutes() {
         <Route path="/paiement" element={<PublicPaymentPage />} />
         <Route path="/paiement/retour" element={<PaymentReturnPage />} />
         <Route path="/paiement/:codeSuivie" element={<PublicPaymentPage />} />
+        <Route path="/telechargement" element={<DesktopDownloadPage />} />
         <Route path="/offres" element={<OffersPage />} />
         <Route path="/inscription-paroisse" element={<ParishRegistrationPage />} />
         <Route path="/plan-du-site" element={<SiteMapPage />} />

@@ -24,6 +24,11 @@ const FIDELE_LINKS = [
 
 const PARISH_LINKS = [
   {
+    to: '/telechargement',
+    label: 'Télécharger pour Windows',
+    description: 'Installer ou mettre à jour Missanye Desktop.',
+  },
+  {
     to: '/offres',
     label: 'Offres & tarifs',
     description: 'Comparer les formules, durées et prix Missanye.',

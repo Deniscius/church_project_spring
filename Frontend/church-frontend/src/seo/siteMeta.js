@@ -32,6 +32,13 @@ export const SITE_OG_IMAGE_ALT = 'Missanye — Intentions et célébrations';
 /** Pages indexables — source unique pour sitemap, plan du site, llms.txt. */
 export const PUBLIC_INDEXABLE_ROUTES = [
   {
+    path: '/telechargement',
+    label: 'Télécharger Missanye Desktop',
+    description: 'Installer ou mettre à jour la dernière version de Missanye pour Windows.',
+    changefreq: 'weekly',
+    priority: '0.7',
+  },
+  {
     path: '/',
     label: 'Accueil',
     description: 'Présentation de la plateforme et accès aux démarches fidèles.',
@@ -83,6 +90,12 @@ export const PUBLIC_INDEXABLE_ROUTES = [
 ];
 
 export const ROUTE_META = [
+  {
+    test: (p) => p === '/telechargement',
+    title: `Télécharger pour Windows — ${SITE_NAME}`,
+    description: 'Téléchargez la dernière version de Missanye Desktop pour votre paroisse et retrouvez les mises à jour Windows.',
+    ogType: 'website',
+  },
   {
     test: (p) => p === '/',
     title: `${SITE_NAME} — Demandes de messes & horaires`,

@@ -28,6 +28,7 @@ export default function PublicFooter() {
             <Link to="/offres">Voir les offres</Link>
             <Link to="/inscription-paroisse">Inscrire ma paroisse</Link>
             <Link to="/admin/login">Connexion</Link>
+            <Link to="/telechargement">Télécharger pour Windows</Link>
             <Link to="/plan-du-site">Plan du site</Link>
           </div>
         </div>

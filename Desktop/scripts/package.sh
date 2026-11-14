@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
-app_version="${MISSANYE_APP_VERSION:-0.2.0}"
+app_version="${MISSANYE_APP_VERSION:-0.2.1}"
 [[ "$app_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Version attendue: major.minor.patch" >&2; exit 1; }
 build_arguments=("-Ddesktop.release.version=$app_version" -B clean verify dependency:copy-dependencies -DincludeScope=runtime -DoutputDirectory=target/package)
 if [ -n "${MISSANYE_BUILD_API_URL:-}" ]; then build_arguments+=("-Ddesktop.api.url=$MISSANYE_BUILD_API_URL"); fi

@@ -40,12 +40,14 @@ class MainControllerTest {
     }
     @Test void nativeParishParametersCanCreateScheduleAndExposeWebTypeFields()throws Exception{
         var json=new ObjectMapper();var posted=new java.util.concurrent.atomic.AtomicReference<com.fasterxml.jackson.databind.JsonNode>();
+        var revision=new java.util.concurrent.atomic.AtomicReference<>("a".repeat(64));
         var permissions=json.readTree("[\"schedule:read\",\"schedule:manage\",\"request-type:read\",\"request-type:manage\",\"user:manage\"]");
         var identity=json.createObjectNode();identity.putObject("user").put("id","alice-id").set("permissions",permissions);identity.putArray("paroisses").addObject().put("id",TestRequests.PARISH);
         var server=com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1",0),0);
         server.createContext("/auth/me",e->reply(e,200,identity.toString()));
+        server.createContext("/desktop/",e->reply(e,200,"{\"revision\":\""+revision.get()+"\"}"));
         server.createContext("/horaires/paroisse/",e->reply(e,200,"[]"));server.createContext("/type-demandes/paroisse/",e->reply(e,200,"[]"));
-        server.createContext("/admin/users/paroisse/",e->reply(e,200,"[]"));
+        server.createContext("/admin/users/paroisse/",e->reply(e,200,"[{\"publicId\":\"731c7ab4-2fae-4d78-a17b-0ff7653f4501\",\"nom\":\"Martin\",\"prenom\":\"Anne\",\"username\":\"anne\",\"email\":\"anne@example.test\",\"role\":\"SECRETAIRE\",\"isActive\":true}]"));
         server.createContext("/horaires",e->{posted.set(json.readTree(e.getRequestBody()));reply(e,201,"{}");});server.start();
         var pane=new com.missanye.desktop.admin.AdministrationPane[1];var stage=new javafx.stage.Stage[1];
         try(var store=LocalStore.unlock(temp.resolve("administration.sqlite"),"http://localhost:8081/","alice","Local password 1234!".toCharArray(),"alice-id")){
@@ -57,12 +59,19 @@ class MainControllerTest {
             await(()->!pane[0].lookup("#administrationModule").isDisabled());
             fx(()->{@SuppressWarnings("unchecked") var modules=(javafx.scene.control.ComboBox<com.missanye.desktop.admin.ParishModules.Module>)pane[0].lookup("#administrationModule");modules.getSelectionModel().select(modules.getItems().stream().filter(m->m.id().equals("types")).findFirst().orElseThrow());});
             await(()->pane[0].lookup("#admin-delaiMinimumHeures")!=null);
-            fx(()->{assertNotNull(pane[0].lookup("#admin-typeDemandeEnum"));assertNotNull(pane[0].lookup("#admin-description"));assertNotNull(pane[0].lookup("#admin-joursCelebrationAutorises"));assertEquals(7,((javafx.scene.layout.FlowPane)pane[0].lookup("#admin-joursCelebrationAutorises")).getChildren().size());captureNode(pane[0],"desktop-parish-parameters-preview.png");});
+            fx(()->{assertNotNull(pane[0].lookup("#admin-typeDemandeEnum"));assertNotNull(pane[0].lookup("#admin-description"));assertNotNull(pane[0].lookup("#admin-joursCelebrationAutorises"));assertEquals(7,((javafx.scene.layout.FlowPane)pane[0].lookup("#admin-joursCelebrationAutorises")).getChildren().size());var save=pane[0].lookup("#administrationSave");assertTrue(save.localToScene(save.getBoundsInLocal()).getMaxY()<stage[0].getScene().getHeight());assertInstanceOf(javafx.scene.control.SplitPane.class,pane[0].getCenter());assertNotNull(pane[0].lookup("#administrationFormScroll"));captureNode(pane[0],"desktop-parish-parameters-preview.png");});
             fx(()->{@SuppressWarnings("unchecked") var modules=(javafx.scene.control.ComboBox<com.missanye.desktop.admin.ParishModules.Module>)pane[0].lookup("#administrationModule");modules.getSelectionModel().select(modules.getItems().stream().filter(m->m.id().equals("team")).findFirst().orElseThrow());});
             await(()->pane[0].lookup("#admin-username")!=null);
-            fx(()->{var table=(javafx.scene.control.TableView<?>)pane[0].lookup(".table-view");assertEquals("Nom",table.getColumns().get(0).getText());});
+            fx(()->{var table=(javafx.scene.control.TableView<?>)pane[0].lookup(".table-view");assertEquals("Nom",table.getColumns().get(0).getText());table.getSelectionModel().selectFirst();assertNull(pane[0].lookup("#admin-password"));assertNull(pane[0].lookup("#admin-username"));assertNotNull(pane[0].lookup("#admin-role"));assertNotNull(pane[0].lookup("#admin-isActive"));captureNode(pane[0],"desktop-team-preview.png");});
+            var poll=pane[0].getClass().getDeclaredMethod("pollChanges");poll.setAccessible(true);
+            fx(()->{try{poll.invoke(pane[0]);}catch(Exception e){throw new RuntimeException(e);}});
+            await(()->((javafx.scene.control.Label)pane[0].lookup("#administrationMessage")).getText().contains("confirmées"));
+            fx(()->{((javafx.scene.control.ComboBox<?>)pane[0].lookup("#admin-role")).getSelectionModel().select(1);});revision.set("b".repeat(64));
+            fx(()->{try{poll.invoke(pane[0]);}catch(Exception e){throw new RuntimeException(e);}});
+            await(()->((javafx.scene.control.Label)pane[0].lookup("#administrationMessage")).getText().contains("Des données ont changé"));
+            fx(()->{assertEquals(1,((javafx.scene.control.ComboBox<?>)pane[0].lookup("#admin-role")).getSelectionModel().getSelectedIndex());});
             server.removeContext("/type-demandes/paroisse/");server.createContext("/type-demandes/paroisse/",e->reply(e,503,"{}"));
-            fx(()->{@SuppressWarnings("unchecked") var modules=(javafx.scene.control.ComboBox<com.missanye.desktop.admin.ParishModules.Module>)pane[0].lookup("#administrationModule");modules.getSelectionModel().select(modules.getItems().stream().filter(m->m.id().equals("types")).findFirst().orElseThrow());});
+            fx(()->{answerNextDialog(javafx.scene.control.ButtonBar.ButtonData.OK_DONE);@SuppressWarnings("unchecked") var modules=(javafx.scene.control.ComboBox<com.missanye.desktop.admin.ParishModules.Module>)pane[0].lookup("#administrationModule");modules.getSelectionModel().select(modules.getItems().stream().filter(m->m.id().equals("types")).findFirst().orElseThrow());});
             await(()->!pane[0].lookup("#administrationModule").isDisabled());
             fx(()->{assertTrue(pane[0].lookup("#administrationSave").isDisabled());assertNull(pane[0].lookup("#admin-username"));});
             api.clear();
@@ -136,7 +145,10 @@ class MainControllerTest {
             try(var reopened=LocalStore.unlock(file,"http://localhost:8081/","alice","Local password 1234!".toCharArray(),null)){assertEquals("DRAFT",reopened.entries().get(0).path("state").asText());}
             fx(()->views[0].lock.fire());await(()->views[0].workspace.isDisabled() && views[0].session.getText().equals("Coffre verrouillé"));
             fx(()->{assertTrue(views[0].outbox.getItems().isEmpty());assertTrue(views[0].intention.getText().isEmpty());});
-        }finally{fx(()->{if(controllers[0]!=null)controllers[0].close();if(stage[0]!=null)stage[0].close();});}
+        }finally{fx(()->{if(controllers[0]!=null)controllers[0].close();if(stage[0]!=null)stage[0].close();});
+            // The post-logout readiness probe can still be closing its SQLite connection on Windows.
+            if(controllers[0]!=null){var executor=WorkbenchController.class.getDeclaredField("worker");executor.setAccessible(true);assertTrue(((ExecutorService)executor.get(controllers[0])).awaitTermination(10,TimeUnit.SECONDS));}
+        }
     }
     private static void answerNextDialog(javafx.scene.control.ButtonBar.ButtonData decision){
         Platform.runLater(()->{
@@ -167,7 +179,7 @@ class MainControllerTest {
     @Test void calendarTariffAndSettingsFollowTheBusinessWorkflow()throws Exception{
         Path file=temp.resolve("calendar.sqlite");prepare(file,"http://localhost:8081/");var json=new ObjectMapper();
         try(var store=LocalStore.unlock(file,"http://localhost:8081/","alice","Local password 1234!".toCharArray(),null)){
-            var c=catalogue();var plans=(com.fasterxml.jackson.databind.node.ArrayNode)c.path("forfaits").elements().next();var special=plans.get(0).deepCopy();((com.fasterxml.jackson.databind.node.ObjectNode)special).put("publicId","731c7ab4-2fae-4d78-a17b-0ff7653f4510").put("natureForfait","SPECIALE").put("heurePersonnalise",true);plans.add(special);var series=plans.get(0).deepCopy();((com.fasterxml.jackson.databind.node.ObjectNode)series).put("publicId","731c7ab4-2fae-4d78-a17b-0ff7653f4511").put("nombreCelebration",3).put("nombreJour",3);plans.add(series);
+            var c=catalogue();var plans=(com.fasterxml.jackson.databind.node.ArrayNode)c.path("forfaits").elements().next();var special=plans.get(0).deepCopy();((com.fasterxml.jackson.databind.node.ObjectNode)special).put("publicId","731c7ab4-2fae-4d78-a17b-0ff7653f4510").put("natureForfait","SPECIALE").put("heurePersonnalise",true);plans.add(special);var series=plans.get(0).deepCopy();((com.fasterxml.jackson.databind.node.ObjectNode)series).put("publicId","731c7ab4-2fae-4d78-a17b-0ff7653f4511").put("nombreCelebration",3).put("nombreJour",3);plans.add(series);var sunday=plans.get(0).deepCopy();((com.fasterxml.jackson.databind.node.ObjectNode)sunday).put("publicId","731c7ab4-2fae-4d78-a17b-0ff7653f4512").put("nomForfait","Dominicale").put("natureForfait","DOMINICALE");((com.fasterxml.jackson.databind.node.ObjectNode)sunday).putArray("joursCelebrationAutorises").add("DIMANCHE");plans.add(sunday);
             var schedules=(com.fasterxml.jackson.databind.node.ArrayNode)c.path("horaires");schedules.removeAll();for(int day=1;day<=4;day++)schedules.addObject().put("publicId","731c7ab4-2fae-4d78-a17b-0ff7653f452"+day).put("jourSemaine",new String[]{"LUNDI","MARDI","MERCREDI","JEUDI"}[day-1]).put("heureCelebration",day==2?"06:30:00":"08:00:00").put("libelle","Horaire "+day);store.put("catalogue:"+TestRequests.PARISH,c);
         }
         var views=new WorkbenchView[1];var controllers=new WorkbenchController[1];var stage=new javafx.stage.Stage[1];
@@ -175,7 +187,7 @@ class MainControllerTest {
             fx(()->{views[0]=new WorkbenchView();controllers[0]=new WorkbenchController(views[0],file,null,"http://localhost:8081/");stage[0]=new javafx.stage.Stage();stage[0].setScene(new javafx.scene.Scene(views[0].root,1366,850));stage[0].show();views[0].username.setText("alice");views[0].localPassword.setText("Local password 1234!");});await(()->!views[0].offline.isDisabled());fx(()->views[0].offline.fire());await(()->!views[0].workspace.isDisabled()&&views[0].plan.getValue()!=null);
             fx(()->{
                 var v=views[0];v.tabs.getSelectionModel().select(0);v.date.setValue(java.time.LocalDate.parse("2027-01-11"));assertEquals("08:00:00",v.schedule.getValue().data().path("heureCelebration").asText());assertFalse(v.customTime.isVisible());v.date.setValue(java.time.LocalDate.parse("2027-01-12"));assertEquals("06:30:00",v.schedule.getValue().data().path("heureCelebration").asText());
-                v.plan.getSelectionModel().select(1);assertTrue(v.customTime.isVisible());v.customTime.setText("10:15");v.plan.getSelectionModel().select(2);assertFalse(v.customTime.isVisible());assertTrue(v.customTime.getText().isEmpty());assertEquals(2,v.extraDates.getItems().size());v.intention.setText("court");v.finalizeRequest.fire();assertTrue(v.root.lookup("#formError").isVisible());capture(v,"desktop-calendar-preview.png");
+                v.plan.getSelectionModel().select(1);assertTrue(v.customTime.isVisible());v.customTime.setText("10:15");v.plan.getSelectionModel().select(2);assertFalse(v.customTime.isVisible());assertTrue(v.customTime.getText().isEmpty());assertEquals(2,v.extraDates.getItems().size());v.intention.setText("court");v.finalizeRequest.fire();assertTrue(v.root.lookup("#formError").isVisible());capture(v,"desktop-calendar-preview.png");v.plan.getSelectionModel().select(3);assertEquals("DOMINICALE",v.plan.getValue().data().path("natureForfait").asText());v.date.setValue(java.time.LocalDate.parse("2027-01-13"));assertEquals("DOMINICALE",v.plan.getValue().data().path("natureForfait").asText());assertTrue(v.slotsSummary.getText().contains("Aucun horaire"));
                 Platform.runLater(()->{for(var window:java.util.List.copyOf(javafx.stage.Window.getWindows())){if(window.getScene()!=null&&window.getScene().getRoot() instanceof javafx.scene.control.DialogPane pane&&"settingsDialog".equals(pane.getId())){try{captureNode(pane,"desktop-settings-preview.png");}finally{((javafx.scene.control.Button)pane.lookupButton(pane.getButtonTypes().get(0))).fire();}return;}}fail("Fenêtre Paramètres absente");});v.settings.fire();
             });
         }finally{fx(()->{if(controllers[0]!=null)controllers[0].close();if(stage[0]!=null)stage[0].close();});}

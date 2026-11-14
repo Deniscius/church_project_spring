@@ -169,3 +169,28 @@
 
 .nav-button.update-available { -fx-background-color: #e9c77d; -fx-text-fill: #173b63; }
 .nav-button.update-available .nav-icon { -fx-stroke: #173b63; }
+
+/* A bounded administration workspace: independent list and form, pinned actions. */
+.workspace-dialog { -fx-background-color: #f3f6fb; -fx-padding: 14; }
+.workspace-dialog > .content { -fx-padding: 8 6 4 6; }
+.administration-workspace { -fx-padding: 14; -fx-background-color: #f3f6fb; }
+.administration-workspace .section-title { -fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #163659; }
+.administration-workspace .muted { -fx-text-fill: #52677e; -fx-font-size: 12px; }
+.administration-workspace .split-pane { -fx-background-color: transparent; -fx-padding: 0; }
+.administration-workspace .split-pane-divider { -fx-background-color: transparent; -fx-padding: 0 7; }
+.administration-list, .administration-detail { -fx-background-color: white; -fx-background-radius: 14; -fx-border-color: #dde5f0; -fx-border-radius: 14; -fx-padding: 16; }
+.administration-editor { -fx-padding: 8 10 20 2; -fx-background-color: white; }
+.administration-form-scroll, .administration-form-scroll > .viewport { -fx-background-color: white; -fx-background: white; -fx-border-width: 0; }
+.administration-actions { -fx-padding: 14 0 0 0; -fx-border-color: #e5ebf4 transparent transparent transparent; }
+.administration-workspace .identity-value { -fx-text-fill: #29435e; -fx-font-size: 13px; }
+.administration-workspace .text-field, .administration-workspace .combo-box, .administration-workspace .date-picker { -fx-min-height: 38; }
+.administration-workspace .table-view { -fx-background-color: white; -fx-border-width: 0; }
+.administration-workspace .table-row-cell { -fx-cell-size: 42; }
+.administration-workspace .table-row-cell:selected { -fx-background-color: #e4eefb; }
+.administration-workspace .table-row-cell:selected .text { -fx-fill: #153b68; }
+.administration-workspace #administrationMessage { -fx-text-fill: #52677e; -fx-font-size: 12px; -fx-padding: 0 0 4 0; }
+/* Shared controls keep the same calm appearance on every screen. */
+.combo-box > .list-cell, .combo-box > .list-cell:filled:selected { -fx-background-color: transparent; -fx-text-fill: #253f5c; }
+.combo-box-popup .list-cell:filled:selected { -fx-background-color: #e5eefb; -fx-text-fill: #173b63; }
+.text-field:focused, .text-area:focused, .combo-box:focused, .date-picker:focused { -fx-border-color: #3474cc; -fx-effect: dropshadow(gaussian, rgba(52,116,204,0.12), 6, 0.2, 0, 0); }
+.button:focused { -fx-border-color: #3474cc; -fx-border-radius: 6; }

@@ -108,6 +108,7 @@ class ApplicationStartupSmokeTest {
         var allowed=restTemplate.exchange("/desktop/paroisses/"+other.getPublicId()+"/receipt-branding",HttpMethod.GET,new HttpEntity<>(headers),String.class);assertThat(allowed.getStatusCode().value()).isEqualTo(200);
         var deniedBranding=restTemplate.exchange("/desktop/paroisses/"+target.getPublicId()+"/receipt-branding",HttpMethod.GET,new HttpEntity<>(headers),String.class);assertThat(deniedBranding.getStatusCode().value()).isIn(403,404);assertThat(deniedBranding.getBody()).doesNotContain(target.getNom());
         var deniedRead=restTemplate.exchange("/demandes/"+demandId,HttpMethod.GET,new HttpEntity<>(headers),String.class);assertThat(deniedRead.getStatusCode().value()).isIn(403,404);
+        assertThat(restTemplate.exchange("/desktop/paroisses/"+target.getPublicId()+"/revision",HttpMethod.GET,new HttpEntity<>(headers),String.class).getStatusCode().value()).isIn(403,404);
         var deniedWrite=restTemplate.exchange("/demandes/"+demandId+"/intention",HttpMethod.PATCH,new HttpEntity<>(Map.of("intention","Tentative de modification par une autre paroisse"),headers),String.class);assertThat(deniedWrite.getStatusCode().value()).isIn(403,404);
         assertThat(jdbc.queryForObject("SELECT intention FROM demande WHERE public_id=?",String.class,java.util.UUID.fromString(demandId))).isEqualTo("Action de grâce pour le parcours automatisé");
     }
@@ -344,6 +345,15 @@ class ApplicationStartupSmokeTest {
         assertThat(branding.getStatusCode().value()).isEqualTo(200);
         assertThat(objectMapper.readTree(branding.getBody()).path("nom").asText()).isEqualTo(parish.getNom());
         assertThat(branding.getBody()).doesNotContain("ibanOrRib", "nomBanque");
+        String revisionUrl="/desktop/paroisses/"+parish.getPublicId()+"/revision";
+        var revision=restTemplate.exchange(revisionUrl,HttpMethod.GET,new HttpEntity<>(cashHeaders),String.class);
+        assertThat(revision.getStatusCode().value()).isEqualTo(200);
+        String revisionValue=objectMapper.readTree(revision.getBody()).path("revision").asText();assertThat(revisionValue).matches("[a-f0-9]{64}");
+        var conditional=new HttpHeaders();conditional.putAll(cashHeaders);conditional.setIfNoneMatch(revision.getHeaders().getETag());
+        assertThat(restTemplate.exchange(revisionUrl,HttpMethod.GET,new HttpEntity<>(conditional),String.class).getStatusCode().value()).isEqualTo(304);
+        jdbc.update("UPDATE horaire SET updated_at=CURRENT_TIMESTAMP WHERE paroisse_id=?",parish.getId());
+        var revised=restTemplate.exchange(revisionUrl,HttpMethod.GET,new HttpEntity<>(conditional),String.class);
+        assertThat(revised.getStatusCode().value()).isEqualTo(200);assertThat(objectMapper.readTree(revised.getBody()).path("revision").asText()).isNotEqualTo(revisionValue);
         var anonymousBranding=restTemplate.getForEntity("/desktop/paroisses/"+parish.getPublicId()+"/receipt-branding",String.class);
         assertThat(anonymousBranding.getStatusCode().is4xxClientError()).isTrue();
         String localReference="MSL-"+operationId.toUpperCase(java.util.Locale.ROOT);

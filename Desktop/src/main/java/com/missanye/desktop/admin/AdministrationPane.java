@@ -35,6 +35,9 @@ public final class AdministrationPane extends BorderPane implements AutoCloseabl
     private final TextField search=new TextField();
     private final ObservableList<JsonNode> rows=FXCollections.observableArrayList();
     private final GridPane form=new GridPane();
+    private final SplitPane workspace=new SplitPane();
+    private final VBox listing=new VBox(12);
+    private final Label sectionTitle=new Label(),sectionHint=new Label("Sélectionnez un élément ou créez une nouvelle fiche.");
     private final VBox summary=new VBox(7),editor=new VBox(12);
     private final Label message=new Label();
     private final Button save=new Button("Enregistrer"),fresh=new Button("Nouveau"),remove=new Button("Supprimer"),refresh=new Button("Actualiser");
@@ -47,25 +50,40 @@ public final class AdministrationPane extends BorderPane implements AutoCloseabl
     private boolean filling,internal,dirty,busy,closed,changingDate,loaded;
     private LocalDate loadedDate=date.getValue();
     private long generation;
+    private final com.missanye.desktop.service.DataRevision revisions=new com.missanye.desktop.service.DataRevision();
+    private final javafx.animation.Timeline live=new javafx.animation.Timeline(new javafx.animation.KeyFrame(javafx.util.Duration.seconds(10),e->pollChanges()));
+    private boolean polling;
+    private String restoreSelection;
+    private void pollChanges(){
+        if(closed||busy||polling||!loaded||!service.online()||!active.getAsBoolean())return;
+        polling=true;var task=new Task<com.missanye.desktop.service.DataRevision.Check>(){protected com.missanye.desktop.service.DataRevision.Check call()throws Exception{return service.revision(revisions);}};
+        task.setOnSucceeded(e->{polling=false;if(closed||!active.getAsBoolean()||busy)return;var check=task.getValue();if(!check.changed())return;if(dirty){message.setText("Des données ont changé sur le serveur. Enregistrez votre saisie ou cliquez sur Actualiser.");return;}restoreSelection=selected==null?null:selected.path("publicId").asText(null);revisions.acknowledge(check);load();});
+        task.setOnFailed(e->{polling=false;if(!closed&&!busy)message.setText("Actualisation automatique indisponible. Votre saisie est conservée. "+OperationErrors.message(task.getException()));});worker.submit(task);
+    }
 
     public AdministrationPane(ParishAdministration service,WorkbenchView view,BooleanSupplier active,Runnable changed,Runnable passwordChanged){this(service,view,active,changed,passwordChanged,null);}
     public AdministrationPane(ParishAdministration service,WorkbenchView view,BooleanSupplier active,Runnable changed,Runnable passwordChanged,String initialModule){
         this.service=service;this.view=view;this.active=active;this.changed=changed;this.passwordChanged=passwordChanged;
-        setId("parishAdministration");setPrefSize(940,650);save.getStyleClass().add("primary-button");remove.getStyleClass().add("danger-button");table.getStyleClass().add("data-table");
+        setId("parishAdministration");setPrefSize(1060,620);setMinSize(0,0);getStyleClass().add("administration-workspace");save.getStyleClass().add("primary-button");remove.getStyleClass().add("danger-button");table.getStyleClass().add("data-table");
         modules.getItems().setAll(service.modules());modules.setMaxWidth(Double.MAX_VALUE);modules.setId("administrationModule");
         search.setPromptText("Rechercher dans cette rubrique");search.setId("administrationSearch");
-        var top=new VBox(10,new Label("Parcours et paramètres de la paroisse"),new HBox(12,modules,refresh),search);setTop(top);BorderPane.setMargin(top,new javafx.geometry.Insets(0,0,12,0));
+        sectionTitle.getStyleClass().add("section-title");sectionHint.getStyleClass().add("muted");sectionHint.setWrapText(true);HBox.setHgrow(modules,Priority.ALWAYS);var top=new VBox(8,sectionTitle,sectionHint,new HBox(12,modules,refresh));setTop(top);BorderPane.setMargin(top,new javafx.geometry.Insets(0,0,12,0));
         var filtered=new FilteredList<>(rows);var sorted=new SortedList<>(filtered);sorted.comparatorProperty().bind(table.comparatorProperty());table.setItems(sorted);table.setPrefHeight(220);table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);table.setPlaceholder(new Label("Aucun élément dans cette rubrique."));
         search.textProperty().addListener((o,a,b)->filtered.setPredicate(row->searchable(row).contains(b.strip().toLowerCase(Locale.FRANCE))));
-        form.setHgap(12);form.setVgap(12);form.getColumnConstraints().addAll(new ColumnConstraints(220),new ColumnConstraints());form.getColumnConstraints().get(1).setHgrow(Priority.ALWAYS);
+        form.setHgap(12);form.setVgap(12);form.getColumnConstraints().addAll(new ColumnConstraints(150),new ColumnConstraints());form.getColumnConstraints().get(1).setHgrow(Priority.ALWAYS);
         message.setWrapText(true);message.setId("administrationMessage");save.setId("administrationSave");fresh.setId("administrationNew");remove.setId("administrationDelete");
-        editor.getChildren().addAll(summary,form,extras,new FlowPane(8,8,fresh,save,remove),message);
-        var content=new VBox(12,table,editor);var scroll=new ScrollPane(content);scroll.setFitToWidth(true);scroll.setPrefViewportHeight(550);setCenter(scroll);
+        editor.getChildren().addAll(summary,form,extras);editor.getStyleClass().add("administration-editor");editor.setMinWidth(0);
+        var scroll=new ScrollPane(editor);scroll.setId("administrationFormScroll");scroll.setFitToWidth(true);scroll.setMinSize(0,0);scroll.getStyleClass().add("administration-form-scroll");
+        var actions=new FlowPane(8,8,fresh,save,remove);actions.getStyleClass().add("administration-actions");
+        var detail=new BorderPane(scroll);detail.setMinSize(300,0);detail.setBottom(new VBox(10,actions,message));detail.getStyleClass().add("administration-detail");
+        listing.getChildren().addAll(search,table);listing.setMinSize(220,0);VBox.setVgrow(table,Priority.ALWAYS);listing.getStyleClass().add("administration-list");
+        workspace.getItems().addAll(listing,detail);workspace.setDividerPositions(.38);workspace.setMinSize(0,0);setCenter(workspace);
+        widthProperty().addListener((o,a,b)->workspace.setOrientation(b.doubleValue()<820?javafx.geometry.Orientation.VERTICAL:javafx.geometry.Orientation.HORIZONTAL));
         modules.valueProperty().addListener((o,old,value)->{if(internal)return;if(dirty&&!discard()){internal=true;modules.setValue(old);internal=false;return;}dirty=false;load();});
         table.getSelectionModel().selectedItemProperty().addListener((o,old,value)->{if(internal||value==null)return;if(dirty&&!discard()){internal=true;table.getSelectionModel().select(old);internal=false;return;}selected=value;showForm();});
         refresh.setOnAction(e->{if(!dirty||discard()){dirty=false;load();}});fresh.setOnAction(e->{if(!dirty||discard()){selected=null;internal=true;table.getSelectionModel().clearSelection();internal=false;showForm();}});
         save.setOnAction(e->save());remove.setOnAction(e->{if(selected!=null&&confirm("Supprimer cet élément ? Les règles métier du serveur restent applicables."))execute(()->{service.remove(module(),selected);return JSON.nullNode();},r->{changed.run();dirty=false;load();});});
-        if(!modules.getItems().isEmpty())modules.setValue(modules.getItems().stream().filter(m->m.id().equals(initialModule)).findFirst().orElse(modules.getItems().get(0)));else message.setText("Votre compte ne dispose d’aucune rubrique de configuration.");buttons();
+        if(!modules.getItems().isEmpty())modules.setValue(modules.getItems().stream().filter(m->m.id().equals(initialModule)).findFirst().orElse(modules.getItems().get(0)));else message.setText("Votre compte ne dispose d’aucune rubrique de configuration.");buttons();live.setCycleCount(javafx.animation.Animation.INDEFINITE);live.play();
     }
     private Module module(){return modules.getValue();}
     private String searchable(JsonNode row){var text=new StringBuilder();row.fields().forEachRemaining(e->{if(e.getValue().isValueNode()&&!e.getKey().toLowerCase().contains("password"))text.append(e.getValue().asText()).append(' ');});return text.toString().toLowerCase(Locale.FRANCE);}
@@ -76,14 +94,16 @@ public final class AdministrationPane extends BorderPane implements AutoCloseabl
         if(closed||busy||!active.getAsBoolean())return;busy=true;buttons();message.setText("Chargement en cours…");long token=++generation;
         var task=new Task<T>(){protected T call()throws Exception{return action.call();}};
         task.setOnSucceeded(e->{if(closed||token!=generation||!active.getAsBoolean())return;busy=false;message.setText(service.online()?"Données confirmées par le serveur.":"Dernières données conservées sur ce poste. Reconnectez-vous pour les modifier.");success.accept(task.getValue());buttons();});
-        task.setOnFailed(e->{if(closed||token!=generation||!active.getAsBoolean())return;busy=false;message.setText(OperationErrors.message(task.getException()));buttons();});worker.submit(task);
+        task.setOnFailed(e->{if(closed||token!=generation||!active.getAsBoolean())return;busy=false;revisions.reset();message.setText(OperationErrors.message(task.getException()));buttons();});worker.submit(task);
     }
     private void load(){
         if(module()==null||busy)return;var chosen=module();LocalDate selectedDate=date.getValue();if(selectedDate==null){message.setText("Choisissez une date valide.");return;}loaded=false;selected=null;data=JSON.nullNode();rows.clear();values.clear();controls.clear();dayBoxes.clear();form.getChildren().clear();summary.getChildren().clear();extras.getChildren().clear();record Loaded(JsonNode data,JsonNode types,JsonNode slots){}
         execute(()->new Loaded(service.load(chosen,selectedDate),chosen.id().equals("prices")?service.types():JSON.createArrayNode(),chosen.id().equals("celebrations")?service.daySlots(selectedDate):JSON.createArrayNode()),loaded->{this.loaded=true;loadedDate=selectedDate;data=loaded.data();types=loaded.types();daySlots=loaded.slots();selected=null;rows.clear();
             if(data.isArray())data.forEach(rows::add);else if(chosen.id().equals("cash")&&data.path("encaissements").isArray())data.path("encaissements").forEach(rows::add);
             else if(data.path("content").isArray())data.path("content").forEach(rows::add);else if(!chosen.singleton()&&data.isObject())rows.add(data);
-            columns(chosen);if(chosen.singleton())selected=data;showForm();
+            columns(chosen);if(chosen.singleton())selected=data;
+            else if(restoreSelection!=null){for(var row:rows)if(restoreSelection.equals(row.path("publicId").asText())){selected=row;internal=true;table.getSelectionModel().select(row);internal=false;break;}}
+            restoreSelection=null;showForm();
         });
     }
     private void columns(Module chosen){
@@ -101,6 +121,8 @@ public final class AdministrationPane extends BorderPane implements AutoCloseabl
             case "celebrations"->List.of("heureCelebration","codeSuivie","fidele","intention","statutPaiement","celebre");
             case "programme"->List.of("date","jourLibelle","modeProgramme");default->List.of();};
         for(String key:keys){var column=new TableColumn<JsonNode,String>(fieldLabel(key));column.setCellValueFactory(c->new ReadOnlyStringWrapper(format(key,c.getValue().path(key))));table.getColumns().add(column);}
+        sectionTitle.setText(chosen.toString());sectionHint.setText(chosen.singleton()?"Vos informations et préférences paroissiales.":"Recherchez une fiche à gauche, puis consultez ou modifiez ses informations.");
+        if(chosen.singleton()){if(workspace.getItems().contains(listing))workspace.getItems().remove(listing);}else if(!workspace.getItems().contains(listing)){workspace.getItems().add(0,listing);workspace.setDividerPositions(.38);}
         table.setManaged(!chosen.singleton());table.setVisible(!chosen.singleton());search.setManaged(!chosen.singleton());search.setVisible(!chosen.singleton());
     }
     private String fieldLabel(String key){var current=module();if(current!=null)for(var field:current.fields())if(field.key().equals(key))return field.label();return switch(key){case "createdAt","dateEmission","dateEncaissement"->"Date";case "montant"->"Montant (XOF)";case "statut","statutPaiement"->"Statut";case "codeSuivie","codeSuivieDemande"->"Code de suivi";case "encaisseurNom"->"Encaisseur";case "fidele","nomFidele"->"Fidèle";case "referenceVirement"->"Référence de virement";case "refFacture"->"Référence facture";case "modePaiement"->"Mode de paiement";case "date"->"Date";case "jourLibelle"->"Jour";case "modeProgramme"->"Programme";case "celebre"->"Célébrée";case "heureCelebration"->"Heure de célébration";case "soldeDisponible"->"Solde disponible";case "soldeEnAttente"->"Solde en attente";case "total"->"Total encaissé";case "totalDuJour"->"Caisse du jour";case "totalDuMois"->"Caisse du mois";case "nombreEncaissements"->"Encaissements";case "prenomFidele"->"Prénoms du fidèle";case "telFidele"->"Téléphone du fidèle";case "emailFidele"->"E-mail du fidèle";case "intention"->"Intention";case "typeDemandeLibelle"->"Type de demande";case "forfaitNom"->"Forfait";case "statutDemande"->"État de la demande";case "statutValidation"->"Validation";case "datePaiement"->"Date de paiement";case "typePaiementLibelle"->"Type de paiement";case "nom"->"Paroisse";case "adresse"->"Adresse";case "deletedAt"->"Date d’archivage";case "deletedByNom"->"Archivé par";case "montantCharge"->"Montant débité";case "montantFrais"->"Total des frais";case "montantFraisAgregateur"->"Frais du prestataire";case "montantFraisPlateforme"->"Frais de la plateforme";case "montantNet"->"Montant net paroisse";case "provider"->"Prestataire";case "idTransaction"->"Transaction";case "numeroPayeur"->"Numéro du payeur";default->"Information";};}
@@ -111,10 +133,13 @@ public final class AdministrationPane extends BorderPane implements AutoCloseabl
         if(chosen.id().equals("parish"))summary.getChildren().addAll(new Label("Paroisse : "+data.path("nom").asText("")),new Label("Adresse : "+data.path("adresse").asText("")));
         if(chosen.id().equals("account")||chosen.id().equals("cash"))for(String key:List.of("soldeDisponible","soldeEnAttente","total","totalDuJour","totalDuMois","nombreEncaissements"))if(data.has(key))summary.getChildren().add(new Label(fieldLabel(key)+" : "+format(key,data.get(key))));
         int row=0;for(var field:chosen.fields()){
-            JsonNode value=initial.path(field.key());var node=control(field,value);controls.put(field.key(),node);node.setId("admin-"+field.key());
+            JsonNode value=initial.path(field.key());
+            if(chosen.id().equals("team")&&selected!=null&&List.of("password","roleParoisse").contains(field.key())){values.put(field.key(),()->field.key().equals("roleParoisse")?JSON.getNodeFactory().textNode(value.asText("SECRETAIRE")):JSON.nullNode());continue;}
+            if(chosen.id().equals("team")&&selected!=null&&List.of("nom","prenom","username","email","telephone").contains(field.key())){values.put(field.key(),()->value);var identity=new Label(field.label()+" : "+value.asText("—"));identity.setWrapText(true);identity.getStyleClass().add("identity-value");summary.getChildren().add(identity);continue;}
+            var node=control(field,value);controls.put(field.key(),node);node.setId("admin-"+field.key());
             if(List.of("profile","parish").contains(chosen.id())&&field.key().equals("email"))node.setDisable(true);
             if(chosen.id().equals("team")&&selected!=null&&List.of("nom","prenom","username","email","telephone","password","roleParoisse").contains(field.key()))node.setDisable(true);
-            var fieldName=new Label(field.label()+(field.required()?" *":""));fieldName.setWrapText(true);fieldName.setMaxWidth(215);fieldName.setMinHeight(Region.USE_PREF_SIZE);form.add(fieldName,0,row);form.add(node,1,row++);GridPane.setHgrow(node,Priority.ALWAYS);
+            var fieldName=new Label(field.label()+(field.required()?" *":""));fieldName.setWrapText(true);fieldName.setMaxWidth(150);fieldName.setMinHeight(Region.USE_PREF_SIZE);form.add(fieldName,0,row);form.add(node,1,row++);GridPane.setHgrow(node,Priority.ALWAYS);
         }
         if(chosen.id().equals("prices")){
             var typeChoice=(ComboBox<?>)controls.get("typeDemandePublicId");Runnable limitDays=()->{String typeId=values.get("typeDemandePublicId").get().asText("");var allowed=new LinkedHashSet<String>();for(var type:types)if(typeId.equals(type.path("publicId").asText()))type.path("joursCelebrationAutorises").forEach(day->allowed.add(day.asText()));dayBoxes.forEach((day,box)->{box.setDisable(!allowed.contains(day));if(!allowed.contains(day))box.setSelected(false);});if(dayBoxes.values().stream().noneMatch(CheckBox::isSelected))dayBoxes.forEach((day,box)->box.setSelected(allowed.contains(day)));};typeChoice.valueProperty().addListener((o,a,b)->limitDays.run());limitDays.run();
@@ -181,5 +206,5 @@ public final class AdministrationPane extends BorderPane implements AutoCloseabl
         extra("Enregistrer cette journée",service.allowed("schedule:manage"),()->{try{var body=JSON.createArrayNode();inputs.forEach(i->body.add(i.get()));if(body.isEmpty())throw new IllegalArgumentException("Prévoyez au moins un créneau.");execute(()->service.programme(date.getValue(),body,false),r->{dirty=false;changed.run();load();});}catch(Exception invalid){message.setText("Vérifiez les heures et les créneaux de la journée.");}});
         extra("Revenir à la grille hebdomadaire",service.allowed("schedule:manage"),()->{if(confirm("Supprimer la personnalisation de cette date ?"))execute(()->service.programme(date.getValue(),JSON.createArrayNode(),true),r->{dirty=false;changed.run();load();});});
     }
-    @Override public void close(){closed=true;generation++;worker.shutdownNow();}
+    @Override public void close(){closed=true;live.stop();generation++;worker.shutdownNow();}
 }

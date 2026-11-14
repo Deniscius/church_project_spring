@@ -5,6 +5,7 @@
   <VBox spacing="14">
     <VBox spacing="5"><Label text="Demandes de messes" styleClass="section-title"/><Label text="Consultez les intentions et suivez leur règlement." wrapText="true" minHeight="-Infinity" styleClass="muted"/></VBox>
 
+    <FlowPane hgap="10" vgap="8"><Label text="État de la demande"/><ComboBox fx:id="demandStateFilter" prefWidth="180"/><Label text="Paiement"/><ComboBox fx:id="paymentStateFilter" prefWidth="160"/></FlowPane>
     <TextField fx:id="demandSearch" promptText="Rechercher un téléphone, un code, un nom, une intention…" prefWidth="310" maxWidth="Infinity"/>
   </VBox>
   <TableView fx:id="demands" minHeight="120" prefHeight="240" VBox.vgrow="ALWAYS" styleClass="data-table">
@@ -14,6 +15,8 @@
       <TableColumn fx:id="demandDate" minWidth="100" text="Célébration" prefWidth="110"/>
       <TableColumn fx:id="demandAmount" minWidth="100" text="Montant" prefWidth="120"/>
       <TableColumn fx:id="demandPayment" minWidth="100" text="Paiement" prefWidth="120"/>
+      <TableColumn fx:id="demandState" minWidth="100" text="État de la demande" prefWidth="120"/>
+      <TableColumn fx:id="demandCreated" minWidth="100" text="Date de dépôt" prefWidth="110"/>
       <TableColumn fx:id="demandValidation" minWidth="100" text="Validation" prefWidth="110"/>
     </columns>
     <placeholder><VBox alignment="CENTER" spacing="8"><Label text="Aucune demande à afficher" styleClass="empty-title"/><Label text="Actualisez la liste ou ajustez votre recherche." styleClass="muted"/></VBox></placeholder>

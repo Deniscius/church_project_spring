@@ -23,6 +23,7 @@
       <Label text="Mot de passe" styleClass="field-label"/>
       <PasswordField fx:id="password" promptText="Votre mot de passe" maxWidth="Infinity"/>
       <Button fx:id="login" text="Se connecter" styleClass="primary-button" defaultButton="true" maxWidth="Infinity"/>
+      <Button fx:id="forgotPassword" text="Mot de passe oublié ?" styleClass="secondary-button"/>
       <Label fx:id="loginStatus" wrapText="true" minHeight="-Infinity" maxWidth="Infinity" styleClass="login-notice"/>
       <Label fx:id="offlineAvailability" visible="false" managed="false" text="Une connexion Internet est nécessaire lors de la première utilisation sur ce poste." wrapText="true" minHeight="-Infinity" styleClass="help-text"/>
       <TitledPane fx:id="offlinePane" disable="true" visible="false" managed="false" text="Accès local" expanded="false" animated="false" styleClass="offline-panel">

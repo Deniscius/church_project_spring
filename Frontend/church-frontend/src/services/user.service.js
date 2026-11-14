@@ -94,10 +94,10 @@ export const userService = {
 export const profileService = {
   get: () => apiClient(PROFILE_BASE, {}, { auth: true }),
 
-  update: ({ nom, prenom }) =>
+  update: ({ nom, prenom, email, telephone }) =>
     apiClient(
       PROFILE_BASE,
-      { method: 'PUT', body: JSON.stringify({ nom, prenom }) },
+      { method: 'PUT', body: JSON.stringify({ nom, prenom, email, telephone }) },
       { auth: true }
     ),
 

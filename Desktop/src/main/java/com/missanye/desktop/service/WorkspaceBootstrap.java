@@ -41,10 +41,11 @@ public final class WorkspaceBootstrap {
         } catch(ApiClient.ApiException unavailable) { if(unavailable.status()!=403&&unavailable.status()!=404)throw unavailable; }
         return result;
     }
-    public static ArrayNode demands(ApiClient api,String parish)throws Exception{
+    public static ArrayNode demands(ApiClient api,String parish)throws Exception{return demands(api,parish,false);}
+    public static ArrayNode demands(ApiClient api,String parish,boolean includeDeleted)throws Exception{
         UUID.fromString(parish);var rows=JSON.createArrayNode();
         for(int page=0;;page++){
-            var response=api.get("demandes/paroisse/"+parish+"?size=100&page="+page);
+            var response=api.get("demandes/paroisse/"+parish+"?size=100&page="+page+(includeDeleted?"&includeDeleted=true":""));
             if(!response.path("content").isArray()||!response.path("last").isBoolean())throw new IOException("Liste des demandes incomplète");
             response.path("content").forEach(rows::add);if(response.path("last").asBoolean())return rows;
             if(page>=9999)throw new IOException("Pagination trop importante");

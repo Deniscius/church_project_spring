@@ -16,11 +16,12 @@ public final class CelebrationPlanner {
     private String day(LocalDate date){return DAYS.get(date.getDayOfWeek().getValue()-1);}
     private boolean active(JsonNode schedule){return schedule.path("isActive").asBoolean(true)&&!schedule.path("statusDel").asBoolean();}
     private List<JsonNode> programme(JsonNode schedules,LocalDate date){
-        var weekly=new ArrayList<JsonNode>();var dated=new ArrayList<JsonNode>();var unique=new ArrayList<JsonNode>();
+        var weekly=new ArrayList<JsonNode>();var dated=new ArrayList<JsonNode>();var unique=new ArrayList<JsonNode>();var overrides=new ArrayList<JsonNode>();
         for(var s:schedules)if(active(s)){
-            String specific=s.path("dateSpecifique").asText("");if(specific.equals(date.toString())){dated.add(s);if(s.path("uniqueSurParoisse").asBoolean())unique.add(s);}
+            String specific=s.path("dateSpecifique").asText("");if(specific.equals(date.toString())){dated.add(s);if(s.path("programmeJourOverride").asBoolean())overrides.add(s);if(s.path("uniqueSurParoisse").asBoolean())unique.add(s);}
             else if(specific.isBlank()&&(s.path("jourSemaine").asText("").isBlank()||day(date).equals(s.path("jourSemaine").asText(""))))weekly.add(s);
         }
+        if(!overrides.isEmpty())return overrides;
         if(!unique.isEmpty())return unique;weekly.addAll(dated);return weekly;
     }
     public List<JsonNode> schedules(JsonNode all,LocalDate date,JsonNode type,JsonNode plan){

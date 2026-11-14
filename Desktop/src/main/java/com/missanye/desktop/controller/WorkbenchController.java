@@ -91,7 +91,8 @@ public final class WorkbenchController implements AutoCloseable {
         v=view;this.file=file;this.host=host;
         v.serverEnvironment.setText("Serveur : "+apiBaseUrl);
         v.settings.setOnAction(e->settings());
-        v.configureServer.setOnAction(e->configureServer());
+        for(var entry:java.util.Map.of("navCalendar","celebrations","navCatalog","types","navTreasury","cash","navTeam","team","navProfile","profile").entrySet())v.navigation(entry.getKey()).setOnAction(e->settings(switch(entry.getKey()){case "navCalendar"->hasPermission("dashboard:view")?"celebrations":"programme";case "navCatalog"->hasPermission("request-type:read")?"types":"prices";case "navTreasury"->hasPermission("treasury:read")?"cash":hasPermission("invoice:read")?"invoices":"payments";case "navTeam"->hasPermission("user:manage")?"team":"choirs";default->entry.getValue();}));
+        v.configureServer.setOnAction(e->configureServer());v.forgotPassword.setOnAction(e->recoverPassword());
         v.login.setOnAction(e->unlock(true));v.offline.setOnAction(e->unlock(false));v.lock.setOnAction(e->protectForm(this::lock));
         v.parish.valueProperty().addListener((o,a,b)->{if(!closed&&!loading&&!busy)changeParish();});
         v.addDate.setOnAction(e->addDate());v.removeDate.setOnAction(e->{var chosen=v.extraDates.getSelectionModel().getSelectedItem();if(chosen!=null)v.extraDates.getItems().remove(chosen);});
@@ -309,6 +310,10 @@ public final class WorkbenchController implements AutoCloseable {
             boolean mutations=edit||hasPermission("payment:manage")||hasPermission("demand:validate")||hasPermission("demand:delete");v.sync.setVisible(false);v.sync.setManaged(false);v.auto.setVisible(false);v.auto.setManaged(false);v.auto.setSelected(mutations);v.retry.setVisible(mutations);v.retry.setManaged(mutations);v.archive.setVisible(mutations);v.archive.setManaged(mutations);if(!mutations)v.auto.setSelected(false);
             boolean payments=hasPermission("payment:manage");for(var node:List.of(v.cash,v.checkout,v.reconcile)){node.setVisible(payments);node.setManaged(payments);}
             v.validate.setVisible(hasPermission("demand:validate"));v.validate.setManaged(v.validate.isVisible());v.remove.setVisible(hasPermission("demand:delete"));v.remove.setManaged(v.remove.isVisible());
+            v.showAction("navCalendar",hasPermission("dashboard:view")||hasPermission("schedule:read"));
+            v.showAction("navCatalog",hasPermission("request-type:read")||hasPermission("pricing:read"));
+            v.showAction("navTreasury",hasPermission("treasury:read")||hasPermission("invoice:read")||hasPermission("payment:read"));
+            v.showAction("navTeam",hasPermission("user:manage")||hasPermission("choir:read"));v.showAction("navProfile",hasPermission("profile:read"));
             boolean receipt=hasPermission("invoice:read")||hasPermission("receipt:manage");v.receipt.setVisible(receipt);v.receipt.setManaged(receipt);
         }
 
@@ -479,16 +484,27 @@ public final class WorkbenchController implements AutoCloseable {
         });reconnector.submit(task);
     }
     private void cash(){try{requirePermission("payment:manage");var demand=selected(v.demands);if("PAYE".equals(demand.path("statutPaiement").asText()))throw new IllegalArgumentException("Cette demande est déjà payée.");if(!confirm("Confirmez-vous avoir reçu "+demand.path("montant").asText()+" XOF en espèces pour "+demand.path("codeSuivie").asText()+" ?"))return;String parish=parish();run(()->{if(demand.path("publicId").asText().startsWith("local:"))new LocalRequestService(store).receiveCash(demand.path("localRequestId").asText());else store.queueCash(demand);return snapshot(parish);},s->{display(s);v.status.setText("Encaissement enregistré. Le reçu est disponible.");});}catch(Exception e){v.error(e.getMessage());}}
-    private void settings(){
-        if(session==null||store==null)return;
-        var dialog=v.decorate(new Dialog<Void>());dialog.setTitle("Paramètres");dialog.getDialogPane().setId("settingsDialog");dialog.setHeaderText("Votre espace paroissial");dialog.getDialogPane().getButtonTypes().add(new ButtonType("Fermer",ButtonBar.ButtonData.CANCEL_CLOSE));
+    private void recoverPassword(){
+        if(closed||busy)return;var dialog=v.decorate(new TextInputDialog(v.username.getText().contains("@")?v.username.getText():""));dialog.setTitle("Mot de passe oublié");dialog.setHeaderText("Recevoir un lien de réinitialisation");dialog.setContentText("Adresse e-mail du compte");var answer=dialog.showAndWait();if(answer.isEmpty())return;String email=answer.get().strip();if(!email.matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+")){v.error("Indiquez une adresse e-mail valide.");return;}
+        run(()->{var client=new ApiClient(apiBaseUrl);try{return client.post("auth/forgot-password",json.createObjectNode().put("email",email));}finally{client.clear();}},response->v.status.setText("Si un compte correspond à cette adresse, un lien de réinitialisation sera envoyé. Consultez votre messagerie."));
+    }
+    private void settings(){settings(null);}
+    private void settings(String initialModule){
+        if(session==null||store==null||v.parish.getValue()==null)return;
+        var settingsChanged=new java.util.concurrent.atomic.AtomicBoolean();
+        var dialog=v.decorate(new Dialog<Void>(),1040);dialog.setTitle("Paramètres");dialog.getDialogPane().setId("settingsDialog");dialog.setHeaderText("Votre espace paroissial");dialog.getDialogPane().getButtonTypes().add(new ButtonType("Fermer",ButtonBar.ButtonData.CANCEL_CLOSE));
         String role=ScreenFormats.role(session.path("user").path("role").asText(""));var identity=new Label((deployment==null?(v.parish.getValue()==null?"Votre paroisse":v.parish.getValue().label()):deployment.parishName())+"\n"+session.path("user").path("username").asText("")+(role.isBlank()?"":" · "+role));identity.setWrapText(true);
         var refresh=new Button("Actualiser les données maintenant");refresh.setOnAction(e->{settingsRefreshing=true;dataMessage.setText("Actualisation en cours…");if(api==null)reconnect();else synchronize();});var info=new Label("Les horaires, forfaits et demandes sont actualisés automatiquement lorsque le service est accessible. Votre saisie en cours est conservée.");info.setWrapText(true);
         var version=new Label("Missanye Desktop · version "+com.missanye.desktop.service.UpdateService.currentVersion());var check=new Button("Rechercher une mise à jour");check.setOnAction(e->checkUpdates(true));updateMessage.setWrapText(true);
         updateDownload.setVisible(latestRelease!=null);updateDownload.setManaged(latestRelease!=null);updateDownload.setOnAction(e->upgrade());
         dataMessage.setWrapText(true);
-        var box=new javafx.scene.layout.VBox(14,identity,new Separator(),new Label("Données de la paroisse"),info,refresh,dataMessage,new Separator(),version,check,updateMessage,updateDownload);box.setPrefWidth(490);dialog.getDialogPane().setContent(box);
-        try{dialog.showAndWait();}finally{box.getChildren().removeAll(updateMessage,updateDownload,dataMessage);}
+        var box=new javafx.scene.layout.VBox(14,identity,new Separator(),new Label("Données de la paroisse"),info,refresh,dataMessage,new Separator(),version,check,updateMessage,updateDownload);box.setPrefWidth(490);
+        var service=new com.missanye.desktop.admin.ParishAdministration(api,store,v.parish.getValue().id(),session);var expected=store;long epoch=authEpoch;
+        var administration=new com.missanye.desktop.admin.AdministrationPane(service,v,()->!closed&&store==expected&&authEpoch==epoch,()->{settingsChanged.set(true);dataMessage.setText("Paramètres enregistrés. Les référentiels seront actualisés à la fermeture.");},()->{clearReconnect();try{if(deviceCredentials!=null)deviceCredentials.revoke(apiBaseUrl,session.path("user").path("username").asText());}catch(Exception ignored){}if(api!=null)api.clear();api=null;dataMessage.setText("Mot de passe modifié. Déconnectez-vous puis reconnectez-vous avec le nouveau mot de passe.");v.status.setText(dataMessage.getText());Platform.runLater(dialog::close);},initialModule);
+        var tabs=new TabPane(new Tab("Parcours et paramètres paroissiaux",administration),new Tab("Application et mises à jour",box));tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);dialog.getDialogPane().setContent(tabs);
+        dialog.setOnCloseRequest(event->{if(!administration.mayClose())event.consume();});
+        try{dialog.showAndWait();}finally{administration.close();box.getChildren().removeAll(updateMessage,updateDownload,dataMessage);if(settingsChanged.get()&&api!=null&&!busy)refresh();else controls();}
+
     }
     private void checkUpdates(boolean explicit){
         if((!explicit&&Boolean.getBoolean("missanye.disableAutomaticUpdateChecks"))||closed||checkingUpdates||(!explicit&&System.currentTimeMillis()-updateCheckedAt<3600000))return;

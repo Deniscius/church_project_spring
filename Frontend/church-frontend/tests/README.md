@@ -31,3 +31,10 @@ avec `VITE_API_BASE_URL=https://api.example.test npm run build`, lancer
 Python Playwright et Chromium sont requis. La suite vérifie le rendu réel du PDF,
 sa réouverture, le téléchargement et la reprise après HTTP 503 sur des écrans
 390 et 1280 pixels, avec et sans `Promise.withResolvers` natif.
+
+### Coordonnées du profil
+
+Après construction et lancement du preview comme pour `receipt_browser.py`,
+`python tests/profile_browser.py` vérifie que le téléphone modifié est transmis
+et que l’e-mail professionnel en lecture seule est conservé. Les réponses API
+sont synthétiques ; aucun compte réel n’est utilisé.

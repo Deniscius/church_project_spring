@@ -38,6 +38,28 @@ class MainControllerTest {
         for(int y=0;y<buffered.getHeight();y++)for(int x=0;x<buffered.getWidth();x++)buffered.setRGB(x,y,image.getPixelReader().getArgb(x,y));
         try{javax.imageio.ImageIO.write(buffered,"png",Path.of("target",name).toFile());}catch(java.io.IOException e){throw new RuntimeException(e);}
     }
+    @Test void nativeParishParametersCanCreateScheduleAndExposeWebTypeFields()throws Exception{
+        var json=new ObjectMapper();var posted=new java.util.concurrent.atomic.AtomicReference<com.fasterxml.jackson.databind.JsonNode>();
+        var permissions=json.readTree("[\"schedule:read\",\"schedule:manage\",\"request-type:read\",\"request-type:manage\"]");
+        var identity=json.createObjectNode();identity.putObject("user").put("id","alice-id").set("permissions",permissions);identity.putArray("paroisses").addObject().put("id",TestRequests.PARISH);
+        var server=com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1",0),0);
+        server.createContext("/auth/me",e->reply(e,200,identity.toString()));
+        server.createContext("/horaires/paroisse/",e->reply(e,200,"[]"));server.createContext("/type-demandes/paroisse/",e->reply(e,200,"[]"));
+        server.createContext("/horaires",e->{posted.set(json.readTree(e.getRequestBody()));reply(e,201,"{}");});server.start();
+        var pane=new com.missanye.desktop.admin.AdministrationPane[1];var stage=new javafx.stage.Stage[1];
+        try(var store=LocalStore.unlock(temp.resolve("administration.sqlite"),"http://localhost:8081/","alice","Local password 1234!".toCharArray(),"alice-id")){
+            var api=new com.missanye.desktop.api.ApiClient("http://127.0.0.1:"+server.getAddress().getPort()+"/");
+            fx(()->{var view=new WorkbenchView();pane[0]=new com.missanye.desktop.admin.AdministrationPane(new com.missanye.desktop.admin.ParishAdministration(api,store,TestRequests.PARISH,identity),view,()->true,()->{},()->{});stage[0]=new javafx.stage.Stage();pane[0].getStyleClass().add("app-dialog");stage[0].setScene(new javafx.scene.Scene(pane[0],1024,760));stage[0].getScene().getStylesheets().addAll(view.root.getStylesheets());stage[0].show();});
+            await(()->pane[0].lookup("#admin-heureCelebration")!=null&&!pane[0].lookup("#administrationSave").isDisabled());
+            fx(()->{((javafx.scene.control.TextField)pane[0].lookup("#admin-heureCelebration")).setText("07:45");((javafx.scene.control.TextField)pane[0].lookup("#admin-libelle")).setText("Messe du matin");((javafx.scene.control.ComboBox<?>)pane[0].lookup("#admin-jourSemaine")).getSelectionModel().select(1);((javafx.scene.control.Button)pane[0].lookup("#administrationSave")).fire();});
+            await(()->posted.get()!=null);assertEquals("07:45",posted.get().path("heureCelebration").asText());assertEquals(TestRequests.PARISH,posted.get().path("paroissePublicId").asText());
+            await(()->!pane[0].lookup("#administrationModule").isDisabled());
+            fx(()->{@SuppressWarnings("unchecked") var modules=(javafx.scene.control.ComboBox<com.missanye.desktop.admin.ParishModules.Module>)pane[0].lookup("#administrationModule");modules.getSelectionModel().select(modules.getItems().stream().filter(m->m.id().equals("types")).findFirst().orElseThrow());});
+            await(()->pane[0].lookup("#admin-delaiMinimumHeures")!=null);
+            fx(()->{assertNotNull(pane[0].lookup("#admin-typeDemandeEnum"));assertNotNull(pane[0].lookup("#admin-description"));assertNotNull(pane[0].lookup("#admin-joursCelebrationAutorises"));assertEquals(7,((javafx.scene.layout.FlowPane)pane[0].lookup("#admin-joursCelebrationAutorises")).getChildren().size());captureNode(pane[0],"desktop-parish-parameters-preview.png");});
+            api.clear();
+        }finally{fx(()->{if(pane[0]!=null)pane[0].close();if(stage[0]!=null)stage[0].close();});server.stop(0);}
+    }
     @Test void signInFillsCompactWindowAndRestoresWorkspaceAfterUserSwitch()throws Exception{
         fx(()->{
             var view=new WorkbenchView();var stage=new javafx.stage.Stage();stage.setScene(new javafx.scene.Scene(view.root));

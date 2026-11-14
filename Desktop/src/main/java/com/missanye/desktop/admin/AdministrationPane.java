@@ -10,6 +10,7 @@ import javafx.application.Platform;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.collections.*;
 import javafx.collections.transformation.FilteredList;
+import javafx.collections.transformation.SortedList;
 import javafx.concurrent.Task;
 import javafx.scene.Node;
 import javafx.scene.control.*;
@@ -43,7 +44,8 @@ public final class AdministrationPane extends BorderPane implements AutoCloseabl
     private final Map<String,CheckBox> dayBoxes=new LinkedHashMap<>();
     private final Map<String,Supplier<JsonNode>> values=new LinkedHashMap<>();
     private JsonNode selected,data=JSON.nullNode(),types=JSON.createArrayNode(),daySlots=JSON.createArrayNode();
-    private boolean filling,internal,dirty,busy,closed;
+    private boolean filling,internal,dirty,busy,closed,changingDate;
+    private LocalDate loadedDate=date.getValue();
     private long generation;
 
     public AdministrationPane(ParishAdministration service,WorkbenchView view,BooleanSupplier active,Runnable changed,Runnable passwordChanged){this(service,view,active,changed,passwordChanged,null);}
@@ -53,7 +55,7 @@ public final class AdministrationPane extends BorderPane implements AutoCloseabl
         modules.getItems().setAll(service.modules());modules.setMaxWidth(Double.MAX_VALUE);modules.setId("administrationModule");
         search.setPromptText("Rechercher dans cette rubrique");search.setId("administrationSearch");
         var top=new VBox(10,new Label("Parcours et paramètres de la paroisse"),new HBox(12,modules,refresh),search);setTop(top);BorderPane.setMargin(top,new javafx.geometry.Insets(0,0,12,0));
-        var filtered=new FilteredList<>(rows);table.setItems(filtered);table.setPrefHeight(220);table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);table.setPlaceholder(new Label("Aucun élément dans cette rubrique."));
+        var filtered=new FilteredList<>(rows);var sorted=new SortedList<>(filtered);sorted.comparatorProperty().bind(table.comparatorProperty());table.setItems(sorted);table.setPrefHeight(220);table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);table.setPlaceholder(new Label("Aucun élément dans cette rubrique."));
         search.textProperty().addListener((o,a,b)->filtered.setPredicate(row->searchable(row).contains(b.strip().toLowerCase(Locale.FRANCE))));
         form.setHgap(12);form.setVgap(12);form.getColumnConstraints().addAll(new ColumnConstraints(220),new ColumnConstraints());form.getColumnConstraints().get(1).setHgrow(Priority.ALWAYS);
         message.setWrapText(true);message.setId("administrationMessage");save.setId("administrationSave");fresh.setId("administrationNew");remove.setId("administrationDelete");
@@ -77,8 +79,8 @@ public final class AdministrationPane extends BorderPane implements AutoCloseabl
         task.setOnFailed(e->{if(closed||token!=generation||!active.getAsBoolean())return;busy=false;message.setText(OperationErrors.message(task.getException()));buttons();});worker.submit(task);
     }
     private void load(){
-        if(module()==null||busy)return;var chosen=module();record Loaded(JsonNode data,JsonNode types,JsonNode slots){}
-        execute(()->new Loaded(service.load(chosen,date.getValue()),chosen.id().equals("prices")?service.types():JSON.createArrayNode(),chosen.id().equals("celebrations")?service.daySlots(date.getValue()):JSON.createArrayNode()),loaded->{data=loaded.data();types=loaded.types();daySlots=loaded.slots();selected=null;rows.clear();
+        if(module()==null||busy)return;var chosen=module();LocalDate selectedDate=date.getValue();if(selectedDate==null){message.setText("Choisissez une date valide.");return;}record Loaded(JsonNode data,JsonNode types,JsonNode slots){}
+        execute(()->new Loaded(service.load(chosen,selectedDate),chosen.id().equals("prices")?service.types():JSON.createArrayNode(),chosen.id().equals("celebrations")?service.daySlots(selectedDate):JSON.createArrayNode()),loaded->{loadedDate=selectedDate;data=loaded.data();types=loaded.types();daySlots=loaded.slots();selected=null;rows.clear();
             if(data.isArray())data.forEach(rows::add);else if(chosen.id().equals("cash")&&data.path("encaissements").isArray())data.path("encaissements").forEach(rows::add);
             else if(data.path("content").isArray())data.path("content").forEach(rows::add);else if(!chosen.singleton()&&data.isObject())rows.add(data);
             columns(chosen);if(chosen.singleton())selected=data;showForm();
@@ -127,7 +129,7 @@ public final class AdministrationPane extends BorderPane implements AutoCloseabl
         }
         if(chosen.id().equals("programme"))programme();
         if(chosen.id().equals("celebrations")){
-            date.setOnAction(e->{if(!busy&&(!dirty||discard())){dirty=false;load();}});summary.getChildren().add(new HBox(8,new Label("Date des célébrations"),date));
+            date.setOnAction(e->changeDate());summary.getChildren().add(new HBox(8,new Label("Date des célébrations"),date));
             if(selected!=null){
                 record Slot(String id,String label){@Override public String toString(){return label;}}
                 var choices=new ComboBox<Slot>();for(var slot:daySlots)choices.getItems().add(new Slot(slot.path("horairePublicId").asText(),slot.path("heureCelebration").asText()+" · "+slot.path("libelle").asText("")));
@@ -150,7 +152,7 @@ public final class AdministrationPane extends BorderPane implements AutoCloseabl
         switch(field.kind()){
             case BANK->{var bank=new ComboBox<String>();bank.setEditable(true);bank.setMaxWidth(Double.MAX_VALUE);bank.getItems().addAll(field.options());bank.setValue(initial.asText(""));bank.getEditor().textProperty().addListener((o,a,b)->changedField());values.put(field.key(),()->JSON.getNodeFactory().textNode(bank.getEditor().getText().strip()));return bank;}
             case BOOLEAN->{var box=new CheckBox();box.setSelected(initial.isMissingNode()?field.key().equals("isActive"):initial.asBoolean());box.selectedProperty().addListener((o,a,b)->changedField());values.put(field.key(),()->JSON.getNodeFactory().booleanNode(box.isSelected()));return box;}
-            case DATE->{var picker=new DatePicker();if(!initial.asText("").isBlank())try{picker.setValue(LocalDate.parse(initial.asText()));}catch(Exception ignored){}picker.valueProperty().addListener((o,a,b)->changedField());values.put(field.key(),()->picker.getValue()==null?JSON.nullNode():JSON.getNodeFactory().textNode(picker.getValue().toString()));return picker;}
+            case DATE->{var picker=new DatePicker();if(!initial.asText("").isBlank())try{picker.setValue(LocalDate.parse(initial.asText()));}catch(Exception ignored){}picker.valueProperty().addListener((o,a,b)->changedField());picker.getEditor().textProperty().addListener((o,a,b)->changedField());values.put(field.key(),()->{String text=picker.getEditor().getText();if(text==null||text.isBlank())return JSON.nullNode();try{return JSON.getNodeFactory().textNode(picker.getConverter().fromString(text).toString());}catch(Exception invalid){throw new IllegalArgumentException("Vérifiez la date : "+field.label());}});return picker;}
             case DAYS->{var pane=new FlowPane(8,8);var boxes=new LinkedHashMap<String,CheckBox>();for(String day:DAYS){var box=new CheckBox(label(day));for(var d:initial)if(day.equals(d.asText()))box.setSelected(true);box.selectedProperty().addListener((o,a,b)->changedField());boxes.put(day,box);dayBoxes.put(day,box);pane.getChildren().add(box);}values.put(field.key(),()->{var result=JSON.createArrayNode();boxes.forEach((day,box)->{if(box.isSelected())result.add(day);});return result;});return pane;}
             case CHOICE,TYPE->{record Choice(String id,String label){@Override public String toString(){return label;}}var combo=new ComboBox<Choice>();combo.setMaxWidth(Double.MAX_VALUE);if(!field.required())combo.getItems().add(new Choice("","—"));if(field.kind()==Kind.TYPE){for(var type:types)combo.getItems().add(new Choice(type.path("publicId").asText(),type.path("libelle").asText()));}else for(String option:field.options())combo.getItems().add(new Choice(option,label(option)));for(var choice:combo.getItems())if(choice.id().equals(initial.asText("")))combo.setValue(choice);if(combo.getValue()==null&&!combo.getItems().isEmpty())combo.getSelectionModel().selectFirst();combo.valueProperty().addListener((o,a,b)->changedField());values.put(field.key(),()->combo.getValue()==null||combo.getValue().id().isBlank()?JSON.nullNode():JSON.getNodeFactory().textNode(combo.getValue().id()));return combo;}
             default->{TextInputControl input=field.kind()==Kind.MULTILINE?new TextArea():field.kind()==Kind.PASSWORD?new PasswordField():new TextField();if(input instanceof TextArea area){area.setPrefRowCount(3);area.setWrapText(true);}input.setText(field.kind()==Kind.PASSWORD?"":initial.asText(""));if(field.kind()==Kind.TIME)input.setPromptText("06:30");if(initial.isMissingNode()&&field.key().equals("delaiMinimumHeures"))input.setText("24");if(initial.isMissingNode()&&field.key().equals("nombreCelebration"))input.setText("1");input.textProperty().addListener((o,a,b)->changedField());values.put(field.key(),()->parse(field,input.getText()));return input;}
@@ -164,9 +166,14 @@ public final class AdministrationPane extends BorderPane implements AutoCloseabl
             execute(()->service.save(chosen,body,target),r->{dirty=false;message.setText("Enregistrement confirmé.");changed.run();if(chosen.id().equals("password")){values.clear();showForm();passwordChanged.run();}else load();});
         }catch(Exception invalid){message.setText(invalid.getMessage());}
     }
-    private void buttons(){var m=module();boolean write=m!=null&&m.write()!=null&&service.allowed(m.write())&&service.online();save.setVisible(m!=null&&!m.fields().isEmpty());save.setManaged(save.isVisible());save.setDisable(busy||!write||(m!=null&&!m.singleton()&&selected!=null&&m.updatePath()==null));fresh.setVisible(m!=null&&!m.singleton()&&m.createPath()!=null);fresh.setManaged(fresh.isVisible());fresh.setDisable(busy||!write);remove.setVisible(m!=null&&m.removable());remove.setManaged(remove.isVisible());remove.setDisable(busy||!write||selected==null);modules.setDisable(busy);refresh.setDisable(busy);form.setDisable(busy||!write);extras.setDisable(busy);}
+    private void buttons(){var m=module();boolean write=m!=null&&m.write()!=null&&service.allowed(m.write())&&service.online();save.setVisible(m!=null&&!m.fields().isEmpty());save.setManaged(save.isVisible());save.setDisable(busy||!write||(m!=null&&!m.singleton()&&selected!=null&&m.updatePath()==null));fresh.setVisible(m!=null&&!m.singleton()&&m.createPath()!=null);fresh.setManaged(fresh.isVisible());fresh.setDisable(busy||!write);remove.setVisible(m!=null&&m.removable());remove.setManaged(remove.isVisible());remove.setDisable(busy||!write||selected==null);modules.setDisable(busy);refresh.setDisable(busy);form.setDisable(busy||!write);extras.setDisable(busy);summary.setDisable(busy);}
+    private void changeDate(){
+        if(changingDate||busy)return;
+        if(date.getValue()==null||(dirty&&!discard())){changingDate=true;date.setValue(loadedDate);changingDate=false;return;}
+        dirty=false;load();
+    }
     private void programme(){
-        date.setId("admin-programme-date");date.setOnAction(e->{if(!busy)load();});summary.getChildren().add(new HBox(8,new Label("Date"),date));
+        date.setId("admin-programme-date");date.setOnAction(e->changeDate());summary.getChildren().add(new HBox(8,new Label("Date"),date));
         JsonNode day=data.isArray()?data.path(0):data;var slots=new VBox(8);var inputs=new ArrayList<Supplier<ObjectNode>>();
         Consumer<JsonNode> add=row->{var hour=new TextField(row.path("heureCelebration").asText("06:30"));hour.setPromptText("06:30");hour.setPrefWidth(85);var label=new TextField(row.path("libelle").asText(""));label.setPromptText("Libellé");var nature=new ComboBox<String>();nature.getItems().addAll("NORMALE","DOMINICALE","SPECIALE");nature.setValue(row.path("natureHonoraire").asText(date.getValue().getDayOfWeek()==DayOfWeek.SUNDAY?"DOMINICALE":"NORMALE"));var line=new HBox(8,hour,label,nature);var delete=new Button("Retirer");Supplier<ObjectNode> value=()->JSON.createObjectNode().put("heureCelebration",LocalTime.parse(hour.getText()).toString()).put("libelle",label.getText()).put("natureHonoraire",nature.getValue());delete.setOnAction(e->{slots.getChildren().remove(line);inputs.remove(value);dirty=true;});line.getChildren().add(delete);inputs.add(value);slots.getChildren().add(line);hour.textProperty().addListener((o,a,b)->changedField());label.textProperty().addListener((o,a,b)->changedField());nature.valueProperty().addListener((o,a,b)->changedField());};
         for(var slot:day.path("creneaux"))add.accept(slot);summary.getChildren().add(slots);

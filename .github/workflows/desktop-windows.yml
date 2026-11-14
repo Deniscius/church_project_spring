@@ -120,4 +120,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
-        run: gh release create "$RELEASE_TAG" release/Missanye-Setup.exe release/Missanye-Setup.exe.sha256 --verify-tag --title "Missanye Desktop $RELEASE_TAG" --generate-notes
+        run: gh release create "$RELEASE_TAG" release/Missanye-Setup.exe release/Missanye-Setup.exe.sha256 --verify-tag --latest --title "Missanye Desktop $RELEASE_TAG" --generate-notes

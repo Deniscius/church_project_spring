@@ -65,6 +65,16 @@ export default function HomePage() {
         </ol>
       </section>
 
+      <section className="home-section container" aria-labelledby="home-desktop-title">
+        <div className="home-parish-cta">
+          <div>
+            <h2 id="home-desktop-title">Votre paroisse, aussi sur Windows</h2>
+            <p className="muted">Retrouvez Missanye sur votre ordinateur, travaillez même hors connexion et téléchargez ici les nouvelles versions.</p>
+          </div>
+          <Link className="btn btn-primary" to="/telechargement">Télécharger l’application Windows</Link>
+        </div>
+      </section>
+
       <HomeWeekSchedules />
 
       <section className="home-section home-section-parish container" aria-labelledby="home-parish-title">

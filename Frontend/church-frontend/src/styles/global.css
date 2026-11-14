@@ -6431,3 +6431,13 @@ button.form-stepper-button:hover .form-stepper-circle {
 [data-theme="dark"] .footer-bottom {
   color: rgba(241, 245, 249, 0.62);
 }
+
+.desktop-download-page { padding-block: clamp(28px, 5vw, 64px); gap: 36px; }
+.desktop-download-card { display: flex; gap: 24px; padding: clamp(24px, 4vw, 42px); border: 1px solid var(--border); border-radius: 20px; background: var(--surface); box-shadow: 0 12px 36px rgb(15 40 70 / 6%); }
+.desktop-download-card h2 { margin-top: 8px; }
+.desktop-download-card p { max-width: 68ch; line-height: 1.7; }
+.desktop-download-card .button-row { margin-block: 24px; }
+.desktop-download-icon { flex: 0 0 64px; width: 64px; height: 64px; display: grid; place-items: center; border-radius: 18px; background: var(--primary); color: var(--on-primary); font-size: 36px; }
+.desktop-download-eyebrow { color: var(--primary); font-size: .78rem; font-weight: 700; letter-spacing: .08em; }
+.desktop-update-note { padding: 24px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface-alt); line-height: 1.7; }
+@media (max-width: 640px) { .desktop-download-card { flex-direction: column; } .desktop-download-card .btn { width: 100%; text-align: center; white-space: normal; } }

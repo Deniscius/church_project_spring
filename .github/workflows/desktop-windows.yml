@@ -46,7 +46,7 @@ jobs:
       - name: Resolve application version
         id: version
         run: |
-          $appVersion = '0.2.0'
+          $appVersion = '0.2.1'
           if ($env:GITHUB_REF -like 'refs/tags/desktop-v*') {
             $appVersion = $env:GITHUB_REF_NAME -replace '^desktop-v', ''
             if ($appVersion -notmatch '^\d+\.\d+\.\d+$') { throw 'Invalid desktop release tag' }

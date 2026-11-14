@@ -239,6 +239,9 @@ public final class WorkbenchView {
         });
     }
     public <T> Dialog<T> decorate(Dialog<T> dialog) {return decorate(dialog,660);}
+    public <T> Dialog<T> decorateWorkspace(Dialog<T> dialog,double preferredWidth) {
+        dialog.getDialogPane().getStyleClass().add("workspace-dialog");return decorate(dialog,preferredWidth);
+    }
     public <T> Dialog<T> decorate(Dialog<T> dialog,double preferredWidth) {
         if(root.getScene()!=null)dialog.initOwner(root.getScene().getWindow());
         var pane=dialog.getDialogPane();pane.getStylesheets().add(Objects.requireNonNull(getClass().getResource("desktop.css")).toExternalForm());
@@ -252,7 +255,10 @@ public final class WorkbenchView {
             var bounds=screen.getVisualBounds();double maxWidth=Math.max(280,bounds.getWidth()-48),maxHeight=Math.max(240,bounds.getHeight()-48);
             double width=Math.min(preferredWidth,maxWidth);pane.setPrefWidth(width);pane.setMaxWidth(maxWidth);pane.setMaxHeight(maxHeight);
             var content=pane.getContent();
-            if(content!=null){
+            if(content!=null&&pane.getStyleClass().contains("workspace-dialog")){
+                if(content instanceof Region region){region.setMinSize(0,0);region.setMaxSize(Double.MAX_VALUE,Double.MAX_VALUE);}
+                pane.setPrefHeight(Math.min(780,maxHeight));
+            }else if(content!=null){
                 wrapDialogLabels(content);
                 ScrollPane scroll;
                 if(content instanceof ScrollPane existing)scroll=existing;

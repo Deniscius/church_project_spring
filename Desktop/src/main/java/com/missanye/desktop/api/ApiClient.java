@@ -61,6 +61,13 @@ public final class ApiClient {
         if(!java.util.Set.of("GET","POST","PUT","PATCH","DELETE").contains(method))throw new IllegalArgumentException("Action non prise en charge.");
         return request(method,path,body==null?null:json.writeValueAsString(body),Duration.ofSeconds(30));
     }
+    public String revision(String parish,String previous)throws Exception{
+        java.util.UUID.fromString(parish);var builder=HttpRequest.newBuilder(endpoint("desktop/paroisses/"+parish+"/revision")).timeout(Duration.ofSeconds(8)).header("Accept","application/json").GET();
+        if(previous!=null&&previous.matches("[0-9a-f]{64}"))builder.header("If-None-Match","\""+previous+"\"");
+        var response=http.send(builder.build(),HttpResponse.BodyHandlers.ofString());if(response.statusCode()==304&&previous!=null)return previous;
+        if(response.statusCode()!=200)throw new ApiException(response.statusCode());String revision=json.readTree(response.body()).path("revision").asText();
+        if(!revision.matches("[0-9a-f]{64}"))throw new java.io.IOException("Révision du service invalide.");return revision;
+    }
     public byte[] binary(String path)throws Exception{
         var request=HttpRequest.newBuilder(endpoint(path)).timeout(Duration.ofSeconds(30)).GET().build();
         var response=http.send(request,HttpResponse.BodyHandlers.ofByteArray());

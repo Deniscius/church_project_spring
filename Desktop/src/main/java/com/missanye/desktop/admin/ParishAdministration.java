@@ -18,6 +18,7 @@ public final class ParishAdministration {
     private final JsonNode session;
     public ParishAdministration(ApiClient api,LocalStore store,String parish,JsonNode session){UUID.fromString(parish);this.api=api;this.store=store;this.parish=parish;this.session=session.deepCopy();owner=session.path("user").path("id").asText();if(owner.isBlank())throw new IllegalArgumentException("Session absente.");}
     public boolean online(){return api!=null;}
+    public com.missanye.desktop.service.DataRevision.Check revision(com.missanye.desktop.service.DataRevision tracker)throws Exception{return tracker.check(api,parish);}
     public String parish(){return parish;}
     public boolean allowed(String permission){if(permission==null)return false;for(var p:session.path("user").path("permissions"))if(permission.equals(p.asText()))return true;return false;}
     public List<Module> modules(){return all().stream().filter(m->allowed(m.read())).toList();}

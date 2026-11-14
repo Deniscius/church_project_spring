@@ -374,3 +374,14 @@ Les versions détectables doivent être publiées comme releases stables
 `desktop-vX.Y.Z` avec `Missanye-Setup.exe` et `Missanye-Setup.exe.sha256`.
 Un artefact Actions seul n’est pas détecté. La version 0.1.0 doit être remplacée
 une première fois avec le nouveau setup pour bénéficier de ce parcours.
+
+## Parcours paroissiaux alignés sur le web (0.2.0)
+
+Les entrées Calendrier paroissial, Types et forfaits, Trésorerie et factures,
+Équipe et chorales et Mon profil ouvrent les écrans natifs correspondants.
+Paramètres regroupe aussi les coordonnées bancaires, le logo, le reçu modèle
+et les mises à jour. Les rubriques sont proposées selon les permissions.
+Les paramètres déjà chargés restent consultables hors connexion ; leur
+modification nécessite une confirmation du serveur.
+
+Voir [la comparaison détaillée des parcours et paramètres](../docs/DESKTOP_PARITE_WEB.md).

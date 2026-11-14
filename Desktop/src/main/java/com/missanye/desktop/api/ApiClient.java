@@ -22,10 +22,13 @@ public final class ApiClient {
                 .followRedirects(HttpClient.Redirect.NEVER).build();
     }
     private JsonNode request(String path, String body) throws Exception {return request(path,body,Duration.ofSeconds(30));}
-    private JsonNode request(String path,String body,Duration timeout)throws Exception {
-        var b = HttpRequest.newBuilder(base.resolve(path)).timeout(timeout)
+    private JsonNode request(String path,String body,Duration timeout)throws Exception {return request(body==null?"GET":"POST",path,body,timeout);}
+    private URI endpoint(String path){var uri=URI.create(path);if(uri.isAbsolute()||path.startsWith("/")||!uri.normalize().equals(uri)||path.contains("\\"))throw new IllegalArgumentException("Adresse de service invalide.");return base.resolve(uri);}
+    private JsonNode request(String method,String path,String body,Duration timeout)throws Exception {
+        var b = HttpRequest.newBuilder(endpoint(path)).timeout(timeout)
                 .header("Accept", "application/json").header("X-Requested-With", "XMLHttpRequest");
-        if (body == null) b.GET(); else b.header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(body));
+        if(body!=null)b.header("Content-Type","application/json");
+        b.method(method,body==null?HttpRequest.BodyPublishers.noBody():HttpRequest.BodyPublishers.ofString(body));
         var response = http.send(b.build(), HttpResponse.BodyHandlers.ofString());
         if (response.statusCode() < 200 || response.statusCode() >= 300)
             {
@@ -33,7 +36,7 @@ public final class ApiClient {
             try { message=json.readTree(response.body()).path("message").asText(""); } catch(Exception ignored) {}
             throw new ApiException(response.statusCode(), message);
         }
-        return json.readTree(response.body());
+        return response.body().isBlank()?json.nullNode():json.readTree(response.body());
     }
     public JsonNode login(String username, String password) throws Exception { return login(username,password,Duration.ofMinutes(2)); }
     public JsonNode login(String username, String password,Duration timeout) throws Exception {
@@ -54,6 +57,23 @@ public final class ApiClient {
     public String baseUrl() { return base.toString(); }
     public JsonNode get(String path) throws Exception { return request(path,null); }
     public JsonNode post(String path, JsonNode body) throws Exception { return request(path,json.writeValueAsString(body)); }
+    public JsonNode send(String method,String path,JsonNode body)throws Exception{
+        if(!java.util.Set.of("GET","POST","PUT","PATCH","DELETE").contains(method))throw new IllegalArgumentException("Action non prise en charge.");
+        return request(method,path,body==null?null:json.writeValueAsString(body),Duration.ofSeconds(30));
+    }
+    public byte[] binary(String path)throws Exception{
+        var request=HttpRequest.newBuilder(endpoint(path)).timeout(Duration.ofSeconds(30)).GET().build();
+        var response=http.send(request,HttpResponse.BodyHandlers.ofByteArray());
+        if(response.statusCode()!=200)throw new ApiException(response.statusCode());return response.body();
+    }
+    public JsonNode uploadLogo(String parish,java.nio.file.Path file)throws Exception{
+        java.util.UUID.fromString(parish);long size=java.nio.file.Files.size(file);if(size<=0||size>2_000_000)throw new java.io.IOException("Choisissez une image de moins de 2 Mo.");
+        byte[] image=java.nio.file.Files.readAllBytes(file);String mime=java.nio.file.Files.probeContentType(file);if(!java.util.Set.of("image/png","image/jpeg").contains(mime==null?"":mime))throw new java.io.IOException("Choisissez une image PNG ou JPEG.");
+        String boundary="Missanye"+java.util.UUID.randomUUID();var bytes=new java.io.ByteArrayOutputStream();
+        bytes.write(("--"+boundary+"\r\nContent-Disposition: form-data; name=\"logo\"; filename=\"logo"+(mime.equals("image/png")?".png":".jpg")+"\"\r\nContent-Type: "+mime+"\r\n\r\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));bytes.write(image);bytes.write(("\r\n--"+boundary+"--\r\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        var request=HttpRequest.newBuilder(endpoint("paroisses/"+parish+"/logo")).timeout(Duration.ofSeconds(30)).header("X-Requested-With","XMLHttpRequest").header("Content-Type","multipart/form-data; boundary="+boundary).POST(HttpRequest.BodyPublishers.ofByteArray(bytes.toByteArray())).build();
+        var response=http.send(request,HttpResponse.BodyHandlers.ofString());if(response.statusCode()<200||response.statusCode()>=300)throw new ApiException(response.statusCode());return response.body().isBlank()?json.nullNode():json.readTree(response.body());
+    }
     public byte[] pdf(String code) throws Exception {
         var request=HttpRequest.newBuilder(base.resolve("demandes/code/"+URLEncoder.encode(code,java.nio.charset.StandardCharsets.UTF_8)+"/recu.pdf"))
                 .timeout(Duration.ofSeconds(30)).header("Accept","application/pdf").GET().build();

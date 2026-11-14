@@ -1,7 +1,7 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.missanye</groupId><artifactId>missanye-desktop</artifactId><version>0.1.0-SNAPSHOT</version>
-  <properties><maven.compiler.release>17</maven.compiler.release><project.build.sourceEncoding>UTF-8</project.build.sourceEncoding><javafx.version>17.0.16</javafx.version><desktop.release.version>0.1.1</desktop.release.version><desktop.api.url>https://church-project-spring-pmbz.onrender.com</desktop.api.url></properties>
+  <properties><maven.compiler.release>17</maven.compiler.release><project.build.sourceEncoding>UTF-8</project.build.sourceEncoding><javafx.version>17.0.16</javafx.version><desktop.release.version>0.2.0</desktop.release.version><desktop.api.url>https://church-project-spring-pmbz.onrender.com</desktop.api.url></properties>
   <dependencies>
     <dependency><groupId>com.github.librepdf</groupId><artifactId>openpdf</artifactId><version>2.0.5</version></dependency>
     <dependency><groupId>org.openjfx</groupId><artifactId>javafx-controls</artifactId><version>${javafx.version}</version></dependency>

@@ -16,6 +16,11 @@ class CelebrationPlannerTest {
         assertEquals("mon",planner.schedules(all,date,type,plan).get(0).path("publicId").asText());
         all.add(schedule("solemn","LUNDI","09:00").put("dateSpecifique",date.toString()).put("uniqueSurParoisse",true));assertEquals(1,planner.schedules(all,date,type,plan).size());assertEquals("solemn",planner.schedules(all,date,type,plan).get(0).path("publicId").asText());
     }
+    @Test void personalizedDayReplacesWeeklyAndOtherOneOffSlotsLikeWebProgramme(){
+        var day=LocalDate.parse("2027-01-11");var all=json.createArrayNode().add(schedule("weekly","LUNDI","08:00")).add(schedule("unique","LUNDI","09:00").put("dateSpecifique",day.toString()).put("uniqueSurParoisse",true)).add(schedule("override","LUNDI","10:00").put("dateSpecifique",day.toString()).put("programmeJourOverride",true));
+        assertEquals(java.util.List.of("override"),planner.schedules(all,day,json.createObjectNode(),plan()).stream().map(s->s.path("publicId").asText()).toList());
+        assertEquals("weekly",planner.schedules(all,day.plusWeeks(1),json.createObjectNode(),plan()).get(0).path("publicId").asText());
+    }
     @Test void seriesRespectsAllowedDaysAndWindowWhileThirtyUsesConsecutiveDates(){
         var plan=plan().put("nombreCelebration",3).put("nombreJour",5);plan.putArray("joursCelebrationAutorises").add("VENDREDI").add("LUNDI").add("MARDI");var type=json.createObjectNode();
         assertEquals(java.util.List.of(LocalDate.parse("2027-01-15"),LocalDate.parse("2027-01-18"),LocalDate.parse("2027-01-19")),planner.dates(LocalDate.parse("2027-01-15"),type,plan));

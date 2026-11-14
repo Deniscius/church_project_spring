@@ -22,12 +22,12 @@ public final class WorkbenchView {
     public final TextArea intention;
     public final TextField demandSearch, username, surname, firstname, phone, email, courier, customTime;
     public final PasswordField password, localPassword;
-    public final Button settings,printIntention;
+    public final Button settings,printIntention,forgotPassword;
     public final MenuButton copyActions;
     public final MenuItem copyCode,copyPhone,copyDetails;
     public final Button finalizeRequest, configureServer, returnToDraft, retry, login, offline, lock, configureSlots, save, fresh, edit, queue, archive, sync, refresh, cash, receipt, checkout, reconcile, correct, validate, remove;
     public final Label serverEnvironment, loginStatus, offlineAvailability, session, status, slotsSummary, price, detail, queueDetail;
-    public final ComboBox<Choice> parish, type, plan, schedule, payment;
+    public final ComboBox<Choice> parish, type, plan, schedule, payment,demandStateFilter,paymentStateFilter;
     public final DatePicker date, additionalDate;
     public final ListView<LocalDate> extraDates;
     public final Button addDate,removeDate;
@@ -67,7 +67,7 @@ public final class WorkbenchView {
             panes.getTabs().get(1).setContent(load("demands.fxml"));
             panes.getTabs().get(2).setContent(load("outbox.fxml"));
             panes.getTabs().get(3).setContent(load("overview.fxml"));
-            settings=ref("settings",Button.class);
+            settings=ref("settings",Button.class);forgotPassword=ref("forgotPassword",Button.class);
             printIntention=ref("printIntention",Button.class);copyActions=ref("copyActions",MenuButton.class);copyCode=ref("copyCode",MenuItem.class);copyPhone=ref("copyPhone",MenuItem.class);copyDetails=ref("copyDetails",MenuItem.class);
             demandSearch=ref("demandSearch",TextField.class);
             username=ref("username",TextField.class);
@@ -106,7 +106,7 @@ public final class WorkbenchView {
             price=ref("price",Label.class);
             detail=ref("detail",Label.class);
             queueDetail=ref("queueDetail",Label.class);
-            parish=ref("parish",ComboBox.class);
+            parish=ref("parish",ComboBox.class);demandStateFilter=ref("demandStateFilter",ComboBox.class);paymentStateFilter=ref("paymentStateFilter",ComboBox.class);
             type=ref("type",ComboBox.class);
             plan=ref("plan",ComboBox.class);
             schedule=ref("schedule",ComboBox.class);
@@ -164,6 +164,8 @@ public final class WorkbenchView {
     }
     public void clearError(){status.getStyleClass().remove("error-message");showAction("formError",false);}
     public void parishIdentity(String name){var label=ref("parishIdentity",Label.class);label.setText(name);label.setVisible(true);label.setManaged(true);parish.setVisible(false);parish.setManaged(false);}
+    public void resetDemandFilters(){demandSearch.clear();demandStateFilter.getSelectionModel().selectFirst();paymentStateFilter.getSelectionModel().selectFirst();}
+    public Button navigation(String id){return ref(id,Button.class);}
     public boolean actionVisible(String id){return ref(id,javafx.scene.Node.class).isVisible();}
     public void showAction(String id,boolean visible){var node=ref(id,javafx.scene.Node.class);node.setVisible(visible);node.setManaged(visible);}
     private void configureNavigation(){
@@ -180,19 +182,24 @@ public final class WorkbenchView {
             ref("sidebarBrand",Label.class).setText("MISSANYE");ref("sidebarBrand",Label.class).setVisible(!compact);ref("sidebarBrand",Label.class).setManaged(!compact);
             for(String id:List.of("sidebarCaption","sidebarHelp")){var node=ref(id,Region.class);node.setVisible(!compact);node.setManaged(!compact);}
             for(int i=0;i<navigation.size();i++)navigation.get(i).setText(compact?"":labels.get(i));
+            for(var entry:Map.of("navCalendar","Calendrier paroissial","navCatalog","Types et forfaits","navTreasury","Trésorerie et factures","navTeam","Équipe et chorales","navProfile","Mon profil").entrySet()){var button=ref(entry.getKey(),Button.class);button.setText(compact?"":entry.getValue());button.setTooltip(new Tooltip(entry.getValue()));}
         });
         root.heightProperty().addListener((o,a,b)->{root.getStyleClass().remove("compact-height");if(b.doubleValue()<800)root.getStyleClass().add("compact-height");});
         var tiles=ref("summaryTiles",TilePane.class);tiles.prefTileWidthProperty().bind(javafx.beans.binding.Bindings.createDoubleBinding(()->{double width=tiles.getWidth();int columns=width>=680?3:width>=440?2:1;return Math.max(160,Math.floor((width-(columns-1)*14-4)/columns));},tiles.widthProperty()));
         @SuppressWarnings("unchecked") ListView<Row> recent=ref("recentDemands",ListView.class);
         recent.setCellFactory(list->new ListCell<>(){@Override protected void updateItem(Row row,boolean empty){super.updateItem(row,empty);setText(null);setGraphic(null);if(empty||row==null)return;var reference=new Label(ScreenFormats.reference(row.data()));reference.getStyleClass().add("field-label");var intention=new Label(row.data().path("intention").asText("Intention de messe"));intention.setWrapText(true);intention.setMaxWidth(Double.MAX_VALUE);var box=new VBox(4,reference,intention);box.setMinWidth(0);box.prefWidthProperty().bind(javafx.beans.binding.Bindings.max(100,recent.widthProperty().subtract(50)));setGraphic(box);}});
         demandRows.addListener((javafx.collections.ListChangeListener<Row>)change->recent.getItems().setAll(demandRows.subList(0,Math.min(5,demandRows.size()))));
-        recent.setOnMouseClicked(e->{if(e.getClickCount()==2&&recent.getSelectionModel().getSelectedItem()!=null){demandSearch.clear();tabs.getSelectionModel().select(1);demands.getSelectionModel().select(recent.getSelectionModel().getSelectedItem());}});
-        recent.setOnKeyPressed(e->{if(e.getCode()==javafx.scene.input.KeyCode.ENTER&&recent.getSelectionModel().getSelectedItem()!=null){demandSearch.clear();tabs.getSelectionModel().select(1);demands.getSelectionModel().select(recent.getSelectionModel().getSelectedItem());}});
+        recent.setOnMouseClicked(e->{if(e.getClickCount()==2&&recent.getSelectionModel().getSelectedItem()!=null){resetDemandFilters();tabs.getSelectionModel().select(1);demands.getSelectionModel().select(recent.getSelectionModel().getSelectedItem());}});
+        recent.setOnKeyPressed(e->{if(e.getCode()==javafx.scene.input.KeyCode.ENTER&&recent.getSelectionModel().getSelectedItem()!=null){resetDemandFilters();tabs.getSelectionModel().select(1);demands.getSelectionModel().select(recent.getSelectionModel().getSelectedItem());}});
     }
     private void configureTables() {
         var visibleDemands=new FilteredList<>(demandRows);
         var sortedDemands=new SortedList<>(visibleDemands);sortedDemands.comparatorProperty().bind(demands.comparatorProperty());demands.setItems(sortedDemands);
-        demandSearch.textProperty().addListener((o,a,b)->visibleDemands.setPredicate(row->ScreenFormats.matchesDemand(row.data(),b)));
+        demandStateFilter.getItems().add(new Choice("","Tous les états",com.fasterxml.jackson.databind.node.NullNode.getInstance()));for(String state:List.of("EN_ATTENTE","VALIDEE","REJETEE","ANNULEE","TERMINEE"))demandStateFilter.getItems().add(new Choice(state,ScreenFormats.state(state),com.fasterxml.jackson.databind.node.NullNode.getInstance()));
+        paymentStateFilter.getItems().add(new Choice("","Tous les paiements",com.fasterxml.jackson.databind.node.NullNode.getInstance()));for(String state:List.of("NON_PAYE","EN_ATTENTE","PAYE","ECHOUE"))paymentStateFilter.getItems().add(new Choice(state,ScreenFormats.state(state),com.fasterxml.jackson.databind.node.NullNode.getInstance()));
+        demandStateFilter.getSelectionModel().selectFirst();paymentStateFilter.getSelectionModel().selectFirst();
+        Runnable filter=()->visibleDemands.setPredicate(row->ScreenFormats.matchesDemand(row.data(),demandSearch.getText())&&(demandStateFilter.getValue()==null||demandStateFilter.getValue().id().isEmpty()||demandStateFilter.getValue().id().equals(row.data().path("statutDemande").asText()))&&(paymentStateFilter.getValue()==null||paymentStateFilter.getValue().id().isEmpty()||paymentStateFilter.getValue().id().equals(row.data().path("statutPaiement").asText())));
+        demandSearch.textProperty().addListener((o,a,b)->filter.run());demandStateFilter.valueProperty().addListener((o,a,b)->filter.run());paymentStateFilter.valueProperty().addListener((o,a,b)->filter.run());
         var menu=new ContextMenu();for(var source:List.of(copyCode,copyPhone,copyDetails)){var item=new MenuItem(source.getText());item.setOnAction(e->source.fire());menu.getItems().add(item);}demands.setContextMenu(menu);
         demands.setRowFactory(table->{var row=new TableRow<Row>();row.setOnContextMenuRequested(e->{if(!row.isEmpty())table.getSelectionModel().select(row.getIndex());});return row;});
         demands.addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED,e->{if(e.isShortcutDown()&&e.getCode()==javafx.scene.input.KeyCode.C){copyCode.fire();e.consume();}});
@@ -205,6 +212,7 @@ public final class WorkbenchView {
         column("demandDate",d->ScreenFormats.date(d.path("datesCelebration").path(0).asText()));
         column("demandAmount",d->ScreenFormats.money(d.path("montant")));
         column("demandPayment",d->ScreenFormats.state(d.path("statutPaiement").asText()));
+        column("demandState",d->ScreenFormats.state(d.path("statutDemande").asText()));column("demandCreated",d->ScreenFormats.date(d.path("createdAt").asText()));
         column("demandValidation",d->d.path("localReconciliationRequired").asBoolean()?"À rapprocher":ScreenFormats.state(d.path("statutValidation").asText()));
         column("activityDate",d->ScreenFormats.date(d.path("createdAt").asText()));
         column("activityKind",d->ScreenFormats.kind(d.path("kind").asText()));
@@ -223,14 +231,15 @@ public final class WorkbenchView {
         TableColumn<Row,String> column=ref(id,TableColumn.class);
         column.setCellValueFactory(cell->new ReadOnlyStringWrapper(text.apply(cell.getValue().data())));
         if(id.equals("demandAmount"))column.setComparator(Comparator.comparing(value->{String digits=value.replaceAll("[^0-9]","");return digits.isEmpty()?java.math.BigInteger.ZERO:new java.math.BigInteger(digits);}));
-        if(Set.of("demandDate","activityDate").contains(id))column.setComparator(Comparator.comparing(value->{try{return LocalDate.parse(value,java.time.format.DateTimeFormatter.ofPattern("dd/MM/uuuu"));}catch(Exception e){return LocalDate.MIN;}}));
+        if(Set.of("demandDate","demandCreated","activityDate").contains(id))column.setComparator(Comparator.comparing(value->{try{return LocalDate.parse(value,java.time.format.DateTimeFormatter.ofPattern("dd/MM/uuuu"));}catch(Exception e){return LocalDate.MIN;}}));
         if(Set.of("demandPayment","demandValidation","activityState").contains(id))column.setCellFactory(c->new TableCell<>(){
             @Override protected void updateItem(String value,boolean empty){super.updateItem(value,empty);setText(null);if(empty||value==null){setGraphic(null);return;}
                 var badge=new Label(value);badge.getStyleClass().add("status-pill");badge.getStyleClass().add(Set.of("Payé","Validée","Confirmée").contains(value)?"status-success":Set.of("À corriger","Rejetée","Annulée").contains(value)?"status-danger":"status-neutral");setGraphic(badge);
             }
         });
     }
-    public <T> Dialog<T> decorate(Dialog<T> dialog) {
+    public <T> Dialog<T> decorate(Dialog<T> dialog) {return decorate(dialog,660);}
+    public <T> Dialog<T> decorate(Dialog<T> dialog,double preferredWidth) {
         if(root.getScene()!=null)dialog.initOwner(root.getScene().getWindow());
         var pane=dialog.getDialogPane();pane.getStylesheets().add(Objects.requireNonNull(getClass().getResource("desktop.css")).toExternalForm());
         pane.getStyleClass().add("app-dialog");dialog.setResizable(true);
@@ -241,7 +250,7 @@ public final class WorkbenchView {
             var screen=javafx.stage.Screen.getPrimary();var owner=dialog.getOwner();
             if(owner!=null){var screens=javafx.stage.Screen.getScreensForRectangle(owner.getX(),owner.getY(),owner.getWidth(),owner.getHeight());if(!screens.isEmpty())screen=screens.get(0);}
             var bounds=screen.getVisualBounds();double maxWidth=Math.max(280,bounds.getWidth()-48),maxHeight=Math.max(240,bounds.getHeight()-48);
-            double width=Math.min(660,maxWidth);pane.setPrefWidth(width);pane.setMaxWidth(maxWidth);pane.setMaxHeight(maxHeight);
+            double width=Math.min(preferredWidth,maxWidth);pane.setPrefWidth(width);pane.setMaxWidth(maxWidth);pane.setMaxHeight(maxHeight);
             var content=pane.getContent();
             if(content!=null){
                 wrapDialogLabels(content);

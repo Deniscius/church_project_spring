@@ -145,7 +145,10 @@ class MainControllerTest {
             try(var reopened=LocalStore.unlock(file,"http://localhost:8081/","alice","Local password 1234!".toCharArray(),null)){assertEquals("DRAFT",reopened.entries().get(0).path("state").asText());}
             fx(()->views[0].lock.fire());await(()->views[0].workspace.isDisabled() && views[0].session.getText().equals("Coffre verrouillé"));
             fx(()->{assertTrue(views[0].outbox.getItems().isEmpty());assertTrue(views[0].intention.getText().isEmpty());});
-        }finally{fx(()->{if(controllers[0]!=null)controllers[0].close();if(stage[0]!=null)stage[0].close();});}
+        }finally{fx(()->{if(controllers[0]!=null)controllers[0].close();if(stage[0]!=null)stage[0].close();});
+            // The post-logout readiness probe can still be closing its SQLite connection on Windows.
+            if(controllers[0]!=null){var executor=WorkbenchController.class.getDeclaredField("worker");executor.setAccessible(true);assertTrue(((ExecutorService)executor.get(controllers[0])).awaitTermination(10,TimeUnit.SECONDS));}
+        }
     }
     private static void answerNextDialog(javafx.scene.control.ButtonBar.ButtonData decision){
         Platform.runLater(()->{

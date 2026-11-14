@@ -49,7 +49,9 @@ public final class WorkbenchController implements AutoCloseable {
     private boolean reconnecting,synchronizing,scheduling,checkingUpdates;
     private boolean settingsRefreshing;
     private final Label dataMessage=new Label("Actualisation automatique toutes les minutes.");
-    private long updateCheckedAt;
+    private long nextUpdateCheckAt;
+    private String offeredUpdateVersion;
+    private java.nio.file.Path pendingInstaller;
     private com.missanye.desktop.service.UpdateService.Release latestRelease;
     private final Label updateMessage=new Label("Recherchez les versions publiées de Missanye Desktop.");
     private final javafx.scene.control.Hyperlink updateDownload=new javafx.scene.control.Hyperlink("Installer la mise à jour");
@@ -109,7 +111,7 @@ public final class WorkbenchController implements AutoCloseable {
         readinessDelay.setOnFinished(e->inspectOfflineReadiness());v.username.textProperty().addListener((o,a,b)->{offlineReady=false;controls();readinessDelay.playFromStart();});
         controls();
         Platform.runLater(()->checkUpdates(false));
-        timer.scheduleWithFixedDelay(()->Platform.runLater(()->{if(!closed && !busy && store!=null && ((api!=null)||(api==null&&reconnectPassword!=null)) && !v.hasOpenDialog() && System.currentTimeMillis()>=automaticRetryAfter){if(api==null)reconnect();else{checkUpdates(false);synchronize(false);}}}),10,10,TimeUnit.SECONDS);
+        timer.scheduleWithFixedDelay(()->Platform.runLater(()->{if(!closed){checkUpdates(false);installDownloadedUpdate();offerUpdate();}if(!closed && !busy && store!=null && ((api!=null)||(api==null&&reconnectPassword!=null)) && !v.hasOpenDialog() && System.currentTimeMillis()>=automaticRetryAfter){if(api==null)reconnect();else{synchronize(false);}}}),10,10,TimeUnit.SECONDS);
     }
     private <T> void run(Callable<T> action,Consumer<T> success){
         if(busy||closed)return;v.clearError();busy=true;long generation=++taskGeneration;controls();
@@ -499,36 +501,52 @@ public final class WorkbenchController implements AutoCloseable {
         String role=ScreenFormats.role(session.path("user").path("role").asText(""));var identity=new Label((deployment==null?(v.parish.getValue()==null?"Votre paroisse":v.parish.getValue().label()):deployment.parishName())+"\n"+session.path("user").path("username").asText("")+(role.isBlank()?"":" · "+role));identity.setWrapText(true);
         var refresh=new Button("Actualiser les données maintenant");refresh.setOnAction(e->{settingsRefreshing=true;dataMessage.setText("Actualisation en cours…");if(api==null)reconnect();else synchronize();});var info=new Label("Les horaires, forfaits et demandes sont actualisés automatiquement lorsque le service est accessible. Votre saisie en cours est conservée.");info.setWrapText(true);
         var version=new Label("Missanye Desktop · version "+com.missanye.desktop.service.UpdateService.currentVersion());var check=new Button("Rechercher une mise à jour");check.setOnAction(e->checkUpdates(true));updateMessage.setWrapText(true);
-        updateDownload.setVisible(latestRelease!=null);updateDownload.setManaged(latestRelease!=null);updateDownload.setOnAction(e->upgrade());
+        updateDownload.setVisible(latestRelease!=null);updateDownload.setManaged(latestRelease!=null);
         dataMessage.setWrapText(true);
         var box=new javafx.scene.layout.VBox(14,identity,new Separator(),new Label("Données de la paroisse"),info,refresh,dataMessage,new Separator(),version,check,updateMessage,updateDownload);box.setPrefWidth(490);
         var service=new com.missanye.desktop.admin.ParishAdministration(api,store,v.parish.getValue().id(),session);var expected=store;long epoch=authEpoch;
         var administration=new com.missanye.desktop.admin.AdministrationPane(service,v,()->!closed&&store==expected&&authEpoch==epoch,()->{settingsChanged.set(true);dataMessage.setText("Paramètres enregistrés. Les référentiels seront actualisés à la fermeture.");},()->{clearReconnect();try{if(deviceCredentials!=null)deviceCredentials.revoke(apiBaseUrl,session.path("user").path("username").asText());}catch(Exception ignored){}if(api!=null)api.clear();api=null;dataMessage.setText("Mot de passe modifié. Déconnectez-vous puis reconnectez-vous avec le nouveau mot de passe.");v.status.setText(dataMessage.getText());Platform.runLater(dialog::close);},initialModule);
+        updateDownload.setOnAction(e->{if(administration.mayClose())upgrade();});
         var applicationScroll=new ScrollPane(box);applicationScroll.setFitToWidth(true);applicationScroll.getStyleClass().add("dialog-scroll");var tabs=new TabPane(new Tab("Parcours et paramètres paroissiaux",administration),new Tab("Application et mises à jour",applicationScroll));tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);dialog.getDialogPane().setContent(tabs);
         dialog.setOnCloseRequest(event->{if(!administration.mayClose())event.consume();});
         try{dialog.showAndWait();}finally{administration.close();box.getChildren().removeAll(updateMessage,updateDownload,dataMessage);if(settingsChanged.get()&&api!=null&&!busy)refresh();else controls();}
 
     }
     private void checkUpdates(boolean explicit){
-        if((!explicit&&Boolean.getBoolean("missanye.disableAutomaticUpdateChecks"))||closed||checkingUpdates||(!explicit&&System.currentTimeMillis()-updateCheckedAt<3600000))return;
-        checkingUpdates=true;updateCheckedAt=System.currentTimeMillis();if(explicit)updateMessage.setText("Vérification des versions publiées…");
+        if((!explicit&&Boolean.getBoolean("missanye.disableAutomaticUpdateChecks"))||closed||checkingUpdates||(!explicit&&System.currentTimeMillis()<nextUpdateCheckAt))return;
+        checkingUpdates=true;nextUpdateCheckAt=System.currentTimeMillis()+3600000;if(explicit)updateMessage.setText("Vérification des versions publiées…");
         var task=new Task<java.util.Optional<com.missanye.desktop.service.UpdateService.Release>>(){protected java.util.Optional<com.missanye.desktop.service.UpdateService.Release> call()throws Exception{return new com.missanye.desktop.service.UpdateService().check();}};
-        task.setOnSucceeded(e->{if(closed)return;checkingUpdates=false;latestRelease=task.getValue().orElse(null);updateMessage.setText(latestRelease==null?"Aucune version publiée plus récente n'est disponible.":"La version "+latestRelease.version()+" est disponible.");updateDownload.setVisible(latestRelease!=null);updateDownload.setManaged(latestRelease!=null);v.setUpdateAvailable(latestRelease!=null);});
-        task.setOnFailed(e->{checkingUpdates=false;if(!closed&&explicit)updateMessage.setText("Impossible de vérifier les versions pour le moment. Vous pouvez continuer à travailler.");});updater.submit(task);
+        task.setOnSucceeded(e->{if(closed)return;checkingUpdates=false;latestRelease=task.getValue().orElse(null);updateMessage.setText(latestRelease==null?"Aucune version publiée plus récente n'est disponible.":"La version "+latestRelease.version()+" est disponible.");updateDownload.setVisible(latestRelease!=null);updateDownload.setManaged(latestRelease!=null);v.setUpdateAvailable(latestRelease!=null);offerUpdate();});
+        task.setOnFailed(e->{checkingUpdates=false;nextUpdateCheckAt=System.currentTimeMillis()+300000;if(!closed&&explicit)updateMessage.setText("Impossible de vérifier les versions pour le moment. Vous pouvez continuer à travailler.");});updater.submit(task);
+    }
+    private void offerUpdate(){
+        if(closed||busy||checkingUpdates||latestRelease==null||latestRelease.version().equals(offeredUpdateVersion)||v.hasOpenDialog()||v.root.getScene()==null||v.root.getScene().getWindow()==null||!v.root.getScene().getWindow().isShowing())return;
+        var release=latestRelease;offeredUpdateVersion=release.version();
+        var install=new ButtonType("Installer maintenant",ButtonBar.ButtonData.OK_DONE);
+        var later=new ButtonType("Plus tard",ButtonBar.ButtonData.CANCEL_CLOSE);
+        var notice=v.decorate(new Alert(Alert.AlertType.INFORMATION,
+            "Une nouvelle version de Missanye Desktop est disponible. Le téléchargement sera vérifié avant l’installation. Votre travail en cours sera protégé et Windows demandera les droits administrateur.",install,later));
+        notice.setTitle("Mise à jour disponible");notice.setHeaderText("Missanye Desktop "+release.version());notice.getDialogPane().setId("automaticUpdateDialog");((Button)notice.getDialogPane().lookupButton(install)).setMinWidth(170);
+        if(notice.showAndWait().orElse(later)==install)upgrade();
     }
     private void upgrade(){
         if(latestRelease==null||checkingUpdates||closed||busy)return;
         if(!System.getProperty("os.name","").startsWith("Windows")){if(host!=null)host.showDocument(latestRelease.page().toString());return;}
         protectForm(()->{
-            var release=latestRelease;checkingUpdates=true;updateDownload.setDisable(true);updateMessage.setText("Téléchargement et vérification de la version "+release.version()+"… Vous pouvez continuer à travailler.");
+            var release=latestRelease;checkingUpdates=true;updateDownload.setDisable(true);updateMessage.setText("Téléchargement et vérification de la version "+release.version()+"… Vous pouvez continuer à travailler.");v.status.setText(updateMessage.getText());
             var task=new Task<java.nio.file.Path>(){protected java.nio.file.Path call()throws Exception{return new com.missanye.desktop.service.UpdateService().prepare(release,file.toAbsolutePath().getParent().resolve("updates"));}};
             task.setOnSucceeded(event->{checkingUpdates=false;updateDownload.setDisable(false);if(closed)return;
-                updateMessage.setText("Mise à jour vérifiée. Prête à installer.");
+                updateMessage.setText("Mise à jour vérifiée. Prête à installer. Fermez les fenêtres de dialogue pour poursuivre l’installation.");v.status.setText(updateMessage.getText());
                 // Recheck pending work: the user may have edited while the download was running.
-                requestClose(()->run(()->{com.missanye.desktop.service.UpdateService.install(task.getValue());return true;},installed->Platform.exit()));
+                pendingInstaller=task.getValue();installDownloadedUpdate();
             });
-            task.setOnFailed(event->{checkingUpdates=false;updateDownload.setDisable(false);if(!closed)updateMessage.setText("La mise à jour n’a pas pu être téléchargée ou vérifiée. Réessayez. Votre version reste utilisable.");});updater.submit(task);
+            task.setOnFailed(event->{checkingUpdates=false;updateDownload.setDisable(false);if(!closed){updateMessage.setText("La mise à jour n’a pas pu être téléchargée ou vérifiée. Réessayez depuis Paramètres → Application et mises à jour. Votre version reste utilisable.");v.decorate(new Alert(Alert.AlertType.ERROR,updateMessage.getText(),ButtonType.OK)).showAndWait();}});updater.submit(task);
         });
+    }
+    private void installDownloadedUpdate(){
+        if(pendingInstaller==null||closed||busy||v.hasOpenDialog())return;
+        var installer=pendingInstaller;pendingInstaller=null;
+        requestClose(()->run(()->{com.missanye.desktop.service.UpdateService.install(installer);return true;},installed->Platform.exit()));
     }
     private void copyDemand(String field){try{
         var demand=selected(v.demands);String value=switch(field){case "code"->ScreenFormats.reference(demand);case "phone"->demand.path("telFidele").asText("");default->ScreenFormats.details(demand);};

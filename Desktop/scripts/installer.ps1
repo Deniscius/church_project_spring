@@ -1,6 +1,6 @@
 param(
     [string]$IsccPath,
-    [string]$AppVersion = '0.2.1'
+    [string]$AppVersion = '0.2.2'
 )
 $ErrorActionPreference = 'Stop'
 Set-Location (Join-Path $PSScriptRoot '..')

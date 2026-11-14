@@ -1,4 +1,4 @@
-param([string]$ApiBaseUrl, [string]$DeploymentFile, [string]$AppVersion = '0.2.1')
+param([string]$ApiBaseUrl, [string]$DeploymentFile, [string]$AppVersion = '0.2.2')
 $ErrorActionPreference = 'Stop'
 if ($AppVersion -notmatch '^\d+\.\d+\.\d+$') { throw 'AppVersion doit respecter major.minor.patch.' }
 Set-Location (Join-Path $PSScriptRoot '..')

@@ -78,6 +78,24 @@ class MainControllerTest {
             api.clear();
         }finally{fx(()->{if(pane[0]!=null)pane[0].close();if(stage[0]!=null)stage[0].close();});server.stop(0);}
     }
+    @Test void automaticUpdateOfferDefersDuringWorkAndCanBePostponedWithoutRepetition()throws Exception{
+        var views=new WorkbenchView[1];var controllers=new WorkbenchController[1];var stage=new javafx.stage.Stage[1];
+        try{
+            fx(()->{views[0]=new WorkbenchView();controllers[0]=new WorkbenchController(views[0],temp.resolve("update-prompt.sqlite"),null,"http://localhost:8081/");stage[0]=new javafx.stage.Stage();stage[0].setScene(new javafx.scene.Scene(views[0].root,820,570));stage[0].show();});
+            var latest=WorkbenchController.class.getDeclaredField("latestRelease");latest.setAccessible(true);
+            var offered=WorkbenchController.class.getDeclaredField("offeredUpdateVersion");offered.setAccessible(true);
+            var busy=WorkbenchController.class.getDeclaredField("busy");busy.setAccessible(true);
+            var method=WorkbenchController.class.getDeclaredMethod("offerUpdate");method.setAccessible(true);
+            fx(()->{try{
+                latest.set(controllers[0],new com.missanye.desktop.service.UpdateService.Release("9.0.0",java.net.URI.create("https://github.com/Deniscius/church_project_spring/releases/tag/desktop-v9.0.0"),null,null,100));
+                busy.setBoolean(controllers[0],true);method.invoke(controllers[0]);assertNull(offered.get(controllers[0]));busy.setBoolean(controllers[0],false);
+                var blocker=views[0].decorate(new javafx.scene.control.Dialog<Void>());blocker.getDialogPane().getButtonTypes().add(javafx.scene.control.ButtonType.CLOSE);blocker.show();method.invoke(controllers[0]);assertNull(offered.get(controllers[0]));blocker.close();
+                Platform.runLater(()->{for(var window:java.util.List.copyOf(javafx.stage.Window.getWindows()))if(window.getScene()!=null&&window.getScene().getRoot() instanceof javafx.scene.control.DialogPane pane&&"automaticUpdateDialog".equals(pane.getId())){assertEquals("Missanye Desktop 9.0.0",pane.getHeaderText());assertTrue(pane.getButtonTypes().stream().anyMatch(button->button.getText().equals("Installer maintenant")));captureNode(pane,"desktop-update-prompt-preview.png");var later=pane.getButtonTypes().stream().filter(button->button.getText().equals("Plus tard")).findFirst().orElseThrow();((javafx.scene.control.Button)pane.lookupButton(later)).fire();return;}fail("Proposition de mise à jour absente");});
+                method.invoke(controllers[0]);assertEquals("9.0.0",offered.get(controllers[0]));assertFalse(views[0].hasOpenDialog());
+                method.invoke(controllers[0]);assertFalse(views[0].hasOpenDialog(),"Plus tard ne doit pas reproposer la même version pendant la session");
+            }catch(Exception e){throw new RuntimeException(e);}});
+        }finally{fx(()->{if(controllers[0]!=null)controllers[0].close();if(stage[0]!=null)stage[0].close();});}
+    }
     @Test void signInFillsCompactWindowAndRestoresWorkspaceAfterUserSwitch()throws Exception{
         fx(()->{
             var view=new WorkbenchView();var stage=new javafx.stage.Stage();stage.setScene(new javafx.scene.Scene(view.root));

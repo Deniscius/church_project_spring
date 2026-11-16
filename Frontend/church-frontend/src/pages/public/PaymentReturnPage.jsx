@@ -6,7 +6,7 @@ import { paymentService } from '../../services/payment.service';
 import { setPaymentCode } from '../../utils/sensitiveNav';
 
 /**
- * Retour FedaPay : /paiement/retour?r=<jeton>&id=<txId>&status=<hint>
+ * Retour SasPay : /paiement/retour?r=<jeton>&id=<txId>&status=<hint>
  * Le query `status` n'est qu'un hint UI ; la vérité passe par réconciliation API / webhook.
  */
 export default function PaymentReturnPage() {
@@ -76,7 +76,7 @@ export default function PaymentReturnPage() {
   return (
     <div className="stack public-page">
       <PageHeader title="Retour paiement" subtitle="Finalisation sécurisée…" />
-      <AppLoading message="Vérification du paiement auprès de FedaPay…" />
+      <AppLoading message="Vérification du paiement auprès de SasPay…" />
     </div>
   );
 }

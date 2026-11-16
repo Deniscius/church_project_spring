@@ -6,11 +6,11 @@ import java.time.LocalDateTime;
 public record FacturePublicReglementResponse(
         LocalDateTime datePaiement,
         String statut,
-        Integer montantCharge,
-        Integer montantFrais,
-        Integer montantFraisAgregateur,
+        java.math.BigDecimal montantCharge,
+        java.math.BigDecimal montantFrais,
+        java.math.BigDecimal montantFraisAgregateur,
         Integer montantFraisPlateforme,
-        Integer montantNet,
+        java.math.BigDecimal montantNet,
         String provider
 ) {
 }

@@ -30,7 +30,8 @@ const PROLONG_OPTIONS = [
 ];
 
 const SOURCE_LABELS = {
-  FEDAPAY: 'Agrégateur FedaPay',
+  FEDAPAY: 'FedaPay (historique)',
+  SASPAY: 'SasPay',
   MANUEL: 'Activation manuelle',
   PROLONGATION: 'Prolongation gracieuse',
 };
@@ -187,7 +188,7 @@ export default function AbonnementsPage() {
         res = await comptabiliteService.checkoutAbonnement(row.paroissePublicId, planFor(row));
         if (res?.paymentUrl) {
           window.open(res.paymentUrl, '_blank', 'noopener,noreferrer');
-          setInfo(`Lien de paiement FedaPay ouvert pour « ${row.paroisseNom} » (${planLabel(planFor(row))}).`);
+          setInfo(`Lien de paiement SasPay ouvert pour « ${row.paroisseNom} » (${planLabel(planFor(row))}).`);
         } else {
           setInfo(res?.message || 'Agrégateur indisponible — utilisez l’activation manuelle si le paiement est déjà reçu.');
         }
@@ -225,7 +226,7 @@ export default function AbonnementsPage() {
   }[confirmMode] || 'Confirmation';
 
   const dialogConfirm = {
-    checkout: 'Ouvrir FedaPay',
+    checkout: 'Ouvrir SasPay',
     manuel: 'Confirmer l’activation',
     prolonger: 'Prolonger',
     annuler: 'Annuler le paiement',
@@ -422,7 +423,7 @@ export default function AbonnementsPage() {
                             disabled={Boolean(busyId) || !r.paroissePublicId || !planOptions.length}
                             onClick={() => { setConfirmMode('checkout'); setConfirmRow(r); }}
                           >
-                            {busyId === r.publicId ? 'Traitement…' : 'Payer (FedaPay)'}
+                            {busyId === r.publicId ? 'Traitement…' : 'Payer (SasPay)'}
                           </button>
                         ) : null}
                         {canActivate ? (
@@ -490,7 +491,7 @@ export default function AbonnementsPage() {
         {confirmRow ? (
           <p style={{ margin: 0 }}>
             {confirmMode === 'checkout' ? (
-              <>Générer le lien FedaPay pour « {confirmRow.paroisseNom} » — {planLabel(confirmPlan)}
+              <>Générer le lien SasPay pour « {confirmRow.paroisseNom} » — {planLabel(confirmPlan)}
                 {confirmOption ? ` (${formatCurrency(confirmOption.price)} / ${confirmOption.duration} mois).` : '.'}
               </>
             ) : null}
@@ -508,7 +509,7 @@ export default function AbonnementsPage() {
               </>
             ) : null}
             {confirmMode === 'annuler' ? (
-              <>Annuler le paiement attendu pour « {confirmRow.paroisseNom} » (lien FedaPay abandonné).</>
+              <>Annuler le paiement attendu pour « {confirmRow.paroisseNom} » (lien SasPay abandonné).</>
             ) : null}
             {confirmMode === 'resilier' ? (
               <>

@@ -24,4 +24,7 @@ public record PaymentCheckoutResponse(
         String feePayer,
         String message
 ) {
+    @com.fasterxml.jackson.annotation.JsonProperty("providerFeesPending")
+    public boolean providerFeesPending(){return feePercentAgregeateur==null;}
+
 }

@@ -242,11 +242,13 @@ public class DetailsPaiementServiceImpl implements DetailsPaiementService {
         DetailsPaiement existing = detailsPaiementRepository
                 .findByFacturePublicIdAndStatusDelFalse(facture.getPublicId())
                 .orElse(null);
+        if(existing!=null&&"SASPAY".equals(existing.getProvider())&&existing.getStatutPaiement()==StatutPaiementEnum.EN_ATTENTE)throw new BusinessRuleException("Une session SasPay est encore ouverte. Vérifiez son statut avant un encaissement en espèces.");
         if (existing != null && existing.getStatutPaiement() == StatutPaiementEnum.PAYE) {
             throw new BusinessRuleException("Un paiement est déjà enregistré pour cette facture");
         }
 
         LocalDateTime now = LocalDateTime.now();
+        boolean priorOnline=existing!=null&&java.util.Set.of("FEDAPAY","SASPAY").contains(existing.getProvider()==null?"":existing.getProvider());
         DetailsPaiement details = existing != null ? existing : new DetailsPaiement();
         details.setStatusDel(false);
         details.setDateDetailsPaiement(now);
@@ -262,7 +264,7 @@ public class DetailsPaiementServiceImpl implements DetailsPaiementService {
                 : encaisseur.getUsername());
         details.setEncaisseurUserPublicId(encaisseur.getPublicId());
         if (details.getIdTransaction() == null || details.getIdTransaction().isBlank()
-                || (existing != null && FedaPayPaymentService.PROVIDER_FEDAPAY.equals(existing.getProvider()))) {
+                || priorOnline) {
             details.setIdTransaction(generateTransactionId(facture));
         }
         details.setPaymentUrl(null);

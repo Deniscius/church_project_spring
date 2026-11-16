@@ -16,6 +16,9 @@ import java.util.UUID;
 
 public interface ParoisseAbonnementRepository extends JpaRepository<ParoisseAbonnement, Long> {
 
+    @Query("select a.paroisse.publicId from ParoisseAbonnement a where a.publicId=:id and a.statusDel=false")
+    Optional<UUID> findParishId(@Param("id") UUID id);
+
     Optional<ParoisseAbonnement> findByPublicIdAndStatusDelFalse(UUID publicId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

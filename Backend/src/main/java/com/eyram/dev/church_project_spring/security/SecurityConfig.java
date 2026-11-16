@@ -124,7 +124,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/paiements/checkout/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/paiements/retour/resoudre").permitAll()
                         .requestMatchers(HttpMethod.POST, "/paiements/reconcile/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/webhooks/fedapay").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/webhooks/fedapay", "/webhooks/saspay").permitAll()
 
                         // Catalogue public
                         .requestMatchers(HttpMethod.GET, "/paroisses/public", "/paroisses/annuaire",

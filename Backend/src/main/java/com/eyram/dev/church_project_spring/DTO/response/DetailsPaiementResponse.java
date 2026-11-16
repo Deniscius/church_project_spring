@@ -26,6 +26,9 @@ public record DetailsPaiementResponse(
         UUID typePaiementPublicId,
         String typePaiementLibelle,
         UUID facturePublicId,
-        String refFacture
+        String refFacture,
+        java.math.BigDecimal providerCharged,
+        java.math.BigDecimal providerNet,
+        java.math.BigDecimal providerFee
 ) {
 }

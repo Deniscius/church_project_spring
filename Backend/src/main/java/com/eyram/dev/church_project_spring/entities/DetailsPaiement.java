@@ -57,6 +57,13 @@ public class DetailsPaiement extends BaseEntity implements Serializable {
     @Column(name = "montant_net")
     private Integer montantNet;
 
+    @Column(precision=18,scale=2)
+    private java.math.BigDecimal providerCharged;
+    @Column(precision=18,scale=2)
+    private java.math.BigDecimal providerNet;
+    @Column(precision=18,scale=2)
+    private java.math.BigDecimal providerFee;
+
     @Column(name = "provider", length = 40)
     private String provider;
 

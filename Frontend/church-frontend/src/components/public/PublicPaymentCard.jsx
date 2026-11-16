@@ -36,15 +36,15 @@ function FeeBreakdown({ quote, loading }) {
             Frais de paiement
             {quote.feePercentAgregeateur != null ? ` (${quote.feePercentAgregeateur}%)` : ''}
           </span>
-          <span>{formatCurrency(quote.montantFraisAgregeateur ?? quote.montantFrais ?? 0)}</span>
+          <span>{quote.providerFeesPending ? 'Confirmés sur SasPay' : formatCurrency(quote.montantFraisAgregeateur ?? quote.montantFrais ?? 0)}</span>
         </div>
         <div className="info-row info-row-total payment-fee-total">
-          <span>Total à payer</span>
+          <span>{quote.providerFeesPending ? 'Sous-total hors frais SasPay' : 'Total à payer'}</span>
           <strong>{formatCurrency(quote.montantCharge)}</strong>
         </div>
       </div>
       <p className="muted payment-fee-hint">
-        Ce total inclut les frais. C’est le montant qui sera débité.
+        {quote.providerFeesPending ? 'Les frais de paiement et le total définitif seront affichés sur SasPay avant votre validation.' : 'Ce total inclut les frais. C’est le montant qui sera débité.'}
       </p>
     </div>
   );
@@ -52,6 +52,8 @@ function FeeBreakdown({ quote, loading }) {
 
 export default function PublicPaymentCard({ demande, onStatusMaybeChanged, loading = false }) {
   const [quote, setQuote] = useState(null);
+  const [payerEmail, setPayerEmail] = useState({ code: '', value: '' });
+  const checkoutEmail = payerEmail.code === demande?.codeSuivie ? payerEmail.value : '';
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [changingMode, setChangingMode] = useState(false);
@@ -122,8 +124,9 @@ export default function PublicPaymentCard({ demande, onStatusMaybeChanged, loadi
     setError(null);
     setInfo(null);
     try {
-      const data = await paymentService.checkoutByTrackingCode(demande.codeSuivie);
+      const data = await paymentService.checkoutByTrackingCode(demande.codeSuivie, checkoutEmail);
       setQuote({
+        providerFeesPending: data.providerFeesPending,
         montantFacture: data.montantFacture,
         montantFrais: data.montantFrais,
         montantFraisAgregeateur: data.montantFraisAgregeateur,
@@ -165,14 +168,14 @@ export default function PublicPaymentCard({ demande, onStatusMaybeChanged, loadi
     }
   }
 
-  const payLabel = quote?.montantCharge != null
+  const payLabel = !quote?.providerFeesPending && quote?.montantCharge != null
     ? `Payer ${formatCurrency(quote.montantCharge)}`
-    : 'Payer avec FedaPay';
+    : 'Payer avec SasPay';
 
   return (
     <AppCard
       title="Payer en ligne"
-      subtitle="Mobile Money ou carte via FedaPay. Le paiement au comptant n’est pas proposé ici."
+      subtitle="Mobile Money ou carte via SasPay. Le paiement au comptant n’est pas proposé ici."
     >
       {!demande ? (
         <p className="muted" style={{ margin: 0 }} role="status" aria-live="polite">
@@ -198,6 +201,11 @@ export default function PublicPaymentCard({ demande, onStatusMaybeChanged, loadi
             <FeeBreakdown quote={quote} loading={quoteLoading} />
           ) : null}
 
+          {canPayOnline ? <label className="stack" style={{ gap: 6 }}>
+            <span>E-mail pour le paiement</span>
+            <input className="input" type="email" autoComplete="email" maxLength={254} value={checkoutEmail} onChange={(event) => setPayerEmail({ code: demande.codeSuivie, value: event.target.value })} placeholder="votre@email.com" />
+            <small className="muted">À renseigner si aucune adresse e-mail n’a été donnée lors de la demande.</small>
+          </label> : null}
           {error ? <FormError error={error} errorRef={errorRef} /> : null}
           {info ? (
             <p className="muted" style={{ margin: 0 }} role="status" aria-live="polite">

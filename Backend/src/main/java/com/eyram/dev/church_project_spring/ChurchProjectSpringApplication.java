@@ -29,6 +29,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
         AdminSeedProperties.class,
         JwtProperties.class,
         FedaPayProperties.class,
+        com.eyram.dev.church_project_spring.config.SasPayProperties.class,
         PlatformBillingProperties.class,
         TenantCatalogProperties.class,
         DemandePaymentProperties.class,

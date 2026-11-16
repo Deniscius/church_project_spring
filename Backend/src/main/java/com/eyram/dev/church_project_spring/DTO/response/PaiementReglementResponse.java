@@ -15,11 +15,11 @@ import java.time.LocalDateTime;
 public record PaiementReglementResponse(
         LocalDateTime datePaiement,
         StatutPaiementEnum statut,
-        Integer montantCharge,
-        Integer montantFrais,
-        Integer montantFraisAgregateur,
+        java.math.BigDecimal montantCharge,
+        java.math.BigDecimal montantFrais,
+        java.math.BigDecimal montantFraisAgregateur,
         Integer montantFraisPlateforme,
-        Integer montantNet,
+        java.math.BigDecimal montantNet,
         String provider,
         String idTransaction,
         String numeroPayeur

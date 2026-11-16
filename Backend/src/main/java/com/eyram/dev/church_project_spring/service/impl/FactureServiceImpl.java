@@ -195,16 +195,18 @@ public class FactureServiceImpl implements FactureService {
         return new PaiementReglementResponse(
                 details.getDateDetailsPaiement(),
                 details.getStatutPaiement(),
-                details.getMontantCharge(),
-                details.getMontantFrais(),
-                details.getMontantFraisAgregeateur(),
+                details.getProviderCharged()!=null?details.getProviderCharged():decimal(details.getMontantCharge()),
+                details.getProviderFee()!=null?details.getProviderFee().add(decimal(details.getMontantFraisPlateforme())):decimal(details.getMontantFrais()),
+                details.getProviderFee()!=null?details.getProviderFee():decimal(details.getMontantFraisAgregeateur()),
                 details.getMontantFraisPlateforme(),
-                details.getMontantNet(),
+                decimal(details.getMontantNet()),
                 details.getProvider(),
                 details.getIdTransaction(),
                 details.getNumero()
         );
     }
+
+    private static java.math.BigDecimal decimal(Integer value){return value==null?null:java.math.BigDecimal.valueOf(value);}
 
     private String generateRefFacture(Demande demande) {
         String parishName = demande != null && demande.getParoisse() != null

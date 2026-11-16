@@ -11,6 +11,12 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface FactureRepository extends JpaRepository<Facture, Long> {
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select f from Facture f where f.publicId=:id and f.statusDel=false")
+    Optional<Facture> findByPublicIdForUpdate(@Param("id") UUID id);
+
+    @Query("select f.demande.publicId from Facture f where f.publicId=:id and f.statusDel=false")
+    Optional<UUID> findDemandId(@Param("id") UUID id);
 
     Optional<Facture> findByPublicIdAndStatusDelFalse(UUID publicId);
 

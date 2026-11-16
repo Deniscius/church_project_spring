@@ -119,7 +119,10 @@ class SasPayClientTest {
         assertThatThrownBy(() -> client.createCheckout(Map.of()))
                 .isInstanceOfSatisfying(
                         SasPayClient.Unavailable.class,
-                        error -> assertThat(error.uncertain()).isTrue());
+                        error -> {
+                            assertThat(error.uncertain()).isTrue();
+                            assertThat(error.getMessage()).contains("HTTP 503");
+                        });
     }
 
     @Test

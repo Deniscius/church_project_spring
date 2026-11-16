@@ -125,6 +125,8 @@ public class SasPayClient {
             return root.has("data") ? root.path("data") : root;
         } catch (RestClientResponseException e) {
             int status = e.getStatusCode().value();
+            log.warn("SasPay API request failed: httpStatus={}, operation={}", status,
+                    body == null ? "read" : "createCheckout");
             if (status == 401 || status == 403) {
                 rejectedKey = properties.getApiKey();
                 log.warn("SasPay API access rejected: httpStatus={}; check API key scope, environment and merchant validation",status);
@@ -139,7 +141,8 @@ public class SasPayClient {
                                 "SasPay a refusé les coordonnées ou la configuration du paiement.";
                         case 409 -> "Une opération SasPay est déjà en cours. Vérifiez son statut.";
                         case 429 -> "SasPay est temporairement sollicité. Réessayez plus tard.";
-                        default -> "Le service SasPay est temporairement indisponible.";
+                        case 404 -> "Adresse API SasPay introuvable : vérifiez SASPAY_API_BASE_URL sur le backend.";
+                        default -> "Le service SasPay est temporairement indisponible (HTTP " + status + ").";
                     };
             throw new Unavailable(message, body != null && status >= 500);
         } catch (Unavailable e) {

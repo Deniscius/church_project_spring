@@ -33,6 +33,12 @@ class SasPayClientTest {
         server.stop(0);
     }
 
+    @Test void configurationMessagesDistinguishDisabledMissingAndRejectedKeys(){
+        properties.setEnabled(false);assertThat(client.configurationProblem()).contains("SASPAY_ENABLED");
+        properties.setEnabled(true);properties.setApiKey("");assertThat(client.configurationProblem()).contains("SASPAY_API_KEY");
+        properties.setApiKey("sk_test_simulated");assertThat(client.configurationProblem()).isNull();
+    }
+
     @Test
     void checkoutUsesServerAuthorizationDecimalStringsAndUnwrapsEnvelope() throws Exception {
         var body = new AtomicReference<String>();
@@ -80,6 +86,8 @@ class SasPayClientTest {
         assertThatThrownBy(() -> client.createCheckout(Map.of()))
                 .isInstanceOf(SasPayClient.Unavailable.class);
         assertThat(count.get()).isEqualTo(1);
+        assertThat(client.configurationProblem()).contains("refusé").doesNotContain(properties.getApiKey());
+        properties.setApiKey("sk_test_rotated");assertThat(client.configurationProblem()).isNull();
     }
 
     @Test

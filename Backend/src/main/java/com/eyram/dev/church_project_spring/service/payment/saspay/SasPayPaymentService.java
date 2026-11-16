@@ -119,10 +119,7 @@ public class SasPayPaymentService {
                                                     + " son statut.");
                                 return prior;
                             }
-                            if (!client.configured())
-                                throw new BusinessRuleException(
-                                        "Paiement SasPay indisponible : le marchand doit être"
-                                                + " configuré.");
+                            client.requireConfigured();
                             String email =
                                     payerEmail != null && !payerEmail.isBlank()
                                             ? payerEmail.strip()

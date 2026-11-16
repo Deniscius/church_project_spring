@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /** No implicit POST retries: hosted checkouts do not support Idempotency-Key. */
+@lombok.extern.slf4j.Slf4j
 @Component
 @RequiredArgsConstructor
 public class SasPayClient {
@@ -58,15 +59,30 @@ public class SasPayClient {
     }
 
     public boolean configured() {
-        return properties.isEnabled()
-                && !properties.getApiKey().isBlank()
-                && !properties.getApiKey().equals(rejectedKey);
+        return configurationProblem()==null;
+    }
+
+    public String configurationProblem() {
+        if(!properties.isEnabled())return "Paiement SasPay désactivé : SASPAY_ENABLED doit être true sur le backend Render.";
+        if(properties.getApiKey()==null||properties.getApiKey().isBlank())return "Clé API SasPay absente : renseignez SASPAY_API_KEY sur le backend Render, puis redéployez.";
+        if(properties.getApiKey().equals(rejectedKey))return "SasPay a refusé la clé API ou son accès au marchand. Vérifiez la clé Sandbox PAYIN, la validation du marchand et redéployez après correction.";
+        return null;
+    }
+
+    public void requireConfigured() {
+        String problem=configurationProblem();
+        if(problem!=null)throw new Unavailable(problem,false);
+    }
+
+    @org.springframework.context.event.EventListener(org.springframework.boot.context.event.ApplicationReadyEvent.class)
+    public void reportConfiguration() {
+        String key=properties.getApiKey();
+        String mode=key==null||key.isBlank()?"missing":key.startsWith("sk_test_")?"sandbox":key.startsWith("sk_live_")?"live":"unrecognized";
+        log.info("SasPay configuration: enabled={}, apiKeyPresent={}, webhookSecretPresent={}, keyMode={}",properties.isEnabled(),key!=null&&!key.isBlank(),properties.getWebhookSecret()!=null&&!properties.getWebhookSecret().isBlank(),mode);
     }
 
     private JsonNode call(String path, Object body) {
-        if (!configured())
-            throw new Unavailable(
-                    "Paiement SasPay indisponible : configuration du marchand nécessaire.", false);
+        requireConfigured();
         if (System.currentTimeMillis() < retryAfter)
             throw new Unavailable(
                     "SasPay est temporairement sollicité. Réessayez plus tard.", false);
@@ -109,7 +125,10 @@ public class SasPayClient {
             return root.has("data") ? root.path("data") : root;
         } catch (RestClientResponseException e) {
             int status = e.getStatusCode().value();
-            if (status == 401 || status == 403) rejectedKey = properties.getApiKey();
+            if (status == 401 || status == 403) {
+                rejectedKey = properties.getApiKey();
+                log.warn("SasPay API access rejected: httpStatus={}; check API key scope, environment and merchant validation",status);
+            }
             if (status == 429) retryAfter = System.currentTimeMillis() + 60000;
             String message =
                     switch (status) {

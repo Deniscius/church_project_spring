@@ -6,6 +6,8 @@ Les nouveaux paiements de demandes et d’abonnements utilisent le checkout héb
 
 L’encaissement SasPay est **désactivé par défaut**. L’intégration se teste sans compte avec PostgreSQL et un serveur HTTP simulé. Un compte marchand SasPay et ses secrets sont nécessaires pour valider le véritable environnement sandbox. Aucune clé n’est embarquée dans le site ou Desktop.
 
+Depuis Desktop, le paiement utilise l’e-mail déjà enregistré sur la demande. Pour une ancienne demande sans e-mail, ouvrir sa page de paiement sur le site et renseigner l’e-mail du payeur avant de continuer. Aucune clé SasPay n’est nécessaire sur le poste.
+
 ## Configuration du compte marchand
 
 1. Créer et valider le compte marchand dans https://app.saspay.me, terminer le KYC et générer une clé **test**, scope `PAYIN`.

@@ -9,18 +9,19 @@ export const paymentService = {
   listRowsForParish: (paroissePublicId) =>
     apiClient(`/demandes/paroisse/${paroissePublicId}`, {}, { auth: true }),
 
-  /** Devis des frais FedaPay pour un code de suivi (public). */
+  /** Devis des frais SasPay pour un code de suivi (public). */
   quoteByTrackingCode: (codeSuivie) =>
     apiClient(`/paiements/quote/${encodeURIComponent(codeSuivie)}`),
 
-  /** Crée / reprend une session FedaPay et renvoie paymentUrl (public). */
-  checkoutByTrackingCode: (codeSuivie) =>
+  /** Crée / reprend une session SasPay et renvoie paymentUrl (public). */
+  checkoutByTrackingCode: (codeSuivie, email) =>
     apiClient(`/paiements/checkout/${encodeURIComponent(codeSuivie)}`, {
       method: 'POST',
+      body: JSON.stringify({ email: email?.trim() || undefined }),
     }),
 
   /**
-   * Retour navigateur FedaPay : résout le jeton opaque et réconcilie via GET transaction.
+   * Retour navigateur SasPay : résout le jeton opaque et réconcilie via GET transaction.
    * body: { token, providerTransactionId? }
    */
   resolveReturn: (body) =>
@@ -29,7 +30,7 @@ export const paymentService = {
       body: JSON.stringify(body || {}),
     }),
 
-  /** Synchronise le statut local avec FedaPay pour un code de suivi. */
+  /** Synchronise le statut local avec SasPay pour un code de suivi. */
   reconcileByTrackingCode: (codeSuivie) =>
     apiClient(`/paiements/reconcile/${encodeURIComponent(codeSuivie)}`, {
       method: 'POST',

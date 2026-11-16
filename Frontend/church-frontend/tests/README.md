@@ -38,3 +38,7 @@ Après construction et lancement du preview comme pour `receipt_browser.py`,
 `python tests/profile_browser.py` vérifie que le téléphone modifié est transmis
 et que l’e-mail professionnel en lecture seule est conservé. Les réponses API
 sont synthétiques ; aucun compte réel n’est utilisé.
+
+`python tests/saspay_browser.py` vérifie sur le build local les frais SasPay à
+confirmer, l’e-mail du payeur, l’envoi du checkout et un refus sans redirection,
+sur ordinateur et mobile. Aucun paiement réel n’est initié.

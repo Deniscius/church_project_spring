@@ -27,6 +27,9 @@ public record PaymentFeeBreakdown(
         int montantNetParoisse,
         int montantNetPlateforme
 ) {
+    @com.fasterxml.jackson.annotation.JsonProperty("providerFeesPending")
+    public boolean providerFeesPending(){return feePercentAgregeateur==null;}
+
     /** Compat : ancien champ montantNet = net paroisse. */
     public int montantNet() {
         return montantNetParoisse;

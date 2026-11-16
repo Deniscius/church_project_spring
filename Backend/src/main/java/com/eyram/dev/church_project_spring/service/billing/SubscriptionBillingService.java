@@ -2,7 +2,6 @@ package com.eyram.dev.church_project_spring.service.billing;
 
 import com.eyram.dev.church_project_spring.DTO.response.AbonnementResponse;
 import com.eyram.dev.church_project_spring.config.CacheConfig;
-import com.eyram.dev.church_project_spring.config.FedaPayProperties;
 import com.eyram.dev.church_project_spring.config.PlatformBillingProperties;
 import com.eyram.dev.church_project_spring.entities.Paroisse;
 import com.eyram.dev.church_project_spring.entities.ParoisseAbonnement;
@@ -18,7 +17,6 @@ import com.eyram.dev.church_project_spring.security.TenantAccessService;
 import com.eyram.dev.church_project_spring.service.PlanSaasService;
 import com.eyram.dev.church_project_spring.service.audit.AdministrativeAuditService;
 import com.eyram.dev.church_project_spring.service.ProfessionalEmailService;
-import com.eyram.dev.church_project_spring.service.payment.fedapay.FedaPayClient;
 import com.eyram.dev.church_project_spring.service.tenant.TenantCatalogBootstrapService;
 import com.eyram.dev.church_project_spring.utils.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -43,12 +41,14 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class SubscriptionBillingService {
 
-    private static final DateTimeFormatter ECHEANCE_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+    private static final DateTimeFormatter ECHEANCE_FORMAT =
+            DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     private final ParoisseRepository paroisseRepository;
     private final ParoisseAbonnementRepository abonnementRepository;
-    private final FedaPayClient fedaPayClient;
-    private final FedaPayProperties fedaPayProperties;
+    private final com.eyram.dev.church_project_spring.service.payment.saspay.SasPayClient sasPayClient;
+    private final com.eyram.dev.church_project_spring.service.payment.saspay.SasPayCheckoutStore sasPayStore;
+    private final com.eyram.dev.church_project_spring.config.SasPayProperties sasPayProperties;
     private final PlatformBillingProperties properties;
     private final PlanSaasService planSaasService;
     private final TenantCatalogBootstrapService tenantCatalogBootstrapService;
@@ -74,115 +74,104 @@ public class SubscriptionBillingService {
         return abonnementRepository.save(abonnement);
     }
 
-    /**
-     * Crée l'abonnement en base, appelle FedaPay hors transaction, puis persiste l'URL.
-     */
+    /** New subscriptions use SasPay; existing provider references are never replaced. */
     public Map<String, Object> checkout(UUID paroissePublicId, String plan) {
-        SubscriptionCheckoutPrep prep = transactionTemplate.execute(status ->
-                prepareSubscriptionCheckout(paroissePublicId, plan)
-        );
-        if (prep == null) {
-            throw new IllegalStateException("Impossible de préparer le checkout abonnement");
-        }
-        if (prep.earlyResponse() != null) {
-            return prep.earlyResponse();
-        }
-
-        FedaPayClient.CreatedTransaction created = fedaPayClient.createTransaction(
-                new FedaPayClient.CreateTransactionCommand(
-                        prep.description(),
-                        prep.montant(),
-                        prep.callbackUrl(),
-                        prep.customer(),
-                        prep.metadata()
-                )
-        );
-        FedaPayClient.PaymentToken token = fedaPayClient.generateToken(created.id());
-
-        return transactionTemplate.execute(status ->
-                persistSubscriptionCheckout(prep, created, token)
-        );
-    }
-
-    private SubscriptionCheckoutPrep prepareSubscriptionCheckout(UUID paroissePublicId, String plan) {
-        Paroisse paroisse = paroisseRepository.findByPublicIdForUpdate(paroissePublicId)
-                .orElseThrow(() -> new ResourceNotFoundException("Paroisse introuvable"));
-        tenantAccessService.checkParoisseAccess(paroisse);
-
-        String effectivePlan = StringUtils.hasText(plan)
-                ? planSaasService.requireActive(plan).getCode()
-                : planSaasService.requireDefaultActive().getCode();
-        ParoisseAbonnement abonnement = createPending(paroisse, effectivePlan);
-
-        if (!fedaPayProperties.isEnabled() || !StringUtils.hasText(fedaPayProperties.getSecretKey())) {
-            return SubscriptionCheckoutPrep.done(Map.of(
-                    "abonnementPublicId", abonnement.getPublicId(),
-                    "plan", effectivePlan,
-                    "montant", abonnement.getMontant(),
-                    "paymentUrl", "",
-                    "providerTransactionId", "",
-                    "message", "FedaPay désactivé — activez le paiement d'abonnement plus tard"
-            ));
-        }
-
-        Map<String, Object> customer = new LinkedHashMap<>();
-        customer.put("firstname", "Paroisse");
-        customer.put("lastname", paroisse.getNom());
-        if (StringUtils.hasText(paroisse.getEmail())) {
-            customer.put("email", paroisse.getEmail());
-        }
-
-        Map<String, String> metadata = new LinkedHashMap<>();
-        metadata.put("type", "ABONNEMENT");
-        metadata.put("paroissePublicId", paroisse.getPublicId().toString());
-        metadata.put("abonnementPublicId", abonnement.getPublicId().toString());
-        metadata.put("plan", effectivePlan);
-
-        return new SubscriptionCheckoutPrep(
-                null,
-                abonnement.getPublicId(),
-                effectivePlan,
-                "Abonnement plateforme " + effectivePlan + " — " + paroisse.getNom(),
-                abonnement.getMontant(),
-                fedaPayProperties.getCallbackBaseUrl(),
-                customer,
-                metadata
-        );
-    }
-
-    private Map<String, Object> persistSubscriptionCheckout(
-            SubscriptionCheckoutPrep prep,
-            FedaPayClient.CreatedTransaction created,
-            FedaPayClient.PaymentToken token
-    ) {
-        ParoisseAbonnement abonnement = abonnementRepository.findByPublicIdAndStatusDelFalse(prep.abonnementPublicId())
-                .orElseThrow(() -> new ResourceNotFoundException("Abonnement introuvable"));
-        abonnement.setIdTransaction(String.valueOf(created.id()));
-        abonnement.setPaymentUrl(token.url());
-        abonnementRepository.save(abonnement);
-
-        return Map.of(
-                "abonnementPublicId", abonnement.getPublicId(),
-                "plan", prep.plan(),
-                "montant", prep.montant(),
-                "paymentUrl", token.url(),
-                "providerTransactionId", String.valueOf(created.id())
-        );
-    }
-
-    private record SubscriptionCheckoutPrep(
-            Map<String, Object> earlyResponse,
-            UUID abonnementPublicId,
-            String plan,
-            String description,
-            int montant,
-            String callbackUrl,
-            Map<String, Object> customer,
-            Map<String, String> metadata
-    ) {
-        static SubscriptionCheckoutPrep done(Map<String, Object> response) {
-            return new SubscriptionCheckoutPrep(response, null, null, null, 0, null, null, null);
-        }
+        return transactionTemplate.execute(
+                status -> {
+                    Paroisse parish =
+                            paroisseRepository
+                                    .findByPublicIdForUpdate(paroissePublicId)
+                                    .orElseThrow(
+                                            () ->
+                                                    new ResourceNotFoundException(
+                                                            "Paroisse introuvable"));
+                    tenantAccessService.checkParoisseAccess(parish);
+                    String effective =
+                            StringUtils.hasText(plan)
+                                    ? planSaasService.requireActive(plan).getCode()
+                                    : planSaasService.requireDefaultActive().getCode();
+                    ParoisseAbonnement subscription =
+                            abonnementRepository
+                                    .findByParoisseAndStatusDelFalseOrderByCreatedAtDesc(parish)
+                                    .stream()
+                                    .filter(
+                                            a ->
+                                                    a.getStatut() == StatutAbonnement.EN_ATTENTE
+                                                            && effective.equals(a.getPlan()))
+                                    .findFirst()
+                                    .orElseGet(() -> createPending(parish, effective));
+                    var result = new LinkedHashMap<String, Object>();
+                    result.put("abonnementPublicId", subscription.getPublicId());
+                    result.put("plan", effective);
+                    result.put("montant", subscription.getMontant());
+                    result.put(
+                            "paymentUrl",
+                            subscription.getPaymentUrl() == null
+                                    ? ""
+                                    : subscription.getPaymentUrl());
+                    result.put(
+                            "providerTransactionId",
+                            subscription.getIdTransaction() == null
+                                    ? ""
+                                    : subscription.getIdTransaction());
+                    if (subscription.getIdTransaction() != null
+                            && !subscription.getIdTransaction().startsWith("SASPAY:")) {
+                        result.put(
+                                "message",
+                                "Une ancienne session de paiement reste ouverte. Vérifiez-la avant"
+                                    + " un nouveau règlement.");
+                        return result;
+                    }
+                    if (!sasPayClient.configured()) {
+                        result.put(
+                                "message",
+                                "SasPay désactivé — configurez le marchand pour encaisser en"
+                                    + " ligne.");
+                        return result;
+                    }
+                    if (!StringUtils.hasText(parish.getEmail()))
+                        throw new com.eyram.dev.church_project_spring.utils.exception
+                                .BusinessRuleException(
+                                "Une adresse e-mail paroissiale est nécessaire pour le paiement"
+                                    + " SasPay.");
+                    var body = new LinkedHashMap<String, Object>();
+                    body.put(
+                            "amount",
+                            java.math.BigDecimal.valueOf(subscription.getMontant())
+                                    .setScale(2)
+                                    .toPlainString());
+                    body.put("currency", "XOF");
+                    body.put("country", sasPayProperties.getCountry());
+                    body.put("description", "Abonnement Missanye — " + effective);
+                    body.put("customer_email", parish.getEmail());
+                    body.put("customer_name", parish.getNom());
+                    body.put(
+                            "return_url",
+                            sasPayProperties.getAppUrl().replaceAll("/+$", "") + "/admin");
+                    body.put("fee_charge_mode", "ADD_ON");
+                    body.put("expires_at", java.time.Instant.now().plusSeconds(3300).toString());
+                    var checkout =
+                            sasPayStore.start(
+                                    "ABONNEMENT",
+                                    subscription.getPublicId(),
+                                    subscription.getMontant(),
+                                    0,
+                                    body);
+                    if ("PENDING".equals(checkout.state())) {
+                        subscription.setIdTransaction(checkout.reference());
+                        subscription.setPaymentUrl(checkout.url());
+                        abonnementRepository.save(subscription);
+                        result.put("paymentUrl", checkout.url());
+                        result.put("providerTransactionId", checkout.reference());
+                    } else
+                        result.put(
+                                "message",
+                                checkout.error() == null
+                                        ? "La session nécessite une vérification avant un nouvel"
+                                              + " essai."
+                                        : checkout.error());
+                    return result;
+                });
     }
 
     @Transactional
@@ -204,7 +193,9 @@ public class SubscriptionBillingService {
                 .findByIdTransactionForUpdate(transactionId)
                 .orElse(null);
         if (abonnement == null) {
-            log.warn("Abonnement supprimé pendant le traitement de la transaction {}", transactionId);
+            log.warn(
+                    "Abonnement supprimé pendant le traitement de la transaction {}",
+                    transactionId);
             return;
         }
 
@@ -214,7 +205,10 @@ public class SubscriptionBillingService {
             log.info("Transaction {} déjà encaissée, activation ignorée", transactionId);
             return;
         }
-        activateAbonnement(abonnement, "FEDAPAY", "Agrégateur FedaPay");
+        activateAbonnement(
+                abonnement,
+                transactionId.startsWith("SASPAY:") ? "SASPAY" : "FEDAPAY",
+                transactionId.startsWith("SASPAY:") ? "SasPay" : "Agrégateur FedaPay");
     }
 
     /**
@@ -339,7 +333,11 @@ public class SubscriptionBillingService {
                     userRepository.save(access.getUser());
                 }
             }
-            log.info("Abonnement actif pour paroisse {} jusqu'au {} ({})", paroisse.getNom(), fin, source);
+            log.info(
+                    "Abonnement actif pour paroisse {} jusqu'au {} ({})",
+                    paroisse.getNom(),
+                    fin,
+                    source);
             evictPublicHorairesCache();
         }
     }
@@ -389,11 +387,11 @@ public class SubscriptionBillingService {
             paroisseRepository.save(paroisse);
             changed++;
             log.warn(
-                    "Accès suspendu pour {} : échéance du {} dépassée au-delà de la tolérance de {} jours",
+                    "Accès suspendu pour {} : échéance du {} dépassée au-delà de la tolérance de {}"
+                        + " jours",
                     paroisse.getNom(),
                     paroisse.getSubscriptionExpiresAt(),
-                    properties.getSubscriptionGraceDays()
-            );
+                    properties.getSubscriptionGraceDays());
         }
 
         if (changed > 0) {
@@ -480,7 +478,8 @@ public class SubscriptionBillingService {
         ParoisseAbonnement abonnement = abonnementRepository.findByPublicIdForUpdate(abonnementPublicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Abonnement introuvable"));
         if (abonnement.getStatut() != StatutAbonnement.EN_ATTENTE) {
-            throw new IllegalArgumentException("Seuls les abonnements en attente de paiement peuvent être annulés");
+            throw new IllegalArgumentException(
+                    "Seuls les abonnements en attente de paiement peuvent être annulés");
         }
         abonnement.setStatut(StatutAbonnement.ANNULE);
         abonnementRepository.save(abonnement);
@@ -537,7 +536,8 @@ public class SubscriptionBillingService {
         Paroisse paroisse = paroisseRepository.findByPublicIdForUpdate(paroissePublicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Paroisse introuvable"));
         if (Boolean.TRUE.equals(paroisse.getIsSystem())) {
-            throw new IllegalArgumentException("Le catalogue plateforme n'est pas une paroisse cliente");
+            throw new IllegalArgumentException(
+                    "Le catalogue plateforme n'est pas une paroisse cliente");
         }
         return paroisse;
     }

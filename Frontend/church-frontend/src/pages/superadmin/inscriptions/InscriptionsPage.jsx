@@ -194,9 +194,9 @@ export default function InscriptionsPage() {
       const url = res?.paymentUrl || '';
       setPaymentUrl(url);
       if (url) {
-        setInfo('Lien de paiement généré. Copiez-le ou ouvrez FedaPay.');
+        setInfo('Lien de paiement généré. Copiez-le ou ouvrez SasPay.');
       } else {
-        setInfo(res?.message || 'Pas d’URL FedaPay disponible.');
+        setInfo(res?.message || 'Pas d’URL SasPay disponible.');
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Échec génération lien');
@@ -503,7 +503,7 @@ export default function InscriptionsPage() {
                   <div className="activation-callout">
                     <strong>Comment l’admin se connecte ?</strong>
                     <ol>
-                      <li>Activez l’accès après paiement ou générez le lien FedaPay.</li>
+                      <li>Activez l’accès après paiement ou générez le lien SasPay.</li>
                       <li>L’admin ouvre <code>/admin/login</code>.</li>
                       <li>Identifiant : <strong>{selected.adminUsername}</strong> + mot de passe temporaire reçu par e-mail.</li>
                     </ol>
@@ -538,12 +538,12 @@ export default function InscriptionsPage() {
                   )}
                   {paymentUrl ? (
                     <div className="payment-link-box">
-                      <div className="muted text-sm">Lien FedaPay</div>
+                      <div className="muted text-sm">Lien SasPay</div>
                       <code className="payment-link">{paymentUrl}</code>
                       <div className="button-row" style={{ marginTop: 10 }}>
                         <button type="button" className="btn btn-secondary" onClick={copyPaymentUrl}>Copier</button>
                         <a className="btn btn-primary" href={paymentUrl} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
-                          Ouvrir FedaPay
+                          Ouvrir SasPay
                         </a>
                       </div>
                     </div>

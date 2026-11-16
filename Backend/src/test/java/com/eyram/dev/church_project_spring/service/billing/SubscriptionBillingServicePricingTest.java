@@ -1,6 +1,6 @@
 package com.eyram.dev.church_project_spring.service.billing;
 
-import com.eyram.dev.church_project_spring.config.FedaPayProperties;
+import com.eyram.dev.church_project_spring.config.SasPayProperties;
 import com.eyram.dev.church_project_spring.config.PlatformBillingProperties;
 import com.eyram.dev.church_project_spring.entities.Paroisse;
 import com.eyram.dev.church_project_spring.entities.ParoisseAbonnement;
@@ -13,7 +13,8 @@ import com.eyram.dev.church_project_spring.security.TenantAccessService;
 import com.eyram.dev.church_project_spring.service.PlanSaasService;
 import com.eyram.dev.church_project_spring.service.audit.AdministrativeAuditService;
 import com.eyram.dev.church_project_spring.service.ProfessionalEmailService;
-import com.eyram.dev.church_project_spring.service.payment.fedapay.FedaPayClient;
+import com.eyram.dev.church_project_spring.service.payment.saspay.SasPayClient;
+import com.eyram.dev.church_project_spring.service.payment.saspay.SasPayCheckoutStore;
 import com.eyram.dev.church_project_spring.service.tenant.TenantCatalogBootstrapService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,8 +34,9 @@ class SubscriptionBillingServicePricingTest {
 
     @Mock private ParoisseRepository paroisseRepository;
     @Mock private ParoisseAbonnementRepository abonnementRepository;
-    @Mock private FedaPayClient fedaPayClient;
-    @Mock private FedaPayProperties fedaPayProperties;
+    @Mock private SasPayClient sasPayClient;
+    @Mock private SasPayCheckoutStore sasPayCheckoutStore;
+    @Mock private SasPayProperties sasPayProperties;
     @Mock private PlatformBillingProperties properties;
     @Mock private PlanSaasService planSaasService;
     @Mock private TenantCatalogBootstrapService tenantCatalogBootstrapService;
@@ -53,8 +55,9 @@ class SubscriptionBillingServicePricingTest {
         service = new SubscriptionBillingService(
                 paroisseRepository,
                 abonnementRepository,
-                fedaPayClient,
-                fedaPayProperties,
+                sasPayClient,
+                sasPayCheckoutStore,
+                sasPayProperties,
                 properties,
                 planSaasService,
                 tenantCatalogBootstrapService,

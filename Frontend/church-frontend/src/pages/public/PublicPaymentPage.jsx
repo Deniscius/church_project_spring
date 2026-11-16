@@ -68,7 +68,7 @@ export default function PublicPaymentPage() {
     load();
   }, [load]);
 
-  // Après retour FedaPay : resync (webhook peut arriver après le navigateur).
+  // Après retour SasPay : resync (webhook peut arriver après le navigateur).
   useEffect(() => {
     if (!codeSuivie || (!returnHint.statut && !returnHint.status)) return undefined;
     if (returnHint.statut === 'PAYE') return undefined;
@@ -104,7 +104,7 @@ export default function PublicPaymentPage() {
       return 'Le paiement n’a pas abouti. Vous pouvez réessayer ci-dessous.';
     }
     if (returnHint.statut || returnHint.status) {
-      return 'Retour de FedaPay reçu. Vérification du statut en cours (webhook / API)…';
+      return 'Retour de SasPay reçu. Vérification du statut en cours (webhook / API)…';
     }
     return '';
   })();
@@ -113,7 +113,7 @@ export default function PublicPaymentPage() {
     <div className="stack public-page">
       <PageHeader
         title="Paiement"
-        subtitle="Mobile Money ou carte via FedaPay. Le paiement au comptant n’est pas proposé sur le suivi."
+        subtitle="Mobile Money ou carte via SasPay. Le paiement au comptant n’est pas proposé sur le suivi."
       />
       {returnBanner ? (
         <p className="muted" role="status" aria-live="polite">{returnBanner}</p>

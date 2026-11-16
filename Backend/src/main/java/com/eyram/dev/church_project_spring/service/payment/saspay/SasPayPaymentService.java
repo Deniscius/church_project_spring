@@ -415,14 +415,6 @@ public class SasPayPaymentService {
         demands.save(d);
     }
 
-    @org.springframework.context.annotation.Bean(name = "saspayScheduler")
-    public static org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler scheduler() {
-        var scheduler = new org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler();
-        scheduler.setPoolSize(1);
-        scheduler.setThreadNamePrefix("saspay-reconcile-");
-        return scheduler;
-    }
-
     @Scheduled(fixedDelayString = "${saspay.poll-delay-ms:10000}", scheduler = "saspayScheduler")
     public void poll() {
         if (!client.configured()) return;

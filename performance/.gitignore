@@ -1,0 +1,4 @@
+fixture.json
+results/*
+!results/.gitkeep
+__pycache__/

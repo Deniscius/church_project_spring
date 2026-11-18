@@ -1,0 +1,17 @@
+[
+  {
+    "case": "target",
+    "blocked": true,
+    "exit": 107
+  },
+  {
+    "case": "level",
+    "blocked": true,
+    "exit": 107
+  },
+  {
+    "case": "duration",
+    "blocked": true,
+    "exit": 107
+  }
+]

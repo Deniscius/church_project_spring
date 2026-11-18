@@ -1,0 +1,20 @@
+{
+  "commit": "7679ce701b2352f10ad4fc8c8afed2e36ac9d745",
+  "backend_dirty": false,
+  "jar_sha256": "8d54059b1487222f538849bd366b533d936637384702da37cba8f696268dd252",
+  "initial_demands": 20000,
+  "database": "PostgreSQL 17.12 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit",
+  "created_utc": "2026-11-18T18:38:00Z",
+  "requested_resources": {
+    "app_cpu": 1,
+    "app_memory_mib": 512,
+    "db_cpu": 0.5,
+    "db_memory_mib": 512,
+    "hikari_max": 8,
+    "tomcat_max": 40
+  },
+  "docker_warnings": [
+    "WARNING: Running in rootless-mode without cgroups. Systemd is required to enable cgroups in rootless-mode."
+  ],
+  "limitation": "No delegated cgroups. Docker CPU/RAM limits are not enforced. Valid runs use explicit JVM heap and taskset affinity; process RSS is observed, not capped."
+}

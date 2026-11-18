@@ -1,0 +1,173 @@
+{
+  "clients": 20,
+  "duration_s": 26.85,
+  "mutation_status": 201,
+  "connected": 20,
+  "expected_changed_clients": 2,
+  "changed_clients": 2,
+  "errors": [],
+  "results": [
+    {
+      "connected": true,
+      "events": 1,
+      "updates": 0,
+      "expected_update": false,
+      "http_status": 200,
+      "connect_ms": 127.64
+    },
+    {
+      "connected": true,
+      "events": 1,
+      "updates": 0,
+      "expected_update": false,
+      "http_status": 200,
+      "connect_ms": 97.87
+    },
+    {
+      "connected": true,
+      "events": 1,
+      "updates": 0,
+      "expected_update": false,
+      "http_status": 200,
+      "connect_ms": 95.08
+    },
+    {
+      "connected": true,
+      "events": 1,
+      "updates": 0,
+      "expected_update": false,
+      "http_status": 200,
+      "connect_ms": 60.96
+    },
+    {
+      "connected": true,
+      "events": 1,
+      "updates": 0,
+      "expected_update": false,
+      "http_status": 200,
+      "connect_ms": 51.56
+    },
+    {
+      "connected": true,
+      "events": 1,
+      "updates": 0,
+      "expected_update": false,
+      "http_status": 200,
+      "connect_ms": 103.93
+    },
+    {
+      "connected": true,
+      "events": 1,
+      "updates": 0,
+      "expected_update": false,
+      "http_status": 200,
+      "connect_ms": 86.44
+    },
+    {
+      "connected": true,
+      "events": 1,
+      "updates": 0,
+      "expected_update": false,
+      "http_status": 200,
+      "connect_ms": 185.37
+    },
+    {
+      "connected": true,
+      "events": 1,
+      "updates": 0,
+      "expected_update": false,
+      "http_status": 200,
+      "connect_ms": 95.96
+    },
+    {
+      "connected": true,
+      "events": 1,
+      "updates": 0,
+      "expected_update": false,
+      "http_status": 200,
+      "connect_ms": 114.67
+    },
+    {
+      "connected": true,
+      "events": 1,
+      "updates": 0,
+      "expected_update": false,
+      "http_status": 200,
+      "connect_ms": 174.83
+    },
+    {
+      "connected": true,
+      "events": 2,
+      "updates": 1,
+      "expected_update": true,
+      "http_status": 200,
+      "connect_ms": 153.85,
+      "update_after_mutation_s": 9.86
+    },
+    {
+      "connected": true,
+      "events": 2,
+      "updates": 1,
+      "expected_update": true,
+      "http_status": 200,
+      "connect_ms": 142.12,
+      "update_after_mutation_s": 9.862
+    },
+    {
+      "connected": true,
+      "events": 1,
+      "updates": 0,
+      "expected_update": false,
+      "http_status": 200,
+      "connect_ms": 147.52
+    },
+    {
+      "connected": true,
+      "events": 1,
+      "updates": 0,
+      "expected_update": false,
+      "http_status": 200,
+      "connect_ms": 182.17
+    },
+    {
+      "connected": true,
+      "events": 1,
+      "updates": 0,
+      "expected_update": false,
+      "http_status": 200,
+      "connect_ms": 162.07
+    },
+    {
+      "connected": true,
+      "events": 1,
+      "updates": 0,
+      "expected_update": false,
+      "http_status": 200,
+      "connect_ms": 207.89
+    },
+    {
+      "connected": true,
+      "events": 1,
+      "updates": 0,
+      "expected_update": false,
+      "http_status": 200,
+      "connect_ms": 186.65
+    },
+    {
+      "connected": true,
+      "events": 1,
+      "updates": 0,
+      "expected_update": false,
+      "http_status": 200,
+      "connect_ms": 227.34
+    },
+    {
+      "connected": true,
+      "events": 1,
+      "updates": 0,
+      "expected_update": false,
+      "http_status": 200,
+      "connect_ms": 226.91
+    }
+  ]
+}

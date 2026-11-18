@@ -1,0 +1,12 @@
+{
+  "public_statuses": {
+    "200": 60,
+    "429": 1
+  },
+  "login_statuses": {
+    "401": 8,
+    "429": 1
+  },
+  "public_retry_after": "60",
+  "login_retry_after": "60"
+}

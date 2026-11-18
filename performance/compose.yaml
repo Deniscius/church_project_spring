@@ -1,0 +1,96 @@
+name: missanye-perf
+services:
+  db:
+    image: postgres:17-alpine
+    cpus: 0.5
+    mem_limit: 512m
+    environment:
+      POSTGRES_DB: missanye_perf
+      POSTGRES_USER: perf
+      POSTGRES_PASSWORD: local-perf-only
+    command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements", "-c", "track_io_timing=on", "-c", "max_connections=40"]
+    networks: [isolated]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U perf -d missanye_perf"]
+      interval: 2s
+      retries: 30
+  app:
+    image: eclipse-temurin:17-jre-jammy
+    entrypoint: ["taskset", "-c", "${PERF_APP_CPU:-0}", "java", "-Xms128m", "-Xmx${PERF_HEAP_MB:-384}m", "-XX:ActiveProcessorCount=1", "-jar", "/app/application.jar"]
+    volumes:
+      - ../Backend/target/church_project_spring-0.0.1-SNAPSHOT.jar:/app/application.jar:ro
+    cpus: 1.0
+    mem_limit: 512m
+    depends_on:
+      db: {condition: service_healthy}
+    networks: [isolated]
+    environment:
+      JAVA_TOOL_OPTIONS: -XX:+UseContainerSupport -XX:+ExitOnOutOfMemoryError
+      PORT: 8080
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/missanye_perf
+      SPRING_DATASOURCE_USERNAME: perf
+      SPRING_DATASOURCE_PASSWORD: local-perf-only
+      JWT_SECRET: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+      JWT_COOKIE_SECURE: "false"
+      JWT_COOKIE_SAME_SITE: Lax
+      APP_CORS_ALLOWED_ORIGINS: http://127.0.0.1:18081
+      APP_ADMIN_SEED_ENABLED: "false"
+      APP_TENANT_CATALOG_BACKFILL: "false"
+      APP_DEMANDE_UNPAID_AUTO_CANCEL: "false"
+      APP_DEMANDE_UNPAID_REMINDER: "false"
+      APP_DEMANDE_CELEBRATION_REMINDER: "false"
+      APP_DEMANDE_CELEBRATION_AUTO: "false"
+      FEDAPAY_ENABLED: "false"
+      FEDAPAY_CALLBACK_BASE_URL: http://app:8080/not-used
+      SASPAY_ENABLED: "false"
+      SPRING_MAIL_HOST: ""
+      SPRING_AUTOCONFIGURE_EXCLUDE: org.springframework.boot.autoconfigure.mail.MailSenderAutoConfiguration
+      PLATFORM_SUBSCRIPTION_SWEEP_CRON: "-"
+      APP_STORAGE_ROOT: /tmp/perf-uploads
+      HIKARI_MAX_POOL_SIZE: "8"
+      HIKARI_MIN_IDLE: "2"
+      TOMCAT_MAX_THREADS: "40"
+      # All clients share the Docker generator's IP. Capacity tests isolate the app
+      # from IP throttling; rate limiting is verified separately with its defaults.
+      APP_RATE_LIMIT_ENABLED: "${PERF_RATE_LIMIT_ENABLED:-false}"
+    command:
+      - --management.endpoints.web.exposure.include=health,prometheus
+      - --management.metrics.distribution.percentiles-histogram.http.server.requests=true
+  k6:
+    image: grafana/k6:1.4.2
+    profiles: [load]
+    user: "0:0"
+    networks: [isolated]
+    volumes:
+      - .:/work
+    working_dir: /work
+    environment:
+      NO_PROXY: app,db,localhost,127.0.0.1
+      no_proxy: app,db,localhost,127.0.0.1
+      HTTP_PROXY: ""
+      HTTPS_PROXY: ""
+      ALL_PROXY: ""
+      BASE_URL: http://app:8080
+      PERF_ISOLATED: "yes"
+      LEVEL: "${LEVEL:-5}"
+      DURATION: "${DURATION:-45s}"
+      RUN_ID: "${RUN_ID:-baseline}"
+      WORKLOAD: "${WORKLOAD:-mixed}"
+    command: ["run", "load.js"]
+  probe:
+    image: python:3.12-alpine
+    profiles: [load]
+    networks: [isolated]
+    volumes: [".:/work"]
+    environment:
+      PERF_ISOLATED: "yes"
+      NO_PROXY: app,db,localhost,127.0.0.1
+      no_proxy: app,db,localhost,127.0.0.1
+      HTTP_PROXY: ""
+      HTTPS_PROXY: ""
+      ALL_PROXY: ""
+    command: ["python", "/work/sse_probe.py"]
+networks:
+  isolated:
+    internal: true

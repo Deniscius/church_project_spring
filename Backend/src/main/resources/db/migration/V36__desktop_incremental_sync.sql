@@ -27,7 +27,7 @@ BEGIN
 END $$;
 
 CREATE FUNCTION desktop_track_demand_change() RETURNS trigger LANGUAGE plpgsql AS $$
-DECLARE row_data jsonb; demand_key bigint; parish_key bigint; public_key uuid;
+DECLARE row_data jsonb; old_data jsonb; demand_key bigint; old_demand bigint; parish_key bigint; old_parish bigint; public_key uuid; old_public uuid;
 BEGIN
  IF TG_OP='UPDATE' AND NEW IS NOT DISTINCT FROM OLD THEN RETURN NEW; END IF;
  IF TG_OP='DELETE' THEN row_data=to_jsonb(OLD); ELSE row_data=to_jsonb(NEW); END IF;
@@ -45,6 +45,17 @@ BEGIN
      SELECT demande_id INTO demand_key FROM facture WHERE id=(row_data->>'facture_id')::bigint;
    ELSE demand_key=(row_data->>'demande_id')::bigint; END IF;
    SELECT paroisse_id,public_id INTO parish_key,public_key FROM demande WHERE id=demand_key;
+   IF TG_OP='UPDATE' THEN
+     old_data=to_jsonb(OLD);
+     IF TG_TABLE_NAME='details_paiement' THEN
+       SELECT demande_id INTO old_demand FROM facture WHERE id=(old_data->>'facture_id')::bigint;
+     ELSE old_demand=(old_data->>'demande_id')::bigint; END IF;
+     IF old_demand IS DISTINCT FROM demand_key THEN
+       SELECT paroisse_id,public_id INTO old_parish,old_public FROM demande WHERE id=old_demand;
+       PERFORM 1 FROM desktop_sync_clock WHERE parish_id IN (old_parish,parish_key) ORDER BY parish_id FOR UPDATE;
+       PERFORM desktop_record_demand_change(old_parish,old_public);
+     END IF;
+   END IF;
  END IF;
  PERFORM desktop_record_demand_change(parish_key,public_key);
  IF TG_OP='DELETE' THEN RETURN OLD; ELSE RETURN NEW; END IF;
@@ -54,27 +65,34 @@ CREATE TRIGGER desktop_date_change AFTER INSERT OR UPDATE OR DELETE ON demande_d
 CREATE TRIGGER desktop_invoice_change AFTER INSERT OR UPDATE OR DELETE ON facture FOR EACH ROW EXECUTE FUNCTION desktop_track_demand_change();
 CREATE TRIGGER desktop_payment_change AFTER INSERT OR UPDATE OR DELETE ON details_paiement FOR EACH ROW EXECUTE FUNCTION desktop_track_demand_change();
 
+CREATE FUNCTION desktop_catalogue_parish(mode text,row_data jsonb) RETURNS bigint LANGUAGE plpgsql AS $$
+DECLARE parish_key bigint;
+BEGIN
+ CASE mode
+ WHEN 'self' THEN parish_key=(row_data->>'id')::bigint;
+ WHEN 'type' THEN SELECT paroisse_id INTO parish_key FROM type_demande WHERE id=(row_data->>'type_demande_id')::bigint;
+ WHEN 'price' THEN SELECT d.paroisse_id INTO parish_key FROM forfait_tarif f JOIN type_demande d ON d.id=f.type_demande_id WHERE f.id=(row_data->>'forfait_tarif_id')::bigint;
+ ELSE parish_key=(row_data->>'paroisse_id')::bigint;
+ END CASE;
+ RETURN parish_key;
+END $$;
+
 CREATE FUNCTION desktop_track_catalogue_change() RETURNS trigger LANGUAGE plpgsql AS $$
-DECLARE row_data jsonb; parish_key bigint; category bigint;
+DECLARE row_data jsonb; parish_key bigint; old_parish bigint; new_parish bigint; category bigint;
 BEGIN
  IF TG_OP='UPDATE' AND NEW IS NOT DISTINCT FROM OLD THEN RETURN NEW; END IF;
  IF TG_OP='DELETE' THEN row_data=to_jsonb(OLD); ELSE row_data=to_jsonb(NEW); END IF;
  IF TG_ARGV[0]='global' THEN
    UPDATE desktop_global_clock SET revision=revision+1 WHERE id=1;
  ELSE
-   CASE TG_ARGV[0]
-   WHEN 'self' THEN
-     IF TG_OP='DELETE' THEN RETURN OLD; END IF;
-     parish_key=(row_data->>'id')::bigint;
-   WHEN 'type' THEN SELECT paroisse_id INTO parish_key FROM type_demande WHERE id=(row_data->>'type_demande_id')::bigint;
-   WHEN 'price' THEN SELECT d.paroisse_id INTO parish_key FROM forfait_tarif f JOIN type_demande d ON d.id=f.type_demande_id WHERE f.id=(row_data->>'forfait_tarif_id')::bigint;
-   ELSE parish_key=(row_data->>'paroisse_id')::bigint;
-   END CASE;
+   IF TG_ARGV[0]='self' AND TG_OP='DELETE' THEN RETURN OLD; END IF;
+   new_parish=desktop_catalogue_parish(TG_ARGV[0],row_data);
+   IF TG_OP='UPDATE' THEN old_parish=desktop_catalogue_parish(TG_ARGV[0],to_jsonb(OLD)); END IF;
    category=CASE WHEN TG_ARGV[1]='other' THEN 0 ELSE 1 END;
-   IF parish_key IS NOT NULL AND EXISTS(SELECT 1 FROM paroisse WHERE id=parish_key) THEN
+   FOR parish_key IN SELECT DISTINCT p FROM unnest(ARRAY[old_parish,new_parish]) p WHERE p IS NOT NULL AND EXISTS(SELECT 1 FROM paroisse WHERE id=p) ORDER BY p LOOP
      INSERT INTO desktop_sync_clock(parish_id,revision,catalogue_revision) VALUES(parish_key,1,category)
      ON CONFLICT(parish_id) DO UPDATE SET revision=desktop_sync_clock.revision+1,catalogue_revision=desktop_sync_clock.catalogue_revision+category;
-   END IF;
+   END LOOP;
  END IF;
  IF TG_OP='DELETE' THEN RETURN OLD; ELSE RETURN NEW; END IF;
 END $$;

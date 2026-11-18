@@ -17,6 +17,7 @@ import com.eyram.dev.church_project_spring.enums.StatutDemandeEnum;
 import com.eyram.dev.church_project_spring.enums.StatutPaiementEnum;
 import com.eyram.dev.church_project_spring.enums.StatutValidationEnum;
 import com.eyram.dev.church_project_spring.config.CacheConfig;
+import com.eyram.dev.church_project_spring.service.cache.ParishResponseCache;
 import com.eyram.dev.church_project_spring.config.DemandePaymentProperties;
 import com.eyram.dev.church_project_spring.mappers.DemandeMapper;
 import com.eyram.dev.church_project_spring.repositories.*;
@@ -36,9 +37,6 @@ import com.eyram.dev.church_project_spring.utils.exception.ResourceNotFoundExcep
 import com.eyram.dev.church_project_spring.utils.exception.TrackingIdNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.Cache;
-import org.springframework.cache.CacheManager;
-import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -109,14 +107,9 @@ public class DemandeServiceImpl implements DemandeService {
     private final DemandePaymentProperties demandePaymentProperties;
     private final Clock clock;
     private final AppMailService appMailService;
-    private final CacheManager cacheManager;
+    private final ParishResponseCache responseCache;
 
     @Override
-    @CacheEvict(cacheNames = {
-            CacheConfig.DASHBOARD_STATS,
-            CacheConfig.DASHBOARD_PROGRAMMES,
-            CacheConfig.DEMANDE_PAGES
-    }, allEntries = true)
     public DemandeResponse create(DemandeRequest request) {
 
         Paroisse paroisse = paroisseRepository.findByPublicIdAndStatusDelFalse(request.paroissePublicId())
@@ -211,11 +204,6 @@ public class DemandeServiceImpl implements DemandeService {
     }
 
     @Override
-    @CacheEvict(cacheNames = {
-            CacheConfig.DASHBOARD_STATS,
-            CacheConfig.DASHBOARD_PROGRAMMES,
-            CacheConfig.DEMANDE_PAGES
-    }, allEntries = true)
     public DemandeResponse update(UUID publicId, DemandeRequest request) {
 
         Demande existingDemande = demandeRepository.findByPublicIdAndStatusDelFalse(publicId)
@@ -358,11 +346,6 @@ public class DemandeServiceImpl implements DemandeService {
     }
 
     @Override
-    @CacheEvict(cacheNames = {
-            CacheConfig.DASHBOARD_STATS,
-            CacheConfig.DASHBOARD_PROGRAMMES,
-            CacheConfig.DEMANDE_PAGES
-    }, allEntries = true)
     public DemandeResponse updateIntention(UUID publicId, DemandeIntentionRequest request) {
         String intention = IntentionTextUtils.requireValid(request == null ? null : request.intention());
 
@@ -375,11 +358,6 @@ public class DemandeServiceImpl implements DemandeService {
     }
 
     @Override
-    @CacheEvict(cacheNames = {
-            CacheConfig.DASHBOARD_STATS,
-            CacheConfig.DASHBOARD_PROGRAMMES,
-            CacheConfig.DEMANDE_PAGES
-    }, allEntries = true)
     public DemandeResponse updateTypePaiementByCodeSuivie(String codeSuivie, UUID typePaiementPublicId) {
         if (codeSuivie == null || codeSuivie.isBlank()) {
             throw new BusinessRuleException("Le code de suivi est obligatoire");
@@ -422,11 +400,6 @@ public class DemandeServiceImpl implements DemandeService {
     }
 
     @Override
-    @CacheEvict(cacheNames = {
-            CacheConfig.DASHBOARD_STATS,
-            CacheConfig.DASHBOARD_PROGRAMMES,
-            CacheConfig.DEMANDE_PAGES
-    }, allEntries = true)
     public DemandeResponse updateValidation(UUID publicId, DemandeValidationRequest request) {
         if (request == null || request.statut() == null) {
             throw new BusinessRuleException("Le statut de validation est obligatoire");
@@ -603,11 +576,9 @@ public class DemandeServiceImpl implements DemandeService {
             return buildParoissePage(paroisse, safePage, safeSize, true);
         }
 
-        Cache cache = cacheManager.getCache(CacheConfig.DEMANDE_PAGES);
-        String cacheKey = paroissePublicId + ":" + safePage + ":" + safeSize;
-        return cache != null
-                ? cache.get(cacheKey, () -> buildParoissePage(paroisse, safePage, safeSize, false))
-                : buildParoissePage(paroisse, safePage, safeSize, false);
+        return responseCache.get(CacheConfig.DEMANDE_PAGES, paroisse,
+                "page:" + safePage + ":" + safeSize,
+                () -> buildParoissePage(paroisse, safePage, safeSize, false));
     }
 
     private PageResponse<DemandeResponse> buildParoissePage(
@@ -632,10 +603,8 @@ public class DemandeServiceImpl implements DemandeService {
         // Le contrôle tenant reste exécuté à chaque requête, y compris sur un cache hit.
         tenantAccessService.checkParoisseAccess(paroisse);
 
-        Cache cache = cacheManager.getCache(CacheConfig.DASHBOARD_STATS);
-        return cache != null
-                ? cache.get(paroissePublicId, () -> buildParoisseStats(paroisse))
-                : buildParoisseStats(paroisse);
+        return responseCache.get(CacheConfig.DASHBOARD_STATS, paroisse, "stats",
+                () -> buildParoisseStats(paroisse));
     }
 
     private DemandeParoisseStatsResponse buildParoisseStats(Paroisse paroisse) {
@@ -702,11 +671,6 @@ public class DemandeServiceImpl implements DemandeService {
     }
 
     @Override
-    @CacheEvict(cacheNames = {
-            CacheConfig.DASHBOARD_STATS,
-            CacheConfig.DASHBOARD_PROGRAMMES,
-            CacheConfig.DEMANDE_PAGES
-    }, allEntries = true)
     public void deleteByPublicId(UUID publicId) {
         Demande demande = demandeRepository.findByPublicIdAndStatusDelFalse(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Demande introuvable"));
@@ -737,11 +701,6 @@ public class DemandeServiceImpl implements DemandeService {
      * annulation automatique si toujours impayé à l'approche (H-6).
      */
     @Override
-    @CacheEvict(cacheNames = {
-            CacheConfig.DASHBOARD_STATS,
-            CacheConfig.DASHBOARD_PROGRAMMES,
-            CacheConfig.DEMANDE_PAGES
-    }, allEntries = true)
     public int cancelUnpaidApproachingCelebrations() {
         if (!demandePaymentProperties.isUnpaidAutoCancelEnabled()) {
             return 0;

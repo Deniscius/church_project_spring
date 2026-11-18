@@ -279,6 +279,9 @@ class ApplicationStartupSmokeTest {
                         new HttpEntity<>(headers),
                         String.class);
         assertThat(deniedRead.getStatusCode().value()).isIn(403,404);
+        for(String path:java.util.List.of("/demandes/paroisse/"+target.getPublicId()+"?page=0&size=20", "/demandes/paroisse/"+target.getPublicId()+"/stats")){
+            assertThat(restTemplate.exchange(path,HttpMethod.GET,new HttpEntity<>(headers),String.class).getStatusCode().value()).isIn(403,404);
+        }
         assertThat(
                         restTemplate
                                 .exchange(

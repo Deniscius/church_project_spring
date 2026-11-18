@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Operate only the named, internal Docker test project. Never accepts a remote URL."""
 import argparse
-import hashlib
 import json
 import math
 import os
@@ -73,11 +72,10 @@ def prepare():
     data = json.loads(fixture)
     assert data['marker'] == 'isolated-synthetic-only' and len(data['users']) == 20
     (PERF / 'fixture.json').write_text(json.dumps(data))
-    jar = ROOT / 'Backend/target/church_project_spring-0.0.1-SNAPSHOT.jar'
     metadata = {
         'commit': command(['git', 'rev-parse', 'HEAD'], capture_output=True).stdout.strip(),
         'backend_dirty': subprocess.run(['git', 'diff', '--quiet', '--', 'Backend'], cwd=ROOT).returncode != 0,
-        'jar_sha256': hashlib.sha256(jar.read_bytes()).hexdigest(),
+        'jar_sha256': command(COMPOSE + ['exec','-T','app','sha256sum','/app/application.jar'],capture_output=True).stdout.split()[0],
         'requested_resources': {'app_cpu': 1, 'app_memory_mib': 512, 'db_cpu': 0.5, 'db_memory_mib': 512, 'hikari_max': 8, 'tomcat_max': 40},
         'docker_warnings': resource_check(args.allow_shared_host),
         'initial_demands': int(sql("SELECT count(*) FROM demande WHERE code_suivie LIKE 'PERF-%'")),
@@ -91,6 +89,7 @@ def run_level(level, duration, run_id, workload):
     if sql('SELECT marker FROM perf_fixture') != 'isolated-synthetic-only': raise RuntimeError('Wrong database')
     warnings=resource_check(args.allow_shared_host)
     control={'docker_warnings':warnings,'entrypoint':json.loads(command(['docker','inspect',command(COMPOSE+['ps','-q','app'],capture_output=True).stdout.strip(),'--format','{{json .Config.Entrypoint}}'],capture_output=True).stdout),'actual_cgroup':command(COMPOSE+['exec','-T','app','sh','-c','cat /sys/fs/cgroup/cpu.max /sys/fs/cgroup/memory.max'],capture_output=True).stdout}
+    control['jar_sha256']=command(COMPOSE+['exec','-T','app','sha256sum','/app/application.jar'],capture_output=True).stdout.split()[0]
     control['cpu_ticks_per_second']=os.sysconf('SC_CLK_TCK')
     control['fixture_demands']=int(sql("SELECT count(*) FROM demande WHERE code_suivie LIKE 'PERF-%'"))
     (RESULTS/f'{run_id}-controls.json').write_text(json.dumps(control,indent=2))

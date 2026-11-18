@@ -1,11 +1,8 @@
 package com.eyram.dev.church_project_spring.service.desktop;
 
-import com.eyram.dev.church_project_spring.config.CacheConfig;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.CacheManager;
-import org.springframework.cache.caffeine.CaffeineCache;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -17,7 +14,6 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 @RequiredArgsConstructor
 public class ParishChangeStreams implements org.springframework.context.SmartLifecycle {
   private final DesktopRevisionService revisions;
-  private final CacheManager caches;
   private final Map<SseEmitter, Subscription> subscriptions = new ConcurrentHashMap<>();
   private volatile boolean running;
 
@@ -101,7 +97,6 @@ public class ParishChangeStreams implements org.springframework.context.SmartLif
         var subscription = entry.getValue();
         String revision = revisions.revision(subscription.parish);
         if (!revision.equals(subscription.revision)) {
-          invalidate(subscription.parish);
           entry.getKey().send(SseEmitter.event().name("revision").data(revision));
           subscription.revision = revision;
         } else entry.getKey().send(SseEmitter.event().comment("keep-alive"));
@@ -114,19 +109,4 @@ public class ParishChangeStreams implements org.springframework.context.SmartLif
     }
   }
 
-  private void invalidate(UUID parish) {
-    for (String name :
-        List.of(
-            CacheConfig.DEMANDE_PAGES,
-            CacheConfig.DASHBOARD_STATS,
-            CacheConfig.DASHBOARD_PROGRAMMES)) {
-      var cache = caches.getCache(name);
-      if (cache instanceof CaffeineCache caffeine)
-        caffeine
-            .getNativeCache()
-            .asMap()
-            .keySet()
-            .removeIf(key -> key.toString().contains(parish.toString()));
-    }
-  }
 }

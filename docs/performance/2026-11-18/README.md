@@ -115,3 +115,7 @@ Le load balancing ne doit donc pas être activé en production par simple duplic
 - [Graphique SVG](capacity.svg)
 
 Les sorties détaillées Prometheus, SQL et télémétrie restent dans `performance/results/` du workspace et sont ignorées par Git. Le banc est arrêté après les mesures. Aucun code fonctionnel du backend, du web ou du desktop n'est modifié par cette livraison documentaire.
+
+## Suivi
+
+Le [correctif des caches par paroisse et sa comparaison avant/après](cache-scope/README.md) traite la première priorité identifiée dans cet audit. Les mesures initiales ci-dessus restent la référence historique.

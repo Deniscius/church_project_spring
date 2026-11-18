@@ -1,0 +1,87 @@
+{
+  "baseline_source": "2242595574ba142319f25b2fdeda56289014659c",
+  "baseline_jar_sha256": "8d54059b1487222f538849bd366b533d936637384702da37cba8f696268dd252",
+  "patched_source": "fae3496",
+  "patched_jar_sha256": "ad73907ca16e68d2138b655f72c08af589017e0dd1bb2fafaa1c142b8ff3165b",
+  "note": "JAR de r\u00e9f\u00e9rence copi\u00e9 avant compilation du correctif ; signatures mont\u00e9es v\u00e9rifi\u00e9es. Jeux fictifs r\u00e9initialis\u00e9s entre les deux versions.",
+  "runs": {
+    "cache_before1": {
+      "docker_warnings": [
+        "WARNING: Running in rootless-mode without cgroups. Systemd is required to enable cgroups in rootless-mode."
+      ],
+      "entrypoint": [
+        "taskset",
+        "-c",
+        "0",
+        "java",
+        "-Xms128m",
+        "-Xmx384m",
+        "-XX:ActiveProcessorCount=1",
+        "-jar",
+        "/app/application.jar"
+      ],
+      "actual_cgroup": "200000 100000\n8589934592\n",
+      "cpu_ticks_per_second": 100,
+      "fixture_demands": 20000
+    },
+    "cache_before2": {
+      "docker_warnings": [
+        "WARNING: Running in rootless-mode without cgroups. Systemd is required to enable cgroups in rootless-mode."
+      ],
+      "entrypoint": [
+        "taskset",
+        "-c",
+        "0",
+        "java",
+        "-Xms128m",
+        "-Xmx384m",
+        "-XX:ActiveProcessorCount=1",
+        "-jar",
+        "/app/application.jar"
+      ],
+      "actual_cgroup": "200000 100000\n8589934592\n",
+      "cpu_ticks_per_second": 100,
+      "fixture_demands": 20000
+    },
+    "cache_after1": {
+      "docker_warnings": [
+        "WARNING: Running in rootless-mode without cgroups. Systemd is required to enable cgroups in rootless-mode."
+      ],
+      "entrypoint": [
+        "taskset",
+        "-c",
+        "0",
+        "java",
+        "-Xms128m",
+        "-Xmx384m",
+        "-XX:ActiveProcessorCount=1",
+        "-jar",
+        "/app/application.jar"
+      ],
+      "actual_cgroup": "200000 100000\n8589934592\n",
+      "jar_sha256": "ad73907ca16e68d2138b655f72c08af589017e0dd1bb2fafaa1c142b8ff3165b",
+      "cpu_ticks_per_second": 100,
+      "fixture_demands": 20000
+    },
+    "cache_after2": {
+      "docker_warnings": [
+        "WARNING: Running in rootless-mode without cgroups. Systemd is required to enable cgroups in rootless-mode."
+      ],
+      "entrypoint": [
+        "taskset",
+        "-c",
+        "0",
+        "java",
+        "-Xms128m",
+        "-Xmx384m",
+        "-XX:ActiveProcessorCount=1",
+        "-jar",
+        "/app/application.jar"
+      ],
+      "actual_cgroup": "200000 100000\n8589934592\n",
+      "jar_sha256": "ad73907ca16e68d2138b655f72c08af589017e0dd1bb2fafaa1c142b8ff3165b",
+      "cpu_ticks_per_second": 100,
+      "fixture_demands": 20000
+    }
+  }
+}

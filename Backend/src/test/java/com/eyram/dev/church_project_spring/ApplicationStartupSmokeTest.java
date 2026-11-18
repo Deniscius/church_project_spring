@@ -223,7 +223,7 @@ class ApplicationStartupSmokeTest {
         }
     }
 
-    private void assertTenantObjectIsolation(Paroisse target,String demandId)throws Exception{
+    private void assertTenantObjectIsolation(Paroisse target,String demandId,HttpHeaders adminHeaders)throws Exception{
         // Real cookie-authenticated HTTP requests: knowing another tenant's UUID grants no access.
         var other=new Paroisse();
         other.setNom("CI IDOR isolated parish");
@@ -258,6 +258,10 @@ class ApplicationStartupSmokeTest {
         headers.setOrigin("http://localhost:5173");
         headers.set("X-Requested-With", "XMLHttpRequest");
         headers.setContentType(MediaType.APPLICATION_JSON);
+        // Prime the target's real caches as an authorized user before the cross-tenant reads.
+        for(String path:java.util.List.of("/demandes/paroisse/"+target.getPublicId()+"?page=0&size=20", "/demandes/paroisse/"+target.getPublicId()+"/stats")){
+            assertThat(restTemplate.exchange(path,HttpMethod.GET,new HttpEntity<>(adminHeaders),String.class).getStatusCode().value()).isEqualTo(200);
+        }
         var allowed =
                 restTemplate.exchange(
                         "/desktop/paroisses/" + other.getPublicId() + "/receipt-branding",
@@ -459,7 +463,7 @@ class ApplicationStartupSmokeTest {
         cashHeaders.set("X-Requested-With", "XMLHttpRequest");
         cashHeaders.setContentType(MediaType.APPLICATION_JSON);
         String demandPublicId = created.path("publicId").asText();
-        assertTenantObjectIsolation(parish, demandPublicId);
+        assertTenantObjectIsolation(parish, demandPublicId,cashHeaders);
 
         assertThat(created.path("natureForfait").asText()).isEqualTo("NORMALE");
         assertThat(created.path("validationRequise").asBoolean()).isFalse();

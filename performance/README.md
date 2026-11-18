@@ -69,3 +69,7 @@ python3 performance/summarize.py
 ```
 
 Ajouter `--allow-shared-host` seulement si nécessaire et assumé. `plans.sql` observe la pagination et le delta avec EXPLAIN ANALYZE ; `index-experiment.sql` évalue un index candidat dans une transaction qui est ensuite annulée. Ne pas exécuter ces observations pendant un palier de charge. Aucun index de production n'est modifié.
+
+## Comparer deux versions du backend
+
+`PERF_JAR=/chemin/absolu/reference.jar` permet de monter une copie figée du backend en lecture seule, sans l'écraser en recompilant le correctif. Le définir lors de `prepare` et des commandes de mesure. Le banc enregistre le SHA-256 du JAR réellement monté. Réinitialiser les données entre les deux versions, conserver les mêmes contrôles JVM et le même préchauffage. Voir la comparaison datée dans `docs/performance/2026-11-18/cache-scope/`.

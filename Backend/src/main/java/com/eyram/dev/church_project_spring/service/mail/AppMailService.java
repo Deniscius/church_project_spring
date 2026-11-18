@@ -6,14 +6,12 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 /**
- * E-mails transactionnels.
- * En prod ({@code app.mail.fail-closed=true}) : absence de SMTP = échec (pas de log du corps).
- * En dev : journalisation sans secrets sensibles si possible.
+ * E-mails transactionnels : les OTP synchrones restent fail-closed en production.
+ * Les notifications différées sont conservées dans l'outbox, sans SMTP dans la transaction métier.
  */
 @Slf4j
 @Service
@@ -22,36 +20,26 @@ public class AppMailService {
     private final ObjectProvider<JavaMailSender> mailSender;
     private final String from;
     private final boolean failClosed;
+    private final MailOutbox outbox;
 
     public AppMailService(
             ObjectProvider<JavaMailSender> mailSender,
             @Value("${app.mail.from:noreply@missanye.com}") String from,
-            @Value("${app.mail.fail-closed:false}") boolean failClosed
+            @Value("${app.mail.fail-closed:false}") boolean failClosed,
+            MailOutbox outbox
     ) {
         this.mailSender = mailSender;
         this.from = from;
         this.failClosed = failClosed;
+        this.outbox = outbox;
     }
 
     public void sendText(String to, String subject, String body) {
         doSend(to, subject, body);
     }
 
-    @Async("mailExecutor")
     public void sendTextAsync(String to, String subject, String body) {
-        try {
-            doSend(to, subject, body);
-        } catch (BusinessRuleException ex) {
-            log.error("E-mail non envoyé (fail-closed) vers {}: {}", maskRecipient(to), ex.getMessage());
-            throw ex;
-        } catch (Exception ex) {
-            log.error("Échec envoi e-mail async vers {}: {}", maskRecipient(to), ex.getMessage());
-            if (failClosed) {
-                throw new BusinessRuleException(
-                        "Service e-mail indisponible. Réessayez plus tard ou contactez le support."
-                );
-            }
-        }
+        outbox.enqueue(to,subject,body);
     }
 
     private void doSend(String to, String subject, String body) {

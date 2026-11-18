@@ -4,6 +4,7 @@ import Sidebar from '../components/admin/Sidebar';
 import Topbar from '../components/admin/Topbar';
 import SubscriptionBanner from '../components/admin/SubscriptionBanner';
 import TenantInterventionBanner from '../components/admin/TenantInterventionBanner';
+import ParishChangesProvider from '../components/admin/ParishChangesProvider';
 
 export default function AdminLayout() {
   return (
@@ -17,7 +18,7 @@ export default function AdminLayout() {
         <main id="contenu-principal-admin" className="page-section">
           <TenantInterventionBanner />
           <SubscriptionBanner />
-          <Outlet />
+          <ParishChangesProvider><Outlet /></ParishChangesProvider>
         </main>
       </div>
     </div>

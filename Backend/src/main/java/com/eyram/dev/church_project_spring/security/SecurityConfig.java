@@ -98,6 +98,7 @@ public class SecurityConfig {
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(authEntryPointJwt))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        .dispatcherTypeMatchers(jakarta.servlet.DispatcherType.ASYNC).permitAll()
                         // Authentification et endpoints techniques publics
                         .requestMatchers("/auth/login", "/auth/login-multi-tenant",
                                 "/auth/forgot-password", "/auth/reset-password").permitAll()

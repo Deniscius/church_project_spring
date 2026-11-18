@@ -10,6 +10,7 @@ import { formatDate } from '../../../utils/formatDate';
 import { mapDemandeToRequestRow } from '../../../utils/apiMappers';
 import { usePermissions } from '../../../hooks/usePermissions';
 import { PERMISSIONS } from '../../../constants/roles';
+import { useParishRevision } from '../../../hooks/useParishRevision';
 import {
   useInvalidateParishDemandes,
   useParishDemandesPage,
@@ -41,6 +42,7 @@ function digitsOnly(value) {
 }
 
 export default function RequestsPage() {
+  const revision = useParishRevision();
   const { activeParish } = useTenant();
   const { has } = usePermissions();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -113,7 +115,7 @@ export default function RequestsPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [showDeletedOnly, activeParish?.id]);
+  }, [showDeletedOnly, activeParish?.id, revision]);
 
   const rows = useMemo(
     () => (data?.content || []).map(mapDemandeToRequestRow),

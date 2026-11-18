@@ -117,7 +117,7 @@ public class DemandeCelebrationLifecycleService {
 
     /**
      * Rappels J-1 (fidèle + paroisse) et H-2 (fidèle) pour intentions payées.
-     * @return nombre d'e-mails fidèles envoyés
+     * @return nombre d'e-mails fidèles mis en attente d'envoi
      */
     @Transactional
     public int sendUpcomingCelebrationReminders() {
@@ -239,8 +239,8 @@ public class DemandeCelebrationLifecycleService {
                 demande.getIntention() != null ? demande.getIntention() : "—",
                 suiviUrl
         );
-        appMailService.sendText(demande.getEmailFidele().trim(), subject, body);
-        log.info("Rappel célébration {} envoyé pour {} → {}",
+        appMailService.sendTextAsync(demande.getEmailFidele().trim(), subject, body);
+        log.info("Rappel célébration {} mis en attente d’envoi pour {} → {}",
                 h2 ? "H-2" : "J-1", demande.getCodeSuivie(), demande.getEmailFidele());
         return true;
     }
@@ -272,7 +272,7 @@ public class DemandeCelebrationLifecycleService {
                 demande.getIntention() != null ? demande.getIntention() : "—",
                 when
         );
-        appMailService.sendText(paroisse.getEmail().trim(), subject, body);
+        appMailService.sendTextAsync(paroisse.getEmail().trim(), subject, body);
     }
 
     private String publicBase() {

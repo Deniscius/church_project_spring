@@ -104,7 +104,7 @@ public final class LocalStore implements AutoCloseable {
     private void sharedAccess(String parish)throws Exception{
         if(!owner.equals(get("session").path("user").path("id").asText())||!WorkspaceBootstrap.allows(get("parishes"),parish)||!permits("demand:read"))throw new IllegalArgumentException("Vous n'avez pas accès à cet espace paroissial.");
     }
-    private boolean sharedName(String name){return parishJournal!=null&&(name.startsWith("entry:")||name.startsWith("local-receipt:")||name.equals("catalogue:"+journalParish)||name.equals("demands:"+journalParish));}
+    private boolean sharedName(String name){return parishJournal!=null&&(name.startsWith("entry:")||name.startsWith("local-receipt:")||name.equals("catalogue:"+journalParish)||name.equals("catalogue-revision:"+journalParish)||name.equals("demand-cursor:"+journalParish)||name.equals("demands:"+journalParish));}
     private String entryParish(JsonNode entry){return entry.path("parish").asText(entry.path("payload").path("paroissePublicId").asText(entry.path("localSnapshot").path("paroissePublicId").asText()));}
     private ObjectNode auditEntry(ObjectNode entry,JsonNode previous)throws Exception{
         var value=entry.deepCopy();var user=get("session").path("user");
@@ -123,6 +123,8 @@ public final class LocalStore implements AutoCloseable {
             var imports=new LinkedHashMap<String,JsonNode>();
             for(var entry:entries())if(parish.equals(entryParish(entry))&&shared.get("entry:"+entry.path("id").asText()).isNull())imports.put("entry:"+entry.path("id").asText(),auditEntry(entry,JSON.nullNode()).put("legacyImported",true).put("createdByRole",""));
             for(String prefix:List.of("catalogue:","demands:")){String name=prefix+parish;var value=get(name);if(!value.isNull()&&(freshData||shared.get(name).isNull()))imports.put(name,value);}
+            if(imports.containsKey("demands:"+parish))imports.put("demand-cursor:"+parish,JSON.getNodeFactory().numberNode(-1));
+            if(imports.containsKey("catalogue:"+parish))imports.put("catalogue-revision:"+parish,JSON.getNodeFactory().textNode(""));
             if(!imports.isEmpty())shared.writeAll(imports);
             journalParish=parish;parishJournal=shared;
         }catch(Exception failure){if(shared!=null)shared.close();throw failure;}finally{Arrays.fill(password,'\0');}
@@ -140,7 +142,7 @@ public final class LocalStore implements AutoCloseable {
         if(!owner.equals(session.path("user").path("id").asText())||!owner.equals(prepared.session().path("user").path("id").asText())||!WorkspaceBootstrap.allows(parishes,parish))throw new IllegalArgumentException("Cet espace n'est pas autorisé pour le compte connecté.");
         if(!completeCatalogue(prepared.catalogue())||!prepared.demands().isArray())throw new IllegalArgumentException("La préparation de la paroisse est incomplète. Réessayez en ligne.");
         var marker=JSON.createObjectNode().put("version",1).put("owner",owner).put("parish",parish).put("preparedAt",Instant.now().toString());
-        writeAll(Map.of("session",prepared.session(),"parishes",parishes,"catalogue:"+parish,prepared.catalogue(),"demands:"+parish,prepared.demands(),"ready:"+parish,marker,"selected-parish",JSON.getNodeFactory().textNode(parish)));
+        writeAll(Map.of("session",prepared.session(),"parishes",parishes,"catalogue:"+parish,prepared.catalogue(),"catalogue-revision:"+parish,JSON.getNodeFactory().textNode(""),"demands:"+parish,prepared.demands(),"demand-cursor:"+parish,JSON.getNodeFactory().numberNode(-1),"ready:"+parish,marker,"selected-parish",JSON.getNodeFactory().textNode(parish)));
     }
     public synchronized void selectWorkspace(String parish)throws Exception{
         if(!workspaceReady(parish))throw new IllegalArgumentException("Une connexion est nécessaire pour préparer cette paroisse sur ce poste.");

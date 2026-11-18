@@ -20,6 +20,9 @@ import java.util.UUID;
 
 public interface DemandeRepository extends JpaRepository<Demande, Long> {
 
+    @EntityGraph(attributePaths = {"paroisse", "typeDemande", "forfaitTarif", "horaire", "user", "typePaiement"})
+    List<Demande> findByParoisseAndPublicIdInAndStatusDelFalse(Paroisse paroisse, Collection<UUID> publicIds);
+
     Optional<Demande> findByPublicIdAndStatusDelFalse(UUID publicId);
 
     @Query("select d.publicId from Demande d where d.statusDel=false and (d.codeSuivie=:code or exists(select r.reference from DesktopTrackingReference r where r.demandePublicId=d.publicId and r.reference=:code))")

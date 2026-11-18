@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useParishRevision } from '../../../hooks/useParishRevision';
 import { Link, useParams } from 'react-router-dom';
 import PageHeader from '../../../components/ui/PageHeader';
 import AppCard from '../../../components/ui/AppCard';
@@ -16,10 +17,10 @@ import AppButton from '../../../components/ui/AppButton';
 import AppDialog from '../../../components/ui/AppDialog';
 import ReceiptPreviewButton from '../../../components/ui/ReceiptPreviewButton';
 
-const REQUEST_POLL_MS = 20_000;
 
 export default function RequestDetailsPage() {
   const { id } = useParams();
+  const revision = useParishRevision();
   const { has } = usePermissions();
   const [request, setRequest] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -115,35 +116,15 @@ export default function RequestDetailsPage() {
     };
   }, [id]);
 
-  // Une demande validée peut passer à TERMINEE par le job serveur après la
-  // dernière célébration. Rafraîchissement silencieux uniquement pendant cette
-  // phase ; le polling s'arrête automatiquement dès que le statut change.
+  // Changes are shared across the admin shell; never replace an intention draft.
   useEffect(() => {
-    if (!id || request?.statutDemande !== 'VALIDEE') return undefined;
-
+    if (!id || !revision || loading || editingIntention || savingIntention || validating || encaissing || confirmCaisse) return undefined;
     let cancelled = false;
-    const refresh = async () => {
-      try {
-        const data = await requestService.getById(id);
-        if (!cancelled) setRequest(data);
-      } catch {
-        // Le chargement initial gère les erreurs visibles. Un échec ponctuel de
-        // polling ne doit pas masquer l'écran ni provoquer une alerte répétitive.
-      }
-    };
-
-    const intervalId = window.setInterval(refresh, REQUEST_POLL_MS);
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') refresh();
-    };
-    document.addEventListener('visibilitychange', onVisibilityChange);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(intervalId);
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-    };
-  }, [id, request?.statutDemande]);
+    requestService.getById(id).then((data) => {
+      if (!cancelled) setRequest(data);
+    }).catch(() => { /* Keep the screen through a temporary outage. */ });
+    return () => { cancelled = true; };
+  }, [id, revision, loading, editingIntention, savingIntention, validating, encaissing, confirmCaisse]);
 
   const applicant = request
     ? formatFideleName(request.prenomFidele, request.nomFidele)

@@ -60,6 +60,67 @@ class ApplicationStartupSmokeTest {
     private static final String USERNAME = "ci-platform-admin";
     private static final String PASSWORD = "CiStrongPassword-2026!";
 
+    @Autowired private com.eyram.dev.church_project_spring.service.mail.MailOutbox mailOutbox;
+
+    @Test
+    void outboxInsertRollsBackWithBusinessTransaction() {
+        long before=jdbc.queryForObject("SELECT count(*) FROM mail_outbox",Long.class);
+        new org.springframework.transaction.support.TransactionTemplate(transactionManager).execute(status->{
+            mailOutbox.enqueue("rollback@example.test","Subject","Body");
+            status.setRollbackOnly();return null;
+        });
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM mail_outbox",Long.class)).isEqualTo(before);
+    }
+
+    @Test
+    void syncCursorSerializesConcurrentCommits() throws Exception {
+        long parish=jdbc.queryForObject("SELECT id FROM paroisse ORDER BY id LIMIT 1",Long.class);
+        var first=java.util.UUID.randomUUID();var second=java.util.UUID.randomUUID();
+        var held=new java.util.concurrent.CountDownLatch(1);var commit=new java.util.concurrent.CountDownLatch(1);
+        var pool=java.util.concurrent.Executors.newFixedThreadPool(2);
+        try{
+            var one=pool.submit(()->new org.springframework.transaction.support.TransactionTemplate(transactionManager).execute(status->{
+                jdbc.queryForObject("SELECT desktop_record_demand_change(?,?)",String.class,parish,first);
+                long cursor=jdbc.queryForObject("SELECT revision FROM desktop_sync_clock WHERE parish_id=?",Long.class,parish);
+                held.countDown();try{if(!commit.await(5,java.util.concurrent.TimeUnit.SECONDS))throw new IllegalStateException("test timeout");}catch(InterruptedException e){throw new IllegalStateException(e);}return cursor;
+            }));
+            assertThat(held.await(5,java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            var two=pool.submit(()->new org.springframework.transaction.support.TransactionTemplate(transactionManager).execute(status->{
+                jdbc.queryForObject("SELECT desktop_record_demand_change(?,?)",String.class,parish,second);
+                return jdbc.queryForObject("SELECT revision FROM desktop_sync_clock WHERE parish_id=?",Long.class,parish);
+            }));
+            org.junit.jupiter.api.Assertions.assertThrows(java.util.concurrent.TimeoutException.class,()->two.get(150,java.util.concurrent.TimeUnit.MILLISECONDS));
+            commit.countDown();
+            assertThat(two.get(5,java.util.concurrent.TimeUnit.SECONDS)).isGreaterThan(one.get(5,java.util.concurrent.TimeUnit.SECONDS));
+        }finally{
+            commit.countDown();pool.shutdownNow();
+            jdbc.update("DELETE FROM desktop_demand_change WHERE demand_public_id IN (?,?)",first,second);
+        }
+    }
+
+    @Test
+    @org.springframework.transaction.annotation.Transactional
+    void mailOutboxEncryptsRetriesAndErasesDeliveredPayload() throws Exception {
+        mailOutbox.enqueue("outbox@example.test","Test","private-token-not-in-cleartext");
+        var id=jdbc.queryForObject("SELECT id FROM mail_outbox ORDER BY created_at DESC LIMIT 1",java.util.UUID.class);
+        byte[] payload=jdbc.queryForObject("SELECT payload FROM mail_outbox WHERE id=?",byte[].class,id);
+        assertThat(new String(payload,StandardCharsets.ISO_8859_1)).doesNotContain("private-token","outbox@example.test");
+        var first=mailOutbox.claim().stream().filter(m->m.id().equals(id)).findFirst().orElseThrow();
+        assertThat(mailOutbox.decode(first).body()).isEqualTo("private-token-not-in-cleartext");
+        var forged=new com.eyram.dev.church_project_spring.service.mail.MailOutbox.Claimed(java.util.UUID.randomUUID(),first.payload(),first.attempts(),first.token());
+        org.junit.jupiter.api.Assertions.assertThrows(javax.crypto.AEADBadTagException.class,()->mailOutbox.decode(forged));
+        assertThat(mailOutbox.claim()).noneMatch(m->m.id().equals(id));
+        mailOutbox.failed(first,new IllegalStateException("sensitive-provider-error"));
+        assertThat(jdbc.queryForObject("SELECT last_error FROM mail_outbox WHERE id=?",String.class,id)).isEqualTo("IllegalStateException");
+        jdbc.update("UPDATE mail_outbox SET available_at=CURRENT_TIMESTAMP-INTERVAL '1 minute' WHERE id=?",id);
+        var retry=mailOutbox.claim().stream().filter(m->m.id().equals(id)).findFirst().orElseThrow();
+        assertThat(retry.attempts()).isEqualTo(2);
+        mailOutbox.sent(first); // A previous lease cannot acknowledge a newer attempt.
+        assertThat(jdbc.queryForObject("SELECT state FROM mail_outbox WHERE id=?",String.class,id)).isEqualTo("SENDING");
+        mailOutbox.sent(retry);
+        assertThat(jdbc.queryForObject("SELECT payload FROM mail_outbox WHERE id=?",byte[].class,id)).isNull();
+    }
+
     @Autowired
     private TestRestTemplate restTemplate;
     @Autowired
@@ -117,6 +178,49 @@ class ApplicationStartupSmokeTest {
                                 Long.class,
                                 id))
                 .isZero();
+    }
+
+    private void assertIncrementalSync(Paroisse parish,String demandId,HttpHeaders headers)throws Exception{
+        String base="/desktop/paroisses/"+parish.getPublicId();
+        var state=restTemplate.exchange(base+"/sync/state",HttpMethod.GET,new HttpEntity<>(headers),String.class);
+        assertThat(state.getStatusCode().value()).isEqualTo(200);
+        long cursor=objectMapper.readTree(state.getBody()).path("cursor").asLong();
+        var changes=restTemplate.exchange(base+"/sync/changes?after=0",HttpMethod.GET,new HttpEntity<>(headers),String.class);
+        assertThat(changes.getStatusCode().value()).isEqualTo(200);
+        var feed=objectMapper.readTree(changes.getBody());
+        assertThat(feed.path("upserts").findValuesAsText("publicId")).contains(demandId);
+        assertThat(feed.path("upserts").findValuesAsText("statutPaiement")).contains("PAYE");
+        var synthetic=new java.util.ArrayList<java.util.UUID>();
+        try{
+            new org.springframework.transaction.support.TransactionTemplate(transactionManager).execute(status->{
+                for(int i=0;i<101;i++){
+                    var id=java.util.UUID.randomUUID();synthetic.add(id);
+                    jdbc.queryForObject("SELECT desktop_record_demand_change(?,?)",String.class,parish.getId(),id);
+                }
+                return null;
+            });
+            var pageOne=objectMapper.readTree(restTemplate.exchange(base+"/sync/changes?after="+cursor,HttpMethod.GET,new HttpEntity<>(headers),String.class).getBody());
+            assertThat(pageOne.path("deleted").size()).isEqualTo(100);
+            assertThat(pageOne.path("hasMore").asBoolean()).isTrue();
+            var pageTwo=objectMapper.readTree(restTemplate.exchange(base+"/sync/changes?after="+pageOne.path("cursor").asLong(),HttpMethod.GET,new HttpEntity<>(headers),String.class).getBody());
+            assertThat(pageTwo.path("deleted").size()).isEqualTo(1);
+            assertThat(pageTwo.path("hasMore").asBoolean()).isFalse();
+        }finally{synthetic.forEach(id->jdbc.update("DELETE FROM desktop_demand_change WHERE demand_public_id=?",id));}
+        try{
+            jdbc.update("UPDATE demande SET status_del=true WHERE public_id=?",java.util.UUID.fromString(demandId));
+            var removed=restTemplate.exchange(base+"/sync/changes?after="+cursor,HttpMethod.GET,new HttpEntity<>(headers),String.class);
+            assertThat(removed.getStatusCode().value()).isEqualTo(200);
+            assertThat(objectMapper.readTree(removed.getBody()).path("deleted").toString()).contains(demandId);
+        }finally{jdbc.update("UPDATE demande SET status_del=false WHERE public_id=?",java.util.UUID.fromString(demandId));}
+        var request=java.net.http.HttpRequest.newBuilder(java.net.URI.create(restTemplate.getRootUri()+base+"/events"))
+            .header("Cookie",headers.getFirst(HttpHeaders.COOKIE)).header("Accept","text/event-stream").timeout(java.time.Duration.ofSeconds(10)).build();
+        var response=java.net.http.HttpClient.newHttpClient().send(request,java.net.http.HttpResponse.BodyHandlers.ofInputStream());
+        assertThat(response.statusCode()).isEqualTo(200);
+        try(var reader=new java.io.BufferedReader(new java.io.InputStreamReader(response.body(),StandardCharsets.UTF_8))){
+            var event=new StringBuilder();String line;
+            while((line=reader.readLine())!=null&&!line.isEmpty())event.append(line).append('\n');
+            assertThat(event.toString()).contains("event:revision","data:").doesNotContain("nomFidele");
+        }
     }
 
     private void assertTenantObjectIsolation(Paroisse target,String demandId)throws Exception{
@@ -186,6 +290,11 @@ class ApplicationStartupSmokeTest {
                                 .value())
                 .isIn(403, 404);
         var deniedWrite =
+                restTemplate.exchange("/desktop/paroisses/"+target.getPublicId()+"/sync/changes?after=0",HttpMethod.GET,new HttpEntity<>(headers),String.class);
+        assertThat(deniedWrite.getStatusCode().value()).isIn(403,404);
+        assertThat(restTemplate.exchange("/desktop/paroisses/"+target.getPublicId()+"/sync/state",HttpMethod.GET,new HttpEntity<>(headers),String.class).getStatusCode().value()).isIn(403,404);
+        assertThat(restTemplate.exchange("/desktop/paroisses/"+target.getPublicId()+"/events",HttpMethod.GET,new HttpEntity<>(headers),String.class).getStatusCode().value()).isIn(403,404);
+        deniedWrite =
                 restTemplate.exchange(
                         "/demandes/" + demandId + "/intention",
                         HttpMethod.PATCH,
@@ -363,6 +472,7 @@ class ApplicationStartupSmokeTest {
         );
 
         assertThat(cashPayment.getStatusCode().is2xxSuccessful()).isTrue();
+        assertIncrementalSync(parish,demandPublicId,cashHeaders);
         JsonNode paid = objectMapper.readTree(cashPayment.getBody());
         assertThat(paid.path("statutPaiement").asText()).isEqualTo("PAYE");
         assertThat(paid.path("modePaiement").asText()).isEqualTo("ESPECES");

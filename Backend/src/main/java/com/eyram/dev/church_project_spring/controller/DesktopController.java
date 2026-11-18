@@ -27,7 +27,7 @@ public class DesktopController {
     }
     @GetMapping("/capabilities")
     @PreAuthorize("isAuthenticated()")
-    public java.util.Map<String,Integer> capabilities() { return java.util.Map.of("parishJournalVersion",1); }
+    public java.util.Map<String,Integer> capabilities() { return java.util.Map.of("parishJournalVersion",1,"demandDeltaVersion",1); }
     @PostMapping("/operations")
     @PreAuthorize("isAuthenticated()")
     public JsonNode execute(@Valid @RequestBody DesktopOperationService.Operation operation) throws Exception {

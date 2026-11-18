@@ -86,11 +86,59 @@ public final class SyncService {
     private void invalidConfirmation()throws IOException{throw new IOException("Confirmation du service invalide : l'opération reste en attente avec son identifiant initial.");}
     /** Replace only after every page succeeds; confirmation overlays survive a failed refresh. */
     public JsonNode refresh(String parish) throws Exception {
-        verifySession();var rows=WorkspaceBootstrap.demands(api,parish);if(!active.getAsBoolean())throw new InterruptedException("Transmission interrompue");store.put("demands:"+parish,rows);
+        verifySession();
+        JsonNode state=syncState(parish);
+        var saved=store.get("demand-cursor:"+parish);
+        JsonNode rows;
+        long cursor=-1;
+        if(state!=null&&saved.isIntegralNumber()&&saved.asLong()>=0&&saved.asLong()<=state.path("cursor").asLong()&&store.get("demands:"+parish).isArray()){
+            cursor=saved.asLong();
+            var merged=new LinkedHashMap<String,JsonNode>();
+            for(var row:store.get("demands:"+parish))merged.put(row.path("publicId").asText(),row);
+            for(int page=0;;page++){
+                if(!active.getAsBoolean())throw new InterruptedException("Transmission interrompue");
+                var delta=api.get("desktop/paroisses/"+parish+"/sync/changes?after="+cursor);
+                long next=delta.path("cursor").asLong(-1);
+                if(!delta.path("cursor").isIntegralNumber()||next<cursor||!delta.path("hasMore").isBoolean()||!delta.path("upserts").isArray()||!delta.path("deleted").isArray()||(delta.path("hasMore").asBoolean()&&next==cursor))throw new IOException("Synchronisation incrémentale incomplète");
+                for(var row:delta.path("upserts")){
+                    String id=row.path("publicId").asText();UUID.fromString(id);
+                    if(!parish.equals(row.path("paroissePublicId").asText()))throw new IOException("Paroisse de synchronisation invalide");
+                    merged.put(id,row);
+                }
+                for(var id:delta.path("deleted")){UUID.fromString(id.asText());merged.remove(id.asText());}
+                cursor=next;
+                if(!delta.path("hasMore").asBoolean())break;
+                if(page>=9999)throw new IOException("Pagination trop importante");
+            }
+            var result=json.createArrayNode();merged.values().forEach(result::add);rows=result;
+        }else{
+            // Capture the cursor BEFORE the snapshot: concurrent writes are replayed next time.
+            cursor=state==null?-1:state.path("cursor").asLong();
+            rows=WorkspaceBootstrap.demands(api,parish);
+        }
+        if(!active.getAsBoolean())throw new InterruptedException("Transmission interrompue");
+        store.writeAll(Map.of("demands:"+parish,rows,"demand-cursor:"+parish,json.getNodeFactory().numberNode(cursor)));
         if(store.workspaceReady(parish))store.selectWorkspace(parish);return rows;
     }
     public void catalogue(String parish)throws Exception{
-        verifySession();var catalogue=WorkspaceBootstrap.catalogue(api,parish);if(!active.getAsBoolean())throw new InterruptedException("Transmission interrompue");store.put("catalogue:"+parish,catalogue);
+        verifySession();var state=syncState(parish);
+        String revision=state==null?"":state.path("catalogue").asText();
+        var retained=store.get("catalogue:"+parish);
+        if(!revision.isBlank()&&revision.equals(store.get("catalogue-revision:"+parish).asText())&&retained.path("types").isArray()&&retained.path("horaires").isArray()&&retained.path("paiements").isArray()&&retained.path("forfaits").isObject())return;
+        var catalogue=WorkspaceBootstrap.catalogue(api,parish);if(!active.getAsBoolean())throw new InterruptedException("Transmission interrompue");
+        var updates=new LinkedHashMap<String,JsonNode>();
+        updates.put("catalogue:"+parish,catalogue);updates.put("catalogue-revision:"+parish,json.getNodeFactory().textNode(revision));
+        // Demand responses contain schedule/type labels: refresh their projections once after a catalogue edit.
+        if(!revision.equals(store.get("catalogue-revision:"+parish).asText()))updates.put("demand-cursor:"+parish,json.getNodeFactory().numberNode(-1));
+        store.writeAll(updates);
+    }
+    private JsonNode syncState(String parish)throws Exception{
+        UUID.fromString(parish);
+        try{
+            var state=api.get("desktop/paroisses/"+parish+"/sync/state");
+            if(!state.path("cursor").isIntegralNumber()||state.path("cursor").asLong()<0||state.path("catalogue").asText().isBlank())throw new IOException("État de synchronisation invalide");
+            return state;
+        }catch(ApiClient.ApiException old){if(old.status()==404||old.status()==405)return null;throw old;}
     }
     public record ReceiptDownload(byte[] bytes,boolean cached){}
     public ReceiptDownload receiptDownload(String code,boolean online)throws Exception{

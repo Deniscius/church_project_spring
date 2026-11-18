@@ -11,6 +11,22 @@ import java.util.concurrent.Executor;
 @EnableAsync
 public class AsyncConfig {
 
+    @Bean(name = "parishStreamScheduler")
+    public org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler parishStreamScheduler() {
+        var scheduler = new org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler();
+        scheduler.setPoolSize(1);
+        scheduler.setThreadNamePrefix("parish-events-");
+        return scheduler;
+    }
+
+    @Bean(name = "mailOutboxScheduler")
+    public org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler mailOutboxScheduler() {
+        var scheduler = new org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler();
+        scheduler.setPoolSize(1);
+        scheduler.setThreadNamePrefix("mail-outbox-");
+        return scheduler;
+    }
+
     @Bean(name = "mailExecutor")
     public Executor mailExecutor() {
         return build("mail-", 2, 8, 200);

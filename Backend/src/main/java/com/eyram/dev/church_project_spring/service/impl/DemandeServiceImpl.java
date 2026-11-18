@@ -911,8 +911,8 @@ public class DemandeServiceImpl implements DemandeService {
                 suiviUrl
         );
 
-        appMailService.sendText(demande.getEmailFidele().trim(), subject, body);
-        log.info("Rappel impayé envoyé pour la demande {}", demande.getCodeSuivie());
+        appMailService.sendTextAsync(demande.getEmailFidele().trim(), subject, body);
+        log.info("Rappel impayé mis en attente d’envoi pour la demande {}", demande.getCodeSuivie());
     }
 
     private void cancelDemande(Demande demande, String deletedByNom) {
@@ -1520,6 +1520,17 @@ public class DemandeServiceImpl implements DemandeService {
      * Enrichit une liste de demandes en 3 requêtes batch (dates, factures, détails)
      * au lieu de 3×N requêtes individuelles.
      */
+    @Override
+    @Transactional(readOnly = true)
+    public List<DemandeResponse> getSyncChanges(UUID parishId, java.util.Collection<UUID> publicIds) {
+        var parish = paroisseRepository.findByPublicIdAndStatusDelFalse(parishId)
+                .orElseThrow(() -> new ResourceNotFoundException("Paroisse introuvable"));
+        tenantAccessService.checkParoisseAccess(parish);
+        if (publicIds.isEmpty()) return List.of();
+        if (publicIds.size() > 100) throw new IllegalArgumentException("Lot trop important");
+        return buildDemandeResponses(demandeRepository.findByParoisseAndPublicIdInAndStatusDelFalse(parish, publicIds));
+    }
+
     private List<DemandeResponse> buildDemandeResponses(List<Demande> demandes) {
         if (demandes == null || demandes.isEmpty()) {
             return List.of();

@@ -14,6 +14,8 @@ import java.util.UUID;
 
 public interface DemandeService {
 
+    List<DemandeResponse> getSyncChanges(UUID paroissePublicId, java.util.Collection<UUID> publicIds);
+
     DemandeResponse create(DemandeRequest request);
 
     DemandeResponse update(UUID publicId, DemandeRequest request);

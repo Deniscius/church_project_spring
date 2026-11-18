@@ -26,7 +26,7 @@ public class ParishResponseCache {
 
   private record Version(long parish, long global) {}
 
-  private record Key(UUID parish, Version version, String query) {}
+  private record Key(UUID parish, Version version, String parishName, String query) {}
 
   public <T> T get(String name, Paroisse parish, String query, Supplier<T> loader) {
     if (!NAMES.contains(name)) throw new IllegalArgumentException("Cache paroissial inconnu");
@@ -48,6 +48,9 @@ public class ParishResponseCache {
             parish.getId());
     // An in-flight reader may finish after a commit, but can only fill its old key.
     // TTL and maximumSize reclaim old namespaces; no global clear or key scan is needed.
-    return cache.get(new Key(parish.getPublicId(), version, query), loader::get);
+    // The parish was resolved before the revision read. Its label may still be an
+    // older JPA snapshot during a concurrent rename; never pin that label to the
+    // namespace used by a later request that has resolved the new parish name.
+    return cache.get(new Key(parish.getPublicId(), version, parish.getNom(), query), loader::get);
   }
 }

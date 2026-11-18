@@ -69,6 +69,7 @@ class ParishResponseCacheIntegrationTest {
   private Paroisse parish(String name) {
     var parish = new Paroisse();
     parish.setPublicId(UUID.randomUUID());
+    parish.setNom(name);
     parish.setId(
         jdbc.queryForObject(
             """
@@ -169,6 +170,18 @@ class ParishResponseCacheIntegrationTest {
       assertThat(read(cache, type, a, () -> name(a))).isEqualTo("Shared " + type);
       assertThat(read(otherNode, type, a, () -> name(a))).isEqualTo("Shared " + type);
     }
+  }
+
+  @Test
+  void aConcurrentParishRenameCannotPinTheOldLabelToTheNewRevision() {
+    new TransactionTemplate(transactions).executeWithoutResult(status -> rename(a, "New label"));
+    // A request that resolved its parish before the commit still holds its old label.
+    assertThat(read(cache, CacheConfig.DASHBOARD_STATS, a, a::getNom)).isEqualTo("Cache A");
+    var fresh = new Paroisse();
+    fresh.setId(a.getId());
+    fresh.setPublicId(a.getPublicId());
+    fresh.setNom(name(a));
+    assertThat(read(cache, CacheConfig.DASHBOARD_STATS, fresh, fresh::getNom)).isEqualTo("New label");
   }
 
   @Test

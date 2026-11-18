@@ -12,7 +12,7 @@ Le serveur vérifie les révisions toutes les 15 secondes, envoie un heartbeat e
 
 Les caches existants de listes et de tableaux de bord sont conservés. Une notification invalide les entrées de la paroisse concernée avant le rechargement web. Leurs TTL restent le filet de sécurité pour les lecteurs sans flux SSE. Les contrôles d'accès précèdent toujours la lecture des données et du cache.
 
-## Desktop 0.2.3
+## Desktop 0.2.3 et 0.2.4
 
 Les commandes hors ligne et leurs UUID stables sont conservés. Les conflits et rejets métier restent visibles et ne sont pas réessayés sous de nouveaux identifiants.
 
@@ -21,7 +21,7 @@ Deux endpoints, réservés à `demand:read` et contrôlés par paroisse, complè
 - `/desktop/paroisses/{id}/sync/state` : curseur et révision du catalogue ;
 - `/desktop/paroisses/{id}/sync/changes?after=N` : au plus 100 demandes modifiées, les UUID supprimés, le prochain curseur et `hasMore`.
 
-Le premier chargement reste complet. Son curseur est lu **avant** le chargement pour que toute modification concurrente soit rejouée au passage suivant. Les suivants fusionnent les seules modifications, y compris les suppressions. Toutes les pages doivent réussir avant la sauvegarde atomique du résultat et du curseur dans le coffre local chiffré. Une interruption ou une réponse incohérente conserve la copie précédente.
+Le premier chargement reste complet. Son curseur est lu **avant** le chargement pour que toute modification concurrente soit rejouée au passage suivant. Les suivants fusionnent les seules modifications, y compris les suppressions. Depuis 0.2.4, les lignes et leur curseur sont aussi lus dans un même instantané SQLite, y compris dans le coffre partagé entre comptes. Toutes les pages doivent réussir avant la sauvegarde atomique du résultat et du curseur dans le coffre local chiffré. Une interruption ou une réponse incohérente conserve la copie précédente.
 
 Les compteurs sont sérialisés par paroisse jusqu'au commit : un changement ne peut pas être validé tardivement derrière un curseur déjà lu. Le journal conserve seulement la dernière révision par demande, ce qui borne sa taille au nombre de demandes modifiées, plutôt qu'au nombre d'éditions. Les changements de dates, de facture et de paiement rendent la demande concernée visible dans ce journal. Les suppressions physiques restent représentées par un UUID sans contenu.
 
@@ -39,7 +39,7 @@ SMTP peut accepter un message puis couper la connexion avant l'accusé de récep
 
 ## Exploitation
 
-Les migrations Flyway V36 et V37 s'appliquent avec le backend avant diffusion du desktop. Le workflow Windows publie automatiquement la version 0.2.3 après fusion sur master ; le site et la recherche de mise à jour existants suivent la dernière release.
+Les migrations Flyway V36 et V37 s'appliquent avec le backend avant diffusion du desktop. Le workflow Windows publie automatiquement la version 0.2.4 après fusion sur master ; le site et la recherche de mise à jour existants suivent la dernière release.
 
 Réglages facultatifs : `PARISH_STREAM_DELAY_MS` (15000), `MAIL_OUTBOX_DELAY_MS` (10000), `MAIL_OUTBOX_KEY`. Conserver les timeouts SMTP bornés déjà configurés. Suivre les erreurs `E-mail différé non envoyé` et, via un accès administratif à PostgreSQL, les compteurs `SELECT state,count(*) FROM mail_outbox GROUP BY state`. La file ne prétend pas que l'e-mail a été livré au moment où l'opération métier est enregistrée.
 

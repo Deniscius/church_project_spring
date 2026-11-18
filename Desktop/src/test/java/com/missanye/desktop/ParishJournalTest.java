@@ -24,6 +24,32 @@ class ParishJournalTest {
     private void attach(LocalStore store,String parish)throws Exception{
         var credentials=new DeviceCredentials(directory.resolve("identities"),DeviceCredentialsTest.testProtector());store.attachParishJournal(parish,credentials.parishKey(server,parish),false);
     }
+    @Test void concurrentAccountsAlwaysReadMatchingDemandRowsAndCursor()throws Exception{
+        try(var writer=account("writer",parish,"demand:read");var reader=account("reader",parish,"demand:read")){
+            attach(writer,parish);attach(reader,parish);
+            var initial=json.createArrayNode().addObject().put("revision",0);
+            writer.writeAll(java.util.Map.of("demands:"+parish,json.createArrayNode().add(initial),"demand-cursor:"+parish,json.getNodeFactory().numberNode(0)));
+            var pool=java.util.concurrent.Executors.newSingleThreadExecutor();
+            try{
+                var future=pool.submit(()->{
+                    try{
+                        for(int version=1;version<=200;version++){
+                            var rows=json.createArrayNode();rows.addObject().put("revision",version);
+                            writer.writeAll(java.util.Map.of("demands:"+parish,rows,"demand-cursor:"+parish,json.getNodeFactory().numberNode(version)));
+                        }
+                    }catch(Exception e){throw new RuntimeException(e);}
+                });
+                int reads=0;
+                do{
+                    var snapshot=reader.demandSnapshot(parish);
+                    assertEquals(snapshot.cursor().asInt(),snapshot.rows().path(0).path("revision").asInt());
+                    reads++;
+                }while(!future.isDone()||reads<50);
+                future.get(10,java.util.concurrent.TimeUnit.SECONDS);
+                assertEquals(200,reader.demandSnapshot(parish).cursor().asInt());
+            }finally{pool.shutdownNow();}
+        }
+    }
     @Test void tenantWorkflowIsSharedAcrossRolesAndKeepsIndividualAuthors()throws Exception{
         String id;
         try(var secretary=account("secretary",parish,"demand:read","demand:edit")){

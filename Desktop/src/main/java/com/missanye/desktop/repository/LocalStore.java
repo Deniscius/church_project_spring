@@ -221,6 +221,24 @@ public final class LocalStore implements AutoCloseable {
             s.setString(1,scope);s.setString(2,name);try(var r=s.executeQuery()){return r.next()?JSON.readTree(decrypt(name,r.getBytes(1))):JSON.nullNode();}
         }
     }
+
+    public record DemandSnapshot(JsonNode rows,JsonNode cursor){}
+    /** A single SQLite SELECT sees the rows and cursor from the same committed snapshot. */
+    public synchronized DemandSnapshot demandSnapshot(String parish)throws Exception{
+        if(parishJournal!=null&&parish.equals(journalParish)){sharedAccess(parish);return parishJournal.demandSnapshot(parish);}
+        JsonNode rows=JSON.nullNode(),cursor=JSON.nullNode();
+        String dataName="demands:"+parish,cursorName="demand-cursor:"+parish;
+        try(var c=connect();var query=c.prepareStatement("SELECT name,value FROM vault_data WHERE scope=? AND name IN (?,?)")){
+            query.setString(1,scope);query.setString(2,dataName);query.setString(3,cursorName);
+            try(var values=query.executeQuery()){
+                while(values.next()){
+                    String name=values.getString(1);JsonNode value=JSON.readTree(decrypt(name,values.getBytes(2)));
+                    if(name.equals(dataName))rows=value;else cursor=value;
+                }
+            }
+        }
+        return new DemandSnapshot(rows,cursor);
+    }
     public synchronized List<ObjectNode> entries() throws Exception {
         if(parishJournal!=null){sharedAccess(journalParish);return parishJournal.entries();}
         var result=new ArrayList<ObjectNode>();

@@ -88,13 +88,14 @@ public final class SyncService {
     public JsonNode refresh(String parish) throws Exception {
         verifySession();
         JsonNode state=syncState(parish);
-        var saved=store.get("demand-cursor:"+parish);
+        var snapshot=store.demandSnapshot(parish);
+        var saved=snapshot.cursor();
         JsonNode rows;
         long cursor=-1;
-        if(state!=null&&saved.isIntegralNumber()&&saved.asLong()>=0&&saved.asLong()<=state.path("cursor").asLong()&&store.get("demands:"+parish).isArray()){
+        if(state!=null&&saved.isIntegralNumber()&&saved.asLong()>=0&&saved.asLong()<=state.path("cursor").asLong()&&snapshot.rows().isArray()){
             cursor=saved.asLong();
             var merged=new LinkedHashMap<String,JsonNode>();
-            for(var row:store.get("demands:"+parish))merged.put(row.path("publicId").asText(),row);
+            for(var row:snapshot.rows())merged.put(row.path("publicId").asText(),row);
             for(int page=0;;page++){
                 if(!active.getAsBoolean())throw new InterruptedException("Transmission interrompue");
                 var delta=api.get("desktop/paroisses/"+parish+"/sync/changes?after="+cursor);

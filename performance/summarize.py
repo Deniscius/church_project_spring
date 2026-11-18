@@ -60,6 +60,6 @@ if __name__=='__main__':
     output=Path(args.output);output.parent.mkdir(parents=True,exist_ok=True);output.write_text(json.dumps(rows,indent=2))
     fields=['run','level','http_requests','http_rps_including_setup','http_error_rate','max_read_p95_ms','create_p95_ms','rss_peak_mib','process_cpu_mean_pct_after_10s','hikari_pending_max_observed','thresholds_pass']
     with output.with_suffix('.csv').open('w') as target:
-        writer=csv.DictWriter(target,fieldnames=fields,extrasaction='ignore');writer.writeheader();writer.writerows(rows)
+        writer=csv.DictWriter(target,fieldnames=fields,extrasaction='ignore',lineterminator='\n');writer.writeheader();writer.writerows(rows)
     for row in rows:
         print(row['run'],'p95 read=',round(row['max_read_p95_ms']), 'create=',round(row['create_p95_ms'] or 0), 'RSS MiB=',round(row['rss_peak_mib'],1),'errors=',row['http_error_rate'])

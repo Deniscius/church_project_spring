@@ -12,6 +12,8 @@ Le serveur vérifie les révisions toutes les 15 secondes, envoie un heartbeat e
 
 Les caches de listes, statistiques et programmations utilisent des clés versionnées par les compteurs PostgreSQL de la paroisse et des référentiels globaux. Chaque lecture vérifie la version après les contrôles d'accès : une écriture validée change uniquement l'espace de cache concerné, y compris entre plusieurs JVM. Les écritures et les rollbacks ne publient pas de DTO non validés. Une ancienne lecture en cours ne peut remplir que son ancienne clé ; TTL et taille maximale éliminent ces anciennes versions. Le flux SSE signale le changement au web sans parcourir ni vider les caches serveur.
 
+Les statistiques conservent le total des impayés proches mais limitent leur aperçu à cinq demandes. Leur liste complète est paginée en PostgreSQL, avec des lignes légères et une taille bornée, via `/demandes/paroisse/{id}/impayees-proches`. Le web affiche dix lignes par page et invalide ce cache avec les autres demandes. Voir [le contrat et les vérifications](performance/2026-11-19/dashboard-unpaid-pagination.md).
+
 ## Desktop 0.2.3 et 0.2.4
 
 Les commandes hors ligne et leurs UUID stables sont conservés. Les conflits et rejets métier restent visibles et ne sont pas réessayés sous de nouveaux identifiants.

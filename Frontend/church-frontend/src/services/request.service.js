@@ -60,6 +60,13 @@ export const requestService = {
     );
   },
 
+  getUnpaidApproaching: (paroissePublicId, { page = 0, size = 10, signal } = {}) =>
+    apiClient(
+      `/demandes/paroisse/${paroissePublicId}/impayees-proches?${new URLSearchParams({ page, size })}`,
+      {},
+      { auth: true, signal }
+    ),
+
   getParishStats: (paroissePublicId, options = {}) =>
     apiClient(`/demandes/paroisse/${paroissePublicId}/stats`, {}, { auth: true, signal: options.signal }),
 

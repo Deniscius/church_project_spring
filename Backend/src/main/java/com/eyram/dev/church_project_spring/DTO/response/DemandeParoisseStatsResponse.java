@@ -11,6 +11,7 @@ public record DemandeParoisseStatsResponse(
         List<DemandeResponse> recentes,
         /** Demandes non payées dont la 1ère célébration est dans les 3 jours. */
         long impayeesProchesCelebration,
+        /** Aperçu borné aux 5 demandes les plus urgentes ; total dans impayeesProchesCelebration. */
         List<DemandeResponse> impayeesProches
 ) {
 }

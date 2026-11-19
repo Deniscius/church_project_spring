@@ -11,6 +11,7 @@ export const parishDemandeKeys = {
     includeDeleted ? 'with-deleted' : 'active',
     search || 'no-search',
   ],
+  unpaid: (parishId, page, size) => [...parishDemandeKeys.all(parishId), 'unpaid', page, size],
   stats: (parishId) => [...parishDemandeKeys.all(parishId), 'stats'],
 };
 
@@ -49,6 +50,15 @@ export function useParishDemandesPage(
     enabled: Boolean(parishId),
     staleTime: 60_000,
     placeholderData: keepPreviousData,
+  });
+}
+
+export function useParishUnpaidApproaching(parishId, page = 0, size = 10) {
+  return useQuery({
+    queryKey: parishDemandeKeys.unpaid(parishId, page, size),
+    queryFn: ({ signal }) => requestService.getUnpaidApproaching(parishId, { page, size, signal }),
+    enabled: Boolean(parishId),
+    staleTime: 20_000,
   });
 }
 

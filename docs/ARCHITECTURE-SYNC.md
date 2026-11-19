@@ -10,7 +10,7 @@ Le web ouvre une seule connexion SSE par espace administratif vers `/desktop/par
 
 Le serveur vérifie les révisions toutes les 15 secondes, envoie un heartbeat et limite les flux à 128 par instance, quatre par compte. Les flux sont fermés avant l'arrêt gracieux du serveur. Le navigateur ferme le flux lorsque l'onglet est masqué ou hors ligne ; en cas d'échec, il utilise une lecture de révision de secours à intervalle d'une minute et tente de reconnecter le flux après 30 secondes. Les autres pages publiques conservent leur comportement actuel.
 
-Les caches existants de listes et de tableaux de bord sont conservés. Une notification invalide les entrées de la paroisse concernée avant le rechargement web. Leurs TTL restent le filet de sécurité pour les lecteurs sans flux SSE. Les contrôles d'accès précèdent toujours la lecture des données et du cache.
+Les caches de listes, statistiques et programmations utilisent des clés versionnées par les compteurs PostgreSQL de la paroisse et des référentiels globaux. Chaque lecture vérifie la version après les contrôles d'accès : une écriture validée change uniquement l'espace de cache concerné, y compris entre plusieurs JVM. Les écritures et les rollbacks ne publient pas de DTO non validés. Une ancienne lecture en cours ne peut remplir que son ancienne clé ; TTL et taille maximale éliminent ces anciennes versions. Le flux SSE signale le changement au web sans parcourir ni vider les caches serveur.
 
 ## Desktop 0.2.3 et 0.2.4
 

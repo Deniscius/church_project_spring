@@ -18,7 +18,7 @@ services:
     image: eclipse-temurin:17-jre-jammy
     entrypoint: ["taskset", "-c", "${PERF_APP_CPU:-0}", "java", "-Xms128m", "-Xmx${PERF_HEAP_MB:-384}m", "-XX:ActiveProcessorCount=1", "-jar", "/app/application.jar"]
     volumes:
-      - ../Backend/target/church_project_spring-0.0.1-SNAPSHOT.jar:/app/application.jar:ro
+      - ${PERF_JAR:-../Backend/target/church_project_spring-0.0.1-SNAPSHOT.jar}:/app/application.jar:ro
     cpus: 1.0
     mem_limit: 512m
     depends_on:

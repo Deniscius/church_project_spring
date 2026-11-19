@@ -2,6 +2,7 @@ package com.eyram.dev.church_project_spring.service.impl;
 
 import com.eyram.dev.church_project_spring.DTO.response.UpcomingCelebrationResponse;
 import com.eyram.dev.church_project_spring.config.CacheConfig;
+import com.eyram.dev.church_project_spring.service.cache.ParishResponseCache;
 import com.eyram.dev.church_project_spring.entities.Demande;
 import com.eyram.dev.church_project_spring.entities.DemandeDate;
 import com.eyram.dev.church_project_spring.entities.Horaire;
@@ -17,9 +18,6 @@ import com.eyram.dev.church_project_spring.utils.FideleNameUtils;
 import com.eyram.dev.church_project_spring.utils.exception.BusinessRuleException;
 import com.eyram.dev.church_project_spring.utils.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.Cache;
-import org.springframework.cache.CacheManager;
-import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,7 +30,6 @@ import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.UUID;
-import java.util.function.Supplier;
 
 @Service
 @RequiredArgsConstructor
@@ -47,7 +44,7 @@ public class DashboardProgrammeServiceImpl implements DashboardProgrammeService 
     private final HoraireService horaireService;
     private final TenantAccessService tenantAccessService;
     private final Clock clock;
-    private final CacheManager cacheManager;
+    private final ParishResponseCache responseCache;
 
     @Override
     @Transactional(readOnly = true)
@@ -60,7 +57,7 @@ public class DashboardProgrammeServiceImpl implements DashboardProgrammeService 
 
         String cacheKey = "upcoming:" + paroissePublicId + ":" + safeDays + ":"
                 + now.truncatedTo(ChronoUnit.MINUTES);
-        return cached(CacheConfig.DASHBOARD_PROGRAMMES, cacheKey, () ->
+        return responseCache.get(CacheConfig.DASHBOARD_PROGRAMMES, paroisse, cacheKey, () ->
                 demandeDateRepository.findUpcomingByParoisse(
                                 paroisse,
                                 debut,
@@ -86,7 +83,7 @@ public class DashboardProgrammeServiceImpl implements DashboardProgrammeService 
 
         String cacheKey = "past:" + paroissePublicId + ":" + safeDays + ":"
                 + now.truncatedTo(ChronoUnit.MINUTES);
-        return cached(CacheConfig.DASHBOARD_PROGRAMMES, cacheKey, () ->
+        return responseCache.get(CacheConfig.DASHBOARD_PROGRAMMES, paroisse, cacheKey, () ->
                 demandeDateRepository.findPastByParoisse(
                                 paroisse,
                                 debut,
@@ -112,7 +109,7 @@ public class DashboardProgrammeServiceImpl implements DashboardProgrammeService 
 
         String cacheKey = "day:" + paroissePublicId + ":" + date + ":"
                 + now.truncatedTo(ChronoUnit.MINUTES);
-        return cached(CacheConfig.DASHBOARD_PROGRAMMES, cacheKey, () ->
+        return responseCache.get(CacheConfig.DASHBOARD_PROGRAMMES, paroisse, cacheKey, () ->
                 demandeDateRepository.findProgrammeByParoisseAndDate(
                                 paroisse,
                                 date,
@@ -127,10 +124,6 @@ public class DashboardProgrammeServiceImpl implements DashboardProgrammeService 
 
     @Override
     @Transactional
-    @CacheEvict(cacheNames = {
-            CacheConfig.DASHBOARD_STATS,
-            CacheConfig.DASHBOARD_PROGRAMMES
-    }, allEntries = true)
     public UpcomingCelebrationResponse updateSchedule(
             UUID paroissePublicId,
             UUID demandeDatePublicId,
@@ -196,11 +189,6 @@ public class DashboardProgrammeServiceImpl implements DashboardProgrammeService 
 
         DemandeDate saved = demandeDateRepository.save(row);
         return toResponse(saved, now);
-    }
-
-    private <T> T cached(String cacheName, Object key, Supplier<T> loader) {
-        Cache cache = cacheManager.getCache(cacheName);
-        return cache != null ? cache.get(key, loader::get) : loader.get();
     }
 
     private Paroisse requireParoisse(UUID paroissePublicId) {

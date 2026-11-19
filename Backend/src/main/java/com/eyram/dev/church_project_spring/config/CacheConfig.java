@@ -13,7 +13,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Cache applicatif à TTL (Caffeine).
- * Prêt pour bascule Redis multi-pods via spring.cache.type=redis plus tard.
+ * Les réponses paroissiales utilisent des clés versionnées par les compteurs PostgreSQL.
  */
 @Configuration
 @EnableCaching

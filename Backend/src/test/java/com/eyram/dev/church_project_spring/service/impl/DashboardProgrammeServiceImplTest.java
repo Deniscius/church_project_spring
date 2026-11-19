@@ -16,6 +16,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.springframework.cache.CacheManager;
+import org.springframework.jdbc.core.JdbcTemplate;
+import com.eyram.dev.church_project_spring.service.cache.ParishResponseCache;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Clock;
@@ -58,7 +60,7 @@ class DashboardProgrammeServiceImplTest {
                 horaireService,
                 tenantAccessService,
                 clock,
-                cacheManager
+                new ParishResponseCache(cacheManager, org.mockito.Mockito.mock(JdbcTemplate.class))
         );
     }
 

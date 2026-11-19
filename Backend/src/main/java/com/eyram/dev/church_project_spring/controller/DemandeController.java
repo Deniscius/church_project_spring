@@ -9,6 +9,7 @@ import com.eyram.dev.church_project_spring.DTO.response.DemandeParoisseStatsResp
 import com.eyram.dev.church_project_spring.DTO.response.DemandePublicResponse;
 import com.eyram.dev.church_project_spring.DTO.response.DemandeResponse;
 import com.eyram.dev.church_project_spring.DTO.response.PageResponse;
+import com.eyram.dev.church_project_spring.DTO.response.UnpaidApproachingResponse;
 import com.eyram.dev.church_project_spring.DTO.response.TrackingByPhoneResponse;
 import com.eyram.dev.church_project_spring.enums.StatutDemandeEnum;
 import com.eyram.dev.church_project_spring.service.DemandeReceiptService;
@@ -128,6 +129,16 @@ public class DemandeController {
             @RequestParam(defaultValue = "true") boolean includeDeleted
     ) {
         return ResponseEntity.ok(demandeService.getAllPaged(page, size, includeDeleted));
+    }
+
+    @GetMapping("/paroisse/{paroissePublicId}/impayees-proches")
+    @PreAuthorize("hasAuthority('dashboard:view')")
+    public ResponseEntity<PageResponse<UnpaidApproachingResponse>> getUnpaidApproachingPage(
+            @PathVariable UUID paroissePublicId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        return ResponseEntity.ok(demandeService.getUnpaidApproachingPage(paroissePublicId, page, size));
     }
 
     @GetMapping("/paroisse/{paroissePublicId}/stats")

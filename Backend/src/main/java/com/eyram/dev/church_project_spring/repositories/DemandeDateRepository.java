@@ -182,33 +182,6 @@ public interface DemandeDateRepository extends JpaRepository<DemandeDate, Long> 
     );
 
     /**
-     * Même fenêtre, limitée à une paroisse (alerte dashboard admin local).
-     */
-    @Query("""
-            SELECT dd FROM DemandeDate dd
-            JOIN FETCH dd.demande d
-            LEFT JOIN FETCH d.horaire
-            LEFT JOIN FETCH d.typeDemande
-            LEFT JOIN FETCH d.forfaitTarif
-            WHERE dd.statusDel = false
-              AND d.statusDel = false
-              AND d.paroisse = :paroisse
-              AND dd.ordre = 1
-              AND dd.dateCelebration >= :minDate
-              AND dd.dateCelebration <= :maxDate
-              AND d.statutPaiement <> :statutPaye
-              AND d.statutDemande IN :statutsDemande
-            ORDER BY dd.dateCelebration ASC
-            """)
-    List<DemandeDate> findFirstCelebrationsUnpaidForReminderByParoisse(
-            @Param("paroisse") Paroisse paroisse,
-            @Param("minDate") LocalDate minDate,
-            @Param("maxDate") LocalDate maxDate,
-            @Param("statutPaye") StatutPaiementEnum statutPaye,
-            @Param("statutsDemande") Collection<StatutDemandeEnum> statutsDemande
-    );
-
-    /**
      * Créneaux payés / validés non encore célébrés, dans une fenêtre de dates
      * (rappels J-1 / H-2 ou auto-complétion après l'heure).
      */

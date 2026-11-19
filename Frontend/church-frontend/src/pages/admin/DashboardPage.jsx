@@ -15,6 +15,7 @@ import { WEEK_DAY_LABELS } from '../../constants/enums';
 import { isCelebrationSlotAvailable } from '../../utils/schedulingUtils';
 import { ROUTES, routePath } from '../../constants/routes';
 import { formatFideleName } from '../../utils/personName';
+import DashboardUnpaidRequests from '../../components/admin/DashboardUnpaidRequests';
 import './DashboardPage.css';
 
 const UPCOMING_DAYS = 14;
@@ -100,16 +101,7 @@ export default function DashboardPage() {
     validated: data?.validees ?? 0,
     impayeesProches: data?.impayeesProchesCelebration ?? 0,
   };
-  const unpaidAlert = (data?.impayeesProches || []).map((d) => ({
-    id: d.publicId,
-    trackingCode: d.codeSuivie,
-    applicant: formatFideleName(d.prenomFidele, d.nomFidele),
-    requestType: d.typeDemandeLibelle || '—',
-    firstDate: Array.isArray(d.datesCelebration) && d.datesCelebration.length
-      ? d.datesCelebration[0]
-      : null,
-    montant: d.montant,
-  }));
+  const urgentRequestId = data?.impayeesProches?.[0]?.publicId;
   const recent = (data?.recentes || []).map((d) => ({
     id: d.publicId,
     trackingCode: d.codeSuivie,
@@ -157,8 +149,8 @@ export default function DashboardPage() {
               <Link className="btn btn-primary btn-sm" to={`${ROUTES.REQUESTS}?paiement=NON_PAYE`}>
                 Traiter les demandes
               </Link>
-              {unpaidAlert[0]?.id ? (
-                <Link className="btn btn-secondary btn-sm" to={`/admin/demandes/${unpaidAlert[0].id}`}>
+              {urgentRequestId ? (
+                <Link className="btn btn-secondary btn-sm" to={`/admin/demandes/${urgentRequestId}`}>
                   Voir la plus urgente
                 </Link>
               ) : null}
@@ -334,41 +326,7 @@ export default function DashboardPage() {
         ) : null}
       </AppCard>
 
-      {unpaidAlert.length > 0 ? (
-        <AppCard
-          title="Célébrations non payées"
-          subtitle="Priorité : régulariser avant la première date de célébration."
-        >
-          <div className="table-card">
-            <table className="app-table">
-              <thead>
-                <tr>
-                  <th>Code</th>
-                  <th>Demandeur</th>
-                  <th>Type</th>
-                  <th>1ère célébration</th>
-                </tr>
-              </thead>
-              <tbody>
-                {unpaidAlert.map((item) => (
-                  <tr key={item.id} className="unpaid-alert-row">
-                    <td data-label="Code">
-                      <Link to={`/admin/demandes/${item.id}`}>{item.trackingCode}</Link>
-                    </td>
-                    <td data-label="Demandeur">{item.applicant}</td>
-                    <td data-label="Type">{item.requestType}</td>
-                    <td data-label="1ère célébration">
-                      <span className="unpaid-alert-date">
-                        {item.firstDate ? formatProgrammeDate(item.firstDate) : '—'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </AppCard>
-      ) : null}
+      <DashboardUnpaidRequests key={activeParish?.id || 'none'} parishId={activeParish?.id} />
 
       <AppCard
         title="Programme des messes"

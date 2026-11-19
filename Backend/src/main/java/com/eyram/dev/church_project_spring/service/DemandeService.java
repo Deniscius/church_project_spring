@@ -6,6 +6,7 @@ import com.eyram.dev.church_project_spring.DTO.request.DemandeValidationRequest;
 import com.eyram.dev.church_project_spring.DTO.response.DemandeParoisseStatsResponse;
 import com.eyram.dev.church_project_spring.DTO.response.DemandeResponse;
 import com.eyram.dev.church_project_spring.DTO.response.PageResponse;
+import com.eyram.dev.church_project_spring.DTO.response.UnpaidApproachingResponse;
 import com.eyram.dev.church_project_spring.DTO.response.TrackingByPhoneResponse;
 import com.eyram.dev.church_project_spring.enums.StatutDemandeEnum;
 
@@ -63,6 +64,8 @@ public interface DemandeService {
     );
 
     DemandeParoisseStatsResponse getParoisseStats(UUID paroissePublicId);
+
+    PageResponse<UnpaidApproachingResponse> getUnpaidApproachingPage(UUID paroissePublicId, int page, int size);
 
     List<DemandeResponse> getByParoisseAndStatut(UUID paroissePublicId, StatutDemandeEnum statutDemande);
 

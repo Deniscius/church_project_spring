@@ -259,7 +259,7 @@ class ApplicationStartupSmokeTest {
         headers.set("X-Requested-With", "XMLHttpRequest");
         headers.setContentType(MediaType.APPLICATION_JSON);
         // Prime the target's real caches as an authorized user before the cross-tenant reads.
-        for(String path:java.util.List.of("/demandes/paroisse/"+target.getPublicId()+"?page=0&size=20", "/demandes/paroisse/"+target.getPublicId()+"/stats")){
+        for(String path:java.util.List.of("/demandes/paroisse/"+target.getPublicId()+"?page=0&size=20", "/demandes/paroisse/"+target.getPublicId()+"/stats", "/demandes/paroisse/"+target.getPublicId()+"/impayees-proches?page=0&size=10")){
             assertThat(restTemplate.exchange(path,HttpMethod.GET,new HttpEntity<>(adminHeaders),String.class).getStatusCode().value()).isEqualTo(200);
         }
         var allowed =
@@ -283,7 +283,7 @@ class ApplicationStartupSmokeTest {
                         new HttpEntity<>(headers),
                         String.class);
         assertThat(deniedRead.getStatusCode().value()).isIn(403,404);
-        for(String path:java.util.List.of("/demandes/paroisse/"+target.getPublicId()+"?page=0&size=20", "/demandes/paroisse/"+target.getPublicId()+"/stats")){
+        for(String path:java.util.List.of("/demandes/paroisse/"+target.getPublicId()+"?page=0&size=20", "/demandes/paroisse/"+target.getPublicId()+"/stats", "/demandes/paroisse/"+target.getPublicId()+"/impayees-proches?page=0&size=10")){
             assertThat(restTemplate.exchange(path,HttpMethod.GET,new HttpEntity<>(headers),String.class).getStatusCode().value()).isIn(403,404);
         }
         assertThat(

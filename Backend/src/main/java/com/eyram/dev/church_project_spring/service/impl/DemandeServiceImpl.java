@@ -8,6 +8,7 @@ import com.eyram.dev.church_project_spring.DTO.response.CelebrationSlotResponse;
 import com.eyram.dev.church_project_spring.DTO.response.DemandeParoisseStatsResponse;
 import com.eyram.dev.church_project_spring.DTO.response.DemandeResponse;
 import com.eyram.dev.church_project_spring.DTO.response.PageResponse;
+import com.eyram.dev.church_project_spring.DTO.response.UnpaidApproachingResponse;
 import com.eyram.dev.church_project_spring.DTO.response.TrackingByPhoneResponse;
 import com.eyram.dev.church_project_spring.entities.*;
 import com.eyram.dev.church_project_spring.enums.JourSemaine;
@@ -100,6 +101,7 @@ public class DemandeServiceImpl implements DemandeService {
     private final FactureRepository factureRepository;
     private final DetailsPaiementRepository detailsPaiementRepository;
     private final DemandeDateRepository demandeDateRepository;
+    private final DashboardUnpaidRepository dashboardUnpaidRepository;
     private final TenantAccessService tenantAccessService;
     private final DemandeSchedulingPolicy demandeSchedulingPolicy;
     private final DemandePaymentEligibilityService demandePaymentEligibilityService;
@@ -617,7 +619,14 @@ public class DemandeServiceImpl implements DemandeService {
         // Pas de Page ici : Top5 évite le COUNT(*) automatique inutile au dashboard.
         List<Demande> recentesEntities =
                 demandeRepository.findTop5ByParoisseAndStatusDelFalseOrderByCreatedAtDesc(paroisse);
-        List<Demande> impayeesEntities = listUnpaidApproachingForParoisse(paroisse);
+        // Preserve the legacy preview for existing clients, but never enrich the full backlog.
+        PageResponse<UnpaidApproachingResponse> unpaid = buildUnpaidApproachingPage(paroisse, 0, 5);
+        List<UUID> unpaidIds = unpaid.content().stream().map(UnpaidApproachingResponse::publicId).toList();
+        Map<UUID, Demande> unpaidById = unpaidIds.isEmpty() ? Map.of()
+                : demandeRepository.findByParoisseAndPublicIdInAndStatusDelFalse(paroisse, unpaidIds)
+                    .stream().collect(Collectors.toMap(Demande::getPublicId, demande -> demande));
+        List<Demande> impayeesEntities = unpaidIds.stream().map(unpaidById::get)
+                .filter(Objects::nonNull).toList();
 
         // Les deux widgets partagent le même enrichissement batch (dates, factures, paiements).
         List<Demande> demandesAEnrichir = new ArrayList<>(recentesEntities);
@@ -652,7 +661,7 @@ public class DemandeServiceImpl implements DemandeService {
                 stats.getValidees() != null ? stats.getValidees() : 0L,
                 stats.getVolumeMontant() != null ? stats.getVolumeMontant() : BigDecimal.ZERO,
                 recentes,
-                impayeesProches.size(),
+                unpaid.totalElements(),
                 impayeesProches
         );
     }
@@ -793,31 +802,26 @@ public class DemandeServiceImpl implements DemandeService {
         return sent;
     }
 
-    private List<Demande> listUnpaidApproachingForParoisse(Paroisse paroisse) {
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<UnpaidApproachingResponse> getUnpaidApproachingPage(
+            UUID paroissePublicId, int page, int size) {
+        Paroisse paroisse = paroisseRepository.findByPublicIdAndStatusDelFalse(paroissePublicId)
+                .orElseThrow(() -> new ResourceNotFoundException("Paroisse introuvable"));
+        // Check on every request, including a warm cache hit.
+        tenantAccessService.checkParoisseAccess(paroisse);
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 100);
+        return responseCache.get(CacheConfig.DASHBOARD_STATS, paroisse,
+                "unpaid:" + safePage + ":" + safeSize,
+                () -> buildUnpaidApproachingPage(paroisse, safePage, safeSize));
+    }
+
+    private PageResponse<UnpaidApproachingResponse> buildUnpaidApproachingPage(
+            Paroisse paroisse, int page, int size) {
         LocalDateTime now = LocalDateTime.now(clock);
         int daysBefore = Math.max(1, demandePaymentProperties.getUnpaidReminderDaysBefore());
-        LocalDateTime windowEnd = now.plusDays(daysBefore);
-
-        List<DemandeDate> rows = demandeDateRepository.findFirstCelebrationsUnpaidForReminderByParoisse(
-                paroisse,
-                now.toLocalDate(),
-                windowEnd.toLocalDate(),
-                StatutPaiementEnum.PAYE,
-                EnumSet.of(StatutDemandeEnum.EN_ATTENTE, StatutDemandeEnum.VALIDEE)
-        );
-
-        List<Demande> result = new ArrayList<>();
-        for (DemandeDate firstDate : rows) {
-            Demande demande = firstDate.getDemande();
-            if (demande == null || Boolean.TRUE.equals(demande.getStatusDel())) {
-                continue;
-            }
-            LocalDateTime celebrationAt = resolveCelebrationAt(demande, firstDate);
-            if (!celebrationAt.isBefore(now) && !celebrationAt.isAfter(windowEnd)) {
-                result.add(demande);
-            }
-        }
-        return result;
+        return dashboardUnpaidRepository.findUpcoming(paroisse.getId(), now, now.plusDays(daysBefore), page, size);
     }
 
     private LocalDateTime resolveCelebrationAt(Demande demande, DemandeDate firstDate) {

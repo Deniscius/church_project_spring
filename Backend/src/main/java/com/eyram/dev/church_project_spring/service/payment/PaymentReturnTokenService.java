@@ -14,7 +14,7 @@ import java.time.Instant;
 import java.util.Base64;
 
 /**
- * Jetons opaques pour les URL de retour paiement (FedaPay) :
+ * Jetons opaques pour les URL de retour paiement SasPay :
  * le code de suivi n'apparaît pas en clair dans la barre d'adresse.
  */
 @Service

@@ -393,7 +393,7 @@ public class DemandeServiceImpl implements DemandeService {
         }
 
         demande.setTypePaiement(typePaiement);
-        // Un changement de mode invalide une session FedaPay en cours.
+        // Le changement de mode remet le statut local en attente de nouveau règlement.
         if (demande.getStatutPaiement() == StatutPaiementEnum.EN_ATTENTE) {
             demande.setStatutPaiement(StatutPaiementEnum.NON_PAYE);
         }

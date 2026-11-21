@@ -80,7 +80,7 @@ public class PublicRateLimitFilter extends OncePerRequestFilter {
         String path = request.getRequestURI() == null ? "" : request.getRequestURI();
         String method = request.getMethod() == null ? "" : request.getMethod().toUpperCase();
 
-        if ("POST".equals(method) && (path.contains("/webhooks/fedapay") || path.contains("/webhooks/saspay"))) {
+        if ("POST".equals(method) && path.contains("/webhooks/saspay")) {
             return properties.webhookPerMinute();
         }
         if ("POST".equals(method) && (path.endsWith("/demandes") || path.endsWith("/demandes/"))) {
@@ -127,7 +127,7 @@ public class PublicRateLimitFilter extends OncePerRequestFilter {
     private static String bucketName(HttpServletRequest request) {
         String path = request.getRequestURI() == null ? "" : request.getRequestURI();
         String method = request.getMethod() == null ? "GET" : request.getMethod();
-        if ((path.contains("/webhooks/fedapay") || path.contains("/webhooks/saspay"))) return "webhook";
+        if (path.contains("/webhooks/saspay")) return "webhook";
         if (path.contains("/demandes") && "POST".equalsIgnoreCase(method) && !path.contains("/suivi")) {
             return "demande-create";
         }

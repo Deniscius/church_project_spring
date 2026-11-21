@@ -77,7 +77,7 @@ public class ParoisseAbonnement extends BaseEntity {
     @Column(name = "activated_at")
     private LocalDateTime activatedAt;
 
-    /** FEDAPAY | MANUEL */
+    /** Source : SASPAY | MANUEL ; FEDAPAY reste lisible pour les périodes historiques. */
     @Column(name = "activation_source", length = 30)
     private String activationSource;
 

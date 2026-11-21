@@ -3,7 +3,6 @@ package com.eyram.dev.church_project_spring;
 import com.eyram.dev.church_project_spring.config.AdminSeedProperties;
 import com.eyram.dev.church_project_spring.config.DatabaseUrlBootstrap;
 import com.eyram.dev.church_project_spring.config.DemandePaymentProperties;
-import com.eyram.dev.church_project_spring.config.FedaPayProperties;
 import com.eyram.dev.church_project_spring.config.JwtProperties;
 import com.eyram.dev.church_project_spring.config.LocalDotEnvLoader;
 import com.eyram.dev.church_project_spring.config.PlatformBillingProperties;
@@ -28,7 +27,6 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @EnableConfigurationProperties({
         AdminSeedProperties.class,
         JwtProperties.class,
-        FedaPayProperties.class,
         com.eyram.dev.church_project_spring.config.SasPayProperties.class,
         PlatformBillingProperties.class,
         TenantCatalogProperties.class,

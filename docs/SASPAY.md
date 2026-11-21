@@ -1,6 +1,6 @@
 # SasPay dans Missanye
 
-Les nouveaux paiements de demandes et d’abonnements utilisent le checkout hébergé SasPay. Les transactions FedaPay existantes gardent leur référence, leur webhook historique et leur rapprochement ; aucun nouveau checkout FedaPay n’est créé. Les espèces et les reversements manuels restent inchangés.
+Les nouveaux paiements de demandes et d’abonnements utilisent le checkout hébergé SasPay. Les transactions historiques FedaPay gardent leurs références, montants et reçus. Leur ancien webhook et le client distant ont été retirés après un comptage nul des paiements en attente en production. Aucun nouveau checkout historique n’est créé. Les espèces et les reversements manuels restent inchangés.
 
 ## État initial
 
@@ -25,9 +25,9 @@ Depuis Desktop, le paiement utilise l’e-mail déjà enregistré sur la demande
 | `SASPAY_WEBHOOK_SECRET` | secret de signature du webhook test |
 | `APP_URL` | `https://church-project-spring-frontend.onrender.com` |
 | `SASPAY_COUNTRY` | `TG` |
-| `SASPAY_API_BASE_URL` | conserver `https://api.saspay.me/api/v1` |
+| `SASPAY_API_BASE_URL` | sandbox : `https://sandbox-api.saspay.me/api/v1` ; live : `https://api.saspay.me/api/v1` |
 
-Ne jamais copier une clé dans Git, un ticket, le chat, une variable `VITE_*` ou Desktop. Garder les anciennes variables FedaPay uniquement si des transactions historiques doivent encore être rapprochées.
+Ne jamais copier une clé dans Git, un ticket, le chat, une variable `VITE_*` ou Desktop. Les variables de l’ancien prestataire ne sont plus lues. Sur un service Render existant, leur retrait du Blueprint ne les efface pas automatiquement.
 
 ## Vérification
 
@@ -44,13 +44,13 @@ Tester ensuite une demande et un abonnement en sandbox : ouverture du checkout, 
 
 ## Comportement technique
 
-- API confirmée par la spécification officielle le 16 novembre 2026 : https://docs.saspay.me/api-reference/openapi.json ; référence : https://docs.saspay.me/api-reference/payments et https://docs.saspay.me/api-reference/webhooks.
+- API revérifiée dans la spécification officielle le 21 novembre 2026 : https://docs.saspay.me/api-reference/openapi.json ; référence : https://docs.saspay.me/api-reference/payments et https://docs.saspay.me/api-reference/webhooks.
 - `POST /checkout-sessions/`, montants sous forme de chaînes décimales et `ADD_ON`. Cet endpoint **ne prend pas en charge Idempotency-Key** ; il n’y a pas d’appel softpay ni de retrait automatique. Les demandes concurrentes sont sérialisées par le verrou facture / paroisse et réutilisent la session ouverte.
 - Une réponse POST ambiguë est conservée en `UNCERTAIN`, sans répétition automatique de la création. Si l’ID distant manque, l’opérateur doit retrouver la session dans SasPay grâce à `metadata.missanye_reference` avant toute reprise. Ne pas supprimer cette réservation ou forcer une nouvelle session à l’aveugle.
 - Le retour navigateur utilise un jeton signé et n’est jamais une preuve de paiement. Le backend relit `/checkout-sessions/{id}/status/` puis `/payments/{payment_id}/verify/` ; seul `SUCCESS`, avec le bon ID, la bonne devise, le montant attendu et le net attendu, autorise la validation.
 - Les notifications sont vérifiées sur les octets bruts avec HMAC SHA-256 de `timestamp.body`, comparaison constante et fenêtre de 300 secondes. Accusé de réception après insertion durable et dédupliquée des IDs d’événements. Un worker dédié vérifie au maximum dix sessions par passage ; les notifications accélèrent ce contrôle. Le polling continue en secours et après redémarrage.
 - La table `saspay_checkout` conserve session, transaction et montants exacts. La contrainte unique transaction et les verrous empêchent une double validation ; l’écriture comptable porte une référence `SASPAY:<transaction_uuid>`. Les montants canoniques décimaux sont aussi dans `details_paiement.provider_charged`, `provider_net`, `provider_fee`. Les anciens champs entiers restent des projections de compatibilité, les reçus exposent les valeurs décimales réelles.
-- Les frais SasPay ne sont pas estimés avec le barème FedaPay : le site indique un sous-total et SasPay affiche les frais définitifs. La commission Missanye reste celle de `platform.*`. Un montant ou net incompatible passe en `REVIEW`, sans reçu payé, crédit ni activation automatique ; vérifier la configuration de frais et la transaction avant toute correction manuelle.
+- Les frais SasPay ne sont pas estimés avec un barème local : le site indique un sous-total et SasPay affiche les frais définitifs. La commission Missanye reste celle de `platform.*`. Un montant ou net incompatible passe en `REVIEW`, sans reçu payé, crédit ni activation automatique ; vérifier la configuration de frais et la transaction avant toute correction manuelle.
 - Un refus `401/403` bloque la clé en mémoire jusqu’à changement de clé ou redémarrage ; `429` impose une pause d’une minute. Aucun POST financier n’est relancé automatiquement. Les corps d’erreur et secrets du prestataire ne sont pas exposés.
 
 Pour surveiller les cas nécessitant une intervention :
@@ -60,3 +60,5 @@ SELECT id,purpose,target_id,state,remote_id,created_at
 FROM saspay_checkout
 WHERE state IN ('REVIEW','UNCERTAIN') ORDER BY created_at;
 ```
+
+La checklist humaine détaillée est dans [SASPAY_TESTS.md](SASPAY_TESTS.md). Le diagnostic et les tests locaux ne remplacent pas cette recette.

@@ -471,7 +471,7 @@ public class SubscriptionBillingService {
     }
 
     /**
-     * Annule un abonnement encore en attente de paiement (lien FedaPay abandonné).
+     * Annule un abonnement encore en attente de paiement (lien de paiement abandonné).
      */
     @Transactional
     public Map<String, Object> annulerPending(UUID abonnementPublicId) {

@@ -41,8 +41,6 @@ services:
       APP_DEMANDE_UNPAID_REMINDER: "false"
       APP_DEMANDE_CELEBRATION_REMINDER: "false"
       APP_DEMANDE_CELEBRATION_AUTO: "false"
-      FEDAPAY_ENABLED: "false"
-      FEDAPAY_CALLBACK_BASE_URL: http://app:8080/not-used
       SASPAY_ENABLED: "false"
       SPRING_MAIL_HOST: ""
       SPRING_AUTOCONFIGURE_EXCLUDE: org.springframework.boot.autoconfigure.mail.MailSenderAutoConfiguration

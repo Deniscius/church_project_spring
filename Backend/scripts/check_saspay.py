@@ -21,7 +21,11 @@ if missing:
     print('Configuration incomplète : ' + ', '.join(missing)); sys.exit(2)
 if not key.startswith('sk_test_') and not (args.allow_live and key.startswith('sk_live_')):
     print('Une clé sk_test_ est requise. Le mode live exige --allow-live.'); sys.exit(2)
-if urlparse(base).scheme != 'https' or urlparse(base).hostname != 'api.saspay.me' or urlparse(app).scheme != 'https' or not urlparse(app).hostname:
+api_url, app_url = urlparse(base), urlparse(app)
+if (api_url.scheme != 'https' or api_url.hostname not in {'api.saspay.me', 'sandbox-api.saspay.me'}
+        or api_url.username or api_url.password or api_url.query or api_url.fragment
+        or app_url.scheme != 'https' or not app_url.hostname or app_url.username or app_url.password
+        or app_url.query or app_url.fragment):
     print('Les URLs API SasPay et APP_URL doivent être des URLs HTTPS valides.'); sys.exit(2)
 print('Variables présentes ; aucun secret affiché. URL de retour : ' + app + '. Le webhook /webhooks/saspay doit être configuré sur le backend.')
 if args.offline:

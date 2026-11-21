@@ -9,7 +9,7 @@ import java.math.BigDecimal;
  * Répartition d'un paiement messe :
  * - montantFacture / montantNetParoisse : part fixe paroisse (prix messe)
  * - montantFraisPlateforme : part développeur / plateforme
- * - montantFraisAgregeateur : part FedaPay
+ * - montantFraisAgregeateur : part du prestataire
  * - montantCharge : total débité au fidèle (compte marchand)
  */
 public record PaymentFeeBreakdown(

@@ -49,7 +49,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
                 "app.demande.unpaid-reminder-enabled=false",
                 "app.demande.celebration-reminder-enabled=false",
                 "app.demande.celebration-auto-complete-enabled=false",
-                "fedapay.enabled=false",
                 "saspay.poll-delay-ms=3600000",
                 "spring.flyway.repair-on-migrate=false"
         }
@@ -119,6 +118,20 @@ class ApplicationStartupSmokeTest {
         assertThat(jdbc.queryForObject("SELECT state FROM mail_outbox WHERE id=?",String.class,id)).isEqualTo("SENDING");
         mailOutbox.sent(retry);
         assertThat(jdbc.queryForObject("SELECT payload FROM mail_outbox WHERE id=?",byte[].class,id)).isNull();
+    }
+
+    @Autowired
+    private org.springframework.context.ApplicationContext applicationContext;
+
+    @Test
+    void backendStartsWithoutLegacyPaymentConfigurationOrWebhookRoute() {
+        assertThat(applicationContext.getEnvironment().getProperty("fedapay.enabled")).isNull();
+        assertThat(applicationContext.getBeanDefinitionNames())
+                .noneMatch(name -> name.toLowerCase(java.util.Locale.ROOT).contains("fedapay"));
+        var mappings = applicationContext.getBean("requestMappingHandlerMapping",
+                org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping.class);
+        assertThat(mappings.getHandlerMethods().keySet())
+                .noneMatch(mapping -> mapping.getPatternValues().contains("/webhooks/fedapay"));
     }
 
     @Autowired

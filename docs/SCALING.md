@@ -6,7 +6,7 @@ Checklist opérationnelle pour passer d’un nœud unique à une plateforme rés
 
 - Cache **Caffeine** avec TTL (doyennes, types paiement, horaires publics)
 - **Rate limiting** IP sur endpoints publics (demandes, OTP, login, horaires, webhooks)
-- Webhooks FedaPay : ACK HTTP rapide + traitement **async**
+- Webhooks SasPay : signature sur corps brut, ACK après insertion dédupliquée en PostgreSQL ; rapprochement par worker borné sur un ordonnanceur dédié
 - Listes demandes paroisse **toujours paginées** (max 100 / page)
 - Index SQL listes (`paroisse_id`, `created_at`, `statut_demande`)
 - Actuator **Prometheus** (`/actuator/prometheus`)

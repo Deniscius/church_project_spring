@@ -63,7 +63,7 @@ public class SasPayPaymentService {
                                         .divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP)
                                         .intValueExact()
                                 + Math.max(0, platform.getCommissionFixedXof());
-        // SasPay chooses the real network on its hosted page: never reuse FedaPay fee estimates.
+        // SasPay chooses the real network on its hosted page: provider fees are not estimated locally.
         return new PaymentFeeBreakdown(
                 mode,
                 FeePayer.CUSTOMER,
@@ -234,11 +234,12 @@ public class SasPayPaymentService {
                             detail == null ? null : detail.getIdTransaction(),
                             q.montantFacture(),
                             paid && detail != null ? detail.getMontantFraisAgregeateur() : 0,
-                            q.montantFraisPlateforme(),
+                            paid && detail != null ? detail.getMontantFraisPlateforme() : q.montantFraisPlateforme(),
                             paid && detail != null ? detail.getMontantFrais() : q.montantFrais(),
                             paid && detail != null ? detail.getMontantCharge() : q.montantCharge(),
-                            q.montantNetParoisse(),
-                            q.montantNetPlateforme(),
+                            paid && detail != null && detail.getMontantNet() != null
+                                    ? detail.getMontantNet() : q.montantNetParoisse(),
+                            paid && detail != null ? detail.getMontantFraisPlateforme() : q.montantNetPlateforme(),
                             paid ? BigDecimal.ZERO : null,
                             q.feePercentPlateforme(),
                             "CUSTOMER",

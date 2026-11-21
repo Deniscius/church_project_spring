@@ -31,7 +31,6 @@ import org.springframework.transaction.annotation.Transactional;
       "app.demande.unpaid-reminder-enabled=false",
       "app.demande.celebration-reminder-enabled=false",
       "app.demande.celebration-auto-complete-enabled=false",
-      "fedapay.enabled=false",
       "saspay.poll-delay-ms=3600000",
       "spring.flyway.repair-on-migrate=false"
     })

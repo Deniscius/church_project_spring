@@ -15,7 +15,7 @@ public record RateLimitProperties(
         @DefaultValue("12") int demandeCreatePerMinute,
         /** OTP / forgot-password / suivi téléphone / minute par IP. */
         @DefaultValue("8") int authSensitivePerMinute,
-        /** Webhooks FedaPay / minute par IP (réseau FedaPay). */
+        /** Webhooks SasPay / minute par IP. */
         @DefaultValue("120") int webhookPerMinute,
         /** Lecture publique par code (demande / facture / PDF) / minute par IP. */
         @DefaultValue("30") int codeLookupPerMinute

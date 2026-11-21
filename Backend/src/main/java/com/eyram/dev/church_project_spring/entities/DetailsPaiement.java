@@ -49,7 +49,7 @@ public class DetailsPaiement extends BaseEntity implements Serializable {
     @Column(name = "montant_frais_plateforme", nullable = false)
     private Integer montantFraisPlateforme = 0;
 
-    /** Montant effectivement débité chez le fidèle / envoyé à FedaPay. */
+    /** Montant effectivement débité chez le fidèle / envoyé au prestataire. */
     @Column(name = "montant_charge")
     private Integer montantCharge;
 

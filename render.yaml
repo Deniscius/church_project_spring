@@ -80,12 +80,19 @@ services:
         value: "10000"
       - key: SPRING_MAIL_WRITE_TIMEOUT_MS
         value: "10000"
-      - key: FEDAPAY_ENABLED
+      # Paiement hébergé : activer après configuration et recette sandbox.
+      - key: SASPAY_ENABLED
         value: "false"
-      - key: FEDAPAY_ENVIRONMENT
-        value: live
-      - key: FEDAPAY_CUSTOMER_COUNTRY
-        value: tg
+      - key: SASPAY_COUNTRY
+        value: TG
+      - key: SASPAY_API_BASE_URL
+        value: https://api.saspay.me/api/v1
+      - key: SASPAY_API_KEY
+        sync: false
+      - key: SASPAY_WEBHOOK_SECRET
+        sync: false
+      - key: APP_URL
+        sync: false
       # Secrets / URLs — Dashboard après le 1er apply
       - key: JWT_SECRET
         sync: false
@@ -94,12 +101,6 @@ services:
       - key: SPRING_MAIL_USERNAME
         sync: false
       - key: SPRING_MAIL_PASSWORD
-        sync: false
-      - key: FEDAPAY_SECRET_KEY
-        sync: false
-      - key: FEDAPAY_WEBHOOK_SECRET
-        sync: false
-      - key: FEDAPAY_CALLBACK_BASE_URL
         sync: false
 
   # ---------------------------------------------------------------------------

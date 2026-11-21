@@ -52,7 +52,7 @@ jobs:
           SPRING_DATASOURCE_USERNAME: church_ci
           SPRING_DATASOURCE_PASSWORD: church_ci_password
           JWT_SECRET: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
-          FEDAPAY_ENABLED: "false"
+          SASPAY_ENABLED: "false"
           APP_ADMIN_SEED_ENABLED: "false"
         run: ./mvnw -B -DskipITs test
 

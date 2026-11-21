@@ -21,7 +21,7 @@ import com.eyram.dev.church_project_spring.security.TenantAccessService;
 import com.eyram.dev.church_project_spring.service.DemandePaymentEligibilityService;
 import com.eyram.dev.church_project_spring.service.DetailsPaiementService;
 import com.eyram.dev.church_project_spring.service.accounting.ParishLedgerService;
-import com.eyram.dev.church_project_spring.service.payment.FedaPayPaymentService;
+import com.eyram.dev.church_project_spring.service.payment.CashPaymentSupport;
 import com.eyram.dev.church_project_spring.utils.BusinessCodeGenerator;
 import com.eyram.dev.church_project_spring.utils.exception.AlreadyExistException;
 import com.eyram.dev.church_project_spring.utils.exception.BusinessRuleException;
@@ -48,7 +48,7 @@ public class DetailsPaiementServiceImpl implements DetailsPaiementService {
     private final ParoisseRepository paroisseRepository;
     private final DetailsPaiementMapper detailsPaiementMapper;
     private final TenantAccessService tenantAccessService;
-    private final FedaPayPaymentService fedaPayPaymentService;
+    private final CashPaymentSupport cashPaymentSupport;
     private final ParishLedgerService parishLedgerService;
     private final DemandePaymentEligibilityService demandePaymentEligibilityService;
 
@@ -102,7 +102,7 @@ public class DetailsPaiementServiceImpl implements DetailsPaiementService {
                 existingDetails.setIdTransaction(request.idTransaction());
             }
 
-            fedaPayPaymentService.applyFeeSnapshot(existingDetails, typePaiement.getMode(), request.montant());
+            cashPaymentSupport.applyFeeSnapshot(existingDetails, typePaiement.getMode(), request.montant());
             DetailsPaiement reactivatedDetails = detailsPaiementRepository.save(existingDetails);
             syncPaymentStatus(facture, effectiveStatus, request.dateDetailsPaiement());
             creditParishIfPaid(reactivatedDetails, facture, effectiveStatus);
@@ -118,7 +118,7 @@ public class DetailsPaiementServiceImpl implements DetailsPaiementService {
             detailsPaiement.setIdTransaction(generateTransactionId(facture));
         }
 
-        fedaPayPaymentService.applyFeeSnapshot(detailsPaiement, typePaiement.getMode(), request.montant());
+        cashPaymentSupport.applyFeeSnapshot(detailsPaiement, typePaiement.getMode(), request.montant());
         DetailsPaiement savedDetailsPaiement = detailsPaiementRepository.save(detailsPaiement);
         syncPaymentStatus(facture, effectiveStatus, request.dateDetailsPaiement());
         creditParishIfPaid(savedDetailsPaiement, facture, effectiveStatus);
@@ -187,7 +187,7 @@ public class DetailsPaiementServiceImpl implements DetailsPaiementService {
         detailsPaiement.setDateDetailsPaiement(paymentDate);
         detailsPaiement.setMontant(facture.getMontant());
 
-        fedaPayPaymentService.applyFeeSnapshot(detailsPaiement, typePaiement.getMode(), facture.getMontant());
+        cashPaymentSupport.applyFeeSnapshot(detailsPaiement, typePaiement.getMode(), facture.getMontant());
         DetailsPaiement updatedDetailsPaiement = detailsPaiementRepository.save(detailsPaiement);
         syncPaymentStatus(facture, currentStatus, paymentDate);
 
@@ -257,7 +257,7 @@ public class DetailsPaiementServiceImpl implements DetailsPaiementService {
         details.setTypePaiement(especes);
         details.setFacture(facture);
         details.setNumero(demande.getCodeSuivie() != null ? demande.getCodeSuivie() : "CAISSE");
-        details.setProvider(FedaPayPaymentService.PROVIDER_CAISSE_LOCALE);
+        details.setProvider(CashPaymentSupport.PROVIDER_CAISSE_LOCALE);
         var encaisseur = tenantAccessService.getCurrentUser();
         details.setEncaisseurNom(encaisseur.getFullName() != null && !encaisseur.getFullName().isBlank()
                 ? encaisseur.getFullName()
@@ -269,8 +269,8 @@ public class DetailsPaiementServiceImpl implements DetailsPaiementService {
         }
         details.setPaymentUrl(null);
 
-        fedaPayPaymentService.applyFeeSnapshot(details, ModePaiement.ESPECES, facture.getMontant());
-        details.setProvider(FedaPayPaymentService.PROVIDER_CAISSE_LOCALE);
+        cashPaymentSupport.applyFeeSnapshot(details, ModePaiement.ESPECES, facture.getMontant());
+        details.setProvider(CashPaymentSupport.PROVIDER_CAISSE_LOCALE);
 
         DetailsPaiement saved = detailsPaiementRepository.save(details);
         syncPaymentStatus(facture, StatutPaiementEnum.PAYE, now);
@@ -333,7 +333,7 @@ public class DetailsPaiementServiceImpl implements DetailsPaiementService {
         // Espèces / caisse locale : la paroisse encaisse elle-même, hors circuit de virement.
         ModePaiement mode = details.getTypePaiement() != null ? details.getTypePaiement().getMode() : null;
         if (mode == ModePaiement.ESPECES
-                || FedaPayPaymentService.PROVIDER_CAISSE_LOCALE.equals(details.getProvider())) {
+                || CashPaymentSupport.PROVIDER_CAISSE_LOCALE.equals(details.getProvider())) {
             return;
         }
         Demande demande = facture.getDemande();

@@ -13,56 +13,21 @@
 
 ## 📊 1. ARCHITECTURE GLOBALE DU SYSTÈME
 
+```mermaid
+flowchart LR
+  W[Web React / Vite] --> API[Backend Spring Boot]
+  D[Desktop JavaFX] --> API
+  API --> DB[(PostgreSQL + Flyway)]
+  API --> C[Cache Caffeine local]
+  API --> S[SasPay : checkout hébergé]
+  S -->|webhook signé| API
+  API --> M[Outbox PostgreSQL / e-mails SMTP]
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         UTILISATEURS FINAUX                          │
-└─────────────────────────────────────────────────────────────────────┘
-                            │
-        ┌───────────────────┼───────────────────┐
-        │                   │                   │
-        ▼                   ▼                   ▼
-┌───────────────┐   ┌───────────────┐   ┌───────────────┐
-│   FIDÈLES     │   │  SECRÉTAIRE   │   │     CURÉ      │
-│   (Web App)   │   │  (Dashboard)  │   │  (Dashboard)  │
-└───────────────┘   └───────────────┘   └───────────────┘
-        │                   │                   │
-        └───────────────────┼───────────────────┘
-                            │
-                            ▼
-        ┌───────────────────────────────────────┐
-        │         REVERSE PROXY (Nginx)         │
-        │    • Load Balancing                   │
-        │    • SSL/TLS Termination              │
-        │    • Rate Limiting                    │
-        └───────────────────────────────────────┘
-                            │
-                            ▼
-        ┌───────────────────────────────────────┐
-        │      API REST (Spring Boot)           │
-        │    • Authentication JWT               │
-        │    • Business Logic                   │
-        │    • Data Validation                  │
-        └───────────────────────────────────────┘
-                            │
-        ┌───────────────────┼───────────────────┐
-        │                   │                   │
-        ▼                   ▼                   ▼
-┌───────────────┐   ┌───────────────┐   ┌───────────────┐
-│  PostgreSQL   │   │  Redis Cache  │   │   Services    │
-│   (Database)  │   │  (Sessions)   │   │   Externes    │
-└───────────────┘   └───────────────┘   └───────────────┘
-                                                │
-                                    ┌───────────┼───────────┐
-                                    │           │           │
-                                    ▼           ▼           ▼
-                            ┌──────────┐ ┌──────────┐ ┌──────────┐
-                            │  Email   │ │  TMoney  │ │  Flooz   │
-                            │  SMTP    │ │  /Flooz  │ │   API    │
-                            └──────────┘ └──────────┘ └──────────┘
-                            
-Note: SMS désactivé pour les fidèles (coût élevé)
-      Notifications par Pop-up + Email uniquement
-```
+
+Le backend s'exécute sur Render ; la base actuelle est sur Neon. Le navigateur
+et Desktop ne contiennent aucune clé de paiement. Les modes réseau disponibles
+sont choisis sur la page SasPay. Le load balancing multi-instance reste à préparer.
+
 
 ---
 
@@ -101,7 +66,7 @@ Note: SMS désactivé pour les fidèles (coût élevé)
 🎨 CARACTÉRISTIQUES :
 ✅ Design moderne et responsive
 ✅ Processus en étapes (stepper)
-✅ Paiement intégré (TMoney/Flooz)
+✅ Paiement SasPay par checkout hébergé (réseaux disponibles selon le marchand)
 ✅ Pas de compte requis
 ✅ Multilingue (Français/Éwé)
 ```
@@ -295,31 +260,21 @@ Fidèle (Navigateur)
     │     statut: "en_attente_paiement"
     │   }
     │
-    ├─> POST /api/paiement/initier
-    │   Request: {
-    │     demande_id,
-    │     mode: "tmoney",
-    │     telephone: "+22890123456",
-    │     montant: 5000
-    │   }
+    ├─> POST /paiements/checkout/{codeSuivie} vers le backend
+    │   Backend ──> SasPay POST /checkout-sessions/
+    │   Backend <── checkout_url (aucun secret envoyé au client)
     │
-    │   API Backend ─────> TMoney API
-    │                      (Initier transaction)
-    │   
-    │   TMoney ──────────> Notification téléphone Fidèle
-    │                      "Confirmez paiement avec PIN"
+    ├─> Fidèle ouvre le checkout hébergé et choisit le réseau disponible
+    │   SasPay ──> retour navigateur /paiement/retour?r=<jeton signé>
+    │   Web ──> POST /paiements/retour/resoudre
     │
-    │   Fidèle ──────────> Confirme sur téléphone
+    ├─> SasPay ──> webhook signé POST /webhooks/saspay
+    │   Notification persistée puis dédupliquée, sans crédit immédiat
     │
-    │   TMoney ──────────> Callback API
-    │                      /api/paiement/callback
-    │
-    ├─> Mise à jour automatique :
-    │   - statut_paiement = "paye"
-    │   - Création facture
-    │   - Enregistrement details_paiement
-    │   - Envoi email au fidèle (SI email fourni)
-    │   - Envoi email notification à la paroisse
+    ├─> Backend relit /checkout-sessions/{id}/status/
+    │   puis /payments/{payment_id}/verify/
+    │   Seul SUCCESS avec ID, devise, montant et net attendus valide le règlement
+    │   Reçu payé et crédit paroissial après validation ; aucun doublon au rejeu
     │
     └─> 🔔 NOTIFICATION POP-UP (sur la page web)
         ┌──────────────────────────────────────────┐
@@ -605,13 +560,13 @@ Backend API:
   - PostgreSQL + Flyway
   - Spring Security + JWT cookie (AES-GCM optionnel)
   - Multi-tenant Hibernate filter
-  - Paiements: FedaPay (webhook HMAC)
+  - Paiements: SasPay (checkout hébergé, retour signé, webhook HMAC)
 
 Infrastructure:
   - Render: Postgres + API Docker + static site (render.yaml)
   - CI: GitHub Actions (.github/workflows/ci.yml)
   - Dependabot: Maven + npm
-  - Docs ops: docs/RENDER.md, docs/FEDAPAY.md, docs/SCALING.md
+  - Docs ops: docs/RENDER.md, docs/SASPAY.md, docs/SCALING.md
 ```
 
 ---
@@ -631,6 +586,10 @@ Infrastructure:
 ├─ JWT cookie Secure + SameSite=Lax
 ├─ SMTP obligatoire (app.mail.fail-closed)
 ├─ CORS = URL front exacte
-└─ Webhook FedaPay → /webhooks/fedapay
+└─ Webhook SasPay → /webhooks/saspay
 ```
 
+
+### Configuration paiement
+
+Configurer `SASPAY_ENABLED`, `SASPAY_API_KEY`, `SASPAY_WEBHOOK_SECRET`, `APP_URL`, `SASPAY_COUNTRY` et `SASPAY_API_BASE_URL` **sur le backend uniquement**. Les clés et secrets sont des champs `sync: false` dans les Blueprints ; aucun secret n'est committé. La sandbox utilise `https://sandbox-api.saspay.me/api/v1`, le live `https://api.saspay.me/api/v1`. Voir [SasPay](docs/SASPAY.md), [la recette sandbox](docs/SASPAY_TESTS.md) et [Render](docs/RENDER.md). Aucun paiement sandbox réel n'est validé par les tests automatisés.

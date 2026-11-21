@@ -98,7 +98,7 @@ un lancement administré, `-Dmissanye.apiUrl=...` (option JVM) ou
 enregistrée depuis **Configurer ce poste** est prioritaire sur ces valeurs.
 Les URL doivent être absolues, sans
 identifiant, query string ou fragment ; HTTPS est obligatoire sauf en local.
-Aucune clé Neon ou FedaPay ne doit être ajoutée à ce fichier.
+Aucune clé Neon ou SasPay ne doit être ajoutée à ce fichier.
 
 ### Configuration de la paroisse sur le poste
 
@@ -183,8 +183,8 @@ locale qu'après confirmation serveur et actualisation de la liste.
   Le serveur refuse un montant changé, un paiement déjà effectué ou des droits
   insuffisants. Deux postes ne peuvent pas confirmer deux fois la même commande.
 - **Paiement en ligne** : le desktop demande une URL au backend puis ouvre le
-  navigateur pour FedaPay. Cliquer **Vérifier le règlement** après le parcours.
-  Internet et la configuration FedaPay serveur sont nécessaires ; aucune
+  navigateur pour SasPay. Cliquer **Vérifier le règlement** après le parcours.
+  Internet et la configuration SasPay serveur sont nécessaires ; aucune
   confirmation électronique n'est inventée hors ligne.
 - **Reçus** : sélectionner une demande puis **Imprimer / exporter le reçu**.
   Le modèle reprend le web : ORIGINAL et DUPLICATA sur une feuille A4, identité
@@ -301,7 +301,7 @@ DESKTOP_E2E=true DESKTOP_API_URL=http://127.0.0.1:18081 mvn verify
 
 Ce test utilise exclusivement le compte de test créé par la suite backend. Il
 crée une demande, simule son encaissement et télécharge un reçu. Ne pas le lancer
-contre la production. Le paiement FedaPay réel reste à valider avec un compte
+contre la production. Le paiement SasPay réel reste à valider avec un compte
 sandbox configuré ; aucun paiement externe n'est exécuté par les tests.
 
 ## Problème de connexion

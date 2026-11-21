@@ -63,7 +63,7 @@ Il reste à créer **Postgres** (`missanye-db`, même région) et le **static si
    | `SASPAY_API_KEY` | secret du backend, jamais une variable `VITE_*` |
    | `SASPAY_WEBHOOK_SECRET` | secret du webhook correspondant à l'environnement |
    | `SASPAY_COUNTRY` | `TG` |
-   | `SASPAY_API_BASE_URL` | sandbox : `https://sandbox-api.saspay.me/api/v1` ; live : `https://api.saspay.me/api/v1` |
+   | `SASPAY_API_BASE_URL` | `auto` : serveur sélectionné selon la clé ; une URL explicite doit correspondre à son environnement |
 
 6. Dans **missanye-web** → Environment (rebuild requis) :
 

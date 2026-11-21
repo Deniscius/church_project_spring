@@ -79,7 +79,7 @@ services:
       - key: SASPAY_COUNTRY
         value: TG
       - key: SASPAY_API_BASE_URL
-        value: https://api.saspay.me/api/v1
+        value: auto
       - key: SASPAY_API_KEY
         sync: false
       - key: SASPAY_WEBHOOK_SECRET

@@ -81,18 +81,24 @@ public class SasPayClient {
         log.info("SasPay configuration: enabled={}, apiKeyPresent={}, webhookSecretPresent={}, keyMode={}",properties.isEnabled(),key!=null&&!key.isBlank(),properties.getWebhookSecret()!=null&&!properties.getWebhookSecret().isBlank(),mode);
     }
 
+    static void validateApiBase(URI base) {
+        if (base.getUserInfo() != null || base.getRawQuery() != null || base.getRawFragment() != null)
+            throw new Unavailable("Configuration SasPay invalide.", false);
+        if ("http".equals(base.getScheme())
+                && java.util.Set.of("localhost", "127.0.0.1").contains(base.getHost())) return;
+        if (!"https".equals(base.getScheme())
+                || !java.util.Set.of("api.saspay.me", "sandbox-api.saspay.me").contains(base.getHost())
+                || (base.getPort() != -1 && base.getPort() != 443))
+            throw new Unavailable("Hôte API SasPay invalide.", false);
+    }
+
     private JsonNode call(String path, Object body) {
         requireConfigured();
         if (System.currentTimeMillis() < retryAfter)
             throw new Unavailable(
                     "SasPay est temporairement sollicité. Réessayez plus tard.", false);
         URI base = URI.create(properties.getApiBaseUrl());
-        if (!"https".equals(base.getScheme())
-                && !("http".equals(base.getScheme())
-                        && java.util.Set.of("localhost", "127.0.0.1").contains(base.getHost())))
-            throw new Unavailable("Configuration SasPay invalide.", false);
-        if ("https".equals(base.getScheme()) && !"api.saspay.me".equals(base.getHost()))
-            throw new Unavailable("Hôte API SasPay invalide.", false);
+        validateApiBase(base);
         var http =
                 HttpClient.newBuilder()
                         .connectTimeout(Duration.ofMillis(properties.getConnectTimeoutMs()))

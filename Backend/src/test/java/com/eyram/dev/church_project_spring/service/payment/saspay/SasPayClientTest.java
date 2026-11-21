@@ -126,6 +126,18 @@ class SasPayClientTest {
     }
 
     @Test
+    void apiHostsMatchOfficialSandboxAndLiveServersWithoutAllowingCredentialsOrOtherHosts() {
+        for (String base : List.of("https://api.saspay.me/api/v1", "https://sandbox-api.saspay.me/api/v1"))
+            assertThatCode(() -> SasPayClient.validateApiBase(java.net.URI.create(base)))
+                    .doesNotThrowAnyException();
+        for (String base : List.of("https://evil.test/api/v1", "https://api.saspay.me.evil.test/api/v1",
+                "https://user:password@api.saspay.me/api/v1", "http://api.saspay.me/api/v1",
+                "https://api.saspay.me:444/api/v1", "https://sandbox-api.saspay.me/api/v1?token=x"))
+            assertThatThrownBy(() -> SasPayClient.validateApiBase(java.net.URI.create(base)))
+                    .isInstanceOf(SasPayClient.Unavailable.class);
+    }
+
+    @Test
     void checkoutRedirectMustStayOnOfficialHost() throws Exception {
         var json = new ObjectMapper();
         for (String url :

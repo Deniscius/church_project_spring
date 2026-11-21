@@ -36,7 +36,7 @@ supprime une autre demande et relit un PDF hors connexion.
 Les tests JavaFX utilisent un affichage headless. Ils ne constituent pas une
 validation manuelle de l'installateur Windows. La compilation et le cycle
 installation/désinstallation sont confiés au workflow `Desktop Windows`.
-Aucun paiement réel FedaPay n'est exécuté : ce parcours nécessite une recette
+Aucun paiement réel SasPay n'est exécuté : ce parcours nécessite une recette
 avec les paramètres sandbox du déploiement.
 
 La protection de saisie couvre la fermeture normale de l'application. Une

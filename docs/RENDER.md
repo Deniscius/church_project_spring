@@ -36,7 +36,7 @@ Il reste à créer **Postgres** (`missanye-db`, même région) et le **static si
 2. Budget : Postgres `basic-256mb` + web `starter` (le free Postgres n’est plus fiable / souvent indisponible). Le static site reste gratuit.
 3. Secrets prêts :
    - `JWT_SECRET` — Base64 ≥ 32 octets (`openssl rand -base64 32`)
-   - Clés FedaPay live (si paiements activés)
+   - Clé API et secret webhook SasPay (sandbox avant toute activation live)
    - URLs HTTPS des deux services (connues après le 1er deploy)
 
 ## Déploiement Blueprint (recommandé)
@@ -58,10 +58,12 @@ Il reste à créer **Postgres** (`missanye-db`, même région) et le **static si
    | `SPRING_MAIL_USERNAME` | identifiant SMTP fourni par Brevo |
    | `SPRING_MAIL_PASSWORD` | **clé SMTP Brevo**, jamais la clé API |
    | `APP_MAIL_FROM` | expéditeur vérifié dans Brevo (ex. `noreply@missanye.com`) |
-   | `FEDAPAY_CALLBACK_BASE_URL` | `https://missanye-web.onrender.com/paiement` |
-   | `FEDAPAY_ENABLED` | `true` (si go-live paiement) |
-   | `FEDAPAY_SECRET_KEY` | `sk_live_…` |
-   | `FEDAPAY_WEBHOOK_SECRET` | `wh_live_…` |
+   | `APP_URL` | `https://missanye-web.onrender.com` |
+   | `SASPAY_ENABLED` | `false` tant que le marchand n'est pas configuré |
+   | `SASPAY_API_KEY` | secret du backend, jamais une variable `VITE_*` |
+   | `SASPAY_WEBHOOK_SECRET` | secret du webhook correspondant à l'environnement |
+   | `SASPAY_COUNTRY` | `TG` |
+   | `SASPAY_API_BASE_URL` | sandbox : `https://sandbox-api.saspay.me/api/v1` ; live : `https://api.saspay.me/api/v1` |
 
 6. Dans **missanye-web** → Environment (rebuild requis) :
 
@@ -73,7 +75,7 @@ Il reste à créer **Postgres** (`missanye-db`, même région) et le **static si
 7. Dans Brevo → **Transactional** → **Settings** → **Configuration**, créer/copier les identifiants SMTP. Vérifier aussi l'expéditeur ou authentifier le domaine `missanye.com` (SPF/DKIM).
 8. Redéployer **web** puis **api** (ou Manual Deploy).
 9. Envoyer un e-mail transactionnel de test et vérifier son statut dans les journaux Brevo.
-10. FedaPay Dashboard → webhook → `https://missanye-api.onrender.com/webhooks/fedapay`.
+10. Tableau de bord SasPay → webhook → `https://missanye-api.onrender.com/webhooks/saspay`. Exécuter la [recette sandbox](SASPAY_TESTS.md) avant le passage en live. Le retour navigateur signé n’est pas une preuve de paiement.
 
 ## Comportements importants
 
@@ -153,7 +155,7 @@ docker run --rm -p 8081:8081 \
   -e DATABASE_URL="postgres://user:pass@host:5432/missanye" \
   -e JWT_SECRET="MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=" \
   -e APP_CORS_ALLOWED_ORIGINS="http://localhost:5173" \
-  -e FEDAPAY_CALLBACK_BASE_URL="http://localhost:5173/paiement" \
+  -e APP_URL="http://localhost:5173" \
   missanye-api
 ```
 
@@ -166,12 +168,18 @@ Healthcheck image : `GET /actuator/health`.
 - [ ] Front charge et appelle l’API (pas d’erreur CORS)  
 - [ ] Login admin : cookie `Secure` + `SameSite=None` (hébergement `*.onrender.com`)  
 - [ ] Création demande publique + suivi  
-- [ ] Webhook FedaPay (si enabled)  
+- [ ] Recette SasPay et rejeu webhook (si activé)
 - [ ] Upload logo paroisse survit à un redeploy (disque)  
 - [ ] Domaines custom + TLS (optionnel) pointés vers les deux services  
 
 ## Domaines custom (optionnel)
 
 1. Render → chaque service → **Custom Domains**.
-2. Mettre à jour `APP_CORS_ALLOWED_ORIGINS`, `VITE_*`, `FEDAPAY_CALLBACK_BASE_URL` et le webhook FedaPay.
+2. Mettre à jour `APP_CORS_ALLOWED_ORIGINS`, `VITE_*`, `APP_URL` et le webhook SasPay.
 3. Rebuild du static site obligatoire après changement des `VITE_*`.
+
+## Retrait de l'ancien prestataire
+
+Le contrôle préalable du 21 novembre 2026 a retourné zéro paiement historique en attente. Les lignes historiques et leurs colonnes sont conservées. Avant une mise en production ultérieure, relancer le contrôle décrit dans [SASPAY_TESTS.md](SASPAY_TESTS.md) et rapprocher tout nouvel impayé apparu entre-temps.
+
+Omettre une variable d'un Blueprint **ne la supprime pas** d'un service existant. Les champs `sync: false` ne demandent une valeur qu'à la création du Blueprint ; sur un service existant, saisir les variables SasPay dans Environment. Les anciennes variables du prestataire retiré peuvent ensuite être supprimées manuellement après validation du déploiement. Aucun secret n'est nécessaire au frontend ou au desktop.

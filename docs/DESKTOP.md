@@ -95,7 +95,7 @@ conflits financiers demandent un rapprochement explicite. Les coupures ne
 transforment jamais une opération locale en paiement confirmé.
 
 Les reçus déjà téléchargés sont lisibles hors ligne depuis le cache chiffré.
-L'export vers un lecteur PDF crée un fichier ordinaire non chiffré. FedaPay
+L'export vers un lecteur PDF crée un fichier ordinaire non chiffré. SasPay
 nécessite une connexion et les clés configurées côté serveur ; le desktop ouvre
 le parcours de paiement dans le navigateur et vérifie ensuite le statut serveur.
 

@@ -22,7 +22,7 @@ import com.eyram.dev.church_project_spring.repositories.TypePaiementRepository;
 import com.eyram.dev.church_project_spring.security.TenantAccessService;
 import com.eyram.dev.church_project_spring.service.DemandePaymentEligibilityService;
 import com.eyram.dev.church_project_spring.service.accounting.ParishLedgerService;
-import com.eyram.dev.church_project_spring.service.payment.FedaPayPaymentService;
+import com.eyram.dev.church_project_spring.service.payment.CashPaymentSupport;
 import com.eyram.dev.church_project_spring.utils.exception.BusinessRuleException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,7 +39,7 @@ class DetailsPaiementServiceImplTest {
     @Mock private ParoisseRepository paroisseRepository;
     @Mock private DetailsPaiementMapper detailsPaiementMapper;
     @Mock private TenantAccessService tenantAccessService;
-    @Mock private FedaPayPaymentService fedaPayPaymentService;
+    @Mock private CashPaymentSupport cashPaymentSupport;
     @Mock private ParishLedgerService parishLedgerService;
     @Mock private DemandePaymentEligibilityService demandePaymentEligibilityService;
 
@@ -68,7 +68,7 @@ class DetailsPaiementServiceImplTest {
                 paroisseRepository,
                 detailsPaiementMapper,
                 tenantAccessService,
-                fedaPayPaymentService,
+                cashPaymentSupport,
                 parishLedgerService,
                 demandePaymentEligibilityService
         );

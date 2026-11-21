@@ -121,6 +121,20 @@ class ApplicationStartupSmokeTest {
     }
 
     @Autowired
+    private org.springframework.context.ApplicationContext applicationContext;
+
+    @Test
+    void backendStartsWithoutLegacyPaymentConfigurationOrWebhookRoute() {
+        assertThat(applicationContext.getEnvironment().getProperty("fedapay.enabled")).isNull();
+        assertThat(applicationContext.getBeanDefinitionNames())
+                .noneMatch(name -> name.toLowerCase(java.util.Locale.ROOT).contains("fedapay"));
+        var mappings = applicationContext.getBean("requestMappingHandlerMapping",
+                org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping.class);
+        assertThat(mappings.getHandlerMethods().keySet())
+                .noneMatch(mapping -> mapping.getPatternValues().contains("/webhooks/fedapay"));
+    }
+
+    @Autowired
     private TestRestTemplate restTemplate;
     @Autowired
     private org.springframework.jdbc.core.JdbcTemplate jdbc;

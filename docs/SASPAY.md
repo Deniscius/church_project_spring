@@ -25,7 +25,7 @@ Depuis Desktop, le paiement utilise l’e-mail déjà enregistré sur la demande
 | `SASPAY_WEBHOOK_SECRET` | secret de signature du webhook test |
 | `APP_URL` | `https://church-project-spring-frontend.onrender.com` |
 | `SASPAY_COUNTRY` | `TG` |
-| `SASPAY_API_BASE_URL` | sandbox : `https://sandbox-api.saspay.me/api/v1` ; live : `https://api.saspay.me/api/v1` |
+| `SASPAY_API_BASE_URL` | `auto` (défaut) : sélection selon la clé ; URL explicite possible si elle correspond au même environnement |
 
 Ne jamais copier une clé dans Git, un ticket, le chat, une variable `VITE_*` ou Desktop. Les variables de l’ancien prestataire ne sont plus lues. Sur un service Render existant, leur retrait du Blueprint ne les efface pas automatiquement.
 
@@ -62,3 +62,25 @@ WHERE state IN ('REVIEW','UNCERTAIN') ORDER BY created_at;
 ```
 
 La checklist humaine détaillée est dans [SASPAY_TESTS.md](SASPAY_TESTS.md). Le diagnostic et les tests locaux ne remplacent pas cette recette.
+
+## Prévenir les refus liés à l'environnement
+
+Par défaut, `SASPAY_API_BASE_URL=auto` choisit le serveur sandbox pour une clé de
+test et le serveur live pour une clé live. Les URL explicites restent possibles :
+`sandbox-api.saspay.me/api/v1` pour la sandbox, `api.saspay.me/api/v1` pour le live,
+avec HTTPS. Un couple clé/URL incompatible est refusé **avant tout appel**, sans
+essai sur l'autre environnement. Les espaces extérieurs de la clé sont retirés ;
+les guillemets et espaces internes sont refusés, sans afficher la valeur.
+
+Les logs de configuration indiquent seulement le mode de clé, l'hôte API, les
+indicateurs de présence et la validité de la configuration. Les erreurs distinguent
+HTTP 401 (authentification) et HTTP 403 (droits, scope ou marchand). Aucun de ces
+codes ne prouve à lui seul un KYC invalide. Le refus est mémorisé pour le couple
+clé/URL : une correction effective de l'un des deux permet un nouvel appel explicite.
+Sur Render, redéployer après modification des variables active la correction.
+Aucun POST financier n'est répété automatiquement et aucun basculement d'hôte
+n'est tenté après un échec.
+
+Le script de diagnostic applique les mêmes règles de sélection d'environnement,
+refuse les redirections HTTP et n'effectue que des GET. Une clé live nécessite
+`--allow-live`. Sa réussite ne confirme ni le paiement ni le webhook réel.

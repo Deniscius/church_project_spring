@@ -27,7 +27,7 @@ export SASPAY_API_KEY
 read -rsp 'Secret du webhook sandbox : ' SASPAY_WEBHOOK_SECRET; echo
 export SASPAY_WEBHOOK_SECRET
 export SASPAY_COUNTRY=TG
-export SASPAY_API_BASE_URL=https://sandbox-api.saspay.me/api/v1
+export SASPAY_API_BASE_URL=auto # La clé de test sélectionne sandbox-api.saspay.me
 # Remplacer par les URL HTTPS du déploiement isolé :
 export APP_URL=https://votre-front-test.example
 export BACKEND_URL=https://votre-api-test.example

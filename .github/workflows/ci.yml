@@ -44,6 +44,8 @@ jobs:
           -Dflyway.user=church_ci
           -Dflyway.password=church_ci_password
           flyway:migrate flyway:validate
+      - name: Offline SasPay diagnostic tests
+        run: python3 -m unittest discover -s scripts -p 'test_check_saspay.py'
       - name: Unit and application smoke tests
         env:
           CI_POSTGRES_SMOKE: "true"

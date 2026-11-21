@@ -19,3 +19,6 @@ uploads/
 **/target/
 **/node_modules/
 **/dist/
+
+# Python diagnostic test bytecode
+Backend/scripts/__pycache__/
